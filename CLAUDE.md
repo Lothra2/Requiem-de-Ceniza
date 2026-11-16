@@ -46,6 +46,13 @@ mkdir -p /tmp/requiem-pruebas && node juego/herramientas/t440_matanza.cjs   # un
 f direcciones finas. Hornear `m` borra las finas de esos ids, así que después hay que hornear `f`. Los PNG intermedios
 no se suben (están en `.gitignore`): se hace commit recién después de pasar a webp.
 
+## La portada
+
+La catedral de la portada es una toma 3D en perspectiva (`src/engine/gotico/catedral_portada.ts`), no el sprite del
+juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebla, camposanto):
+`npx tsx juego/hornear/portada_catedral.mts && python3 juego/hornear/portada_webp.py` (10 s). Encuadre con `X`, `Y`,
+`ALTO` (coordenadas de la capa de 1536x800). Se revisa con `juego/herramientas/t680_portada.cjs`.
+
 ## Publicar
 
 - **Sitio**: cada push a `main` arma el juego y lo deja en `gh-pages` (`.github/workflows/publicar.yml`).

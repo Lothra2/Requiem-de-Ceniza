@@ -111,7 +111,7 @@ export function dibujarPortada(tReal: number): { botones: number; yBotones: numb
   // que rondan las agujas, la niebla en capas y las brasas grandes de primer plano. Todo en coordenadas de la base.
   const P = (bx: number, by: number, par: number): [number, number] => [ox + (bx - cx * par) * esc, oy + (by - cy * par) * esc];
   const luna = () => {
-    const [lx, ly] = P(f.foco.x + 70, 250, 0.07), r = 150 * esc;
+    const [lx, ly] = f.luna ? P(f.luna.x, f.luna.y, 0.07) : P(f.foco.x + 70, 250, 0.07), r = 150 * esc;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     // el resplandor: tres halos, el de afuera llena medio cielo
     const halo = sprite('halo', 256, (c, n) => { const g = c.createRadialGradient(n / 2, n / 2, n * 0.06, n / 2, n / 2, n / 2); g.addColorStop(0, 'rgba(255,70,24,1)'); g.addColorStop(1, 'rgba(120,10,0,0)'); c.fillStyle = g; c.fillRect(0, 0, n, n); });
@@ -165,8 +165,9 @@ export function dibujarPortada(tReal: number): { botones: number; yBotones: numb
     }
     ctx.restore();
   };
-  // la catedral, un tercio más grande, crecida desde su puerta: manda en la escena
-  const KC = 1.3, [pcx, pcy] = P(f.foco.puerta[0], 600, 0.45);
+  // la catedral vieja iba un tercio más grande, crecida desde su puerta
+  // (la catedral nueva, la de la toma en perspectiva, ya viene a su tamaño: trae `luna` en el manifiesto)
+  const KC = f.luna ? 1 : 1.3, [pcx, pcy] = P(f.foco.puerta[0], 600, 0.45);
   for (const c of f.capas) {
     if (c.id === 'vineta') continue;
     const off = ((window as any).__pOff ?? '') as string;

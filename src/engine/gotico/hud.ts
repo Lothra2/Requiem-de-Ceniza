@@ -5,7 +5,7 @@ import { renderLoot } from '../loot/render';
 import { baseWeapon, baseArmor, baseOffhand, findLoot, rollItem, modText, SET_NAME, SET_BONUS, type LootItem } from '../loot/catalog';
 import type { Rarity } from '../loot/materials';
 import { pintarEscena } from './render';
-import { retrato } from './retrato';
+import { retrato as luzDeRetrato } from './retrato';
 import { personajeEscena, armaSuelta, type Cuerpo, type Equipo, type TipoArma, type Encanto } from './cuerpo';
 import { HEROES } from './catalogo/personajes';
 import { equipoDeInventario } from './apariencia';
@@ -2067,7 +2067,7 @@ export function heroeEnNicho(cuerpo: Cuerpo, equipo: Equipo, cuadro = 0): Raster
   // Luz de retrato (la misma de la pantalla de elegir clase, más abierta): una principal cálida de costado, relleno frío
   // del otro lado y contraluz que recorta cabeza y hombros. Con la luz pareja de antes el muñeco salía chato y gris.
   // (sin resplandor: tiñe los colores hacia su tono y lavaba las armaduras oscuras)
-  const luz = { ...(e.luz ?? {}), ...retrato(z), relieve: 1, cavidad: 1, tonos: 2, amb: 0.09, cielo: 0.05, gamma: 1.12, expo: 1.3,
+  const luz = { ...(e.luz ?? {}), ...luzDeRetrato(z), relieve: 1, cavidad: 1, tonos: 2, amb: 0.09, cielo: 0.05, gamma: 1.12, expo: 1.3,
     relleno: { dir: [-0.6, 0.6, 0.35] as [number, number, number], color: '#7f93c0', fuerza: 0.36, tinte: 0.6 }, sombra: { color: '#0a0c16', fuerza: 0.42, hasta: 0.3 } };
   const r = recortarAlfa(pintarEscena({ ...e, luz, resplandor: undefined, sinSombra: true, ss: 2 }).img, 24, 2);
   cacheHeroe.set(k, r);

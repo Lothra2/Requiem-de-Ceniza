@@ -39,11 +39,12 @@ parentPort!.on('message', (job: any) => {
       }
     } else if (job.tipo === 'retrato') {
       // como retratoHeroe del motor, pero sin sombra: el juego le pone la suya con sus luces
-      // El héroe a tamaño de pantalla (5,4 veces el del juego: unos 540 px de alto, que en un monitor de 1080 sale punto
-      // por punto) y con la luz de retrato del motor: la fogata a su derecha como luz principal, el otro lado en sombra con
-      // un relleno frío y la contraluz que recorta cabeza y hombros. Antes iba a 2,4 y la pantalla lo estiraba al doble.
-      const h = HEROES.find((x: any) => x.id === job.id), k = 5.4;
-      const LUZ_RETRATO = { ...retrato(k), relieve: 1, cavidad: 1, amb: 0.07, cielo: 0.04, gamma: 1.18, expo: 1.22,
+      // La presentación es pixel art, como el héroe del juego: a 1,5 veces su tamaño (unos 150 px), para dibujarla a un
+      // número entero de puntos por pixel, igual que la fogata y el piso de esa pantalla. (A 5,4 y lisa se veía el muñeco
+      // de plastilina: manos, nariz y torso no aguantan un render grande.) Lleva la luz de retrato del motor: la fogata a
+      // su derecha como principal, el otro lado en sombra con relleno frío y la contraluz que recorta cabeza y hombros.
+      const h = HEROES.find((x: any) => x.id === job.id), k = 1.5;
+      const LUZ_RETRATO = { ...retrato(k), relieve: 1, cavidad: 1, tonos: 2, amb: 0.07, cielo: 0.04, gamma: 1.18, expo: 1.22,
         relleno: { dir: [-0.6, 0.6, 0.35], color: '#6f86b8', fuerza: 0.3, tinte: 0.6 }, sombra: { color: '#0a0c16', fuerza: 0.5, hasta: 0.3 } };
       for (let f = 0; f < job.cuadros; f++) {
         const e = personajeEscena({ ...h.cuerpo, alto: (h.cuerpo.alto ?? 1) * k }, h.niveles[job.nivel], 'so', 'presentar', f);

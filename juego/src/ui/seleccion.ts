@@ -1,7 +1,7 @@
 // Crear héroe: cada clase se presenta en grande con su pose, su luz y su ficha (rol, dificultad, atributos y ramas).
-import { ctx, W, H, E, pulso } from '../nucleo/lienzo';
+import { ctx, W, H, E, RES, pulso } from '../nucleo/lienzo';
 import { texto, T, TT, boton, marco, dentro, envolver, TITULO } from './comun';
-import { cuadrosHeroe, cuadrosPiso, cuadrosRetrato, RETRATO_ESC, cuadrosSel, metaSel, objetoMeta, dibujar, dibujarTenido, type Cuadro } from '../motor/assets';
+import { cuadrosHeroe, cuadrosPiso, cuadrosRetrato, RETRATO_ALTO, cuadrosSel, metaSel, objetoMeta, dibujar, dibujarTenido, type Cuadro } from '../motor/assets';
 import { CLASES, HABILIDADES, type Habilidad } from '../datos/clases';
 import { iconoHab } from './juego_ui';
 import { fuegoMundo, dibujarFuegosMundo } from '../render/fuego';
@@ -188,9 +188,9 @@ export function dibujarCrear(t: number, sel: number | null): { accion: 'crear' |
   const ret = cuadrosRetrato(c.id, vista);
   const esc = Math.min(1.3, (H * 0.56) / 240);
   let q: Cuadro | undefined = ret.length ? ret[cuadroPresentar(t - tCambio, ret.length)] : undefined;
-  // (el retrato viene horneado a tamaño de pantalla: se achica, no se estira, y con suavizado para que no baile)
-  let escQ = ret.length ? esc * RETRATO_ESC : esc;
-  const suaveAntes = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  // la presentación es pixel art: cada pixel suyo ocupa un número entero de puntos del lienzo (en un monitor de 1080, cuatro)
+  let escQ = ret.length ? Math.max(1, Math.round((H * RES * 0.55) / RETRATO_ALTO)) / RES : esc;
+  const suaveAntes = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   // la presentación de la Forja (grupo 'sel', al doble): la entrada al elegir la clase y después el reposo en bucle
   const sl = cuadrosSel(c.id, vista), ms = metaSel();
   if (sl.length && ms && USAR_SEL && !(window as any).__sinSel) {

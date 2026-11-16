@@ -2,9 +2,9 @@
 import { cuadrosDeFirma, retratoVivo, RETRATO_K } from '../motor/pintor';
 import { equipoVisual, firmaVisual, cuerpoDe } from '../juego/heroe';
 import { abrirExportar, abrirImportar } from './traslado';
-import { ctx, W, H, E, vistaActual, fijarVista } from '../nucleo/lienzo';
+import { ctx, W, H, E, RES, vistaActual, fijarVista } from '../nucleo/lienzo';
 import { texto, T, TT, IDI, boton, dentro, envolver, TITULO, fijarIdioma } from './comun';
-import { cuadrosHeroe, cuadrosPiso, variantePiso, cuadrosRetrato, RETRATO_ESC, objetoMeta, dibujar, dibujarTenido, cuadrosMonstruo } from '../motor/assets';
+import { cuadrosHeroe, cuadrosPiso, variantePiso, cuadrosRetrato, RETRATO_ALTO, objetoMeta, dibujar, dibujarTenido, cuadrosMonstruo } from '../motor/assets';
 import { generarPaisaje, type MapaGotico } from '../../../src/engine/gotico/index';
 import { CLASES } from '../datos/clases';
 import { INTRO, ENTREACTO, REVELACION, OPCIONES_BRASA, TRAS_ELEGIR, type FinalElegido } from '../mundo/actos';
@@ -200,7 +200,7 @@ function armarTomas() {
       const x = W / 2 + (i - 3.5) * paso + pan, y = H * 0.74 + (i % 2) * 14;
       const a = Math.min(1, Math.max(0, (t - i * 0.3) / 1.2));
       const luz = Math.min(1, Math.max(0, (t - 3 - i * 0.25) / 2));
-      ctx.globalAlpha = a; dibujarTenido(ctx, q, x, y, '#000', 1 - luz * 0.75, ret.length ? esc * RETRATO_ESC : esc * 2); ctx.globalAlpha = 1;
+      ctx.globalAlpha = a; dibujarTenido(ctx, q, x, y, '#000', 1 - luz * 0.75, ret.length ? Math.max(1, Math.round((esc * 240 * RES) / RETRATO_ALTO)) / RES : esc * 2); ctx.globalAlpha = 1;
     });
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(W / 2, H * 0.85, 0, W / 2, H * 0.85, 360 * titila(t)); g.addColorStop(0, 'rgba(255,100,30,0.35)'); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);

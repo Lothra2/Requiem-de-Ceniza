@@ -46,6 +46,12 @@ mkdir -p /tmp/requiem-pruebas && node juego/herramientas/t440_matanza.cjs   # un
 f direcciones finas. Hornear `m` borra las finas de esos ids, así que después hay que hornear `f`. Los PNG intermedios
 no se suben (están en `.gitignore`): se hace commit recién después de pasar a webp.
 
+## La presentación de las clases
+
+En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz
+de `retrato.ts`) y se dibuja a puntos enteros, igual que la fogata y el piso. No volver a presentarlo como render liso
+en grande: el modelo de cuerpo (manos, nariz, torso) no lo aguanta y Rick lo rechazó (16 nov 2026).
+
 ## La portada
 
 La catedral de la portada es una toma 3D en perspectiva (`src/engine/gotico/catedral_portada.ts`), no el sprite del

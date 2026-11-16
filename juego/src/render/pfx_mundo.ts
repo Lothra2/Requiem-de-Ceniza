@@ -63,6 +63,32 @@ export function dibujarAmbiente(ctx: CanvasRenderingContext2D, j: Juego, aPant: 
   }
 }
 
+// Hojas secas en el viento: cada una es un mapita de 4 o 5 pixeles que gira al caer, se mece y deriva con el viento.
+// Viven en el espacio del mundo (se corren con la cámara) y dan la vuelta al salir de la pantalla.
+const HOJA_FORMAS: string[][] = [
+  ['.##.', '####', '.##.'], ['.#..', '###.', '.###', '..#.'], ['####'], ['..#.', '.###', '###.', '.#..'], ['#', '#', '#'], ['.##', '###', '##.'],
+];
+const HOJA_COLOR: [string, string][] = [['#8f4a1a', '#5a2c10'], ['#a4661c', '#6a3e12'], ['#6e3814', '#40200c'], ['#927224', '#5c4614'], ['#7a2e16', '#481a0c'], ['#5e5020', '#3a3212']];
+const hsh = (i: number, k: number) => { let h = Math.imul(i + 1, 374761393) ^ Math.imul(k + 7, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
+function hojasQueCaen(ctx: CanvasRenderingContext2D, j: Juego, W: number, H: number, t: number) {
+  const h = j.heroe, ox = (h.x - h.y) * 16, oy = (h.x + h.y) * 8, AW = W + 48, AH = H + 48;
+  const n = Math.min(48, Math.round((W * H) / 13000));
+  ctx.save();
+  for (let i = 0; i < n; i++) {
+    const vy = 13 + hsh(i, 1) * 15, vx = -(16 + hsh(i, 2) * 22), fase = hsh(i, 3) * 40, vaiven = 6 + hsh(i, 4) * 12;
+    // la ráfaga: cada tanto el viento arrecia y todas se inclinan
+    const rafaga = 0.7 + 0.6 * Math.sin(t * 0.23 + 1.3) ** 2;
+    let x = hsh(i, 5) * AW + vx * rafaga * t + Math.sin(t * (0.7 + hsh(i, 6)) + fase) * vaiven - ox;
+    let y = hsh(i, 7) * AH + vy * t + Math.cos(t * (0.5 + hsh(i, 8) * 0.6) + fase) * 3 - oy;
+    x = ((x % AW) + AW) % AW - 24; y = ((y % AH) + AH) % AH - 24;
+    const forma = HOJA_FORMAS[Math.floor(t * (2.2 + hsh(i, 9) * 2.4) + fase) % HOJA_FORMAS.length], [c1, c2] = HOJA_COLOR[i % HOJA_COLOR.length];
+    ctx.globalAlpha = 0.55 + 0.35 * hsh(i, 10);
+    const px = Math.round(x), py = Math.round(y);
+    for (let fy = 0; fy < forma.length; fy++) for (let fx = 0; fx < forma[fy].length; fx++) if (forma[fy][fx] === '#') { ctx.fillStyle = fy === forma.length - 1 || fx === 0 ? c2 : c1; ctx.fillRect(px + fx, py + fy, 1, 1); }
+  }
+  ctx.restore();
+}
+
 /** El clima de la zona encima de todo (después de la luz). Devuelve qué tipo de clima ya dibuja, para no repetirlo. */
 export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: number, H: number, t: number): { lluvia: boolean; nieve: boolean; niebla: boolean } {
   const r = { lluvia: false, nieve: false, niebla: false };
@@ -71,6 +97,8 @@ export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: numb
   for (const id of clima) {
     // la lluvia y la tormenta ahora las pinta el juego (escena.ts: gotas con viento, salpicaduras, charcos y relámpagos)
     if ((id === 'fx_lluvia' || id === 'fx_tormenta') && j.zona.lluvia && j.zona.tipo !== 'mazmorra') continue;
+    // las hojas que caen las pinta el juego: sueltas, del tamaño del pixel del mundo y ancladas al suelo que se ve
+    if (id === 'fx_hojas_caen') { hojasQueCaen(ctx, j, W, H, t); continue; }
     const e = efectoPfx(id); if (!e) continue;
     // en mosaico a escala 2, cada tesela con su propio tiempo para que no se note la repetición
     const tw = 640, th = 360, alfa = ALFA[id] ?? 0.4;

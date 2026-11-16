@@ -51,11 +51,17 @@ export function ajustar() {
   // el acercamiento: cada punto del mundo ocupa un número entero de puntos del lienzo (2, o los del aparato si la escala
   // ya es entera), y el lienzo gana resolución para que el mundo acercado salga nítido y no a pixeles desparejos
   ZM = 1; RES = 1;
-  const zq = ZOOMS[vista] ?? 1;
-  if (zq > 1) {
+  const zq = ZOOMS[vista] ?? 1, tactilL = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  if (entero && !tactilL) {
+    // en el computador el lienzo va siempre a la resolución de la pantalla (hasta un tope), en las tres vistas: el HUD
+    // y los menús salen igual de nítidos lejos, cerca o muy cerca. Cada punto del mundo ocupa n puntos enteros.
+    let m = 1; while (m < ke && (ke % m !== 0 || W * H * (ke / m) * (ke / m) > 3.8e6)) m++;
+    RES = ke / m;
+    if (zq > 1) { const n1 = Math.max(RES + 1, Math.round(RES * 1.3)), n = vista === 2 ? Math.max(n1 + 1, Math.round(RES * 1.6)) : n1; ZM = Math.min(2 * RES, n) / RES; }
+  } else if (zq > 1) {
     const TOPE = 2.4e6;
     if (entero) {
-      // T = puntos del aparato por punto del mundo; m = puntos del aparato por punto del lienzo (divide a T y a ke)
+      // T = puntos del aparato por punto del mundo; m = puntos del aparato por punto del lienzo (divide a T)
       const nivel = (T0: number): number => {
         for (let T = T0; T <= ke * 2; T++) for (let m = Math.min(ke, T); m >= 1; m--) if (T % m === 0 && W * H * (ke / m) * (ke / m) <= TOPE) { ZM = T / ke; RES = ke / m; return T; }
         ZM = 2; RES = 1; return ke * 2;

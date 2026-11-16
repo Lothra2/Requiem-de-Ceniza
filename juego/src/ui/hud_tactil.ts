@@ -6,7 +6,8 @@
 //   Abajo a la izquierda: un joystick que aparece donde apoyas el pulgar.
 // Todo en tamaños de dedo (44 pt o más), lejos de los bordes laterales (notch e isla) y respetando el área segura.
 import { ctx, W, H, E, ESCALA, SEGURO } from '../nucleo/lienzo';
-import { texto, T, TT, dentro, icono, envolver as envolverT, TITULO } from './comun';
+import { texto, T, TT, dentro, icono, envolver as envolverT, TITULO, cacheRaster } from './comun';
+import { botonForjado } from '../../../src/engine/gotico/hud';
 import { ui, alternar, discoHab, orbeHud, recursoClase, objetivoTxt, COLOR_POCION, cambiarAgresivo } from './juego_ui';
 import { hud, type Rect } from './hud_rects';
 import { MISIONES } from '../mundo/actos';
@@ -148,12 +149,23 @@ function rielArco(gx: number, gy: number, radio: number, ancho: number, rG: numb
   ctx.strokeStyle = 'rgba(200,164,100,0.2)'; ctx.beginPath(); ctx.arc(gx, gy, rG + 5, 0, Math.PI * 2); ctx.stroke();
   ctx.restore();
 }
-function boton(id: string, r: Rect, dibujo: (apretado: boolean) => void, accion: () => void, redondo = false, sinFondo = false) {
+function boton(id: string, r: Rect, dibujo: (apretado: boolean) => void, accion: () => void, redondo = false, sinFondo = false, forja?: string) {
   // los redondos se tocan en su círculo; para los encimados cuenta el cuadrado inscrito (las esquinas de la caja están vacías)
   const cx = r[0] + r[2] / 2, cy = r[1] + r[3] / 2, ins = r[2] * 0.7071;
   hud[id] = redondo ? [cx - ins / 2, cy - ins / 2, ins, ins] : r; toques.push({ id, r });
   const enc = redondo ? Math.hypot(E.x - cx, E.y - cy) <= r[2] / 2 : dentro(r[0], r[1], r[2], r[3]);
   if (sinFondo) { dibujo(enc && E.izq); if (enc) { ui.sobreUI = true; if (E.clicIzq) { E.clicIzq = false; accion(); } } return; }
+  if (forja !== undefined && !redondo) {
+    // Los botones cuadrados son de hierro forjado con filete de latón y su pictograma, del mismo taller que los paneles
+    // y la barra de PC. Se pintan a la mitad y se doblan a punto entero: así el pixel queda del grano del resto del HUD.
+    const n = Math.max(16, Math.round(r[2] / 2)), est = enc && E.izq ? 'presionado' : forja === '' ? 'presionado' : 'normal';
+    const c = cacheRaster(`tactil_${forja}_${n}_${enc && E.izq ? 'p' : 'n'}`, () => botonForjado(forja, n, n, est, 'laton'));
+    const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(c, Math.round(r[0] + (r[2] - n * 2) / 2), Math.round(r[1] + (r[3] - n * 2) / 2), n * 2, n * 2); ctx.imageSmoothingEnabled = su;
+    dibujo(enc && E.izq);
+    if (enc) { ui.sobreUI = true; if (E.clicIzq) { E.clicIzq = false; accion(); } }
+    return;
+  }
   ctx.save(); ctx.globalAlpha = 0.82;
   ctx.fillStyle = enc && E.izq ? '#3a2a18' : '#14100c';
   ctx.beginPath(); if (redondo) ctx.arc(r[0] + r[2] / 2, r[1] + r[3] / 2, r[2] / 2, 0, Math.PI * 2); else ctx.rect(r[0], r[1], r[2], r[3]); ctx.fill();
@@ -216,7 +228,7 @@ export function dibujarHudTactil(j: Juego, t: number) {
   // ---------------- arriba a la derecha: cinco botones y el minimapa
   {
     const ids: [string, () => void][] = [['pers', () => alternar('pers', 'izq')], ['inv', () => alternar('inv', 'der')], ['habs', () => alternar('habs', 'der')], ['mapa', () => { ui.mapa = !ui.mapa; }], ['menu', () => alternar('menu', 'izq')]];
-    ids.forEach(([id, acc], i) => { const r: Rect = [P.botones[0] + i * (P.B + P.gap), P.botones[1], P.B, P.B]; boton('btn_' + id, r, () => glifo(id, r), () => { acc(); Sonido.efecto('click'); }); delete hud['btn_' + id]; });
+    ids.forEach(([id, acc], i) => { const r: Rect = [P.botones[0] + i * (P.B + P.gap), P.botones[1], P.B, P.B]; boton('btn_' + id, r, () => {}, () => { acc(); Sonido.efecto('click'); }, false, false, ({ pers: 'personaje', inv: 'inventario', habs: 'habilidades', mapa: 'mapa', menu: 'menu' } as Record<string, string>)[id]); delete hud['btn_' + id]; });
     hud.botones = P.botones;
     if (d.puntosAtrib > 0 || d.puntosHab > 0) for (const [i, ok] of [[0, d.puntosAtrib > 0], [2, d.puntosHab > 0]] as [number, boolean][]) if (ok) { ctx.fillStyle = Math.floor(t * 2) % 2 ? '#ffd060' : '#a07020'; ctx.fillRect(P.botones[0] + i * (P.B + P.gap) + P.B - L(10), P.botones[1] + L(2), L(8), L(8)); }
     // minimapa: tocarlo lo esconde y deja un botón para volver a mostrarlo
@@ -255,7 +267,7 @@ export function dibujarHudTactil(j: Juego, t: number) {
       boton('poc' + i, r, () => {
         if (o) { icono(o, r[0] + L(4), r[1] + L(4), r[2] - L(8), r[3] - L(8)); texto(String(cant(o)), r[0] + r[2] - L(4), r[1] + L(13), { alin: 'right', tam: Math.round(L(11)), color: '#fff' }); }
         else { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = COLOR_POCION[tipos[i]]; ctx.beginPath(); ctx.arc(r[0] + r[2] / 2, r[1] + r[3] / 2, r[2] * 0.22, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
-      }, () => { if (o) usarPocion(j, i); else Sonido.efecto('negado'); });
+      }, () => { if (o) usarPocion(j, i); else Sonido.efecto('negado'); }, false, false, '');
       delete hud['poc' + i];
     }
     hud.cinturon = P.cinturon;

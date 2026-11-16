@@ -2,7 +2,7 @@
 // cofre, tiendas, diálogos, piedras de viaje, misiones, mapa y menú.
 import { iconoPintado } from './iconos_hab';
 import { ctx, W, H, E, RES, pulso, ESCALA } from '../nucleo/lienzo';
-import { barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
+import { botonForjado, barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
 import { aLoot, arma3dDe } from './loot';
 import { texto, T, TT, IDI, marco, titulo, boton, dentro, icono, iconoThor, lineasObjeto, tooltip, cacheRaster, rasterACanvas, envolver, ancho, TITULO } from './comun';
 import { CLASES, HABILIDADES, habilidadesDe, ATAQUE, TIERS, ESCALA_HECHIZOS, type Habilidad } from '../datos/clases';
@@ -149,15 +149,13 @@ export function dibujarBarra(j: Juego, t: number) {
   // agresivo o pasivo (Z): espada roja que ataca sola lo que entra en su alcance, o escudo gris que espera órdenes
   // con un panel a la izquierda se esconde, porque queda pegado al borde de abajo del panel
   if (!ui.izq) {
-    const ag = !!(h.d as any).agresivo, s = E.tactil ? 46 : 38, ax = Math.max(8, bx + 6), ay = by - s - 8;
+    const ag = !!(h.d as any).agresivo, s = E.tactil ? 46 : 26, ax = Math.max(8, bx + 6), ay = by - s - 8;
     const enc = dentro(ax, ay, s, s);
     hud.agresivo = [ax, ay, s, s];
-    ctx.save(); ctx.globalAlpha = 0.9; ctx.fillStyle = ag ? '#3a0c08' : '#1a1a1e'; ctx.fillRect(ax, ay, s, s);
-    ctx.strokeStyle = enc ? '#ffe0a0' : ag ? '#c04020' : '#707078'; ctx.lineWidth = 2; ctx.strokeRect(ax + 1, ay + 1, s - 2, s - 2);
-    const cx = ax + s / 2, cy = ay + s / 2;
-    if (ag) { ctx.strokeStyle = '#ff4030'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(cx - s * 0.28, cy + s * 0.28); ctx.lineTo(cx + s * 0.26, cy - s * 0.26); ctx.stroke(); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx - s * 0.3, cy + s * 0.08); ctx.lineTo(cx - s * 0.08, cy + s * 0.3); ctx.stroke(); }
-    else { ctx.fillStyle = '#9a9aa4'; ctx.beginPath(); ctx.moveTo(cx - s * 0.26, cy - s * 0.28); ctx.lineTo(cx + s * 0.26, cy - s * 0.28); ctx.lineTo(cx + s * 0.22, cy + s * 0.06); ctx.lineTo(cx, cy + s * 0.32); ctx.lineTo(cx - s * 0.22, cy + s * 0.06); ctx.closePath(); ctx.fill(); }
-    ctx.restore();
+    // botón forjado como los de la barra: espada (agresivo, con el filete al rojo) o escudo (pasivo)
+    { const bt = cacheRaster(`btn_modo_${ag ? 'a' : 'p'}_${s}_${enc ? 'e' : 'n'}`, () => botonForjado(ag ? 'espada' : 'escudo', E.tactil ? s / 2 : s, E.tactil ? s / 2 : s, enc ? 'encima' : 'normal', 'laton'));
+      const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false; ctx.drawImage(bt, ax, ay, s, s); ctx.imageSmoothingEnabled = su;
+      if (ag) { ctx.strokeStyle = 'rgba(255,70,40,0.75)'; ctx.lineWidth = 2; ctx.strokeRect(ax + 1, ay + 1, s - 2, s - 2); } }
     if (enc) { texto(ag ? T('Agresivo (Z): ataca solo lo que entra en su alcance', 'Aggressive (Z): attacks whatever comes in reach') : T('Pasivo (Z): no ataca sin tu orden', 'Passive (Z): does not attack without your order'), ax, ay - 8, { tam: 11, color: '#fff' }); ui.sobreUI = true; }
     if (enc && E.clicIzq) { E.clicIzq = false; cambiarAgresivo(j); }
   }
@@ -419,12 +417,12 @@ export function dibujarPaneles(j: Juego, t: number) {
     E.x = (ex - x0) / k; E.y = (ey - y0) / k;
     dibujarPanel(j, p, 0, t, 0);
     // la X para cerrar, grande en táctil
-    const tx = E.tactil ? 46 : 30;
     if (ui[lado] === p && p !== 'elegirHab') {
-      const bx = 320 - tx - 4, by = 4, enc = dentro(bx, by, tx, tx);
-      ctx.fillStyle = enc ? 'rgba(120,40,20,0.9)' : 'rgba(20,14,10,0.85)'; ctx.fillRect(bx, by, tx, tx);
-      ctx.strokeStyle = '#a08050'; ctx.lineWidth = 2; ctx.strokeRect(bx + 1, by + 1, tx - 2, tx - 2);
-      ctx.strokeStyle = '#e8d0a0'; ctx.lineWidth = 3; const m = tx * 0.3; ctx.beginPath(); ctx.moveTo(bx + m, by + m); ctx.lineTo(bx + tx - m, by + tx - m); ctx.moveTo(bx + tx - m, by + m); ctx.lineTo(bx + m, by + tx - m); ctx.stroke();
+      // La X de cerrar es un botón forjado del mismo taller que el panel (hierro, filete de latón, remaches y la X
+      // de pictograma), a pixel entero. Antes era un cuadro liso con dos trazos vectoriales encima del marco de hierro.
+      const esc = E.tactil ? 2 : 1, lado0 = E.tactil ? 23 : 26, bx = 320 - lado0 * esc - (E.tactil ? 3 : 6), by = E.tactil ? 3 : 5, enc = dentro(bx - 2, by - 2, lado0 * esc + 4, lado0 * esc + 4);
+      const bt = cacheRaster(`btn_cerrar_${lado0}_${enc ? (E.izq ? 'p' : 'e') : 'n'}`, () => botonForjado('cerrar', lado0, lado0, enc ? (E.izq ? 'presionado' : 'encima') : 'normal', 'laton'));
+      { const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false; ctx.drawImage(bt, bx, by, lado0 * esc, lado0 * esc); ctx.imageSmoothingEnabled = su; }
       if (E.clicIzq && enc) { E.clicIzq = false; if (lado === 'izq' && (p === 'dialogo' || p === 'tienda' || p === 'cofre' || p === 'viaje')) cerrarPaneles(); else ui[lado] = null; if (!ui.izq && !ui.der) (ui as any).origen = null; Sonido.efecto('click'); }
     }
     ctx.restore();

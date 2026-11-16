@@ -1,4 +1,5 @@
 // Piezas comunes de la interfaz: texto, marcos de piedra y latón, botones, íconos de objetos y tooltips.
+import { marcoForjado, placaTitulo } from '../../../src/engine/gotico/hud';
 import { ctx, E, W as LW, H as LH } from '../nucleo/lienzo';
 import { objetoMeta, dibujar } from '../motor/assets';
 import { baseDe, colorObj, textoStat, type Objeto } from '../juego/objetos';
@@ -34,8 +35,19 @@ export function envolver(s: string, max: number, tam = 13): string[] {
 }
 
 /** Marco de piedra oscura con filete de hierro y latón. */
+/**
+ * El marco de un panel: el de hierro forjado del motor (piedra oscura, borde de hierro con remaches y esquineros), el
+ * mismo del inventario. Antes era una caja plana con una línea dorada y el HUD hablaba dos idiomas. Lo muy chico (un
+ * cartel de dos renglones) sigue con la caja simple: el marco de hierro no entra.
+ */
+let marcoTitulado = '';
 export function marco(x: number, y: number, w: number, h: number, alfa = 0.94) {
   ctx.save();
+  if (w >= 150 && h >= 110) {
+    const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(cacheRaster(`marco_${Math.round(w)}_${Math.round(h)}`, () => marcoForjado(w, h)), Math.round(x), Math.round(y));
+    ctx.imageSmoothingEnabled = su; ctx.restore(); marcoTitulado = `${Math.round(w)}_${Math.round(h)}`; return;
+  }
   ctx.globalAlpha = alfa;
   const g = ctx.createLinearGradient(x, y, x, y + h); g.addColorStop(0, '#16120f'); g.addColorStop(1, '#0b0908');
   ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
@@ -43,13 +55,15 @@ export function marco(x: number, y: number, w: number, h: number, alfa = 0.94) {
   ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
   ctx.strokeStyle = '#4a3f33'; ctx.lineWidth = 1; ctx.strokeRect(x + 2.5, y + 2.5, w - 5, h - 5);
   ctx.strokeStyle = '#7a6236'; ctx.strokeRect(x + 4.5, y + 4.5, w - 9, h - 9);
-  for (const [cx, cy] of [[x + 5, y + 5], [x + w - 5, y + 5], [x + 5, y + h - 5], [x + w - 5, y + h - 5]]) { ctx.fillStyle = '#c0a060'; ctx.fillRect(cx - 2, cy - 2, 4, 4); ctx.fillStyle = '#3a2a10'; ctx.fillRect(cx - 1, cy - 1, 2, 2); }
   ctx.restore();
 }
+/** El título del panel: la placa de hierro con filete de latón y remaches, con el nombre grabado en la letra del HUD. */
 export function titulo(s: string, x: number, y: number, w: number) {
-  ctx.fillStyle = '#1e1813'; ctx.fillRect(x + 8, y + 8, w - 16, 24);
-  ctx.strokeStyle = '#5a4a30'; ctx.strokeRect(x + 8.5, y + 8.5, w - 17, 23);
-  texto(s, x + w / 2, y + 26, { tam: 16, alin: 'center', color: '#e0c890', fuente: TITULO });
+  void marcoTitulado;
+  const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  const c = cacheRaster(`placa_${s}_${Math.round(w)}`, () => placaTitulo(s, Math.round(w)));
+  ctx.drawImage(c, Math.round(x + (w - c.width) / 2), Math.round(y + 4));
+  ctx.imageSmoothingEnabled = su;
 }
 export const dentro = (x: number, y: number, w: number, h: number) => E.x >= x && E.y >= y && E.x < x + w && E.y < y + h;
 /** Botón: devuelve true si se hizo clic. */
@@ -280,7 +294,12 @@ export function tooltip(lineas: [string, string][], x: number, y: number, extra?
   let tx = x - w / 2, ty = y - h - 10;
   if (ty < 4) ty = y + 30;
   tx = Math.max(4, Math.min(LW - w - 4, tx)); ty = Math.max(4, Math.min(LH - h - 4, ty));
-  ctx.fillStyle = 'rgba(6,5,4,0.92)'; ctx.fillRect(tx, ty, w, h);
-  ctx.strokeStyle = '#5a4a30'; ctx.strokeRect(tx + 0.5, ty + 0.5, w - 1, h - 1);
+  // la ficha: fondo de piedra oscura, canto negro, filete de latón y cuatro remaches, el mismo lenguaje de los paneles
+  tx = Math.round(tx); ty = Math.round(ty);
+  ctx.fillStyle = 'rgba(10,8,7,0.95)'; ctx.fillRect(tx, ty, w, h);
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(tx - 0.5, ty - 0.5, w + 1, h + 1);
+  ctx.strokeStyle = '#3a3630'; ctx.strokeRect(tx + 0.5, ty + 0.5, w - 1, h - 1);
+  ctx.strokeStyle = '#7a6236'; ctx.strokeRect(tx + 2.5, ty + 2.5, w - 5, h - 5);
+  ctx.fillStyle = '#c8a860'; for (const [qx, qy] of [[tx + 2, ty + 2], [tx + w - 4, ty + 2], [tx + 2, ty + h - 4], [tx + w - 4, ty + h - 4]]) ctx.fillRect(qx, qy, 2, 2);
   todas.forEach(([s, c], i) => texto(s, tx + w / 2, ty + 20 + i * 16, { color: c, alin: 'center', tam: 13 }));
 }

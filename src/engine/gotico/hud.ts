@@ -867,6 +867,9 @@ const PICTO: Record<string, string[]> = {
   ],
   caminar: ['     ##      ', '    #++#     ', '    #oo#     ', '     ##      ', '    #+o#     ', '   #+oo.#    ', '  #+#oo.##   ', '    #oo.#    ', '    #o#.#    ', '   #o# #.#   ', '   #o#  #.#  ', '  ##    ###  '],
   correr: ['        ##   ', '       #++#  ', '       #oo#  ', '   ##   ##   ', '  #  #+oo### ', '     #+o.#  #', '     #oo.#   ', '    #o.##.#  ', '  ##o.#  #.# ', ' #..#     #.#', ' ##        ##'],
+  // el escudo del modo pasivo y la espada del agresivo
+  escudo: ['###########', '#+ooooooo.#', '#+o##o##o.#', '#+o#ooo#o.#', '#+oo#o#oo.#', '#+ooo#ooo.#', ' #+oooo..# ', ' #+ooo...# ', '  #+o...#  ', '   #+..#   ', '    ###    '],
+  espada: ['         ##', '        #+#', '       #+o#', '      #+o# ', '     #+o#  ', '    #+o#   ', '#  #+o#    ', '##+#o#     ', ' #+##      ', '#+###      ', '##  ##     '],
   cerrar: [
     '##       ##', '#+#     #.#', ' #+#   #.# ', '  #+# #.#  ', '   #+#.#   ', '    #o#    ', '   #+#.#   ', '  #+# #.#  ', ' #+#   #.# ', '#+#     #.#', '##       ##',
   ],
@@ -950,6 +953,7 @@ function botonPicto(l: Lienzo, x: number, y: number, w: number, h: number, nombr
   hierro(l, x, y, w, h, { semilla: x + y, luz: estado === 'encima' ? 0.56 : hundido ? 0.3 : 0.46 });
   if (hundido) sombraInterna(l, x + 1, y + 1, w - 2, h - 2, 3, 0.5);
   bisel(l, x, y, w, h, P.hierro, 2, { hundido });
+  if (!PICTO[nombre]) return;   // sin pictograma: la casilla de hierro sola (el cinturón táctil)
   const pw = anchoPicto(nombre), ph = PICTO[nombre].length;
   const px = x + Math.floor((w - pw) / 2) + (hundido ? 1 : 0), py = y + Math.floor((h - ph) / 2) + (hundido ? 1 : 0);
   const mat = estado === 'apagado' ? P.hierro : P.laton;
@@ -957,6 +961,34 @@ function botonPicto(l: Lienzo, x: number, y: number, w: number, h: number, nombr
   PICTO[nombre].forEach((f, j) => { for (let i = 0; i < f.length; i++) if (f[i] !== ' ') l.mul(px + i + 1, py + j + 1, 0.6); });
   picto(l, nombre, px, py, estado === 'encima' ? [mat[0], ...mat.slice(3)] : mat);
   if (estado === 'encima') for (let i = 2; i < w - 2; i++) l.px(x + i, y + 2, P.laton[7], 0.35);
+}
+
+/**
+ * El marco de hierro de los paneles, del tamaño que haga falta y con su placa de título si se le da: para que todos
+ * los paneles del juego (personaje, habilidades, misiones, tienda, baúl, pausa...) sean del mismo taller que el inventario.
+ */
+export function marcoForjado(w: number, h: number, titulo = ''): Raster { return marcoPanel(titulo, false, Math.round(w), Math.round(h)).l.r; }
+
+/** La placa del título de un panel, suelta: hierro con filete de latón, remaches y el nombre en la letra del HUD. */
+export function placaTitulo(titulo: string, anchoPanel: number): Raster {
+  const tw = Math.min(anchoPanel - 70, Math.max(120, anchoTexto(titulo, true) + 40)), l = crearLienzo(tw, 28);
+  hierro(l, 0, 0, tw, 26, { semilla: 4, luz: 0.42 });
+  bisel(l, 0, 0, tw, 26, P.laton, 3);
+  remache(l, 7, 13, 1.6); remache(l, tw - 8, 13, 1.6);
+  textoTitulo(l, tw / 2, 9, titulo, P.laton, { alin: 'centro' });
+  return l.r;
+}
+
+/**
+ * Un botón forjado suelto (hierro con bisel y su pictograma de latón), para lo que el juego pone encima de los paneles
+ * y de la barra: la X de cerrar, el modo agresivo o pasivo. Del mismo taller que todo lo demás del HUD.
+ * `marco`: 'laton' le pone el filete dorado de las placas de título (para los que mandan, como cerrar).
+ */
+export function botonForjado(nombre: string, w: number, h: number, estado: EstadoBoton = 'normal', marco?: 'laton'): Raster {
+  const l = crearLienzo(w, h);
+  botonPicto(l, 0, 0, w, h, nombre, estado);
+  if (marco === 'laton') { bisel(l, 0, 0, w, h, P.laton, 2, { hundido: estado === 'presionado' }); remache(l, 3.5, 3.5, 1); remache(l, w - 4.5, 3.5, 1); remache(l, 3.5, h - 4.5, 1); remache(l, w - 4.5, h - 4.5, 1); }
+  return l.r;
 }
 
 /** Barra de valor hundida (aguante, experiencia, vida del jefe): canal, relleno con brillo arriba y marcas. */
@@ -1786,8 +1818,8 @@ function esquinero(l: Lienzo, x: number, y: number, fx: 1 | -1, fy: 1 | -1) {
 }
 
 /** Marco común de los paneles: piedra tallada, borde de hierro forjado, esquineros de latón y título en placa. */
-function marcoPanel(titulo: string, cerrar = true): { l: Lienzo; zonas: Zona[] } {
-  const W = PANEL.w, Hh = PANEL.h, l = crearLienzo(W, Hh);
+function marcoPanel(titulo: string, cerrar = true, W: number = PANEL.w, Hh: number = PANEL.h): { l: Lienzo; zonas: Zona[] } {
+  const l = crearLienzo(W, Hh);
   piedra(l, 0, 0, W, Hh, { semilla: 17, luz: 0.3, grietas: 9 });
   // friso de rombos grabado a lo largo del borde interno
   const m = new Mascara(W, Hh);
@@ -1804,7 +1836,8 @@ function marcoPanel(titulo: string, cerrar = true): { l: Lienzo; zonas: Zona[] }
   for (let x = 40; x < W - 30; x += 40) { remache(l, x, 3.5, 1.3); remache(l, x, Hh - 4.5, 1.3); }
   for (let y = 50; y < Hh - 30; y += 48) { remache(l, 3.5, y, 1.3); remache(l, W - 4.5, y, 1.3); }
   esquinero(l, 0, 0, 1, 1); esquinero(l, W, 0, -1, 1); esquinero(l, 0, Hh, 1, -1); esquinero(l, W, Hh, -1, -1);
-  // placa del título
+  // placa del título (sin título, el marco solo)
+  if (!titulo) return { l, zonas: [] };
   const tw = Math.max(120, anchoTexto(titulo, true) + 40), tx = Math.round((W - tw) / 2);
   hierro(l, tx, 4, tw, 26, { semilla: 4, luz: 0.42 });
   bisel(l, tx, 4, tw, 26, P.laton, 3);

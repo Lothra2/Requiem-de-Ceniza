@@ -1,6 +1,6 @@
 // Guardar y seguir: en medio de un mundo, Pausa > Guardar partida, se recarga la página y Continuar vuelve al mismo lugar.
 // Y el clic en un menú: apretar sobre un panel que se cierra bajo el cursor, con el botón todavía apretado, no hace caminar.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs, L } = await entrar('pc', 'berserker', 12);
   await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(4200);
@@ -10,9 +10,9 @@ const { entrar } = require('./comun');
   // Pausa (Escape) y el botón Guardar partida
   await p.keyboard.press('Escape'); await p.waitForTimeout(500);
   const pausa = await p.evaluate(() => { const j = window.__juego(); const t0 = j.t; return new Promise((r) => setTimeout(() => r({ panel: window.__U.ui.izq, mundoQuieto: Math.abs(j.t - t0) < 0.001 }), 600)); });
-  await p.screenshot({ path: '/tmp/claude-0/sp/pw/out/pausa.png' });
+  await p.screenshot({ path: '/tmp/requiem-pruebas/pausa.png' });
   await p.evaluate(() => { window.__U.ui.guardarAhora = true; }); await p.waitForTimeout(400);
-  await p.screenshot({ path: '/tmp/claude-0/sp/pw/out/guardado.png', clip: { x: 340, y: 120, width: 600, height: 200 } });
+  await p.screenshot({ path: '/tmp/requiem-pruebas/guardado.png', clip: { x: 340, y: 120, width: 600, height: 200 } });
   const guardado = await p.evaluate(() => { const hs = JSON.parse(localStorage.getItem('marca.heroes')); return { zona: hs[0].zona, pos: hs[0].pos, oro: hs[0].oro }; });
   // recarga y Continuar
   await p.reload(); for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; }

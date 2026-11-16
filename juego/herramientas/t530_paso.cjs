@@ -1,6 +1,6 @@
 // El paso fino (16 rumbos) y la palanca analógica: suave camina, a fondo corre. Mide además cuánto se cruza el cuerpo
 // respecto de su rumbo con y sin el paso fino.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs, L } = await entrar('movil', process.argv[2] || 'berserker', 12);
   await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(4500);
@@ -32,7 +32,7 @@ const { entrar } = require('./comun');
   const med = (a) => (a.reduce((s, v) => s + v, 0) / a.length).toFixed(1), mx = (a) => Math.max(...a).toFixed(1);
   console.log('cuerpo cruzado, 8 rumbos: medio', med(c8), 'máx', mx(c8), '| 16 rumbos: medio', med(c16), 'máx', mx(c16), 'muestras', c8.length);
   await toque('touchStart', x0, y0); for (let i = 1; i <= 6; i++) await toque('touchMove', x0 + 60 * i / 6 * 0.5, y0 + 60 * i / 6 * 0.86); await p.waitForTimeout(900);
-  await p.screenshot({ path: '/tmp/claude-0/sp/pw/out/paso.png' }); await toque('touchEnd', 0, 0);
+  await p.screenshot({ path: '/tmp/requiem-pruebas/paso.png' }); await toque('touchEnd', 0, 0);
   console.log('huellas', await p.evaluate(() => window.__huellas), errs.slice(0, 3));
   await b.close();
 })();

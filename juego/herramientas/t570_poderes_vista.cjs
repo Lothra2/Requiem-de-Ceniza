@@ -1,5 +1,5 @@
 // Lámina de los poderes de una clase: cada uno lanzado contra tres zombis, capturado a los 0.30 s y 0.65 s.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const clase = process.argv[2] || 'arcanista';
   const { b, p, errs } = await entrar('pc', clase, 30);
@@ -13,7 +13,7 @@ const { entrar } = require('./comun');
       j.monstruos.forEach((o) => { if (!o.dueno) { o.vida = 0; o.muerto = true; o.tMuerto = 999; } }); j.efectos.length = 0; j.proyectiles.length = 0;
       const ms = [0, 1, 2].map((i) => { const m = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 3 + i * 0.8, h.y + 0.5 - i * 0.6, 0, 0); m.vida = m.vidaMax = 5000; m.estado = 'dormido'; j.monstruos.push(m); return m; });
       M.usarHabilidad(j, id, ms[0].x, ms[0].y, ms[0], false); }, id);
-    for (const [i, ms] of [[0, 330], [1, 350]]) { await p.waitForTimeout(ms); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/pv_${n}_${i}.png`, clip: { x: 640 - 150, y: 310 - 150, width: 400, height: 280 } }); }
+    for (const [i, ms] of [[0, 330], [1, 350]]) { await p.waitForTimeout(ms); await p.screenshot({ path: `/tmp/requiem-pruebas/pv_${n}_${i}.png`, clip: { x: 640 - 150, y: 310 - 150, width: 400, height: 280 } }); }
     await p.waitForTimeout(1400); n++;
   }
   console.log(JSON.stringify(ids), errs.slice(0, 2));

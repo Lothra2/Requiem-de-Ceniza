@@ -1,5 +1,5 @@
 // El tema del juego suena en el campamento y el presagio no rompe nada al entrar a una mazmorra.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'arcanista', 12);
   await p.mouse.click(640, 300); await p.waitForTimeout(75000);

@@ -16,7 +16,7 @@ const { entrar } = require('./comun_pruebas.cjs');
   // espera a que salga el proyectil y saca 3 cuadros en vuelo y 2 del impacto
   for (let i = 0; i < 60; i++) { if (await p.evaluate(() => window.__juego().proyectiles.length > 0)) break; await p.waitForTimeout(30); }
   console.log(JSON.stringify(await p.evaluate(() => { const j = window.__juego(), h = j.heroe, q = j.proyectiles[0]; return { dir: h.dir, pv: q && [q.vx.toFixed(1), q.vy.toFixed(1)], hab: h.habActual, blanco: h.blancoTactil ? [(h.blancoTactil.x - h.x).toFixed(1), (h.blancoTactil.y - h.y).toFixed(1), h.blancoTactil.def.id] : null, n: j.monstruos.filter((m) => !m.muerto && !m.dueno).map((m) => m.def.id + ':' + m.estado) }; })));
-  for (let i = 0; i < 8; i++) { await p.screenshot({ path: `/tmp/claude-0/sp/pw/bola_${hab}_${i}.png`, clip }); await p.waitForTimeout(110); }
+  for (let i = 0; i < 8; i++) { await p.screenshot({ path: `/tmp/requiem-pruebas/bola_${hab}_${i}.png`, clip }); await p.waitForTimeout(110); }
   console.log(hab, JSON.stringify(errs.slice(0, 2)));
   await b.close();
 })();

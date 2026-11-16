@@ -1,4 +1,4 @@
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'berserker', 8);
   await p.evaluate(() => window.__ir('a2_dunas')); await p.waitForTimeout(5000);
@@ -19,7 +19,7 @@ const { entrar } = require('./comun');
   await p.evaluate(() => window.__ir('a4_picos')); await p.waitForTimeout(5000);
   const [x, y] = await p.evaluate(() => { const h = window.__juego().heroe; return window.__aPant(h.x + 5, h.y + 4); });
   await p.mouse.click(x, y); await p.waitForTimeout(2500);
-  await p.screenshot({ path: '/tmp/claude-0/sp/pw/out/t410_huellas.png', clip: { x: 340, y: 160, width: 600, height: 380 } });
+  await p.screenshot({ path: '/tmp/requiem-pruebas/t410_huellas.png', clip: { x: 340, y: 160, width: 600, height: 380 } });
   console.log('errs', errs.slice(0, 3));
   await b.close();
 })();

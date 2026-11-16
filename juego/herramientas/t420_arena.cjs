@@ -1,5 +1,5 @@
 // Arenas de jefe: una captura de la sala de cada jefe pedido (con luz, sin monstruos), parado en su centro.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const zonas = process.argv[2].split(',');
   const { b, p, errs } = await entrar('pc', 'berserker', 30);
@@ -13,7 +13,7 @@ const { entrar } = require('./comun');
       const n = {}; cerca.forEach((id) => { n[id] = (n[id] || 0) + 1; }); return JSON.stringify(n); });
     console.log(zona, info);
     await p.waitForTimeout(1400);
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/rec_${zona}.png`, clip: { x: 160, y: 20, width: 960, height: 620 } });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/rec_${zona}.png`, clip: { x: 160, y: 20, width: 960, height: 620 } });
   }
   console.log('errs', errs.slice(0, 3));
   await b.close();

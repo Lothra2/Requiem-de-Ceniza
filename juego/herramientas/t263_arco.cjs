@@ -13,7 +13,7 @@ const { entrar } = require('./comun_pruebas.cjs');
   });
   for (let i = 0; i < 80; i++) { if (await p.evaluate(() => { const a = window.__juego().efectos.filter((e) => e.id === 'arco_cadena'); a.forEach((e) => { e.dur = 6; e.t = 0.05; }); return a.length > 0; })) break; await p.waitForTimeout(20); }
   const [x, y] = await p.evaluate(() => { const h = window.__juego().heroe; return window.__aPant(h.x, h.y); });
-  await p.waitForTimeout(300); await p.screenshot({ path: '/tmp/claude-0/sp/pw/arco.png', clip: { x: Math.max(0, x - 200), y: Math.max(0, y - 300), width: 700, height: 420 } });
+  await p.waitForTimeout(300); await p.screenshot({ path: '/tmp/requiem-pruebas/arco.png', clip: { x: Math.max(0, x - 200), y: Math.max(0, y - 300), width: 700, height: 420 } });
   await p.waitForTimeout(1500);
   console.log(JSON.stringify(await p.evaluate(() => 1)), JSON.stringify(errs.slice(0, 2)));
   await b.close();

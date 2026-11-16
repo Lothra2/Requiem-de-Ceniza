@@ -30,6 +30,6 @@ const { entrar } = require('./comun_pruebas.cjs');
   await p.waitForTimeout(1500);
   const r4 = await p.evaluate(() => ({ thorVida: Math.round(window.__thor.vida), zombi: Math.round(window.__z.vida) + '/' + window.__z.vidaMax }));
   console.log(JSON.stringify({ vista, clicSobreThor: r1, botonGolpe: r2, areaContraThor: r3, despues: r4, errs: errs.slice(0, 3) }));
-  await p.screenshot({ path: `/tmp/claude-0/sp/pw/thor_${vista}.png` });
+  await p.screenshot({ path: `/tmp/requiem-pruebas/thor_${vista}.png` });
   await b.close();
 })();

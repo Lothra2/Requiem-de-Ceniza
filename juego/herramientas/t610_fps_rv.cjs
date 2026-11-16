@@ -1,4 +1,4 @@
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const r = {};
   for (const rv of [13, 38, 13, 38]) {

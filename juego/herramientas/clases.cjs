@@ -17,7 +17,7 @@ const { entrar } = require('./comun_pruebas.cjs');
     requestAnimationFrame(tic);
     const s = S.sensacionDe(h); return { curva: s.curva, peso: s.peso, distancia: !!h.c.distancia };
   });
-  await p.waitForTimeout(5000); await p.screenshot({ path: `/tmp/claude-0/sp/pw/clase_${clase}_${vista}.png` });
+  await p.waitForTimeout(5000); await p.screenshot({ path: `/tmp/requiem-pruebas/clase_${clase}_${vista}.png` });
   await p.waitForTimeout(5000);
   const r = await p.evaluate(() => { const st = window.__st; return { cuadrosPausa: st.pausas, pausaMaxMs: Math.round(st.pausaMax * 1000), patadas: st.patadas, lanzados: st.lanzados, cuadrosAlerta: st.alertas, cuadrosAtaqueVistos: [...st.cuadros].sort().join(''), muertos: window.__ms.filter((m) => m.muerto).length, golpeEn: st.g }; });
   console.log(JSON.stringify({ clase, vista, ...prep, ...r, errs: errs.slice(0, 2) }));

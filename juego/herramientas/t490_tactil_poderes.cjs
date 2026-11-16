@@ -1,6 +1,6 @@
 // Poderes por toque de verdad: en teléfono o iPad, cada medallón del arco (Poder y atajos) se toca con el dedo y se
 // comprueba qué habilidad salió, si gastó maná y si hizo daño o efecto. Uso: node t490_tactil_poderes.cjs <clase> <vista> <nivel>
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const clase = process.argv[2] || 'arcanista', vista = process.argv[3] || 'movil', nivel = +(process.argv[4] || 3);
   const { b, p, errs, L } = await entrar(vista, clase, nivel);

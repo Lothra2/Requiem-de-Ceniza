@@ -1,4 +1,4 @@
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const zona = process.argv[2] || 'a1_paramo';
   const { b, p } = await entrar('ipad11', 'berserker', 8);
@@ -13,7 +13,7 @@ const { entrar } = require('./comun');
       await p.waitForTimeout(500);
       const s2 = await p.evaluate(([q, dy]) => window.__aPant(q.cx + 4.5, q.cy + dy), [q, dy]);
       await p.touchscreen.tap(s2[0], s2[1]); await p.waitForTimeout(700);
-      await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/t310_${dy + 1}.png` });
+      await p.screenshot({ path: `/tmp/requiem-pruebas/t310_${dy + 1}.png` });
       await p.waitForTimeout(3300);
       const f = await p.evaluate(() => { const h = window.__juego().heroe; return [+h.x.toFixed(2), +h.y.toFixed(2), h.acc]; });
       console.log('dy', dy, 'de', r, 'meta', [q.cx + 4.5, q.cy + dy], 'queda', f);

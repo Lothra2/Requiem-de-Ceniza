@@ -13,7 +13,7 @@ const { chromium } = require('playwright');
     await tap(L.f.continuar[0], L.f.continuar[1]);
     for (let i = 0; i < 80; i++) { await p.waitForTimeout(400); const e = await p.evaluate(() => window.__estado()); if (e === 'juego') break; if (e === 'entreacto') await tap(L.W / 2, L.H / 2); }
     await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(6000);
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/vista_${nom}_${vista}.png` });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/vista_${nom}_${vista}.png` });
     console.log(nom, vista, L.W, L.H, errs.slice(0, 2)); await b.close();
   }
 })();

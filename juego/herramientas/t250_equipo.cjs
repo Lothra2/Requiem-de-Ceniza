@@ -7,7 +7,7 @@ const { entrar } = require('./comun_pruebas.cjs');
   const eq = await p.evaluate(() => Object.fromEntries(Object.entries(window.__juego().heroe.d.equipo).map(([k, o]) => [k, o.base])));
   for (let i = 0; i < 90; i++) { await p.waitForTimeout(1000); if (await p.evaluate(() => !document.title.includes('%') && !(window.__T.P.pintando && window.__T.P.pintando()))) { if (i > 25) break; } }
   const [x, y] = await p.evaluate(() => { const h = window.__juego().heroe; return window.__aPant(h.x, h.y); });
-  await p.screenshot({ path: `/tmp/claude-0/sp/pw/eq_${clase}.png`, clip: { x: Math.max(0, x - 130), y: Math.max(0, y - 220), width: 260, height: 280 } });
+  await p.screenshot({ path: `/tmp/requiem-pruebas/eq_${clase}.png`, clip: { x: Math.max(0, x - 130), y: Math.max(0, y - 220), width: 260, height: 280 } });
   console.log(clase, JSON.stringify(eq), JSON.stringify(errs.slice(0, 2)));
   await b.close();
 })();

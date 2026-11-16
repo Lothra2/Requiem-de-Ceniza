@@ -1,5 +1,5 @@
 // Los monstruos caminan en 16 rumbos: cuánto se cruza el cuerpo respecto del rumbo, con 8 y con 16.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'berserker', 12);
   await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(4500);
@@ -17,6 +17,6 @@ const { entrar } = require('./comun');
     return { hist, est, muestras: c8.length, medio8: med(c8), medio16: med(c16), max16: Math.max(0, ...c16), con: [...con], sin: [...sin], clavesFinas: finos, sprites: sprites.size, spritesConFino: conFino.size, faltan: [...sprites].filter((s) => !conFino.has(s) && Object.keys(man).some((k) => k.startsWith(s + '/caminar/'))).slice(0, 12) };
   });
   console.log(JSON.stringify(r), errs.slice(0, 3));
-  await p.screenshot({ path: '/tmp/claude-0/sp/pw/out/mon16.png' });
+  await p.screenshot({ path: '/tmp/requiem-pruebas/mon16.png' });
   await b.close();
 })();

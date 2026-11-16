@@ -1,5 +1,5 @@
 // Todas las casas, varias semillas: cada una tiene su cofre de premio, su guardián y su libro, y el cofre se alcanza.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'berserker', 8);
   const r = await p.evaluate(async (N) => {

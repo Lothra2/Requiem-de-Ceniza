@@ -24,7 +24,7 @@ const CASOS = [['acto_1', 1, []], ['acto_2', 2, []], ['acto_3', 3, []], ['acto_4
       const medio = acc + dur / 2; acc += dur;
       const falta = medio * 1000 - (Date.now() - t0); if (falta > 0) await p.waitForTimeout(falta);
       pags.push((await p.evaluate(() => window.__cineImgs())).filter((x) => /cinematicas\/(acto|intro)/.test(x[0])).map((x) => x[0].split('/').slice(-2).join('/') + (x[1] ? '' : '(cargando)')).join(' '));
-      await p.screenshot({ path: `/tmp/claude-0/sp/pw/cine_${modo}_${clave}${marcas.length ? '_' + marcas[0] : ''}_${id}.png` });
+      await p.screenshot({ path: `/tmp/requiem-pruebas/cine_${modo}_${clave}${marcas.length ? '_' + marcas[0] : ''}_${id}.png` });
     }
     await p.waitForFunction(() => window.__estado() === 'menu', null, { timeout: 15000 }).catch(() => errores.push(clave + ': no volvió'));
     const son = await p.evaluate((n) => window.__cineSon().slice(n), nSon0);

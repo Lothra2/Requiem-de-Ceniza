@@ -15,13 +15,13 @@ const { chromium, devices } = require('playwright');
     const tap = async (x, y) => { if (nom === 'pc') await p.mouse.click(L.l + x * L.k, L.t + y * L.k); else await p.touchscreen.tap(L.l + x * L.k, L.t + y * L.k); await p.waitForTimeout(900); };
     const fila = async (id) => { const q = await p.evaluate((id) => window.__menuFilas[id], id); await tap(q[0], q[1]); };
     const hook = async (id) => { const q = await p.evaluate((id) => (window.__pantalla || {})[id], id); if (q) await tap(q[0], q[1]); return !!q; };
-    await fila('jugar'); await p.waitForTimeout(2500); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/pan_${nom}_sel.png` });
-    if (await hook('heroe1')) { await p.waitForTimeout(2500); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/pan_${nom}_sel2.png` }); }
-    if (await hook('crear')) { await p.waitForTimeout(2500); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/pan_${nom}_crear.png` }); }
+    await fila('jugar'); await p.waitForTimeout(2500); await p.screenshot({ path: `/tmp/requiem-pruebas/pan_${nom}_sel.png` });
+    if (await hook('heroe1')) { await p.waitForTimeout(2500); await p.screenshot({ path: `/tmp/requiem-pruebas/pan_${nom}_sel2.png` }); }
+    if (await hook('crear')) { await p.waitForTimeout(2500); await p.screenshot({ path: `/tmp/requiem-pruebas/pan_${nom}_crear.png` }); }
     await p.keyboard.press('Escape'); await p.waitForTimeout(600); await p.keyboard.press('Escape'); await p.waitForTimeout(600);
     const est = await p.evaluate(() => window.__estado());
     if (est !== 'menu') { await hook('volver'); await hook('volver'); }
-    await fila('opciones'); await p.waitForTimeout(1200); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/pan_${nom}_opc.png` });
+    await fila('opciones'); await p.waitForTimeout(1200); await p.screenshot({ path: `/tmp/requiem-pruebas/pan_${nom}_opc.png` });
     console.log(nom, est, JSON.stringify(await p.evaluate(() => window.__pantalla || null)).slice(0, 300), errs.slice(0, 2));
     await c.close();
   }

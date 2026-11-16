@@ -17,7 +17,7 @@ const { chromium } = require('playwright');
     await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(7000);
     // el héroe en pantalla coincide con __aPant, y un clic a su derecha lo hace caminar hacia allá
     const h0 = await p.evaluate(() => { const h = window.__juego().heroe; return { x: h.x, y: h.y, p: window.__aPant(h.x, h.y), q: window.__aPant(h.x + 3, h.y - 3) }; });
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/zoom_${nom}_${vista}.png` });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/zoom_${nom}_${vista}.png` });
     if (!tactil) { await p.mouse.click(h0.q[0], h0.q[1]); await p.waitForTimeout(2500); }
     const h1 = await p.evaluate(() => { const h = window.__juego().heroe; return { x: h.x, y: h.y }; });
     console.log(nom, vista, JSON.stringify({ W: L.W, H: L.H, ZM: L.ZM, cw: L.cw, ch: L.ch }), 'heroe en', h0.p.map(Math.round), tactil ? '' : `caminó ${(h1.x - h0.x).toFixed(1)},${(h1.y - h0.y).toFixed(1)} (esperado ~3,-3)`, errs.slice(0, 2)); await b.close();

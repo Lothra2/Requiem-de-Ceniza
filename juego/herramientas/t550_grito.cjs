@@ -1,5 +1,5 @@
 // Los efectos que envuelven al héroe (gritos, auras): con y sin partir por la línea de los pies.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs, L } = await entrar('pc', process.argv[2] || 'berserker', 30);
   await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(4500);
@@ -8,7 +8,7 @@ const { entrar } = require('./comun');
   const M = 'window.__T.M';
   for (const sin of [true, false]) for (const id of ids) {
     await p.evaluate(([id, sin]) => { const j = window.__juego(), h = j.heroe, M = window.__mundo; window.__sinPartir = sin; window.__sinLluvia = true; j.monstruos.forEach((m) => { if (!m.dueno) { m.muerto = true; m.vida = 0; m.tMuerto = 999; } }); h.vida = h.vidaMax = 1e6; h.mana = h.c.manaMax = 1e5; h.furia = 100; h.d.habs[id] = 5; h.recargas = {}; h.acc = 'quieto'; h.camino = null; M.usarHabilidad(j, id, h.x, h.y, null, false); }, [id, sin]);
-    for (const [i, ms] of [[0, 380], [1, 300]]) { await p.waitForTimeout(ms); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/grito_${id}_${sin ? 'antes' : 'despues'}_${i}.png` }); }
+    for (const [i, ms] of [[0, 380], [1, 300]]) { await p.waitForTimeout(ms); await p.screenshot({ path: `/tmp/requiem-pruebas/grito_${id}_${sin ? 'antes' : 'despues'}_${i}.png` }); }
     await p.waitForTimeout(2500);
   }
   console.log(await p.evaluate(() => window.__juego().efectos.length), errs.slice(0, 3));

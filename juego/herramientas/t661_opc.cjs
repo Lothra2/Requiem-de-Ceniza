@@ -9,8 +9,8 @@ const { chromium } = require('playwright');
     console.log(nom, Object.keys(L.f));
     const tap = async (x, y) => { if (nom === 'movil') await p.touchscreen.tap(L.l + x * L.k, L.t + y * L.k); else await p.mouse.click(L.l + x * L.k, L.t + y * L.k); };
     for (let i = 0; i < 3 && (await p.evaluate(() => window.__estado())) === 'menu'; i++) { await tap(L.f.opciones[0], L.f.opciones[1]); await p.waitForTimeout(1500); }
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/opc_${nom}.png` });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/opc_${nom}.png` });
     const P = await p.evaluate(() => window.__pantalla); await tap(P.partida0[0], P.partida0[1]); await p.waitForTimeout(1500);
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/opc_${nom}_exp.png` }); console.log(errs);
+    await p.screenshot({ path: `/tmp/requiem-pruebas/opc_${nom}_exp.png` }); console.log(errs);
     await c.close(); }
   await b.close(); })();

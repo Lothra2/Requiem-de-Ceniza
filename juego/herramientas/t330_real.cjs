@@ -1,5 +1,5 @@
 // Cada habilidad activa en condiciones REALES: nivel = el que pide la habilidad (mínimo 2), 1 punto, maná natural, furia 0, por el botón Poder del táctil.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const clase = process.argv[2] || 'berserker';
   const { b, p } = await entrar('ipad11', clase, 30);

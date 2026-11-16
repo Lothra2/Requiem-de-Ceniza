@@ -10,8 +10,8 @@ const { chromium, devices } = require('playwright');
     await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });
     await p.evaluate(() => { const d = window.__T.H.nuevoHeroe('berserker', 'Rick'); d.nivel = 34; d.acto = 3; localStorage.setItem('marca.heroes', JSON.stringify([d])); });
     await p.reload(); await aMenu(); await p.waitForTimeout(8000);
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/menu_${nom}.png` });
-    if (nom === 'pc') { const L = await p.evaluate(() => { const c = document.getElementById('juego'); const r = c.getBoundingClientRect(); return { k: r.width / c.width, l: r.left, t: r.top, f: window.__menuFilas }; }); await p.mouse.move(L.l + L.f.opciones[0] * L.k, L.t + L.f.opciones[1] * L.k); await p.waitForTimeout(700); await p.screenshot({ path: '/tmp/claude-0/sp/pw/out/menu_pc2.png' }); }
+    await p.screenshot({ path: `/tmp/requiem-pruebas/menu_${nom}.png` });
+    if (nom === 'pc') { const L = await p.evaluate(() => { const c = document.getElementById('juego'); const r = c.getBoundingClientRect(); return { k: r.width / c.width, l: r.left, t: r.top, f: window.__menuFilas }; }); await p.mouse.move(L.l + L.f.opciones[0] * L.k, L.t + L.f.opciones[1] * L.k); await p.waitForTimeout(700); await p.screenshot({ path: '/tmp/requiem-pruebas/menu_pc2.png' }); }
     console.log(nom, JSON.stringify(await p.evaluate(() => window.__menuFilas)), errs.slice(0, 2));
     await c.close();
   }

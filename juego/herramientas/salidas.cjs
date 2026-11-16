@@ -43,7 +43,7 @@ const { entrar } = require('./comun_pruebas.cjs');
       return s.nombre[0] + ' a ' + Math.hypot(h.x - ux, h.y - uy).toFixed(1);
     }, [destino]);
     await p.waitForTimeout(1200);
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/salida_${nom}_${vista}.png` });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/salida_${nom}_${vista}.png` });
     console.log(nom, ok);
   }
   console.log('errores', errs.slice(0, 3));

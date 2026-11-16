@@ -1,4 +1,4 @@
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p } = await entrar('pc', 'berserker', 8);
   const r = await p.evaluate(async () => { const Z = await import('/src/mundo/zona.ts'), A = await import('/src/mundo/actos.ts'); const out = [];

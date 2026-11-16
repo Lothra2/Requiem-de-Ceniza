@@ -1,4 +1,4 @@
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, L, tap } = await entrar('ipad11', 'berserker', 8);
   const foto = () => p.evaluate(() => { const z = window.__juego().zona; let n = 0, h = 0; for (const v of z.explorado) n += v; for (let i = 0; i < z.bloq.length; i += 7) h = (h * 31 + z.bloq[i]) >>> 0; return { id: z.id, vistos: n, de: z.explorado.length, forma: h }; });

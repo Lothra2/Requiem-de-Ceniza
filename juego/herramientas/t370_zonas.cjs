@@ -1,5 +1,5 @@
 // Todas las zonas del juego, varias semillas: desde la entrada se llega a cada salida, entrada, piedra de viaje y grupo.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'berserker', 8);
   const r = await p.evaluate(async (N) => {

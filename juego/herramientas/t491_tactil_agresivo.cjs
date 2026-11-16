@@ -1,6 +1,6 @@
 // En modo Agresivo el héroe pega solo sin parar: un toque en un poder a mitad de golpe tiene que salir igual.
 // Toca Poder y el primer atajo 6 veces cada uno, justo cuando el héroe está atacando, y cuenta cuántas veces salió el poder pedido.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const clase = process.argv[2] || 'arcanista', vista = process.argv[3] || 'movil';
   const { b, p, errs, L } = await entrar(vista, clase, 6);

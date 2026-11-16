@@ -11,7 +11,7 @@ const { chromium, devices } = require('playwright');
     await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });
     await p.evaluate(() => { const d = window.__T.H.nuevoHeroe('berserker', 'Rick'); d.nivel = 34; d.acto = 3; localStorage.setItem('marca.heroes', JSON.stringify([d])); });
     await p.reload(); await aMenu(); await p.waitForTimeout(9000);
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/portada_${nom}.png` });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/portada_${nom}.png` });
     const fps = await p.evaluate(() => new Promise((r) => { let n = 0; const t0 = performance.now(); const f = () => { n++; if (performance.now() - t0 < 2000) requestAnimationFrame(f); else r(n / 2); }; requestAnimationFrame(f); }));
     console.log(nom, fps, errs.slice(0, 2)); await c.close();
   }

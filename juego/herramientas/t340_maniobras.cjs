@@ -1,5 +1,5 @@
 // Maniobras de los monstruos: cada tipo, cerca del héroe quieto. Cuenta qué maniobras hace, cuánto daño mete y saca una foto del aviso.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const ids = (process.argv[2] || 'ogro,lobo_sombrio,zombi').split(','), cal = +(process.argv[3] || 0), seg = +(process.argv[4] || 14);
   const { b, p } = await entrar('ipad11', 'berserker', 8);
@@ -19,7 +19,7 @@ const { entrar } = require('./comun');
     let fotos = 0; const t0 = Date.now(), vistos = new Set();
     while (Date.now() - t0 < seg * 1000) {
       const mn = await p.evaluate(() => { const mn = window.__m.man; return mn ? { tipo: mn.tipo, fase: mn.fase, k: mn.t / mn.aviso } : null; });
-      if (mn && ((mn.fase === 'aviso' && mn.k > 0.55) || (mn.fase === 'accion')) && !vistos.has(mn.tipo + mn.fase) && fotos < 6) { vistos.add(mn.tipo + mn.fase); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/t340_${id}_${mn.tipo}_${mn.fase}.png`, clip: { x: 290, y: 150, width: 640, height: 480 } }); fotos++; }
+      if (mn && ((mn.fase === 'aviso' && mn.k > 0.55) || (mn.fase === 'accion')) && !vistos.has(mn.tipo + mn.fase) && fotos < 6) { vistos.add(mn.tipo + mn.fase); await p.screenshot({ path: `/tmp/requiem-pruebas/t340_${id}_${mn.tipo}_${mn.fase}.png`, clip: { x: 290, y: 150, width: 640, height: 480 } }); fotos++; }
       await p.waitForTimeout(60);
     }
     console.log(id, 'cal', cal, JSON.stringify(await p.evaluate(() => ({ ...window.__st, fase: window.__m.fase }))));

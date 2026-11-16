@@ -1,5 +1,5 @@
 // Vender en la tienda por el camino táctil real: toques de verdad sobre el comerciante y la bolsa.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const vista = process.argv[2] || 'ipad11', cual = +(process.argv[3] || 0);
   const { b, p, errs } = await entrar(vista, 'berserker', 8);
@@ -24,6 +24,6 @@ const { entrar } = require('./comun');
   const pts = [[846, 410], [884, 400], [920, 400], [960, 410], [1010, 410], [1080, 410], [1140, 410], [810, 400], [812, 440], [820, 490], [850, 490], [882, 495], [810, 520], [845, 520]];
   for (const [x, y] of pts) { await tap(x, y); const a = await est(); if (a.ficha) { await tap(453, 541); } const d = await est(); console.log(x, y, a.ficha ? 'ficha' : 'nada', JSON.stringify(d)); }
   await p.waitForTimeout(1500); console.log('fin', JSON.stringify(await est()));
-  await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/t300_${cual}.png` });
+  await p.screenshot({ path: `/tmp/requiem-pruebas/t300_${cual}.png` });
   await b.close();
 })();

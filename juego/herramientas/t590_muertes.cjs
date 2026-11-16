@@ -1,5 +1,5 @@
 // Las muertes por elemento: un zombi muerto por cada uno, capturado a los 0.25, 0.7 y 1.8 s.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'arcanista', 30);
   await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(4500);
@@ -10,7 +10,7 @@ const { entrar } = require('./comun');
       h.vida = h.vidaMax = 1e6; j.monstruos = j.monstruos.filter((o) => o.dueno); j.particulas.length = 0; if (j.gibs) j.gibs.length = 0; if (j.chorros) j.chorros.length = 0; j.efectos.length = 0; j.manchas.length = 0;
       const m = M.crearMonstruo(D.MONSTRUOS['esqueleto'] || D.MONSTRUOS['zombi'], 10, h.x + 3.4, h.y - 0.6, 0, 0); m.estado = 'dormido'; m.vida = m.vidaMax = 400; m.def = { ...m.def, res: {} }; m.res = {}; j.monstruos.push(m);
       M.danar(j, m, { min: m.vida * 1.3, max: m.vida * 1.3, elem: el, sinFallo: true, deHeroe: true, fuente: h }); j.suelo.length = 0; j.numeros.length = 0; window.__m = m; }, el);
-    for (const [i, ms] of [[0, 250], [1, 450], [2, 1100]]) { await p.waitForTimeout(ms); const c = await p.evaluate(() => { const j = window.__juego(); j.suelo.length = 0; return window.__aPant(window.__m.x, window.__m.y); }); await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/mu_${el}_${i}.png`, clip: { x: Math.max(0, c[0] - 110), y: Math.max(0, c[1] - 130), width: 220, height: 180 } }); }
+    for (const [i, ms] of [[0, 250], [1, 450], [2, 1100]]) { await p.waitForTimeout(ms); const c = await p.evaluate(() => { const j = window.__juego(); j.suelo.length = 0; return window.__aPant(window.__m.x, window.__m.y); }); await p.screenshot({ path: `/tmp/requiem-pruebas/mu_${el}_${i}.png`, clip: { x: Math.max(0, c[0] - 110), y: Math.max(0, c[1] - 130), width: 220, height: 180 } }); }
     await p.waitForTimeout(600);
   }
   console.log(await p.evaluate(() => JSON.stringify(window.__energia)), errs.slice(0, 3));

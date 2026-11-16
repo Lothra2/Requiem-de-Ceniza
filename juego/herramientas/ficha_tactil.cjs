@@ -17,7 +17,7 @@ const { entrar } = require('./comun_pruebas.cjs');
   const [sx, sy] = await celda('izq', 15, 44, it);
   await tap(sx, sy); await p.waitForTimeout(500);
   const r1 = await p.evaluate(() => ({ ficha: !!window.__U.ui.ficha, oro: window.__juego().heroe.d.oro, sigueEnTienda: window.__U.ui.tienda.includes(window.__it) }));
-  await p.screenshot({ path: `/tmp/claude-0/sp/pw/ficha_tienda_${vista}.png` });
+  await p.screenshot({ path: `/tmp/requiem-pruebas/ficha_tienda_${vista}.png` });
   // el botón Comprar: el primero de la fila de abajo de la ficha
   const btn = await p.evaluate(() => { const c = document.getElementById('juego'); return null; });
   // buscar el botón leyendo la ficha armada: se repite la cuenta del layout pidiendo un cuadro
@@ -33,7 +33,7 @@ const { entrar } = require('./comun_pruebas.cjs');
   await p.evaluate(() => { const U = window.__U; U.ui.izq = null; U.ui.der = 'inv'; U.ui.ficha = null; });
   await p.waitForTimeout(400);
   const nb = await p.evaluate(() => { const e = window.__juego().heroe.d.bolsa.find((q) => q.o === window.__it.o); return e ? { x: e.x, y: e.y, o: { w: e.o.w, h: e.o.h } } : null; });
-  if (nb) { const Hd = await p.evaluate(async () => { const H = await import('/@fs/home/user/pixel_forja/src/engine/gotico/hud.ts'); return H.BOLSA; }); const [bx, by] = await celda('der', Hd.x, Hd.y, nb); await tap(bx, by); await p.waitForTimeout(500); await p.screenshot({ path: `/tmp/claude-0/sp/pw/ficha_arma_${vista}.png` }); console.log('ficha arma', JSON.stringify(await p.evaluate(() => window.__ficha()?.map((q) => q.txt)))); }
+  if (nb) { const Hd = await p.evaluate(async () => { const H = await import('/@fs/home/user/pixel_forja/src/engine/gotico/hud.ts'); return H.BOLSA; }); const [bx, by] = await celda('der', Hd.x, Hd.y, nb); await tap(bx, by); await p.waitForTimeout(500); await p.screenshot({ path: `/tmp/requiem-pruebas/ficha_arma_${vista}.png` }); console.log('ficha arma', JSON.stringify(await p.evaluate(() => window.__ficha()?.map((q) => q.txt)))); }
   await p.evaluate(() => { const U = window.__U; U.ui.ficha = null; U.ui.izq = 'tienda'; U.ui.der = 'inv'; }); await p.waitForTimeout(300);
   // reabrir otra ficha para la prueba de tocar fuera
   await tap(sx, sy); await p.waitForTimeout(300);
@@ -47,7 +47,7 @@ const { entrar } = require('./comun_pruebas.cjs');
     const [bx, by] = await celda('der', Hd.x, Hd.y, itb);
     await tap(bx, by); await p.waitForTimeout(500);
     rb = await p.evaluate(() => ({ ficha: !!window.__U.ui.ficha, mano: !!window.__U.ui.mano }));
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/ficha_bolsa_${vista}.png` });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/ficha_bolsa_${vista}.png` });
   }
   console.log(JSON.stringify({ cerradaAlTocarFuera: cerrada, bolsa: rb, errs: errs.slice(0, 3) }));
   await b.close();

@@ -1,4 +1,4 @@
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('ipad11', 'berserker', 8);
   await p.evaluate(() => window.__ir('a1_paramo')); await p.waitForTimeout(5000);

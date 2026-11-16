@@ -1,5 +1,5 @@
 // Las cavernas: todo lo abierto se alcanza desde la entrada, y salidas, jefe y grupos caen en piso alcanzable. Muchas semillas.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p } = await entrar('pc', 'berserker', 8);
   const r = await p.evaluate(async (N) => {

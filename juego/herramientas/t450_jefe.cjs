@@ -1,5 +1,5 @@
 // Pelea con jefe: ambiente (viñeta y motas), furia (filo rojo) y caída (estallidos, onda, lluvia). Capturas de cada momento.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const zona = process.argv[2] || 'a1_pozo';
   const { b, p, errs } = await entrar('pc', 'berserker', 30);
@@ -7,7 +7,7 @@ const { entrar } = require('./comun');
   await p.evaluate(() => { window.__sinLluvia = true; const j = window.__juego(), z = j.zona, h = j.heroe; h.vida = h.vidaMax = 1e6; const s = z.spawns.find((q) => q.tipo === 'jefe'); h.x = s.cx + 3.5; h.y = s.cy + 3.5; h.camino = null; });
   let visto = false; for (let i = 0; i < 40 && !visto; i++) { await p.waitForTimeout(300); visto = await p.evaluate(() => !!window.__juego().jefe); }
   await p.waitForTimeout(5000);
-  const sh = (n) => p.screenshot({ path: `/tmp/claude-0/sp/pw/out/jefe_${n}.png`, clip: { x: 160, y: 0, width: 960, height: 640 } });
+  const sh = (n) => p.screenshot({ path: `/tmp/requiem-pruebas/jefe_${n}.png`, clip: { x: 160, y: 0, width: 960, height: 640 } });
   await sh('a');
   const e1 = await p.evaluate(() => { const j = window.__juego(), m = j.jefe; if (!m) return 'sin jefe'; m.vida = m.vidaMax * 0.45; return m.def.id + ' fase ' + m.fase; });
   await p.waitForTimeout(1800); await sh('b');

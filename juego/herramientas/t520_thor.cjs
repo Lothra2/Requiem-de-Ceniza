@@ -1,5 +1,5 @@
 // Thor y su equipo: sin barda, con barda de cada tramo y con collar. Captura de cada uno y el sprite que lleva.
-const { entrar } = require('./comun');
+const { entrar } = require('./comun_pruebas.cjs');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'berserker', 34);
   await p.evaluate(() => { window.__sinLluvia = true; const j = window.__juego(); j.zona.oscuridad = 0.15; });
@@ -12,7 +12,7 @@ const { entrar } = require('./comun');
     await p.waitForTimeout(2600);
     const r = await p.evaluate(() => { const j = window.__juego(), h = j.heroe, t = j.monstruos.find((m) => m.dueno && m.invocaId === 'thor'); const s = window.__aPant(t.x, t.y); return { sprite: t.def.sprite, gema: t.gemaCollar || null, x: s[0], y: s[1], vidaMax: t.vidaMax }; });
     const L = await p.evaluate(() => { const c = document.getElementById('juego'); const r = c.getBoundingClientRect(); return { k: r.width / c.width, l: r.left, t: r.top }; });
-    await p.screenshot({ path: `/tmp/claude-0/sp/pw/out/thor_${nom}.png`, clip: { x: Math.max(0, L.l + r.x * L.k - 70), y: Math.max(0, L.t + r.y * L.k - 100), width: 140, height: 130 } });
+    await p.screenshot({ path: `/tmp/requiem-pruebas/thor_${nom}.png`, clip: { x: Math.max(0, L.l + r.x * L.k - 70), y: Math.max(0, L.t + r.y * L.k - 100), width: 140, height: 130 } });
     out.push({ nom, sprite: r.sprite, gema: r.gema, vida: r.vidaMax });
   }
   console.log(JSON.stringify(out), errs.slice(0, 3));

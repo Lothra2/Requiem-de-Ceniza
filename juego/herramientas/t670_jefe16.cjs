@@ -8,4 +8,4 @@ const { chromium } = require('playwright');
     let y = 0; for (const [id, esc] of [['jefe_abadesa', 1.3], ['jefe_aun_saar', 0.62]]) { const q = m.m[id + '/caminar/so']; let x = 0; const alto = Math.max(...q.map((f) => f[4])) * esc;
       for (const f of q) { const im = await img(f[0]); g.drawImage(im, f[1], f[2], f[3], f[4], x + (110 - f[5] * esc) , y + alto - f[6] * esc + 10, f[3] * esc, f[4] * esc); x += 110; } y += alto + 20; }
   });
-  await p.waitForTimeout(500); await p.screenshot({ path: '/tmp/claude-0/sp/pw/out/jefe16.png' }); await b.close(); })();
+  await p.waitForTimeout(500); await p.screenshot({ path: '/tmp/requiem-pruebas/jefe16.png' }); await b.close(); })();

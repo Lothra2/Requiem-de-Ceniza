@@ -12,5 +12,5 @@ const { chromium } = require('playwright'); const fs = require('fs');
     const y2 = cv.height - 56; uno.slice(0, 12).forEach((h, i) => { c.drawImage(I.iconoPintado(h, 22, false, true), 8 + i * 52, y2, 44, 44); c.drawImage(I.iconoPintado(h, 22, true), 640 + i * 52, y2, 44, 44); });
     return cv.toDataURL('image/png');
   });
-  fs.writeFileSync('/tmp/claude-0/sp/pw/out/iconos.png', Buffer.from(url.split(',')[1], 'base64')); console.log('ok', errs.slice(0, 3)); await b.close();
+  fs.writeFileSync('/tmp/requiem-pruebas/iconos.png', Buffer.from(url.split(',')[1], 'base64')); console.log('ok', errs.slice(0, 3)); await b.close();
 })();

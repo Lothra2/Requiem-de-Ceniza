@@ -14,7 +14,7 @@ const { entrar } = require('./comun_pruebas.cjs');
   for (let i = 0; i < 60; i++) {
     await p.waitForTimeout(200);
     const s = await p.evaluate(() => { const j = window.__juego(), h = j.heroe; return { atk: window.__ms.filter((m) => m.acc === 'atacar').length + (h.acc === 'atacar' ? 1 : 0), sac: window.__ms.filter((m) => m.sacud && j.t - m.sacud.t < 0.2).length + (h.sacud && j.t - h.sacud.t < 0.2 ? 1 : 0), d: window.__ms.map((m) => m.dir).join(), v: window.__ms.map((m) => m.vel.toFixed(2)).join() }; });
-    lunge += s.atk; sacud += s.sac; dirs.add(s.d); if (i === 30) { await p.screenshot({ path: `/tmp/claude-0/sp/pw/pelea_${vista}.png` }); console.log('velocidades', s.v); }
+    lunge += s.atk; sacud += s.sac; dirs.add(s.d); if (i === 30) { await p.screenshot({ path: `/tmp/requiem-pruebas/pelea_${vista}.png` }); console.log('velocidades', s.v); }
   }
   const fin = await p.evaluate(() => ({ danoHecho: window.__ms.map((m) => Math.round(m.vidaMax - m.vida)), danoRecibido: Math.round(1e6 - window.__juego().heroe.vida) }));
   console.log(JSON.stringify({ vista, muestrasAtacando: lunge, muestrasConRetroceso: sacud, ...fin, errs: errs.slice(0, 3) }));

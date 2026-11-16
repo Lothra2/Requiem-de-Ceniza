@@ -17,7 +17,7 @@ const { chromium } = require('playwright');
   const s = await nueva(() => { if (!localStorage.getItem('marca.heroes')) localStorage.setItem('marca.heroes', JSON.stringify([{ nombre: 'Otro', clase: 'monje', nivel: 3 }])); localStorage.setItem('marca.intro', '1'); });
   await s.goto('http://127.0.0.1:5190/#partida=' + cod); await s.waitForTimeout(5000);
   const antes = await s.evaluate(() => JSON.parse(localStorage.getItem('marca.heroes'))[0].nombre);
-  await s.screenshot({ path: '/tmp/claude-0/sp/pw/out/traslado.png' });
+  await s.screenshot({ path: '/tmp/requiem-pruebas/traslado.png' });
   await s.getByText('Cargar esta partida').click(); await s.waitForTimeout(5000);
   const t = await s.evaluate(() => ({ h: localStorage.getItem('marca.heroes'), resp: JSON.parse(localStorage.getItem('marca.respaldo') || 'null') }));
   console.log('con partida: antes', antes, 'después igual', t.h === orig, 'respaldo', t.resp && JSON.parse(t.resp.d['marca.heroes'])[0].nombre);

@@ -102,7 +102,11 @@ export async function pintarHeroe(clase: string, cuerpo: any, equipo: any, firma
         let w: Worker; try { w = new Obrero(); } catch { fin(); return; }
         obreros.push(w);
         const dar = () => { if (sig2 < tr.length) { const t = tr[sig2++]; w.postMessage({ id: yo, cuerpo, equipo, acc: t.acc, dir: 'r' + (t.k * 360) / FINO_RUMBOS, cuadros: base12[t.acc], base: base12[t.acc], desfase: t.medio ? 0.5 : 0, calidad: 1, clave: t.acc + '@' + t.k + (t.medio ? '~' : '') }); } else w.terminate(); };
-        w.onmessage = (ev) => { const m = ev.data; if (m.id !== yo) return; if (!m.error) { finos.set(m.clave, m.out.map(aCuadro)); crudos[m.clave] = m.out; (window as any).__finos = finos.size; } if (++hechos2 >= tr.length) fin(); dar(); };
+        w.onmessage = (ev) => { const m = ev.data; if (m.id !== yo) return; if (!m.error) { finos.set(m.clave, m.out.map(aCuadro)); crudos[m.clave] = m.out; (window as any).__finos = finos.size; }
+          // se guarda de a poco: en el teléfono el paso fino tarda minutos y, si se cerraba el juego antes del final, se
+          // perdía entero y la próxima vez arrancaba de cero (el héroe se quedaba en 8 rumbos para siempre)
+          if (!m.error && yo === trabajo && hechos2 % 4 === 3) escribir(clave, crudos);
+          if (++hechos2 >= tr.length) fin(); dar(); };
         w.onerror = () => { if (++hechos2 >= tr.length) fin(); dar(); };
         dar();
       }

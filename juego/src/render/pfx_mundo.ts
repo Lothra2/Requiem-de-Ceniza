@@ -42,6 +42,13 @@ function armar(j: Juego) {
     for (let k = 0; k < 12; k++) {
       const x = 2 + r() * (z.W - 4), y = 2 + r() * (z.H - 4);
       if (!pasable(z, x, y) || (jefe && Math.hypot(jefe.cx - x, jefe.cy - y) < 16)) continue;
+      // lo que va tendido en el piso (ondas de agua, burbujas) necesita lugar: nada tapado ni objetos en dos casillas a la redonda
+      if (EN_PISO.test(usar[i % usar.length])) {
+        let libre = true;
+        for (let dy = -2; dy <= 2 && libre; dy++) for (let dx = -2; dx <= 2 && libre; dx++) if (!pasable(z, x + dx, y + dy)) libre = false;
+        if (libre) for (const o of z.objetos) if (Math.abs(o.cx - x) < o.hw + 2.5 && Math.abs(o.cy - y) < o.hh + 2.5) { libre = false; break; }
+        if (!libre) continue;
+      }
       plantas.push({ id: usar[i % usar.length], x, y, fase: r() * 10 });
       break;
     }
@@ -49,18 +56,25 @@ function armar(j: Juego) {
   precargarPfx([...clima, ...amb]);
 }
 
-/** Lo que vive en la zona, en el mundo (antes de la luz: se oscurece con la noche). Como mucho 6 en táctil y 12 en escritorio. */
-export function dibujarAmbiente(ctx: CanvasRenderingContext2D, j: Juego, aPant: (x: number, y: number) => [number, number], W: number, H: number, t: number) {
-  if (!pfxListo()) return;
+/** Efectos de ambiente que van tendidos en el piso: se pintan como suelo, debajo de todo lo que está parado. */
+const EN_PISO = /ola|onda|charco|burbuj|circulo|grieta|suelo|lava|pantano/;
+/**
+ * Lo que vive en la zona, como cosas del mundo: cada una con su profundidad, para que entre en el orden de pintado con
+ * los objetos y los cuerpos (antes se pintaban todas al final y una onda de agua salía encima de muros, árboles y gente).
+ * Lo tendido en el piso va con la profundidad del suelo. Como mucho 6 en táctil y 12 en escritorio.
+ */
+export function itemsAmbiente(ctx: CanvasRenderingContext2D, j: Juego, aPant: (x: number, y: number) => [number, number], W: number, H: number, t: number): { prof: number; draw: () => void }[] {
+  if (!pfxListo()) return [];
   if (zonaId !== j.zona.id + ':' + j.zona.semilla) armar(j);
-  let n = 0; const tope = E.tactil ? 6 : 12;
+  const out: { prof: number; draw: () => void }[] = []; const tope = E.tactil ? 6 : 12;
   for (const p of plantas) {
     const [px, py] = aPant(p.x, p.y);
     if (px < -80 || px > W + 80 || py < -60 || py > H + 160) continue;
-    if (++n > tope) break;
+    if (out.length >= tope) break;
     // todo el ambiente a escala 1: el pixel no pasa del del mundo. El espectro, además, translúcido
-    dibujarPfx(ctx, p.id, t + p.fase, px, py, { escala: 0.5, alfa: p.id === 'fx_espectro' ? 0.6 : 1, dir: p.id === 'fx_ola' ? 6 : 0 });
+    out.push({ prof: EN_PISO.test(p.id) ? -9e5 + p.x + p.y : p.x + p.y, draw: () => { dibujarPfx(ctx, p.id, t + p.fase, px, py, { escala: 0.5, alfa: p.id === 'fx_espectro' ? 0.6 : 1, dir: p.id === 'fx_ola' ? 6 : 0 }); } });
   }
+  return out;
 }
 
 // Hojas secas en el viento: cada una es un mapita de 4 o 5 pixeles que gira al caer, se mece y deriva con el viento.

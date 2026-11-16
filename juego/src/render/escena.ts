@@ -24,7 +24,7 @@ import { calorOzmaren, fuegoMundo, dibujarFuegosMundo } from './fuego';
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
 import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
-import { dibujarAmbiente, dibujarClimaPfx } from './pfx_mundo';
+import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
 import { cuerpoArde, armaArde, seguirSuelo, dibujarSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
 let dtCuadro = 1 / 60;
@@ -439,6 +439,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); ctx.globalCompositeOperation = mezclaDe(e.id) as GlobalCompositeOperation; dibujarEfecto(e, tiempo); ctx.restore(); };
     items.push({ prof: e.x + e.y - 0.03, draw: mitad(true) }, { prof: e.x + e.y + 0.03, draw: mitad(false) });
   }
+  // lo que vive en la zona (pixelfx) entra en el orden con todo lo demás: lo tapa lo que tiene delante
+  for (const it of itemsAmbiente(ctx, j, aPant, W, H, tiempo)) items.push(it);
   items.sort((a, b) => a.prof - b.prof);
   for (const it of items) it.draw();
   dibujarFuegosMundo(ctx, tiempo, cam.x, cam.y);
@@ -486,8 +488,6 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let i = chispas.length - 1; i >= 0; i--) { const c = chispas[i]; c.t -= dt; c.x += c.vx * dt; c.y += c.vy * dt; if (c.t <= 0) { chispas.splice(i, 1); continue; } ctx.globalAlpha = Math.min(1, c.t * 2); ctx.fillStyle = c.c; ctx.fillRect(c.x, c.y, 2, 2); }
   ctx.restore();
-  // lo que vive en la zona (pixelfx): antes de la luz, así la noche también lo oscurece
-  dibujarAmbiente(ctx, j, aPant, W, H, tiempo);
   // bruma baja al pie de la catedral, y después la luz
   brumaAncla(j);
   dibujarLuz(j, tiempo);
@@ -1175,21 +1175,38 @@ const salpicones: { x: number; y: number; t: number; d: number; g: number }[] = 
 const chorros: { x: number; y: number; v: number; l: number; c: number }[] = [];
 let rafaga = 0, relampago = 0, proxRayo = 9 + Math.random() * 14;
 const hashCelda = (x: number, y: number) => { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); };
+let charcosDe = '', charcosZona: { x: number; y: number; h: number; r: number }[] = [];
 function lluviaSuelo(j: Juego, dt: number, t: number, aP: (x: number, y: number) => [number, number], aM: (x: number, y: number) => [number, number]) {
   const z = j.zona;
   const piso = (wx: number, wy: number) => { const cx = Math.floor(wx), cy = Math.floor(wy); return cx >= 0 && cy >= 0 && cx < z.W && cy < z.H && !!z.pisos[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)] && z.bloq[cy * z.W + cx] !== 2 && !(z.hueco && z.hueco[cy * z.W + cx]); };
-  // charcos: salen del mapa (siempre en el mismo sitio), solo sobre piso libre
-  const [wx0] = aM(0, 0), [, wy0] = aM(W, 0), [wx1] = aM(W, H), [, wy1] = aM(0, H);
+  // charcos: salen del mapa (siempre en el mismo sitio). Solo donde TODO el charco cabe en piso libre y parejo: ninguna
+  // casilla tapada ni otra baldosa (empedrado, losa) ni un objeto ni un desnivel bajo su mancha. Antes se miraba solo la
+  // casilla del centro y el borde y las ondas caían encima de muros bajos, losas y bordes de camino.
+  const clave = z.id + ':' + z.semilla;
+  if (charcosDe !== clave) {
+    charcosDe = clave; charcosZona = [];
+    const tile = (cx: number, cy: number) => z.pisos[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)];
+    for (let cy = 2; cy < z.H - 2; cy++) for (let cx = 2; cx < z.W - 2; cx++) {
+      const h = hashCelda(cx, cy); if (h > 0.02) continue;
+      const r = 9 + h * 600, n = r > 15 ? 2 : 1, t0 = tile(cx, cy), a0 = z.alturas ? z.alturas[cy * z.W + cx] : 0;
+      let ok = !!t0;
+      for (let dy = -n; dy <= n && ok; dy++) for (let dx = -n; dx <= n && ok; dx++) {
+        const x = cx + dx, y = cy + dy, t1 = tile(x, y);
+        if (z.bloq[y * z.W + x] || !piso(x, y) || !t1 || t1.id !== t0!.id || (z.alturas && Math.abs(z.alturas[y * z.W + x] - a0) > 0.05)) ok = false;
+      }
+      if (ok) for (const o of z.objetos) if (Math.abs(o.cx - (cx + 0.5)) < o.hw + n + 0.5 && Math.abs(o.cy - (cy + 0.5)) < o.hh + n + 0.5) { ok = false; break; }
+      if (ok) charcosZona.push({ x: cx + 0.5, y: cy + 0.5, h, r });
+    }
+  }
   ctx.save();
-  for (let cy = Math.max(0, Math.floor(wy0)); cy <= Math.min(z.H - 1, Math.ceil(wy1)); cy++) for (let cx = Math.max(0, Math.floor(wx0)); cx <= Math.min(z.W - 1, Math.ceil(wx1)); cx++) {
-    const h = hashCelda(cx, cy); if (h > 0.02 || z.bloq[cy * z.W + cx] || !piso(cx, cy)) continue;
-    const [px, py] = aP(cx + 0.5, cy + 0.5); if (px < -40 || px > W + 40 || py < -20 || py > H + 20) continue;
-    const r = 9 + h * 600, gr = ctx.createRadialGradient(px, py, 0, px, py, r);
+  for (const c of charcosZona) {
+    const [px, py] = aP(c.x, c.y), r = c.r, h = c.h; if (px < -40 || px > W + 40 || py < -20 || py > H + 20) continue;
+    const gr = ctx.createRadialGradient(px, py, 0, px, py, r);
     gr.addColorStop(0, 'rgba(24,34,52,0.62)'); gr.addColorStop(0.75, 'rgba(28,40,60,0.5)'); gr.addColorStop(1, 'rgba(28,40,60,0)');
     ctx.fillStyle = gr; ctx.beginPath(); ctx.ellipse(px, py, r, r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
-    // el reflejo del cielo y las ondas de las gotas que le caen
-    ctx.strokeStyle = `rgba(150,175,215,${0.16 + 0.1 * Math.sin(t * 2 + h * 900)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(px - r * 0.2, py - r * 0.12, r * 0.45, r * 0.16, 0, Math.PI, Math.PI * 1.9); ctx.stroke();
-    if (calidadMundo.nivel >= 2) for (let k = 0; k < 2; k++) { const f = (t * (0.9 + k * 0.35) + h * 500 + k * 0.5) % 1, rr = r * (0.15 + f * 0.7); ctx.strokeStyle = `rgba(170,195,230,${0.4 * (1 - f)})`; ctx.beginPath(); ctx.ellipse(px + (k ? r * 0.25 : -r * 0.2), py + (k ? -r * 0.08 : r * 0.06), rr, rr * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); }
+    // el reflejo del cielo y las ondas de las gotas que le caen (apagadas: de noche brillaban como neón)
+    ctx.strokeStyle = `rgba(130,150,185,${0.1 + 0.06 * Math.sin(t * 2 + h * 900)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(px - r * 0.2, py - r * 0.12, r * 0.45, r * 0.16, 0, Math.PI, Math.PI * 1.9); ctx.stroke();
+    if (calidadMundo.nivel >= 2) for (let k = 0; k < 2; k++) { const f = (t * (0.9 + k * 0.35) + h * 500 + k * 0.5) % 1, rr = r * (0.12 + f * 0.5); ctx.strokeStyle = `rgba(150,172,205,${0.2 * (1 - f)})`; ctx.beginPath(); ctx.ellipse(px + (k ? r * 0.2 : -r * 0.15), py + (k ? -r * 0.04 : r * 0.05), rr, rr * 0.5, 0, 0, Math.PI * 2); ctx.stroke(); }
   }
   // gotas que revientan en el piso
   const porSeg = (E.tactil ? 170 : 300) * (0.75 + 0.5 * rafaga) * (calidadMundo.nivel >= 2 ? 1 : 0.5);

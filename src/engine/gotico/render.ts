@@ -1,0 +1,1129 @@
+import { createRaster, type Raster } from '../core/raster';
+import { MATERIALES, type Material } from './materiales';
+
+/**
+ * El renderizador del taller gótico: arma cada asset con piezas 3D (cajas y poliedros, cilindros y conos,
+ * elipsoides), lo mira con la cámara isométrica de los juegos de rol oscuros de fines de los noventa (2:1, 30° de
+ * elevación, el piso en rombos de 160×80) y lo pinta como un render previo: luz de arriba a la izquierda, sombra
+ * propia y sombra en el piso, la textura de cada material y la paleta bajada a rampas cortas con trama ordenada.
+ *
+ * Unidades: una unidad del mundo es un pixel a lo largo del eje del piso; una celda de juego (32×16 en pantalla)
+ * mide 16 unidades y un rombo de piso (160×80) mide 80. Un personaje adulto mide 75 px en pantalla, unas 61
+ * unidades de alto (ALTO_PERSONA).
+ */
+
+export type V3 = [number, number, number];
+/** Cuánto sube en pantalla una unidad de altura: cámara a 30° sobre el piso (√1.5). */
+export const KZ = Math.sqrt(1.5);
+export const CELDA = 16;
+export const BALDOSA = 80;
+export const ALTO_PERSONA = Math.round(75 / KZ);
+
+const norm = (v: V3): V3 => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const dot = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const add = (a: V3, b: V3, k = 1): V3 => [a[0] + b[0] * k, a[1] + b[1] * k, a[2] + b[2] * k];
+
+/** Hacia dónde mira la cámara (del ojo a la escena) y de dónde viene la luz. */
+export const VISTA: V3 = norm([-1, -1, -1 / KZ]);
+export const LUZ: V3 = norm([-0.45, 0.3, 0.85]);
+const LUZ0 = LUZ;
+
+/** Pantalla relativa al ancla (el origen del mundo en el piso). */
+export const aPantalla = (p: V3): [number, number] => [p[0] - p[1], (p[0] + p[1]) / 2 - p[2] * KZ];
+
+// ------------------------------------------------------------------ piezas
+interface Base { mat: string; resta?: boolean; tono?: number }
+interface Conv extends Base { k: 'conv'; planos: [V3, number][]; pts: V3[] }
+interface Cono extends Base { k: 'cono'; o: V3; ex: V3; ey: V3; ez: V3; h: number; r0: number; r1: number }
+interface Elip extends Base { k: 'elip'; c: V3; ex: V3; ey: V3; ez: V3; r: V3 }
+/** Componente de una masa: hueso (cono redondeado entre a y b) o bulto (elipsoide orientado). */
+export type Comp =
+  | { f: 'hueso'; a: V3; b: V3; r0: number; r1: number; mat?: string; tono?: number; k?: number; sc: V3; sr: number; pre: number[]; rx?: V3 }
+  | { f: 'bulto'; c: V3; ex: V3; ey: V3; ez: V3; r: V3; mat?: string; tono?: number; k?: number; sc: V3; sr: number };
+/** Masa orgánica: componentes que se funden con unión suave (cuerpos, músculos, troncos, raíces). */
+interface Masa extends Base { k: 'masa'; comps: Comp[]; suave: number; esf: [number, number, number, number] }
+export type Pieza = Conv | Cono | Elip | Masa;
+
+export interface Opc { mat: string; tono?: number; resta?: boolean }
+/** Ejes de una pieza girada `giro` grados alrededor del eje vertical (y opcionalmente inclinada). */
+function ejes(giro = 0, incl = 0, inclEje: 'x' | 'y' = 'x'): [V3, V3, V3] {
+  const g = (giro * Math.PI) / 180, a = (incl * Math.PI) / 180;
+  let ex: V3 = [Math.cos(g), Math.sin(g), 0], ey: V3 = [-Math.sin(g), Math.cos(g), 0], ez: V3 = [0, 0, 1];
+  if (a) {
+    if (inclEje === 'x') { const ey2 = add(ey.map((v) => v * Math.cos(a)) as V3, ez, Math.sin(a)); ez = add(ez.map((v) => v * Math.cos(a)) as V3, ey, -Math.sin(a)); ey = ey2; }
+    else { const ex2 = add(ex.map((v) => v * Math.cos(a)) as V3, ez, Math.sin(a)); ez = add(ez.map((v) => v * Math.cos(a)) as V3, ex, -Math.sin(a)); ex = ex2; }
+  }
+  return [ex, ey, ez];
+}
+/** Caja: centro de la base en (x,y,z), medidas completas (an, pr, al), giro en grados. */
+export function caja(x: number, y: number, z: number, an: number, pr: number, al: number, o: Opc & { giro?: number; incl?: number; inclEje?: 'x' | 'y' }): Pieza {
+  const [ex, ey, ez] = ejes(o.giro, o.incl, o.inclEje);
+  const c = add([x, y, z], ez, al / 2), hx = an / 2, hy = pr / 2, hz = al / 2;
+  const planos: [V3, number][] = [];
+  for (const [n, h] of [[ex, hx], [ey, hy], [ez, hz]] as [V3, number][]) { planos.push([n, dot(n, c) + h]); const m: V3 = [-n[0], -n[1], -n[2]]; planos.push([m, dot(m, c) + h]); }
+  const pts: V3[] = [];
+  for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) pts.push(add(add(add(c, ex, sx * hx), ey, sy * hy), ez, sz * hz));
+  return { k: 'conv', planos, pts, mat: o.mat, tono: o.tono, resta: o.resta };
+}
+/** Poliedro convexo desde sus vértices (se arman los planos de su cáscara: sirve para techos, cuñas y pirámides). */
+export function poliedro(pts: V3[], o: Opc): Pieza {
+  const planos: [V3, number][] = [];
+  const n = pts.length;
+  const c: V3 = [0, 0, 0]; for (const p of pts) { c[0] += p[0] / n; c[1] += p[1] / n; c[2] += p[2] / n; }
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) for (let k = j + 1; k < n; k++) {
+    let nn = cross(add(pts[j], pts[i], -1), add(pts[k], pts[i], -1));
+    if (Math.hypot(...nn) < 1e-6) continue;
+    nn = norm(nn);
+    let d = dot(nn, pts[i]);
+    if (dot(nn, c) > d) { nn = [-nn[0], -nn[1], -nn[2]]; d = -d; }
+    if (pts.every((p) => dot(nn, p) <= d + 1e-4) && !planos.some(([m, e]) => dot(m, nn) > 0.9999 && Math.abs(e - d) < 1e-3)) planos.push([nn, d]);
+  }
+  return { k: 'conv', planos, pts, mat: o.mat, tono: o.tono, resta: o.resta };
+}
+/** Cilindro o cono truncado: base en (x,y,z), radio abajo r0, arriba r1, alto h; `incl` lo tumba (grados). */
+export function cilindro(x: number, y: number, z: number, r0: number, h: number, o: Opc & { r1?: number; giro?: number; incl?: number; inclEje?: 'x' | 'y'; eje?: V3 }): Pieza {
+  let [ex, ey, ez] = ejes(o.giro, o.incl, o.inclEje);
+  if (o.eje) { ez = norm(o.eje); const t: V3 = Math.abs(ez[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]; ex = norm(cross(t, ez)); ey = cross(ez, ex); }
+  return { k: 'cono', o: [x, y, z], ex, ey, ez, h, r0, r1: o.r1 ?? r0, mat: o.mat, tono: o.tono, resta: o.resta };
+}
+/** Cilindro entre dos puntos (ramas, palos, cadenas). */
+export function palo(a: V3, b: V3, r0: number, o: Opc & { r1?: number }): Pieza {
+  const d = add(b, a, -1);
+  return cilindro(a[0], a[1], a[2], r0, Math.hypot(...d), { ...o, eje: d });
+}
+/** Elipsoide con centro (x,y,z) y radios. */
+export function elipsoide(x: number, y: number, z: number, rx: number, ry: number, rz: number, o: Opc & { giro?: number; incl?: number; inclEje?: 'x' | 'y' }): Pieza {
+  const [ex, ey, ez] = ejes(o.giro, o.incl, o.inclEje);
+  return { k: 'elip', c: [x, y, z], ex, ey, ez, r: [rx, ry, rz], mat: o.mat, tono: o.tono, resta: o.resta };
+}
+export const esfera = (x: number, y: number, z: number, r: number, o: Opc) => elipsoide(x, y, z, r, r, r, o);
+
+/** Opciones de un componente de masa: material propio, tono y suavidad propia de la unión. */
+export interface OpcComp { mat?: string; tono?: number; k?: number }
+/** Hueso de una masa: cono redondeado de `a` (radio r0) a `b` (radio r1). */
+/** `rx`: hacia dónde mira el hueso alrededor de su eje (el marco de su grano); gira con la pieza, no con el mundo. */
+export function hueso(a: V3, b: V3, r0: number, r1 = r0, o: OpcComp & { rx?: V3 } = {}): Comp {
+  const sc: V3 = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  const bx = b[0] - a[0], by = b[1] - a[1], bz = b[2] - a[2], l2 = bx * bx + by * by + bz * bz, rr = r0 - r1;
+  return { f: 'hueso', a, b, r0, r1, ...o, sc, sr: Math.sqrt(l2) / 2 + Math.max(r0, r1), pre: [bx, by, bz, l2, rr, l2 - rr * rr, l2 > 1e-9 ? 1 / l2 : 0] };
+}
+/**
+ * Bulto de una masa: elipsoide con centro `c` y radios. `eje` lo orienta (el radio x va a lo largo de ese eje, el z
+ * queda lo más vertical posible); sin eje, `giro` en grados alrededor de la vertical.
+ */
+export function bulto(c: V3, r: V3, o: OpcComp & { eje?: V3; ejes?: [V3, V3, V3]; giro?: number; incl?: number; inclEje?: 'x' | 'y' } = {}): Comp {
+  let ex: V3, ey: V3, ez: V3;
+  if (o.ejes) [ex, ey, ez] = o.ejes;
+  else if (o.eje) {
+    ex = norm(o.eje);
+    const up: V3 = Math.abs(ex[2]) > 0.95 ? [1, 0, 0] : [0, 0, 1];
+    ey = norm(cross(up, ex)); ez = cross(ex, ey);
+  } else [ex, ey, ez] = ejes(o.giro, o.incl, o.inclEje);
+  return { f: 'bulto', c, ex, ey, ez, r, mat: o.mat, tono: o.tono, k: o.k, sc: c, sr: Math.max(r[0], r[1], r[2]) };
+}
+/** Une los componentes en una sola masa con unión suave `suave` (unidades: 1.5 a 4 se ve orgánico). */
+export function masa(comps: Comp[], o: Opc & { suave?: number }): Pieza {
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+  for (const c of comps) { x0 = Math.min(x0, c.sc[0] - c.sr); y0 = Math.min(y0, c.sc[1] - c.sr); z0 = Math.min(z0, c.sc[2] - c.sr); x1 = Math.max(x1, c.sc[0] + c.sr); y1 = Math.max(y1, c.sc[1] + c.sr); z1 = Math.max(z1, c.sc[2] + c.sr); }
+  const cc: V3 = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2];
+  let R = 0; for (const c of comps) R = Math.max(R, Math.hypot(c.sc[0] - cc[0], c.sc[1] - cc[1], c.sc[2] - cc[2]) + c.sr);
+  const suave = o.suave ?? 2.5;
+  return { k: 'masa', comps, suave, esf: [cc[0], cc[1], cc[2], R + suave * 0.3 + 0.05], mat: o.mat, tono: o.tono };
+}
+
+// ---- distancias con signo
+function dHueso(c: Extract<Comp, { f: 'hueso' }>, p: V3): number {
+  // cono redondeado (fórmula de Íñigo Quílez), sin crear arreglos
+  const [bx, by, bz, l2, rr, a2, il2] = c.pre;
+  const px = p[0] - c.a[0], py = p[1] - c.a[1], pz = p[2] - c.a[2];
+  if (l2 < 1e-9) return Math.sqrt(px * px + py * py + pz * pz) - Math.max(c.r0, c.r1);
+  const y = px * bx + py * by + pz * bz, z = y - l2;
+  const qx = px * l2 - bx * y, qy = py * l2 - by * y, qz = pz * l2 - bz * y, x2 = qx * qx + qy * qy + qz * qz;
+  const y2 = y * y * l2, z2 = z * z * l2, k = Math.sign(rr) * rr * rr * x2;
+  if (Math.sign(z) * a2 * z2 > k) return Math.sqrt(x2 + z2) * il2 - c.r1;
+  if (Math.sign(y) * a2 * y2 < k) return Math.sqrt(x2 + y2) * il2 - c.r0;
+  return (Math.sqrt(x2 * a2 * il2) + y * rr) * il2 - c.r0;
+}
+function dBulto(c: Extract<Comp, { f: 'bulto' }>, p: V3): number {
+  const qx = p[0] - c.c[0], qy = p[1] - c.c[1], qz = p[2] - c.c[2];
+  const lx = (qx * c.ex[0] + qy * c.ex[1] + qz * c.ex[2]) / c.r[0], ly = (qx * c.ey[0] + qy * c.ey[1] + qz * c.ey[2]) / c.r[1], lz = (qx * c.ez[0] + qy * c.ez[1] + qz * c.ez[2]) / c.r[2];
+  const k0 = Math.sqrt(lx * lx + ly * ly + lz * lz), mx = lx / c.r[0], my = ly / c.r[1], mz = lz / c.r[2], k1 = Math.sqrt(mx * mx + my * my + mz * mz);
+  return k1 < 1e-9 ? -Math.min(c.r[0], c.r[1], c.r[2]) : (k0 * (k0 - 1)) / k1;
+}
+/** Distancia a la masa y el componente más cercano (el que pone el material); `sub` limita a esos componentes. */
+function dMasa(m: Masa, p: V3, sub?: Int16Array, nsub = 0): [number, number] {
+  let d = Infinity, mejor = 0, md = Infinity;
+  const n = sub ? nsub : m.comps.length;
+  for (let j = 0; j < n; j++) {
+    const i = sub ? sub[j] : j;
+    const c = m.comps[i], k = c.k ?? m.suave;
+    const ux = p[0] - c.sc[0], uy = p[1] - c.sc[1], uz = p[2] - c.sc[2];
+    const lb = Math.sqrt(ux * ux + uy * uy + uz * uz) - c.sr;
+    if (lb > d + k && lb > md) continue;
+    const di = c.f === 'hueso' ? dHueso(c, p) : dBulto(c, p);
+    if (di < md) { md = di; mejor = i; }
+    if (d === Infinity) d = di;
+    else if (k <= 0) d = Math.min(d, di);
+    else { const h = Math.max(k - Math.abs(d - di), 0) / k; d = Math.min(d, di) - h * h * k * 0.25; }
+  }
+  return [d, mejor];
+}
+/** Distancia con signo de un punto a una masa (negativa adentro): para apoyar pliegues y ruedos sobre su superficie. */
+export function distMasa(p: Pieza, q: V3): number { return p.k === 'masa' ? dMasa(p, q)[0] : Infinity; }
+const SUB = new Int16Array(512);
+function normalMasa(m: Masa, p: V3, sub?: Int16Array, ns = 0): V3 {
+  const e = 0.04;
+  const a = dMasa(m, [p[0] + e, p[1] - e, p[2] - e], sub, ns)[0], b = dMasa(m, [p[0] - e, p[1] - e, p[2] + e], sub, ns)[0];
+  const c = dMasa(m, [p[0] - e, p[1] + e, p[2] - e], sub, ns)[0], d = dMasa(m, [p[0] + e, p[1] + e, p[2] + e], sub, ns)[0];
+  return norm([a - b - c + d, -a - b + c + d, -a + b - c + d]);
+}
+
+// ------------------------------------------------------------------ intersección (cada pieza es convexa: entrada y salida)
+export interface Tramo { t0: number; t1: number; n0: V3; n1: V3; p: Pieza; i: number; mat?: string; tono?: number; ci?: number }
+const toLocal = (v: V3, ex: V3, ey: V3, ez: V3): V3 => [dot(v, ex), dot(v, ey), dot(v, ez)];
+/**
+ * El punto en el marco de la pieza que golpeó (y del componente, en una masa): la textura de los materiales `local` se
+ * pega a la pieza y no se desliza cuando la pieza se mueve entre cuadros.
+ */
+export function enPieza(g: { p: Pieza; ci?: number }, q: V3): V3 {
+  const p = g.p;
+  if (p.k === 'elip') return toLocal(add(q, p.c, -1), p.ex, p.ey, p.ez);
+  if (p.k === 'cono') return toLocal(add(q, p.o, -1), p.ex, p.ey, p.ez);
+  if (p.k === 'conv') {
+    const a = p.pts[0], b = p.pts[1], c = p.pts[2] ?? p.pts[0];
+    const ex = norm(add(b, a, -1)), ez0 = cross(ex, add(c, a, -1));
+    if (Math.hypot(...ez0) < 1e-6) return add(q, a, -1);
+    const ez = norm(ez0), ey = cross(ez, ex);
+    return toLocal(add(q, a, -1), ex, ey, ez);
+  }
+  const c = p.comps[g.ci ?? 0];
+  if (!c) return q;
+  if (c.f === 'bulto') return toLocal(add(q, c.c, -1), c.ex, c.ey, c.ez);
+  const [ex, ey, ez] = marcoHueso(p, g.ci ?? 0);
+  return toLocal(add(q, c.a, -1), ex, ey, ez);
+}
+/**
+ * Marco del componente hueso `ci` de una masa. El giro sobre su eje sale de la propia pieza, nunca del mundo: primero
+ * su `rx` (lo pone quien arma el cuerpo, y lo llevan los giros), si no, el centro de un componente vecino. Con la
+ * vertical del mundo el marco se daría vuelta cada vez que el hueso pasa por la vertical y el grano saltaría.
+ */
+export function marcoHueso(p: Pieza, ci: number): [V3, V3, V3] {
+  const c = (p as Masa).comps[ci] as Extract<Comp, { f: 'hueso' }>;
+  const ez = norm(add(c.b, c.a, -1));
+  const perp = (r: V3): V3 => add(r, ez, -dot(r, ez));
+  let ex: V3 = c.rx ? perp(c.rx) : [0, 0, 0];
+  if (Math.hypot(...ex) < 1e-3) for (const k of [ci + 1, ci - 1, ci + 2, ci - 2]) {
+    const v = (p as Masa).comps[k]; if (!v) continue;
+    const pr = perp(add(v.sc, c.sc, -1));
+    if (Math.hypot(...pr) > 1e-3) { ex = pr; break; }
+  }
+  // último recurso (un hueso suelto sin rx): el mundo
+  if (Math.hypot(...ex) < 1e-3) { ex = cross(ez, [0, 0, 1]); if (Math.hypot(...ex) < 1e-3) ex = cross(ez, [1, 0, 0]); }
+  ex = norm(ex);
+  return [ex, cross(ez, ex), ez];
+}
+const toWorld = (v: V3, ex: V3, ey: V3, ez: V3): V3 => [ex[0] * v[0] + ey[0] * v[1] + ez[0] * v[2], ex[1] * v[0] + ey[1] * v[1] + ez[1] * v[2], ex[2] * v[0] + ey[2] * v[1] + ez[2] * v[2]];
+
+export function tramo(p: Pieza, o: V3, d: V3, tdesde = -Infinity, thasta = Infinity): Tramo | null {
+  if (p.k === 'masa') {
+    // solo los componentes cuya esfera (más la unión suave) cruza el rayo, y la marcha entre su primera entrada y su última salida
+    let ns = 0, ta = Infinity, tb = -Infinity;
+    for (let i = 0; i < p.comps.length && ns < 512; i++) {
+      const c = p.comps[i], R = c.sr + Math.max(0, c.k ?? p.suave) * 0.5 + 0.05;
+      const wx = c.sc[0] - o[0], wy = c.sc[1] - o[1], wz = c.sc[2] - o[2];
+      const tc = wx * d[0] + wy * d[1] + wz * d[2], q = wx * wx + wy * wy + wz * wz - tc * tc;
+      if (q > R * R) continue;
+      const hw = Math.sqrt(R * R - q);
+      SUB[ns++] = i; if (tc - hw < ta) ta = tc - hw; if (tc + hw > tb) tb = tc + hw;
+    }
+    if (!ns) return null;
+    let t = Math.max(ta, tdesde);
+    const tfin = Math.min(tb, thasta);
+    for (let n = 0; n < 160 && t < tfin; n++) {
+      const pt: V3 = [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t];
+      const [dd, ci] = dMasa(p, pt, SUB, ns);
+      if (dd < 0.02) { const c = p.comps[ci]; const nn = normalMasa(p, pt, SUB, ns); return { t0: t, t1: tb, n0: nn, n1: [-nn[0], -nn[1], -nn[2]], p, i: 0, mat: c.mat, tono: c.tono, ci }; }
+      t += Math.max(dd * 0.9, 0.01);
+    }
+    return null;
+  }
+  if (p.k === 'conv') {
+    let t0 = -Infinity, t1 = Infinity, n0: V3 = [0, 0, 1], n1: V3 = [0, 0, 1];
+    for (const [n, e] of p.planos) {
+      const den = dot(n, d), dist = e - dot(n, o);
+      if (Math.abs(den) < 1e-9) { if (dist < 0) return null; continue; }
+      const t = dist / den;
+      if (den < 0) { if (t > t0) { t0 = t; n0 = n; } } else if (t < t1) { t1 = t; n1 = n; }
+      if (t0 > t1) return null;
+    }
+    return { t0, t1, n0, n1, p, i: 0 };
+  }
+  if (p.k === 'elip') {
+    const lo = toLocal(add(o, p.c, -1), p.ex, p.ey, p.ez), ld = toLocal(d, p.ex, p.ey, p.ez);
+    const so: V3 = [lo[0] / p.r[0], lo[1] / p.r[1], lo[2] / p.r[2]], sd: V3 = [ld[0] / p.r[0], ld[1] / p.r[1], ld[2] / p.r[2]];
+    const a = dot(sd, sd), b = 2 * dot(so, sd), c = dot(so, so) - 1, disc = b * b - 4 * a * c;
+    if (disc < 0) return null;
+    const q = Math.sqrt(disc), t0 = (-b - q) / (2 * a), t1 = (-b + q) / (2 * a);
+    const nrm = (t: number): V3 => { const l = add(lo, ld, t); return norm(toWorld([l[0] / (p.r[0] * p.r[0]), l[1] / (p.r[1] * p.r[1]), l[2] / (p.r[2] * p.r[2])], p.ex, p.ey, p.ez)); };
+    return { t0, t1, n0: nrm(t0), n1: nrm(t1), p, i: 0 };
+  }
+  // cono truncado
+  const lo = toLocal(add(o, p.o, -1), p.ex, p.ey, p.ez), ld = toLocal(d, p.ex, p.ey, p.ez);
+  const k = (p.r1 - p.r0) / p.h;
+  const cands: [number, V3][] = [];
+  const A = ld[0] * ld[0] + ld[1] * ld[1] - k * k * ld[2] * ld[2];
+  const rB = p.r0 + k * lo[2];
+  const B = 2 * (lo[0] * ld[0] + lo[1] * ld[1] - k * ld[2] * rB);
+  const C = lo[0] * lo[0] + lo[1] * lo[1] - rB * rB;
+  const lado = (t: number) => { const w = lo[2] + ld[2] * t; if (w < 0 || w > p.h) return; const x = lo[0] + ld[0] * t, y = lo[1] + ld[1] * t; const r = p.r0 + k * w; if (r < 0) return; cands.push([t, norm(toWorld([x, y, -r * k], p.ex, p.ey, p.ez))]); };
+  if (Math.abs(A) > 1e-9) { const disc = B * B - 4 * A * C; if (disc >= 0) { const q = Math.sqrt(disc); lado((-B - q) / (2 * A)); lado((-B + q) / (2 * A)); } }
+  else if (Math.abs(B) > 1e-9) lado(-C / B);
+  if (Math.abs(ld[2]) > 1e-9) for (const [w, r, s] of [[0, p.r0, -1], [p.h, p.r1, 1]] as [number, number, number][]) {
+    const t = (w - lo[2]) / ld[2], x = lo[0] + ld[0] * t, y = lo[1] + ld[1] * t;
+    if (x * x + y * y <= r * r) cands.push([t, toWorld([0, 0, s], p.ex, p.ey, p.ez)]);
+  }
+  if (cands.length < 2) return null;
+  cands.sort((a, b) => a[0] - b[0]);
+  const a0 = cands[0], a1 = cands[cands.length - 1];
+  return { t0: a0[0], t1: a1[0], n0: a0[1], n1: a1[1], p, i: 0 };
+}
+
+/**
+ * El primer punto sólido de la escena en el rayo. Una pieza `resta` cava solo en las piezas que se armaron antes que
+ * ella (así se talla la puerta en el muro y después se pone la hoja de madera dentro del hueco).
+ */
+const orden = new WeakMap<Pieza, number>();
+const envolvente = new WeakMap<Pieza, [number, number, number, number]>();
+export function esferaDe(p: Pieza): [number, number, number, number] {
+  let e = envolvente.get(p);
+  if (e) return e;
+  let pts: V3[];
+  if (p.k === 'masa') { envolvente.set(p, p.esf); return p.esf; }
+  if (p.k === 'conv') pts = p.pts;
+  else if (p.k === 'elip') { const R = Math.max(...p.r); e = [p.c[0], p.c[1], p.c[2], R]; envolvente.set(p, e); return e; }
+  else { const R = Math.max(p.r0, p.r1); const top = add(p.o, p.ez, p.h); const c: V3 = [(p.o[0] + top[0]) / 2, (p.o[1] + top[1]) / 2, (p.o[2] + top[2]) / 2]; e = [c[0], c[1], c[2], Math.hypot(p.h / 2, R) + 0.01]; envolvente.set(p, e); return e; }
+  const c: V3 = [0, 0, 0]; for (const q of pts) { c[0] += q[0] / pts.length; c[1] += q[1] / pts.length; c[2] += q[2] / pts.length; }
+  let r = 0; for (const q of pts) r = Math.max(r, Math.hypot(q[0] - c[0], q[1] - c[1], q[2] - c[2]));
+  e = [c[0], c[1], c[2], r + 0.01]; envolvente.set(p, e); return e;
+}
+export function numerar(ps: Pieza[]) { ps.forEach((p, i) => orden.set(p, i)); }
+interface Golpe { t: number; n: V3; p: Pieza; mat?: string; tono?: number; ci?: number }
+function impacto(ps: Pieza[], o: V3, d: V3, tmin = 0): Golpe | null {
+  const pos: Tramo[] = [], neg: Tramo[] = [];
+  let masas: [number, Masa][] | null = null;
+  for (const p of ps) {
+    // descarte: el rayo pasa lejos de la esfera que envuelve la pieza (d es unitario)
+    const e = esferaDe(p), wx = e[0] - o[0], wy = e[1] - o[1], wz = e[2] - o[2];
+    const tc = wx * d[0] + wy * d[1] + wz * d[2];
+    if (tc + e[3] < tmin) continue;
+    const q = wx * wx + wy * wy + wz * wz - tc * tc;
+    if (q > e[3] * e[3]) continue;
+    // las masas (caras de trazar) van después, de la más cercana a la más lejana, y solo si pueden tapar lo encontrado
+    if (p.k === 'masa') { (masas ??= []).push([tc - Math.sqrt(e[3] * e[3] - q), p]); continue; }
+    const r = tramo(p, o, d); if (!r || r.t1 < tmin) continue; r.i = orden.get(p) ?? 0; (p.resta ? neg : pos).push(r);
+  }
+  let mejor: Golpe | null = null;
+  const dentroNeg = (t: number, i: number) => neg.some((r) => r.i > i && t > r.t0 + 1e-6 && t < r.t1 - 1e-6);
+  for (const r of pos) {
+    const t = Math.max(r.t0, tmin);
+    if (mejor && t >= mejor.t) continue;
+    if (!dentroNeg(t, r.i)) { mejor = { t, n: r.n0, p: r.p, mat: r.mat, tono: r.tono }; continue; }
+    // dentro de un hueco: la pared del hueco (salida de la pieza que resta) si cae dentro de esta pieza
+    for (const q of neg) if (q.i > r.i && q.t1 > t && q.t1 < r.t1 && (!mejor || q.t1 < mejor.t) && !dentroNeg(q.t1 + 1e-5, r.i)) mejor = { t: q.t1, n: [-q.n1[0], -q.n1[1], -q.n1[2]], p: r.p };
+  }
+  if (masas) {
+    if (masas.length > 1) masas.sort((a, b) => a[0] - b[0]);
+    for (const [entra, m] of masas) {
+      if (mejor && entra >= mejor.t) break;
+      const r = tramo(m, o, d, Math.max(tmin, entra), mejor ? mejor.t : Infinity);
+      if (!r || r.t0 < tmin) continue;
+      const i = orden.get(m) ?? 0;
+      if ((!mejor || r.t0 < mejor.t) && !dentroNeg(r.t0, i)) mejor = { t: r.t0, n: r.n0, p: m, mat: r.mat, tono: r.tono, ci: r.ci };
+    }
+  }
+  return mejor;
+}
+
+// ------------------------------------------------------------------ ruido y trama
+function hash3(x: number, y: number, z: number): number {
+  let h = Math.imul(x | 0, 374761393) + Math.imul(y | 0, 668265263) + Math.imul(z | 0, 1274126177);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+/** Ruido de valor 3D suave (0..1). */
+export function ruido(x: number, y: number, z: number): number {
+  const xi = Math.floor(x), yi = Math.floor(y), zi = Math.floor(z), xf = x - xi, yf = y - yi, zf = z - zi;
+  const s = (t: number) => t * t * (3 - 2 * t), u = s(xf), v = s(yf), w = s(zf);
+  const l = (a: number, b: number, t: number) => a + (b - a) * t;
+  return l(l(l(hash3(xi, yi, zi), hash3(xi + 1, yi, zi), u), l(hash3(xi, yi + 1, zi), hash3(xi + 1, yi + 1, zi), u), v),
+    l(l(hash3(xi, yi, zi + 1), hash3(xi + 1, yi, zi + 1), u), l(hash3(xi, yi + 1, zi + 1), hash3(xi + 1, yi + 1, zi + 1), u), v), w);
+}
+export const fbm = (x: number, y: number, z: number) => ruido(x, y, z) * 0.6 + ruido(x * 2.1, y * 2.1, z * 2.1) * 0.3 + ruido(x * 4.3, y * 4.3, z * 4.3) * 0.1;
+export { hash3 };
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
+export const trama = (x: number, y: number) => BAYER[(y & 3) * 4 + (x & 3)];
+
+// ------------------------------------------------------------------ pintar
+export interface Escena {
+  piezas: Pieza[];
+  /** sin sombra en el piso (cosas que flotan o pisos) */
+  sinSombra?: boolean;
+  /** luz que tiñe (fuego cerca) */
+  resplandor?: { c: V3; r: number; color: string };
+  /** muestras por lado de cada pixel (1 a 3); si no está, la calidad global */
+  ss?: number;
+  /** iluminación propia (los personajes traen la clave baja de clave_baja.ts); sin ella, la de siempre */
+  luz?: Iluminacion;
+}
+/**
+ * Cómo se ilumina una escena. Cada campo que falta queda como siempre (la luz de los objetos y los pisos no cambia).
+ * amb, dif, cielo y rebote pesan la luz de relleno, la principal, la del cielo y el rebote del piso; `especular`
+ * multiplica el brillo de los materiales y `especularMin` se lo quita a los que brillan menos (piel, tela, cuero);
+ * `expo` y `gamma` son la curva final (gamma > 1 hunde las sombras); `borde` es una luz de contraluz fina que
+ * recorta la silueta (y `contorno` aclara el pixel del filo que da hacia ella, para que se lea a 75 px); `sombra` tiñe lo oscuro hacia un color; `techo` comprime lo claro (los blancos quedan rotos).
+ */
+export interface Iluminacion {
+  amb?: number; dif?: number; cielo?: number; rebote?: number;
+  especular?: number; especularMin?: number;
+  expo?: number; gamma?: number;
+  borde?: {
+    dir: V3; fuerza: number; color: string; ancho?: number; mezcla?: number; contorno?: number;
+    /**
+     * Retrato: la contraluz cae hacia abajo: nada bajo la z alto[0], entera desde alto[1] (cabeza y hombros); el
+     * contorno solo en los bordes que miran de lleno a la luz fría y con la misma caída en la altura de la silueta.
+     */
+    alto?: [number, number];
+  };
+  sombra?: { color: string; fuerza: number; hasta?: number };
+  techo?: { desde: number; k: number; color?: string; mezcla?: number };
+  /**
+   * El metal en penumbra (clave baja de los personajes): los materiales con brillo desde `filo` reciben un hilo de
+   * contraluz en los cantos (de la luz de borde), y los que brillan desde `brillo` además un destello estrecho (exponente
+   * `exp`) aunque el relleno siga oscuro. Lo demás (piel, tela, cuero) no se toca.
+   */
+  metal?: { brillo: number; esp: number; exp: number; filo: number; borde: number; ancho: number; piso?: number; /** cuánto difuso recibe el metal (retrato: la placa refleja, no se ilumina pareja) */ difuso?: number; /** el brillo ancho en la cara de la lámina (0,16) y el tope de la cara sin filo (0,56) */ suave?: number; tope?: number };
+  /**
+   * Luces de retrato (la selección de personaje): la principal con su dirección propia (en vez de LUZ, también para las
+   * sombras) y su color, y un relleno bajo de otro color. Lo que tiñen va en proporción a cuánto alumbran cada pixel.
+   */
+  principal?: { dir: V3; color: string; tinte?: number; pos?: V3; alcance?: number; /** [z de abajo, z de arriba, factor abajo]: la luz manda en lo alto (cara y pecho) y cae hacia los pies */ foco?: [number, number, number] };
+  relleno?: { dir: V3; color: string; fuerza: number; tinte?: number };
+  /**
+   * Oclusión ambiental en pantalla: muestras en la media esfera de la normal (radio en unidades del mundo) contra la
+   * profundidad de lo ya pintado; oscurece axilas, entrepierna, juntas y lo que queda bajo el casco. Apagada si falta.
+   */
+  ao?: { radio: number; fuerza: number; muestras?: number };
+  /**
+   * Línea de pixel art: el pixel del borde de la silueta se oscurece `k` (0..1) hacia `color` cuando su vecino vacío
+   * queda abajo o a la derecha (el lado de sombra) y `kLuz` cuando queda arriba o a la izquierda (el lado de la luz: la
+   * línea se rompe, como se entinta a mano). `dentro` oscurece además el pixel que queda detrás de un salto de
+   * profundidad de más de `salto` unidades (el brazo delante del torso, la cabeza sobre el pecho); necesita `ao`.
+   */
+  linea?: { k: number; kLuz?: number; color?: string; dentro?: number; salto?: number };
+  /**
+   * Relieve de material: la normal se perturba con el grano de cada superficie (poros en la piel, trama y pliegues en la
+   * tela, grano del cuero, golpes de martillo en la placa, astillas en el hueso), así la luz se quiebra en la superficie
+   * en vez de resbalar pareja como sobre plastilina. 1 = lo normal; 0 o ausente, sin relieve.
+   */
+  relieve?: number;
+  /**
+   * Aristas y hendiduras: donde las normales vecinas se abren (un canto, un nudillo, el borde de una placa) el pixel se
+   * aclara, y donde se cierran (un pliegue, una junta, entre dos músculos) se oscurece. Es lo que da el dibujo interior.
+   */
+  cavidad?: number;
+  /** Tonos intermedios entre cada par de colores de la rampa (3 por omisión; 2 o 1 marcan más el escalón de luz a sombra). */
+  tonos?: number;
+  /** Saturación final de todo lo que no emite (1 = igual). */
+  satura?: number;
+  /** La piel (materiales cu_piel*): su sombra tira a este color (sangre bajo la piel) y su color se satura `satura`. */
+  piel?: { sombra: string; satura: number; /** luz de más para la piel (la cara se lee aunque mire hacia abajo) */ luz?: number; /** cuánta oclusión recibe la piel (1 = como todo; 0,5 en el retrato: el pelo y la capucha no ennegrecen la cara) */ ao?: number };
+}
+export interface Render { img: Raster; ancla: [number, number] }
+export interface Ambiente { tinte?: [number, number, number]; luz?: number }
+
+const rgb = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const rampas = new Map<string, [number, number, number][]>();
+function rampa(m: Material, id: string) { let r = rampas.get(id); if (!r) { r = m.rampa.map(rgb); rampas.set(id, r); } return r; }
+
+/** Caja de pantalla de una pieza (para recortar la imagen y para no probar piezas lejos del pixel). */
+function cajaPantalla(p: Pieza): [number, number, number, number] {
+  let pts: V3[];
+  if (p.k === 'masa') { const [cx, cy, cz, R] = p.esf; pts = []; for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) pts.push([cx + sx * R, cy + sy * R, cz + sz * R]); }
+  else if (p.k === 'conv') pts = p.pts;
+  else if (p.k === 'elip') { const R = Math.max(...p.r); pts = []; for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) pts.push([p.c[0] + sx * R, p.c[1] + sy * R, p.c[2] + sz * R]); }
+  else { const R = Math.max(p.r0, p.r1); const top = add(p.o, p.ez, p.h); pts = []; for (const c of [p.o, top]) for (const sx of [-1, 1]) for (const sy of [-1, 1]) for (const sz of [-1, 1]) pts.push([c[0] + sx * R, c[1] + sy * R, c[2] + sz * R]); }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const q of pts) { const [sx, sy] = aPantalla(q); x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy); }
+  return [x0, y0, x1, y1];
+}
+
+/**
+ * Pinta la escena. Devuelve la imagen recortada y el ancla (dónde cae el origen del mundo en el piso).
+ * `margen` deja aire para la sombra; `fijo` fuerza el tamaño (para cuadros de una misma animación).
+ */
+/** Lo que ocupa la escena en pantalla (con su sombra), relativo al ancla. */
+export function medirEscena(esc: Escena): { x0: number; y0: number; x1: number; y1: number; zmax: number } | null {
+  const ps = esc.piezas;
+  let X0 = Infinity, Y0 = Infinity, X1 = -Infinity, Y1 = -Infinity;
+  for (const p of ps) { if (p.resta) continue; const c = cajaPantalla(p); X0 = Math.min(X0, c[0]); Y0 = Math.min(Y0, c[1]); X1 = Math.max(X1, c[2]); Y1 = Math.max(Y1, c[3]); }
+  if (!isFinite(X0)) return null;
+  let zmax = 0;
+  for (const p of ps) { const c = p.k === 'masa' ? p.esf[2] + p.esf[3] : p.k === 'conv' ? Math.max(...p.pts.map((q) => q[2])) : p.k === 'elip' ? p.c[2] + Math.max(...p.r) : Math.max(p.o[2], p.o[2] + p.ez[2] * p.h) + Math.max(p.r0, p.r1); zmax = Math.max(zmax, c); }
+  // la sombra se estira hacia abajo a la derecha de la luz
+  if (!esc.sinSombra && SOMBRA_PISO) { const off = aPantalla([-LUZ[0] / LUZ[2] * zmax, -LUZ[1] / LUZ[2] * zmax, 0]); X0 = Math.min(X0, X0 + off[0]); X1 = Math.max(X1, X1 + off[0]); Y1 = Math.max(Y1, Y1 + off[1]); Y0 = Math.min(Y0, Y0 + off[1]); X0 -= 6; X1 += 6; Y1 += 4; }
+  return { x0: X0, y0: Y0, x1: X1, y1: Y1, zmax };
+}
+
+// ------------------------------------------------------------------ sombras suaves y oclusión
+/**
+ * Mapa de sombras desde la luz, como los renders previos de la época (3ds Max con mapa de sombras filtrado): se
+ * tira un rayo por texel desde el lado de la luz y se guarda la profundidad del primer golpe. La consulta busca
+ * bloqueadores alrededor y abre la penumbra según la distancia (la sombra es dura al pie y se ablanda lejos).
+ */
+interface MapaSombra { l: V3; U: V3; W: V3; u0: number; w0: number; ts: number; nu: number; nw: number; prof: Float32Array; bloq: Float32Array; bu: number; bw: number }
+const UPZ: V3 = [0, 0, 1];
+const DISCO: [number, number][] = Array.from({ length: 16 }, (_, i) => { const r = Math.sqrt((i + 0.5) / 16), a = i * 2.39996; return [Math.cos(a) * r, Math.sin(a) * r]; });
+function rejillaDe(ps: Pieza[], proy: (c: V3) => [number, number], u0: number, w0: number, paso: number, nu: number, nw: number): Pieza[][] {
+  const g: Pieza[][] = Array.from({ length: nu * nw }, () => []);
+  for (const p of ps) {
+    const e = esferaDe(p), [cu, cw] = proy([e[0], e[1], e[2]]);
+    for (let j = Math.max(0, Math.floor((cw - e[3] - w0) / paso)); j <= Math.min(nw - 1, Math.floor((cw + e[3] - w0) / paso)); j++)
+      for (let i = Math.max(0, Math.floor((cu - e[3] - u0) / paso)); i <= Math.min(nu - 1, Math.floor((cu + e[3] - u0) / paso)); i++) g[j * nu + i].push(p);
+  }
+  return g;
+}
+function mapaSombra(sol: Pieza[], LUZ: V3 = LUZ0): MapaSombra | null {
+  const solidas = sol.filter((p) => !p.resta);
+  if (!solidas.length) return null;
+  const U = norm(cross(UPZ, LUZ)), W = cross(LUZ, U);
+  let u0 = Infinity, u1 = -Infinity, w0 = Infinity, w1 = -Infinity, dmax = -Infinity;
+  for (const p of solidas) { const e = esferaDe(p), c: V3 = [e[0], e[1], e[2]]; const cu = dot(c, U), cw = dot(c, W); u0 = Math.min(u0, cu - e[3]); u1 = Math.max(u1, cu + e[3]); w0 = Math.min(w0, cw - e[3]); w1 = Math.max(w1, cw + e[3]); dmax = Math.max(dmax, dot(c, LUZ) + e[3]); }
+  const ts = Math.min(1.2, Math.max(0.55, Math.max(u1 - u0, w1 - w0) / 420));
+  const nu = Math.ceil((u1 - u0) / ts) + 1, nw = Math.ceil((w1 - w0) / ts) + 1;
+  const B = 8 * ts, bu = Math.ceil(nu / 8), bw = Math.ceil(nw / 8);
+  const grilla = rejillaDe(sol, (c) => [dot(c, U), dot(c, W)], u0, w0, B, bu, bw);
+  const prof = new Float32Array(nu * nw).fill(-Infinity);
+  const top = dmax + 5, menosL: V3 = [-LUZ[0], -LUZ[1], -LUZ[2]];
+  for (let j = 0; j < nw; j++) for (let i = 0; i < nu; i++) {
+    const cand = grilla[Math.floor(j / 8) * bu + Math.floor(i / 8)];
+    if (!cand.length) continue;
+    const u = u0 + i * ts, w = w0 + j * ts;
+    const o: V3 = [U[0] * u + W[0] * w + LUZ[0] * top, U[1] * u + W[1] * w + LUZ[1] * top, U[2] * u + W[2] * w + LUZ[2] * top];
+    const h = impacto(cand, o, menosL);
+    if (h) prof[j * nu + i] = top - h.t;
+  }
+  return { l: LUZ, U, W, u0, w0, ts, nu, nw, prof, ...maxDilatado(prof, nu, nw, Math.ceil(4.6 / ts / 8)) };
+}
+/**
+ * Para el rayo de sombra del borrador: las piezas agrupadas por dónde caen vistas desde la luz. Un rayo hacia la luz
+ * se proyecta en un solo punto de ese plano, así que solo pueden taparlo las piezas de su casillero (el resultado es
+ * el mismo que probar todas, pero sin recorrer la escena entera en cada pixel).
+ */
+function rejillaLuz(sol: Pieza[], LUZ: V3 = LUZ0): (q: V3) => Pieza[] {
+  const U = norm(cross(UPZ, LUZ)), W = cross(LUZ, U);
+  let u0 = Infinity, u1 = -Infinity, w0 = Infinity, w1 = -Infinity;
+  for (const p of sol) { const e = esferaDe(p), c: V3 = [e[0], e[1], e[2]]; const cu = dot(c, U), cw = dot(c, W); u0 = Math.min(u0, cu - e[3]); u1 = Math.max(u1, cu + e[3]); w0 = Math.min(w0, cw - e[3]); w1 = Math.max(w1, cw + e[3]); }
+  if (!isFinite(u0)) return () => sol;
+  const B = 8, nu = Math.ceil((u1 - u0) / B) + 1, nw = Math.ceil((w1 - w0) / B) + 1;
+  const grilla = rejillaDe(sol, (c) => [dot(c, U), dot(c, W)], u0, w0, B, nu, nw), vacio: Pieza[] = [];
+  return (q) => {
+    const i = Math.floor((dot(q, U) - u0) / B), j = Math.floor((dot(q, W) - w0) / B);
+    return i < 0 || j < 0 || i >= nu || j >= nw ? vacio : grilla[j * nu + i];
+  };
+}
+/** Máximo por bloque de 8×8 texeles, dilatado `rad` bloques: si ni eso tapa, no hace falta mirar el detalle. */
+function maxDilatado(v: Float32Array, nu: number, nw: number, rad: number): { bloq: Float32Array; bu: number; bw: number } {
+  const bu = Math.ceil(nu / 8), bw = Math.ceil(nw / 8), b = new Float32Array(bu * bw).fill(-Infinity);
+  for (let j = 0; j < nw; j++) for (let i = 0; i < nu; i++) { const k = (j >> 3) * bu + (i >> 3); if (v[j * nu + i] > b[k]) b[k] = v[j * nu + i]; }
+  const d = new Float32Array(bu * bw).fill(-Infinity);
+  for (let j = 0; j < bw; j++) for (let i = 0; i < bu; i++) {
+    let m = -Infinity;
+    for (let y = Math.max(0, j - rad); y <= Math.min(bw - 1, j + rad); y++) for (let x = Math.max(0, i - rad); x <= Math.min(bu - 1, i + rad); x++) if (b[y * bu + x] > m) m = b[y * bu + x];
+    d[j * bu + i] = m;
+  }
+  return { bloq: d, bu, bw };
+}
+/** Cuánta luz directa le llega a `q` (0 en sombra, 1 a pleno sol). `giro` rota el disco de muestras por pixel. */
+function luzEn(m: MapaSombra | null, q: V3, giro: number, sesgo = 0.35): number {
+  if (!m) return 1;
+  const u = (dot(q, m.U) - m.u0) / m.ts, w = (dot(q, m.W) - m.w0) / m.ts, d = dot(q, m.l);
+  {
+    const bi = Math.floor(u / 8), bj = Math.floor(w / 8);
+    if (bi < 0 || bj < 0 || bi >= m.bu || bj >= m.bw) return 1;
+    if (!(m.bloq[bj * m.bu + bi] > d + sesgo)) return 1;
+  }
+  const cs = Math.cos(giro), sn = Math.sin(giro);
+  const toma = (du: number, dw: number) => {
+    const i = Math.round(u + (du * cs - dw * sn) / m.ts), j = Math.round(w + (du * sn + dw * cs) / m.ts);
+    if (i < 0 || j < 0 || i >= m.nu || j >= m.nw) return -Infinity;
+    return m.prof[j * m.nu + i];
+  };
+  // bloqueadores en un radio de 3 unidades
+  let nb = 0, sb = 0;
+  for (let k = 0; k < 12; k++) { const z = toma(DISCO[k][0] * 3, DISCO[k][1] * 3); if (z > d + sesgo) { nb++; sb += z; } }
+  const centro = toma(0, 0);
+  if (!nb && !(centro > d + sesgo)) return 1;
+  const prom = nb ? sb / nb : centro;
+  const pen = Math.min(4.5, Math.max(0.45, (prom - d) * 0.075));
+  let luz = 0;
+  for (let k = 0; k < 16; k++) if (!(toma(DISCO[k][0] * pen, DISCO[k][1] * pen) > d + sesgo)) luz++;
+  return luz / 16;
+}
+/** Mapa de alturas desde arriba: la oclusión de contacto (lo que se oscurece al pie de muros, cajas y personas). */
+interface Alturas { x0: number; y0: number; ts: number; nx: number; ny: number; h: Float32Array; bloq: Float32Array; bu: number; bw: number }
+function mapaAlturas(sol: Pieza[]): Alturas | null {
+  const solidas = sol.filter((p) => !p.resta);
+  if (!solidas.length) return null;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, zmax = 0;
+  for (const p of solidas) { const e = esferaDe(p); x0 = Math.min(x0, e[0] - e[3]); x1 = Math.max(x1, e[0] + e[3]); y0 = Math.min(y0, e[1] - e[3]); y1 = Math.max(y1, e[1] + e[3]); zmax = Math.max(zmax, e[2] + e[3]); }
+  x0 -= 10; y0 -= 10; x1 += 10; y1 += 10;
+  const ts = Math.min(2, Math.max(1, Math.max(x1 - x0, y1 - y0) / 220));
+  const nx = Math.ceil((x1 - x0) / ts) + 1, ny = Math.ceil((y1 - y0) / ts) + 1;
+  const bx = Math.ceil(nx / 8), by = Math.ceil(ny / 8);
+  const grilla = rejillaDe(sol, (c) => [c[0], c[1]], x0, y0, 8 * ts, bx, by);
+  const h = new Float32Array(nx * ny);
+  const abajo: V3 = [0, 0, -1];
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+    const cand = grilla[Math.floor(j / 8) * bx + Math.floor(i / 8)];
+    if (!cand.length) continue;
+    const g = impacto(cand, [x0 + i * ts, y0 + j * ts, zmax + 5], abajo);
+    if (g) h[j * nx + i] = Math.max(0, zmax + 5 - g.t);
+  }
+  return { x0, y0, ts, nx, ny, h, ...maxDilatado(h, nx, ny, Math.ceil(13.5 / ts / 8)) };
+}
+const DIRS8: [number, number][] = Array.from({ length: 8 }, (_, i) => [Math.cos((i * Math.PI) / 4), Math.sin((i * Math.PI) / 4)]);
+function alturaEn(a: Alturas, x: number, y: number): number {
+  const i = Math.round((x - a.x0) / a.ts), j = Math.round((y - a.y0) / a.ts);
+  if (i < 0 || j < 0 || i >= a.nx || j >= a.ny) return 0;
+  return a.h[j * a.nx + i];
+}
+/** Oclusión 0..1 en el punto `p` con normal `n` (horizonte del mapa de alturas en 8 rumbos). */
+function oclusion(a: Alturas | null, p: V3, n: V3): number {
+  if (!a) return 0;
+  {
+    const bi = Math.floor((p[0] - a.x0) / a.ts / 8), bj = Math.floor((p[1] - a.y0) / a.ts / 8);
+    if (bi < 0 || bj < 0 || bi >= a.bu || bj >= a.bw || a.bloq[bj * a.bu + bi] <= p[2]) return 0;
+  }
+  const bx = p[0] + n[0] * 1.2, by = p[1] + n[1] * 1.2, plano = Math.abs(n[2]) > 0.7;
+  let occ = 0, cuenta = 0;
+  for (const [dx, dy] of DIRS8) {
+    if (!plano && dx * n[0] + dy * n[1] < -0.35) continue;
+    let o = 0;
+    for (const r of [1.5, 3.5, 7, 12]) { const hh = alturaEn(a, bx + dx * r, by + dy * r) - p[2]; if (hh > 0) o = Math.max(o, Math.min(1, hh / r) * (1 - r / 16)); }
+    occ += o; cuenta++;
+  }
+  let res = cuenta ? occ / cuenta : 0;
+  // algo encima (debajo de una mesa, bajo un alero)
+  if (alturaEn(a, bx, by) > p[2] + 3) res = Math.max(res, 0.5);
+  return Math.min(1, res);
+}
+
+/**
+ * Calidad por omisión. 0: borrador rápido para editar (sombra dura de un rayo, sin oclusión). 1: sombras suaves con
+ * penumbra y oclusión de contacto. 2 o 3: además cuatro o nueve rayos por pixel promediados (más fino y más lento).
+ */
+let CALIDAD = 1;
+/** Con false no se pinta la sombra en el piso (sprites más chicos; el juego pone su propia sombra al vuelo). */
+let SOMBRA_PISO = true;
+export const fijarSombraPiso = (si: boolean) => { SOMBRA_PISO = si; };
+export const fijarCalidad = (n: number) => { CALIDAD = Math.max(0, Math.min(3, Math.round(n))); };
+export const calidad = () => CALIDAD;
+
+export function pintarEscena(esc: Escena, amb: Ambiente = {}, fijo?: { w: number; h: number; ax: number; ay: number }): Render {
+  const ps = esc.piezas;
+  numerar(ps);
+  const cajas = ps.map(cajaPantalla);
+  const med = medirEscena(esc);
+  if (!med) return { img: createRaster(1, 1), ancla: [0, 0] };
+  const { x0: X0, y0: Y0, x1: X1, y1: Y1, zmax } = med;
+  const W = fijo?.w ?? Math.ceil(X1 - X0) + 4, H = fijo?.h ?? Math.ceil(Y1 - Y0) + 4;
+  const ax = fijo?.ax ?? Math.floor(-X0) + 2, ay = fijo?.ay ?? Math.floor(-Y0) + 2;
+  const img = createRaster(W, H);
+  // rejilla de 16 px con las piezas que la tocan
+  const G = 16, gw = Math.ceil(W / G), gh = Math.ceil(H / G);
+  const grilla: Pieza[][] = Array.from({ length: gw * gh }, () => []);
+  ps.forEach((p, i) => {
+    const c = cajas[i];
+    for (let gy = Math.max(0, Math.floor((c[1] + ay) / G)); gy <= Math.min(gh - 1, Math.floor((c[3] + ay) / G)); gy++)
+      for (let gx = Math.max(0, Math.floor((c[0] + ax) / G)); gx <= Math.min(gw - 1, Math.floor((c[2] + ax) / G)); gx++) grilla[gy * gw + gx].push(p);
+  });
+  const sol = ps.filter((p) => !MATERIALES[p.mat]?.emite && !(p.k === 'masa' && p.comps.every((c) => MATERIALES[c.mat ?? p.mat]?.emite)));
+  const borrador = (esc.ss ?? CALIDAD) === 0;
+  // la luz principal: la de siempre o la del retrato (con su dirección, también para las sombras)
+  const LUZ = esc.luz?.principal ? norm(esc.luz.principal.dir) : LUZ0;
+  const sombras = borrador ? null : mapaSombra(sol, LUZ);
+  const alturas = borrador ? null : mapaAlturas(sol);
+  const haciaLuz = borrador ? rejillaLuz(sol, LUZ) : null;
+  /** En borrador la luz es de un solo rayo (sombra dura) y no hay oclusión. */
+  const luzDe = (q: V3, giro: number, sesgo: number) => (borrador ? (impacto(haciaLuz!(q), q, LUZ) ? 0 : 1) : luzEn(sombras, q, giro, sesgo));
+  const z0 = zmax + 40;
+  const tin = amb.tinte ?? [1, 1, 1];
+  const luzAmb = amb.luz ?? 1;
+  const ss = Math.max(1, esc.ss ?? CALIDAD), n2 = ss * ss;
+  const media = norm(add(LUZ, VISTA, -1));
+  const rebote: V3 = norm([-LUZ[0], -LUZ[1], 0.15]);
+  const resp = esc.resplandor ? { ...esc.resplandor, rgb: rgb(esc.resplandor.color) } : null;
+  const L = esc.luz, lAmb = L?.amb ?? 0.17, lDif = L?.dif ?? 0.64, lCielo = L?.cielo ?? 0.12, lReb = L?.rebote ?? 0.06;
+  const lEsp = L?.especular ?? 1, lEspMin = L?.especularMin ?? 0, lMetal = L?.metal;
+  const borde = L?.borde ? { ...L.borde, d: norm(L.borde.dir), rgb: rgb(L.borde.color) } : null;
+  const sombraL = L?.sombra ? { ...L.sombra, rgb: rgb(L.sombra.color) } : null;
+  const pielL = L?.piel ? { ...L.piel, rgb: rgb(L.piel.sombra) } : null;
+  const techo = L?.techo ? { ...L.techo, rgb: rgb(L.techo.color ?? '#8a8070') } : null;
+  const prin = L?.principal ? { rgb: rgb(L.principal.color), k: L.principal.tinte ?? 0.8, pos: L.principal.pos, alcance: L.principal.alcance ?? 60, foco: L.principal.foco } : null;
+  // la oclusión necesita la profundidad, la normal y el punto de cada pixel
+  const ao = L?.ao, conProf = !!ao || !!L?.linea?.dentro || !!L?.cavidad, prof = conProf ? new Float32Array(W * H).fill(NaN) : null, nrm = conProf ? new Float32Array(W * H * 3) : null, pun = conProf ? new Float32Array(W * H * 3) : null;
+  const rell = L?.relleno ? { ...L.relleno, d: norm(L.relleno.dir), rgb: rgb(L.relleno.color), k: L.relleno.tinte ?? 0.8 } : null;
+  // por sub-muestra: material, brillo, punto, cuánto la toca la luz de borde y qué parte del brillo es de la principal
+  // y del relleno (para teñir con sus colores)
+  const sm: { mat: string; s: number; p: V3; b: number; cp: number; cr: number; n: V3; t: number }[] = [];
+  const luzPropia = borde?.contorno || L?.metal || L?.linea || L?.satura !== undefined ? new Uint8Array(W * H) : null;
+  const pielPx = L?.piel?.ao !== undefined && L.ao ? new Uint8Array(W * H) : null;
+  const lRel = L?.relieve ?? 0;
+  for (let py = 0; py < H; py++) for (let px = 0; px < W; px++) {
+    const cand = grilla[Math.floor(py / G) * gw + Math.floor(px / G)];
+    const i = (py * W + px) * 4;
+    const giro = trama(px, py) * Math.PI * 2;
+    sm.length = 0;
+    let sombraPiso = 0, pisos = 0;
+    for (let k = 0; k < n2; k++) {
+      const sx = px + ((k % ss) + 0.5) / ss - ax, sy = py + (Math.floor(k / ss) + 0.5) / ss - ay;
+      const S = 2 * (sy + KZ * z0), D = sx;
+      const o: V3 = [(S + D) / 2, (S - D) / 2, z0];
+      const hit = cand.length ? impacto(cand, o, VISTA) : null;
+      if (!hit) {
+        if (esc.sinSombra || !SOMBRA_PISO) continue;
+        const t = o[2] / -VISTA[2];
+        const g = add(o, VISTA, t);
+        const lz = luzDe([g[0], g[1], 0.6], giro, 0.25);
+        const oc = oclusion(alturas, g, UPZ);
+        sombraPiso += borrador ? (1 - lz) * 0.47 : Math.min(0.78, (1 - lz) * 0.62 + oc * 0.42); pisos++;
+        continue;
+      }
+      const matId = hit.mat ?? hit.p.mat;
+      const m = MATERIALES[matId] ?? MATERIALES.piedra;
+      const p = add(o, VISTA, hit.t);
+      let n = hit.n;
+      if (lRel > 0 && !m.emite) {
+        const [kb, eb, tipo] = relieveDe(matId);
+        if (kb > 0) {
+          const q = m.local ? enPieza(hit, p) : p, d = 0.28;
+          const alt = (x: number, y: number, z: number) => {
+            let v = fbm(x * eb, y * eb, z * eb);
+            if (tipo === 1) v += 0.22 * Math.sin((x + y) * 1.5 + ruido(x * 0.4, y * 0.4, z * 0.4) * 5) + 0.035 * Math.sin(z * 4.4); // tela: pliegues que caen y trama
+            else if (tipo === 2) v = v * 0.6 + 0.4 * ruido(x * eb * 3.1, y * eb * 3.1, z * eb * 3.1); // cuero: poro fino
+            else if (tipo === 3) v = Math.floor(v * 4) / 4 * 0.7 + v * 0.3; // placa: facetas de martillo
+            return v;
+          };
+          const h0 = alt(q[0], q[1], q[2]), g: V3 = [(alt(q[0] + d, q[1], q[2]) - h0) / d, (alt(q[0], q[1] + d, q[2]) - h0) / d, (alt(q[0], q[1], q[2] + d) - h0) / d];
+          const gn = dot(g, n), k = kb * lRel;
+          n = norm([n[0] - (g[0] - n[0] * gn) * k, n[1] - (g[1] - n[1] * gn) * k, n[2] - (g[2] - n[2] * gn) * k]);
+        }
+      }
+      const tono = (hit.tono ?? 0) + (hit.p.tono ?? 0);
+      let s: number, bb = 0, cp = 0, cr = 0;
+      if (m.emite) {
+        s = 0.8 + (fbm(p[0] * m.escala, p[1] * m.escala, p[2] * m.escala) - 0.5) * m.ruido + tono;
+      } else {
+        // (retrato: la principal es una antorcha, con su punto y su caída; la sombra sigue la dirección media)
+        let Ld = LUZ, att = 1;
+        if (prin?.pos) { const v = add(prin.pos, p, -1), dd = Math.hypot(v[0], v[1], v[2]) || 1; Ld = [v[0] / dd, v[1] / dd, v[2] / dd]; att = Math.min(1.35, (prin.alcance / dd) ** 2); }
+        if (prin?.foco) { const [z0f, z1f, mn] = prin.foco, t = Math.max(0, Math.min(1, (p[2] - z0f) / (z1f - z0f))); att *= mn + (1 - mn) * t * t * (3 - 2 * t); }
+        const dif = Math.max(0, dot(n, Ld));
+        const lz = dif > 0 ? luzDe(add(p, n, borrador ? 0.8 : 0.55), giro, 0.3 + 0.6 * (1 - dif)) : 0;
+        const oc = borrador ? Math.max(0, 1 - Math.max(0, p[2]) / 10) * 0.5 : oclusion(alturas, p, n);
+        const arriba = Math.max(0, n[2]);
+        const esMetalBajo = !!(lMetal && m.brillo && m.brillo >= lMetal.brillo);
+        const sKey = lDif * dif * (0.22 + 0.78 * lz) * att * (esMetalBajo && lMetal!.difuso !== undefined ? lMetal!.difuso : 1);
+        s = lAmb + sKey + lCielo * arriba + lReb * Math.max(0, dot(n, rebote));
+        // lo que pone la principal (difuso y brillos) y el relleno: con eso se tiñen después
+        let sp = sKey, sr = 0, sbm = 0;
+        if (rell) { sr = rell.fuerza * Math.max(0, dot(n, rell.d)); s += sr; }
+        // el grano (ruido y patrón del material) modula el difuso, no el brillo: en lo oscuro casi no se ve y nunca
+        // levanta un pixel suelto hasta el blanco; los materiales `local` llevan el grano pegado a su pieza
+        const pl = m.local ? enPieza(hit, p) : p;
+        const grano = (fbm(pl[0] * m.escala, pl[1] * m.escala, pl[2] * m.escala) - 0.5) * m.ruido + (m.patron ? m.patron(pl, n) : 0);
+        s += grano * (m.local ? 0.35 + 0.65 * Math.min(1, s * 1.6) : 1);
+        const metalBaja = !!(lMetal && m.brillo && m.brillo >= lMetal.brillo);
+        // canto: lo que se ve de refilón (el filo de una lámina, el borde de la silueta)
+        const canto = Math.min(1, (1 - Math.abs(dot(n, VISTA))) * 2.2);
+        const med = prin?.pos ? norm(add(Ld, VISTA, -1)) : media;
+        if (m.brillo && m.brillo >= lEspMin && !metalBaja) { const e = m.brillo * lEsp * Math.pow(Math.max(0, dot(n, med)), 12) * lz * att; s += e; sp += e; }
+        if (lMetal && m.brillo) {
+          // metal en penumbra: un brillo ancho y suave en la cara de la lámina y el fuerte solo en filos y cantos
+          if (metalBaja) {
+            const h = Math.max(0, dot(n, med));
+            const e = lMetal.esp * m.brillo * ((lMetal.suave ?? 0.16) * Math.pow(h, 4) + Math.pow(h, lMetal.exp) * canto) * (0.35 + 0.65 * lz) * att;
+            s += e + (lMetal.piso ?? 0) * m.brillo * (0.5 + 0.5 * dif); sp += e;
+          }
+          if (m.brillo >= lMetal.filo && borde) { sbm = lMetal.borde * Math.min(1, m.brillo * 1.6) * Math.pow(1 - Math.max(0, -dot(n, VISTA)), lMetal.ancho) * Math.max(0, dot(n, borde.d) + (prin ? 0 : 0.3)); s += sbm; }
+          // tope: el metal no se quema; al blanco solo llega en el filo
+          // (retrato: el tono de la pieza entra antes del tope: una visera "clara" no se vuelve una cara gris pareja)
+          if (metalBaja && prin) s += tono;
+          if (metalBaja) s = Math.min(s, (lMetal.tope ?? 0.56) + 0.22 * canto * canto);
+        }
+        if (!(prin && lMetal && m.brillo && m.brillo >= lMetal.brillo)) s += tono;
+        if (pielL?.luz && matId.startsWith('cu_piel')) s += pielL.luz;
+        s *= 1 - 0.42 * oc;
+        s *= luzAmb;
+        if (prin || rell) { const tot = Math.max(1e-3, s); cp = sp / tot; cr = sr / tot; }
+        if (L) {
+          if (s > 0) s = (L.expo ?? 1) * Math.pow(s, L.gamma ?? 1);
+          if (borde) {
+            bb = Math.pow(1 - Math.max(0, -dot(n, VISTA)), borde.ancho ?? 3) * Math.max(0, dot(n, borde.d));
+            if (borde.alto) { const t = Math.max(0, Math.min(1, (p[2] - borde.alto[0]) / (borde.alto[1] - borde.alto[0]))); bb *= t * t * (3 - 2 * t); }
+            s += borde.fuerza * bb;
+          }
+          // retrato: el filo del metal del lado de la contraluz se tiñe de su frío (el del lado de la antorcha, de su calor)
+          if (prin && sbm > 0) bb = Math.min(1.5, bb + sbm * 0.6);
+        }
+        // (retrato: el resplandor del encantamiento casi no aclara el metal: la placa del arma sigue siendo hierro oscuro)
+        if (resp) { const dd = Math.hypot(p[0] - resp.c[0], p[1] - resp.c[1], p[2] - resp.c[2]); s += Math.max(0, 1 - dd / resp.r) * (prin && esMetalBajo ? 0.06 : 0.25); }
+      }
+      sm.push({ mat: matId, s, p, b: bb, cp, cr, n: hit.n, t: hit.t });
+    }
+    if (sm.length * 2 < n2 || (n2 === 1 && !sm.length)) {
+      if (pisos) { const a = Math.round((sombraPiso / n2) * 255); if (a > 6) { img.data[i] = 8; img.data[i + 1] = 6; img.data[i + 2] = 12; img.data[i + 3] = Math.min(200, a); } }
+      continue;
+    }
+    // material mayoritario y brillo promedio de sus muestras
+    let matId = sm[0].mat;
+    if (sm.length > 1) { const cuenta = new Map<string, number>(); let best = 0; for (const q of sm) { const c = (cuenta.get(q.mat) ?? 0) + 1; cuenta.set(q.mat, c); if (c > best) { best = c; matId = q.mat; } } }
+    let s = 0, nn = 0, p: V3 = sm[0].p, bb = 0, cp = 0, cr = 0;
+    for (const q of sm) if (q.mat === matId) {
+      s += q.s; bb += q.b; cp += q.cp; cr += q.cr;
+      if (!nn) { p = q.p; if (prof) { const j = py * W + px; prof[j] = q.t; nrm!.set(q.n, j * 3); pun!.set(q.p, j * 3); } }
+      nn++;
+    }
+    s /= nn; bb /= nn; cp /= nn; cr /= nn;
+    if (!Number.isFinite(s)) s = 0.5;
+    const m = MATERIALES[matId] ?? MATERIALES.piedra;
+    const R = rampa(m, matId);
+    // la rampa con 3 tonos intermedios entre cada par de colores (paleta de 256 de la época) y trama suave
+    const SUB = L?.tonos ?? 3, pos = Math.max(0, Math.min(0.999, s)) * (R.length - 1) * SUB + (trama(px, py) - 0.5) * 0.9 * (m.trama ?? 1);
+    const kk = Math.max(0, Math.min((R.length - 1) * SUB, Math.round(pos))), k0 = Math.floor(kk / SUB), fr = (kk - k0 * SUB) / SUB;
+    const ca = R[k0], cb = R[Math.min(R.length - 1, k0 + 1)];
+    let r = ca[0] + (cb[0] - ca[0]) * fr, g = ca[1] + (cb[1] - ca[1]) * fr, b = ca[2] + (cb[2] - ca[2]) * fr;
+    if (resp && !m.emite) { const dd = Math.hypot(p[0] - resp.c[0], p[1] - resp.c[1], p[2] - resp.c[2]); const f = Math.max(0, 1 - dd / resp.r) * (prin && lMetal && (m.brillo ?? 0) >= lMetal.brillo ? 0.12 : 0.35); r += (resp.rgb[0] - r) * f; g += (resp.rgb[1] - g) * f; b += (resp.rgb[2] - b) * f; }
+    if (L && !m.emite) {
+      // clave baja: lo claro se comprime (salvo los metales), lo oscuro cae a su color y el borde tiñe la silueta
+      if (techo && !((m.brillo ?? 0) >= lEspMin && lEspMin > 0)) {
+        const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        if (y > techo.desde) {
+          const k = (techo.desde + (y - techo.desde) * techo.k) / y, ty = 0.2126 * techo.rgb[0] + 0.7152 * techo.rgb[1] + 0.0722 * techo.rgb[2] || 1;
+          const f = Math.min(1, ((y - techo.desde) / Math.max(1, 255 - techo.desde)) * 2) * (techo.mezcla ?? 0.4), yy = y * k / ty;
+          r = r * k + (techo.rgb[0] * yy - r * k) * f; g = g * k + (techo.rgb[1] * yy - g * k) * f; b = b * k + (techo.rgb[2] * yy - b * k) * f;
+        }
+      }
+      const esPiel = !!pielL && matId.startsWith('cu_piel');
+      if (esPiel) {
+        // la piel: menos saturada (no plástico naranja) y la sombra hacia el rojo oscuro (subdispersión aproximada)
+        const y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        r = y + (r - y) * pielL!.satura; g = y + (g - y) * pielL!.satura; b = y + (b - y) * pielL!.satura;
+      }
+      if (sombraL) { const f = sombraL.fuerza * Math.max(0, 1 - Math.max(0, s) / (sombraL.hasta ?? 0.4)), c = esPiel ? pielL!.rgb : sombraL.rgb; r += (c[0] - r) * f; g += (c[1] - g) * f; b += (c[2] - b) * f; }
+      // retrato: la principal y el relleno tiñen lo que alumbran (sin cambiar la luminancia)
+      for (const [lz, k] of [[prin, cp], [rell, cr]] as const) {
+        if (!lz || k <= 0) continue;
+        const ly = (0.2126 * lz.rgb[0] + 0.7152 * lz.rgb[1] + 0.0722 * lz.rgb[2]) || 1, f = Math.min(1, k * lz.k * (pielL && matId.startsWith('cu_piel') && lz === prin ? 0.45 : 1));
+        r *= 1 + (lz.rgb[0] / ly - 1) * f; g *= 1 + (lz.rgb[1] / ly - 1) * f; b *= 1 + (lz.rgb[2] / ly - 1) * f;
+      }
+      if (borde && bb > 0) { const f = Math.min(1, bb * (borde.mezcla ?? 0.6)); r += (borde.rgb[0] - r) * f; g += (borde.rgb[1] - g) * f; b += (borde.rgb[2] - b) * f; }
+    }
+    if (!m.emite) { r *= tin[0]; g *= tin[1]; b *= tin[2]; } else if (luzPropia) luzPropia[py * W + px] = 1;
+    if (pielPx && matId.startsWith('cu_piel')) pielPx[py * W + px] = 1;
+    img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = 255;
+  }
+  if (L?.cavidad && prof) cavidad(img, prof, nrm!, luzPropia, W, H, L.cavidad);
+  if (ao && prof) oclusionPantalla(img, prof, nrm!, pun!, luzPropia, W, H, ax, ay, z0, ao, pielPx, L?.piel?.ao ?? 1);
+  if (borde?.contorno && luzPropia) contornoBorde(img, luzPropia, borde.d, borde.rgb, borde.contorno, !!borde.alto, L?.principal ? norm(L.principal.dir) : undefined);
+  if (lMetal && luzPropia) sinSal(img, luzPropia);
+  if (L?.satura !== undefined && L.satura !== 1) for (let q = 0; q < W * H; q++) { const o = q * 4; if (img.data[o + 3] !== 255 || luzPropia?.[q]) continue; const y = 0.2126 * img.data[o] + 0.7152 * img.data[o + 1] + 0.0722 * img.data[o + 2]; for (let t = 0; t < 3; t++) img.data[o + t] = Math.max(0, Math.min(255, y + (img.data[o + t] - y) * L.satura)); }
+  if (L?.linea) lineaSilueta(img, luzPropia, prof, L.linea);
+  return { img, ancla: [ax, ay] };
+}
+
+/** Relieve de cada material: [fuerza, escala del grano, tipo (0 grano, 1 tela, 2 cuero, 3 placa)]. */
+const relieves = new Map<string, [number, number, number]>();
+function relieveDe(id: string): [number, number, number] {
+  let r = relieves.get(id); if (r) return r;
+  r = /pelo|barba|ojo|fuego|llama|magia|sangre|agua/.test(id) ? [0, 1, 0]
+    : /piel/.test(id) ? [0.3, 1.0, 0]
+    : /tela|lino|lana|tunica|capa|habito|seda|venda|tabardo|ropa|trapo/.test(id) ? [1.0, 0.9, 1]
+    : /cuero|piel_curtida|pelaje|correa|bota/.test(id) ? [0.95, 1.6, 2]
+    : /placa|metal|hierro|acero|oro|bronce|plata|malla|cobre/.test(id) ? [0.7, 0.75, 3]
+    : /hueso|cuerno|madera|piedra|roca/.test(id) ? [0.9, 1.3, 0]
+    : [0.65, 1.1, 0];
+  relieves.set(id, r); return r;
+}
+/** Aristas y hendiduras (ver Iluminacion.cavidad): curvatura en pantalla a partir de las normales vecinas. */
+function cavidad(img: Raster, prof: Float32Array, nrm: Float32Array, luzPropia: Uint8Array | null, W: number, H: number, k: number) {
+  const d = img.data, RX: V3 = [0.7071, -0.7071, 0], RY: V3 = [0.4082, 0.4082, -0.8165], f = new Float32Array(W * H);
+  const ok = (j: number, j0: number) => !Number.isNaN(prof[j]) && Math.abs(prof[j] - prof[j0]) < 1.6;
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const j = y * W + x; if (Number.isNaN(prof[j]) || luzPropia?.[j]) continue;
+    const a = j - 1, b = j + 1, c = j - W, e = j + W; let cv = 0;
+    if (ok(a, j) && ok(b, j)) cv += (nrm[b * 3] - nrm[a * 3]) * RX[0] + (nrm[b * 3 + 1] - nrm[a * 3 + 1]) * RX[1];
+    if (ok(c, j) && ok(e, j)) cv += (nrm[e * 3] - nrm[c * 3]) * RY[0] + (nrm[e * 3 + 1] - nrm[c * 3 + 1]) * RY[1] + (nrm[e * 3 + 2] - nrm[c * 3 + 2]) * RY[2];
+    f[j] = cv;
+  }
+  for (let j = 0; j < W * H; j++) { const cv = f[j]; if (!cv) continue; const m = cv > 0 ? 1 + Math.min(0.3, cv * 0.34) * k : 1 - Math.min(0.42, -cv * 0.5) * k; d[j * 4] = Math.min(255, d[j * 4] * m); d[j * 4 + 1] = Math.min(255, d[j * 4 + 1] * m); d[j * 4 + 2] = Math.min(255, d[j * 4 + 2] * m); }
+}
+
+/**
+ * Sin sal: un pixel claro (luminancia > 140: el juego mezcla el sprite consigo mismo en 'screen' y ese gris ya llega
+ * a 200) sin ningún vecino claro es un brillo suelto (purpurina); baja hasta el
+ * vecino más claro, así cada reflejo es una línea o un grupo. Lo que emite (chispas, gemas, fuego) no se toca.
+ */
+function sinSal(img: Raster, luzPropia: Uint8Array) {
+  const W = img.w, H = img.h, d = img.data, lum = (q: number) => 0.2126 * d[q] + 0.7152 * d[q + 1] + 0.0722 * d[q + 2];
+  const bajar: [number, number][] = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const q = (y * W + x) * 4;
+    if (d[q + 3] !== 255 || luzPropia[y * W + x] || lum(q) <= 140) continue;
+    let mx = 0;
+    for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { if ((!i && !j) || x + i < 0 || y + j < 0 || x + i >= W || y + j >= H) continue; const r = ((y + j) * W + x + i) * 4; if (d[r + 3] === 255) mx = Math.max(mx, lum(r)); }
+    if (mx <= 140) bajar.push([q, Math.max(mx, 115) / lum(q)]);
+  }
+  for (const [q, k] of bajar) for (let t = 0; t < 3; t++) d[q + t] *= k;
+}
+
+/**
+ * Oclusión ambiental en pantalla: para cada pixel, muestras en la media esfera de su normal (dos radios, girando por
+ * pixel con la trama); una muestra está tapada si lo pintado en su pixel queda delante de ella (más cerca de la cámara)
+ * y no demasiado lejos (si no, la silueta de adelante oscurecería el fondo). Oscurece el color, salvo lo que emite.
+ */
+function oclusionPantalla(img: Raster, prof: Float32Array, nrm: Float32Array, pun: Float32Array, luzPropia: Uint8Array | null, W: number, H: number, ax: number, ay: number, z0: number, o: { radio: number; fuerza: number; muestras?: number }, pielPx: Uint8Array | null = null, kPiel = 1) {
+  const N = o.muestras ?? 8, R = o.radio, d = img.data, k = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const j = y * W + x;
+    if (Number.isNaN(prof[j]) || luzPropia?.[j]) continue;
+    const n: V3 = [nrm[j * 3], nrm[j * 3 + 1], nrm[j * 3 + 2]], p: V3 = [pun[j * 3], pun[j * 3 + 1], pun[j * 3 + 2]];
+    const t1 = norm(cross(n, Math.abs(n[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0])), t2 = cross(n, t1);
+    const rot = trama(x, y) * Math.PI * 2;
+    let occ = 0;
+    for (let i = 0; i < N; i++) {
+      const a = rot + (i / N) * Math.PI * 2, r = R * (i % 2 ? 1 : 0.45);
+      const v = norm(add(add(n, t1, Math.cos(a) * 0.9), t2, Math.sin(a) * 0.9));
+      const q = add(p, v, r);
+      const [sx, sy] = aPantalla(q), qx = Math.floor(sx + ax), qy = Math.floor(sy + ay);
+      if (qx < 0 || qy < 0 || qx >= W || qy >= H) continue;
+      const tb = prof[qy * W + qx];
+      if (Number.isNaN(tb)) continue;
+      const tq = (q[2] - z0) / VISTA[2];
+      if (tb < tq - 0.25 && tq - tb < R * 2) occ += i % 2 ? 1 : 1.3;
+    }
+    k[j] = Math.min(1, occ / (N * 1.15));
+  }
+  for (let j = 0; j < W * H; j++) if (k[j] > 0) { const f = 1 - o.fuerza * k[j] * (pielPx?.[j] ? kPiel : 1); d[j * 4] *= f; d[j * 4 + 1] *= f; d[j * 4 + 2] *= f; }
+}
+
+/** La línea de la silueta y la de adentro (ver Iluminacion.linea). Lo que emite no se toca. */
+function lineaSilueta(img: Raster, luzPropia: Uint8Array | null, prof: Float32Array | null, o: NonNullable<Iluminacion['linea']>) {
+  const W = img.w, H = img.h, d = img.data, c = rgb(o.color ?? '#0a0810'), f = new Float32Array(W * H);
+  const lleno = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] === 255;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const j = y * W + x; if (!lleno(x, y) || luzPropia?.[j]) continue;
+    const sombra = !lleno(x + 1, y) || !lleno(x, y + 1), luz = !lleno(x - 1, y) || !lleno(x, y - 1);
+    let k = sombra ? o.k : luz ? o.kLuz ?? o.k * 0.35 : 0;
+    if (!k && o.dentro && prof) {
+      // detrás de un salto de profundidad: el vecino está bastante más cerca de la cámara
+      const t = prof[j], s = o.salto ?? 3;
+      for (const [i, m] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) { if (!lleno(x + i, y + m)) continue; const tv = prof[(y + m) * W + x + i]; if (t - tv > s) { k = o.dentro; break; } }
+    }
+    f[j] = k;
+  }
+  for (let j = 0; j < W * H; j++) if (f[j] > 0) { const q = j * 4; for (let t = 0; t < 3; t++) d[q + t] += (c[t] - d[q + t]) * f[j]; }
+}
+
+/** El filo de la silueta que da hacia la luz de borde: el pixel cuyo vecino de ese lado está vacío se aclara a su color. */
+function contornoBorde(img: Raster, luzPropia: Uint8Array, dir: V3, c: [number, number, number], k: number, retrato = false, evitar?: V3) {
+  const [dx, dy] = aPantalla(dir), l = Math.hypot(dx, dy) || 1, W = img.w, H = img.h, d = img.data;
+  const vec: [number, number, number][] = [];
+  // (retrato: solo los vecinos que miran de lleno a la luz fría; con 0,3 entraban los costados y se volvía un contorno)
+  const umbral = retrato ? 0.62 : 0.3;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { if (!i && !j) continue; const w = (i * dx + j * dy) / l / Math.hypot(i, j); if (w > umbral) vec.push([i, j, w]); }
+  // retrato: la caída en la altura de la silueta (fuerte en cabeza y hombros, nada en el cuarto de abajo)
+  let y0 = H, y1 = -1;
+  if (retrato) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] === 255) { if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const lejos: [number, number][] = [];
+  if (evitar) { const [ex, ey] = aPantalla(evitar), el = Math.hypot(ex, ey) || 1; for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) { if (!i && !j) continue; if ((i * ex + j * ey) / el / Math.hypot(i, j) > 0.7) lejos.push([i, j]); } }
+  const caida = (y: number) => { if (!retrato || y1 <= y0) return 1; const t = Math.max(0, Math.min(1, ((y1 - y) / (y1 - y0) - 0.3) / 0.45)); return t * t * (3 - 2 * t); };
+  const lleno = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && d[(y * W + x) * 4 + 3] === 255;
+  const filo = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!lleno(x, y) || luzPropia[y * W + x]) continue;
+    let f = 0; for (const [i, j, w] of vec) if (!lleno(x + i, y + j)) f = Math.max(f, w);
+    // (retrato: nunca del lado de la principal: un pixel que también da afuera hacia la fogata no lleva la línea fría)
+    if (f > 0 && evitar) for (const [i, j] of lejos) if (!lleno(x + i, y + j)) { f = 0; break; }
+    filo[y * W + x] = f * caida(y);
+  }
+  for (let q = 0; q < W * H; q++) if (filo[q] > 0) { const o = q * 4, f = Math.min(1, filo[q] * k); for (let t = 0; t < 3; t++) d[o + t] += (Math.max(c[t], d[o + t]) - d[o + t]) * f; }
+}
+
+/** Gira piezas alrededor del eje vertical (grados): sirve para sacar la variante que corre a lo largo de y. */
+export function girarPiezas(ps: Pieza[], grados: number): Pieza[] {
+  const a = (grados * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const R = (v: V3): V3 => [v[0] * c - v[1] * s, v[0] * s + v[1] * c, v[2]];
+  return ps.map((p): Pieza => {
+    if (p.k === 'conv') return { ...p, planos: p.planos.map(([n, d]) => [R(n), d] as [V3, number]), pts: p.pts.map(R) };
+    if (p.k === 'cono') return { ...p, o: R(p.o), ex: R(p.ex), ey: R(p.ey), ez: R(p.ez) };
+    if (p.k === 'elip') return { ...p, c: R(p.c), ex: R(p.ex), ey: R(p.ey), ez: R(p.ez) };
+    const comps = p.comps.map((q, i): Comp => (q.f === 'hueso' ? hueso(R(q.a), R(q.b), q.r0, q.r1, { mat: q.mat, tono: q.tono, k: q.k, rx: R(marcoHueso(p, i)[0]) }) : { ...q, c: R(q.c), sc: R(q.sc), ex: R(q.ex), ey: R(q.ey), ez: R(q.ez) }));
+    return masa(comps, { mat: p.mat, tono: p.tono, suave: p.suave });
+  });
+}
+
+// ================================================================== cámara libre (perspectiva)
+/*
+ * Todo lo de arriba mira la escena con la cámara isométrica fija (rayos paralelos a VISTA) y no se toca. Desde acá, una
+ * cámara aparte para las cinemáticas: un ojo en el mundo, un objetivo, un campo visual y un tamaño de salida; cada pixel
+ * tira su propio rayo desde el ojo (perspectiva real). Las mismas piezas y la misma intersección (`tramo`) sirven para
+ * las dos; cambia de dónde sale cada rayo y cómo se busca qué piezas puede tocar: una escena de cine junta miles de
+ * piezas, así que la búsqueda va por un árbol de cajas (BVH) en lugar de la rejilla de pantalla del isométrico.
+ */
+
+/** Cámara de cine: ojo, objetivo, campo visual vertical en grados, tamaño de salida y giro sobre el eje de la vista. */
+export interface Camara { pos: V3; obj: V3; fov: number; w: number; h: number; giro?: number }
+/** La base de la cámara ya calculada: adelante, derecha y arriba (en el mundo), y la tangente del medio campo. */
+export interface BaseCamara { cam: Camara; f: V3; r: V3; u: V3; th: number; asp: number }
+const UPZ_C: V3 = [0, 0, 1];
+export function baseCamara(cam: Camara): BaseCamara {
+  const f = norm(add(cam.obj, cam.pos, -1));
+  let r = norm(cross(f, UPZ_C)), u = cross(r, f);
+  if (cam.giro) { const a = (cam.giro * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a); const r2 = add(r.map((v) => v * c) as V3, u, s); u = add(u.map((v) => v * c) as V3, r, -s); r = r2; }
+  return { cam, f, r, u, th: Math.tan((cam.fov * Math.PI) / 360), asp: cam.w / cam.h };
+}
+/** Dirección (unitaria) del rayo que pasa por el punto (px, py) de la imagen (el centro de un pixel es +0.5). */
+export function rayoCamara(b: BaseCamara, px: number, py: number): V3 {
+  const sx = ((2 * px) / b.cam.w - 1) * b.th * b.asp, sy = (1 - (2 * py) / b.cam.h) * b.th;
+  return norm([b.f[0] + b.r[0] * sx + b.u[0] * sy, b.f[1] + b.r[1] * sx + b.u[1] * sy, b.f[2] + b.r[2] * sx + b.u[2] * sy]);
+}
+/** Dónde cae un punto del mundo en la imagen: [px, py, distancia al ojo], o null si queda detrás de la cámara. */
+export function proyectar(b: BaseCamara, p: V3): [number, number, number] | null {
+  const q = add(p, b.cam.pos, -1), z = dot(q, b.f);
+  if (z <= 1e-6) return null;
+  const x = dot(q, b.r) / z, y = dot(q, b.u) / z;
+  return [((x / (b.th * b.asp) + 1) * b.cam.w) / 2, ((1 - y / b.th) * b.cam.h) / 2, Math.hypot(q[0], q[1], q[2])];
+}
+/** Caja alineada (x0, y0, z0, x1, y1, z1) que envuelve una pieza. */
+export function cajaPieza(p: Pieza): [number, number, number, number, number, number] {
+  const b: [number, number, number, number, number, number] = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+  const mete = (c: V3, r: number) => { for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], c[k] - r); b[k + 3] = Math.max(b[k + 3], c[k] + r); } };
+  if (p.k === 'conv') for (const q of p.pts) mete(q, 0);
+  else if (p.k === 'cono') { const R = Math.max(p.r0, p.r1); mete(p.o, R); mete(add(p.o, p.ez, p.h), R); }
+  else if (p.k === 'elip') mete(p.c, Math.max(...p.r));
+  else for (const c of p.comps) mete(c.sc, c.sr + Math.max(0, c.k ?? p.suave) * 0.5 + 0.05);
+  return b;
+}
+/** Lo que toca un rayo de la escena de cine: distancia, normal, pieza (índice) y su material. */
+export interface GolpeEscena { t: number; n: V3; i: number; mat: string; tono: number }
+/**
+ * Árbol de cajas sobre las piezas de una escena entera. Cada pieza lleva su grupo (el asset del que salió): una pieza
+ * `resta` cava solo las piezas de su mismo grupo armadas antes que ella, igual que en el isométrico (el hueco de la
+ * puerta de una casa no muerde el árbol de al lado). Las piezas de un grupo van seguidas en la lista.
+ */
+export class ArbolCajas {
+  readonly ps: Pieza[]; readonly grupo: Int32Array;
+  private bmin: Float64Array; private bmax: Float64Array; private izq: Int32Array; private der: Int32Array; private ini: Int32Array; private cnt: Int32Array;
+  private idx: Int32Array; private n = 0; private pila = new Int32Array(256); private cand: number[] = [];
+  constructor(ps: Pieza[], grupo: ArrayLike<number>) {
+    this.ps = ps; this.grupo = Int32Array.from(grupo);
+    const N = ps.length, cajas = ps.map(cajaPieza), cen = cajas.map((b) => [(b[0] + b[3]) / 2, (b[1] + b[4]) / 2, (b[2] + b[5]) / 2]), M = Math.max(1, 2 * N);
+    this.bmin = new Float64Array(M * 3); this.bmax = new Float64Array(M * 3); this.izq = new Int32Array(M).fill(-1); this.der = new Int32Array(M).fill(-1); this.ini = new Int32Array(M); this.cnt = new Int32Array(M);
+    this.idx = Int32Array.from({ length: N }, (_, i) => i);
+    const armar = (a: number, b: number): number => {
+      const nodo = this.n++, lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity], clo = [Infinity, Infinity, Infinity], chi = [-Infinity, -Infinity, -Infinity];
+      for (let k = a; k < b; k++) { const c = cajas[this.idx[k]], m = cen[this.idx[k]]; for (let e = 0; e < 3; e++) { lo[e] = Math.min(lo[e], c[e]); hi[e] = Math.max(hi[e], c[e + 3]); clo[e] = Math.min(clo[e], m[e]); chi[e] = Math.max(chi[e], m[e]); } }
+      this.bmin.set(lo, nodo * 3); this.bmax.set(hi, nodo * 3);
+      if (b - a <= 4) { this.ini[nodo] = a; this.cnt[nodo] = b - a; return nodo; }
+      const ext = [chi[0] - clo[0], chi[1] - clo[1], chi[2] - clo[2]], eje = ext[0] >= ext[1] && ext[0] >= ext[2] ? 0 : ext[1] >= ext[2] ? 1 : 2;
+      this.idx.set(Array.from(this.idx.subarray(a, b)).sort((p, q) => cen[p][eje] - cen[q][eje]), a);
+      const m = (a + b) >> 1;
+      this.izq[nodo] = armar(a, m); this.der[nodo] = armar(m, b);
+      return nodo;
+    };
+    if (N) armar(0, N);
+  }
+  /** Índices de las piezas cuya caja cruza el rayo entre tmin y tmax (d unitario). */
+  candidatos(o: V3, d: V3, tmin: number, tmax: number): number[] {
+    const out = this.cand; out.length = 0;
+    if (!this.n) return out;
+    const inv = [1 / d[0], 1 / d[1], 1 / d[2]];
+    let P = this.pila, sp = 0; P[sp++] = 0;
+    while (sp) {
+      const nd = P[--sp], j = nd * 3;
+      let t0 = -Infinity, t1 = Infinity;
+      for (let e = 0; e < 3; e++) { const ta = (this.bmin[j + e] - o[e]) * inv[e], tb = (this.bmax[j + e] - o[e]) * inv[e]; t0 = Math.max(t0, Math.min(ta, tb)); t1 = Math.min(t1, Math.max(ta, tb)); }
+      if (!(t1 >= t0) || t1 < tmin || t0 > tmax) continue;
+      if (this.izq[nd] < 0) { for (let k = this.ini[nd]; k < this.ini[nd] + this.cnt[nd]; k++) out.push(this.idx[k]); continue; }
+      if (sp + 2 > P.length) { const Q = new Int32Array(P.length * 2); Q.set(P); this.pila = P = Q; }
+      P[sp++] = this.izq[nd]; P[sp++] = this.der[nd];
+    }
+    return out;
+  }
+  /** El primer punto sólido en el rayo entre tmin y tmax (con los huecos de `resta` por grupo). */
+  golpe(o: V3, d: V3, tmin = 0, tmax = Infinity): GolpeEscena | null {
+    const cs = this.candidatos(o, d, tmin, tmax);
+    if (!cs.length) return null;
+    const ps = this.ps, G = this.grupo, pos: Tramo[] = [], neg: Tramo[] = [];
+    let masas: [number, number][] | null = null;
+    for (const i of cs) {
+      const p = ps[i];
+      if (p.k === 'masa') {
+        const e = p.esf, wx = e[0] - o[0], wy = e[1] - o[1], wz = e[2] - o[2], tc = wx * d[0] + wy * d[1] + wz * d[2], q = wx * wx + wy * wy + wz * wz - tc * tc;
+        if (q > e[3] * e[3] || tc + e[3] < tmin) continue;
+        (masas ??= []).push([tc - Math.sqrt(e[3] * e[3] - q), i]); continue;
+      }
+      const r = tramo(p, o, d);
+      if (!r || r.t1 < tmin) continue;
+      r.i = i; (p.resta ? neg : pos).push(r);
+    }
+    const dentroNeg = (t: number, i: number) => { for (const r of neg) if (r.i > i && G[r.i] === G[i] && t > r.t0 + 1e-6 && t < r.t1 - 1e-6) return true; return false; };
+    let mejor: GolpeEscena | null = null;
+    for (const r of pos) {
+      const t = Math.max(r.t0, tmin);
+      if (t > tmax || (mejor && t >= mejor.t)) continue;
+      if (!dentroNeg(t, r.i)) { mejor = { t, n: r.n0, i: r.i, mat: r.p.mat, tono: r.p.tono ?? 0 }; continue; }
+      for (const q of neg) if (q.i > r.i && G[q.i] === G[r.i] && q.t1 > t && q.t1 < r.t1 && q.t1 <= tmax && (!mejor || q.t1 < mejor.t) && !dentroNeg(q.t1 + 1e-5, r.i)) mejor = { t: q.t1, n: [-q.n1[0], -q.n1[1], -q.n1[2]], i: r.i, mat: r.p.mat, tono: r.p.tono ?? 0 };
+    }
+    if (masas) {
+      if (masas.length > 1) masas.sort((a, b) => a[0] - b[0]);
+      for (const [entra, i] of masas) {
+        if ((mejor && entra >= mejor.t) || entra > tmax) break;
+        const m = ps[i], r = tramo(m, o, d, Math.max(tmin, entra), Math.min(tmax, mejor ? mejor.t : Infinity));
+        if (!r || r.t0 < tmin) continue;
+        if ((!mejor || r.t0 < mejor.t) && !dentroNeg(r.t0, i)) mejor = { t: r.t0, n: r.n0, i, mat: r.mat ?? m.mat, tono: (r.tono ?? 0) + (m.tono ?? 0) };
+      }
+    }
+    return mejor;
+  }
+}
+/**
+ * Vista de prueba de la cámara libre con el sombreado del taller (luz LUZ, rampa del material, sombra dura de un rayo,
+ * sin trama): sirve para mirar cualquier escena en perspectiva. Las cinemáticas usan su propio sombreado (cine3d.ts).
+ */
+export function pintarCamara(esc: Escena, cam: Camara, o: { ss?: number } = {}): Raster {
+  const ps = esc.piezas, b = baseCamara(cam), arbol = new ArbolCajas(ps, ps.map(() => 0)), img = createRaster(cam.w, cam.h), ss = Math.max(1, Math.round(o.ss ?? 1));
+  for (let py = 0; py < cam.h; py++) for (let px = 0; px < cam.w; px++) {
+    let r = 0, g = 0, bl = 0, n = 0;
+    for (let k = 0; k < ss * ss; k++) {
+      const d = rayoCamara(b, px + ((k % ss) + 0.5) / ss, py + (Math.floor(k / ss) + 0.5) / ss), h = arbol.golpe(cam.pos, d);
+      if (!h) continue;
+      const m = MATERIALES[h.mat] ?? MATERIALES.piedra, p = add(cam.pos, d, h.t);
+      let nn = h.n; if (dot(nn, d) > 0) nn = [-nn[0], -nn[1], -nn[2]];
+      let s: number;
+      if (m.emite) s = 0.8 + h.tono;
+      else {
+        const dif = Math.max(0, dot(nn, LUZ)), lz = dif > 0 && !arbol.golpe(add(p, nn, 0.5), LUZ, 0.01) ? 1 : 0;
+        s = 0.17 + 0.64 * dif * (0.22 + 0.78 * lz) + 0.12 * Math.max(0, nn[2]) + (fbm(p[0] * m.escala, p[1] * m.escala, p[2] * m.escala) - 0.5) * m.ruido + (m.patron ? m.patron(p, nn) : 0) + h.tono;
+      }
+      const R = rampa(m, h.mat), pos = Math.max(0, Math.min(0.999, s)) * (R.length - 1), k0 = Math.floor(pos), fr = pos - k0, ca = R[k0], cb = R[Math.min(R.length - 1, k0 + 1)];
+      r += ca[0] + (cb[0] - ca[0]) * fr; g += ca[1] + (cb[1] - ca[1]) * fr; bl += ca[2] + (cb[2] - ca[2]) * fr; n++;
+    }
+    if (!n) continue;
+    const i = (py * cam.w + px) * 4;
+    img.data[i] = r / n; img.data[i + 1] = g / n; img.data[i + 2] = bl / n; img.data[i + 3] = Math.round((n / (ss * ss)) * 255);
+  }
+  return img;
+}

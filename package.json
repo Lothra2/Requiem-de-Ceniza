@@ -1,0 +1,37 @@
+{
+  "name": "requiem-de-ceniza",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --config juego/vite.config.ts",
+    "build": "vite build --config juego/vite.config.ts",
+    "preview": "vite preview --config juego/vite.config.ts",
+    "typecheck": "tsc --noEmit -p juego",
+    "hornear": "tsx juego/hornear/hornear.mts && python3 juego/hornear/atlas_webp.py"
+  },
+  "dependencies": {
+    "@fontsource-variable/inter": "^5.3.0",
+    "@fontsource/silkscreen": "^5.3.0",
+    "fast-png": "^8.0.0",
+    "fflate": "^0.8.3",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^26.6.4",
+    "@types/omggif": "^1.0.5",
+    "@types/opentype.js": "^1.3.8",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "omggif": "^1.0.10",
+    "opentype.js": "^1.3.4",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.3"
+  },
+  "description": "Réquiem de Ceniza: ARPG gótico isométrico en Canvas 2D"
+}

@@ -1,0 +1,217 @@
+# Réquiem de Ceniza (Legado GG)
+
+Juego de rol de acción isométrico y oscuro (antes "La Marca de Ceniza"), hecho en casa para Rick y la familia. Todo es original: historia, clases,
+habilidades, monstruos, objetos, lugares, música y arte (pintado por el motor gótico de `src/engine/gotico`).
+
+## Cómo se juega
+
+- **Clic izquierdo**: caminar, atacar, recoger, hablar, abrir cofres y usar piedras de viaje. Mantenlo apretado para seguir caminando o pegando.
+- **Clic derecho**: la habilidad del botón derecho (hechizos, flechas, gritos). Las auras se activan solo con ponerlas en ese botón.
+- **Shift + clic**: atacar sin moverte.
+- **1 a 4**: pociones del cinturón. **B**: pergamino de regreso (portal al campamento).
+- **I** inventario, **C** personaje, **T** habilidades, **Q** misiones, **Tab** mapa, **R** correr o caminar, **Alt** muestra todo el botín, **5 a 0** y **F1 a F10** atajos de habilidades (también con clic en la barra), **Esc** menú.
+- En tablet aparecen dos botones grandes (Poder y Golpe) que atacan al enemigo más cercano. Tocar y mantener camina.
+
+## Qué hay
+
+- Intro de cine de casi un minuto y medio: la cámara se mueve, la ceniza cae, la brasa baja como un meteoro sobre la abadía con destello y sacudida, y Ozmaren aparece entre relámpagos. El texto se escribe solo. Se salta con clic o Esc.
+- Selección de clase nueva: cada clase se presenta en grande con su pose y su luz, con su ficha de rol, dificultad, atributos, mecánica propia y las tres ramas con su habilidad estrella. Se puede ver al héroe como novato o como leyenda.
+- 8 clases (Berserker, Templario, Arcanista, Cazadora, Nigromante, Monje, Druida, Alquimista).
+- Luces de verdad: cada fuego, flecha, hechizo y explosión alumbra lo que tiene cerca y tiñe a los personajes con su color. Cada luz proyecta sombras de los personajes, estiradas lejos de ella. Las explosiones dan un destello.
+- Los pies ya no patinan: la animación de caminar y correr avanza con la distancia real (con botas rápidas el paso se acelera). Cada monstruo usa la zancada medida por la Forja en su propio sprite, así que arañas, lobos, cangrejos y el verdugo ya no se deslizan.
+- El equipo cambia el dibujo según su rareza: raro trae ribetes de oro, conjunto viste su orden, único cambia a un tema sagrado, oscuro, de sangre o arcano con capa y hombreras, y legendario brilla y le da al héroe un aura de luz.
+- 30 habilidades por clase en 3 ramas de 10, que se abren a los niveles 1, 6, 12, 18, 24 y una definitiva a nivel 30, con requisitos y sinergias. Árbol nuevo con ayuda de valores actuales y del siguiente nivel.
+- Cada clase juega distinto: furia del berserker, una sola aura del templario, cargas de fuego, hielo y rayo de la arcanista, halcón y trampas de la cazadora, cadáveres del nigromante, combos del monje, formas de lobo y oso del druida, y frascos de la alquimista. Un indicador en la barra muestra cada uno.
+- 5 actos con 26 zonas: el valle de Velmora (páramo, cueva, camposanto, abadía, catacumbas y el Pozo de la Brasa), el desierto de Sahrim y sus tumbas, la selva de Yhuantl y su templo, los picos helados de Hrimgard y la Herida.
+- 10 misiones con premios y jefes con fases. Los jefes grandes (el Verdugo, la Abadesa, Khamer-Ul que no tiene sombra, Madre Ciénaga, Hjaldur y Ozmaren con su fuego) son modelos propios de la Forja, frases propias e invocaciones. Campeones y únicos con nombres generados y modificadores.
+- Botín con rarezas normal, mágico, raro, de conjunto, único y legendario. Unos 130 tipos de objeto, 114 afijos, 48 únicos, 6 conjuntos, 35 gemas, 20 runas y 10 palabras rúnicas. **Armas vivas** de fuego, hielo, rayo, veneno, sombra, luz y sangre que arden en la mano y en el inventario.
+- Lo que te pones cambia el dibujo del héroe de verdad: el juego lo vuelve a pintar en segundo plano ("Forjando tu equipo").
+- Inventario de la Forja: el héroe se ve de verdad con su equipo, armas en 3D, objetos de su tamaño real, fondo por rareza, durabilidad, gemas engarzadas, flechas de mejor o peor que lo puesto, tres bolsas de 10x5 y botón para ordenar.
+- Talismanes: el casillero extra lleva amuletos de hueso, cera y ceniza con afijos propios (radio de luz, hallazgo, resistencia al terror, +1 a habilidades). Cada jefe de acto suelta siempre su talismán único.
+- Tiendas (comprar, vender con clic derecho, reparar), la vidente para apostar, baúl compartido entre héroes, piedras de viaje, portales.
+- Oscuridad real con radio de luz, niebla, lluvia, nieve y ceniza, sangre que queda en el piso, cadáveres, sacudida de cámara, susurros y visiones que asoman al borde de la luz. Música y sonidos hechos con WebAudio, distintos por acto.
+- Misterio: 9 páginas arrancadas del diario del primer abad escondidas en libros malditos de las mazmorras, momentos de terror donde la luz se encoge y algo te nombra, y un final con su giro después de vencer a Ozmaren.
+- Español e inglés, volumen, brillo y pantalla completa. Las partidas se guardan solas en el navegador.
+
+## Lo grande nuevo (noviembre)
+
+- **7 actos y 68 zonas.** Velmora, Sahrim, Yhuantl, Hrimgard, la Herida, Ysmeral la Ciudad Ahogada y la Corona del Dios Sediento. Cada acto tiene su pueblo, su cadena principal y 2 o 3 mazmorras laterales con mini jefe y cofre de tesoro. Los mapas cambian en cada partida.
+- **Historia de siete actos.** 42 misiones (3 principales y 3 secundarias por acto, muchas con elección), diálogos que cambian según lo que hiciste, diarios de cada sello, fantasmas que repiten su última escena y cinemáticas entre actos.
+- **Criptas, catacumbas y camposantos nuevos.** 98 objetos de muerte del taller: nichos con calaveras, sarcófagos de obispo, osarios, mausoleos, lápidas con musgo. Cada mazmorra elige al azar su par de muros, así dos criptas no se ven iguales.
+- **Arsenal épico.** 26 armas nuevas en dos rangos, mítico desde el nivel 55 y ancestral desde el 78: katana, estoque, falcata, tridente, lucero del alba, arco largo, arco corto, jabalina, gran báculo, orbe de mano, katar, hoz y lanza del dragón. Cada una juega como su familia, así el katar sigue siendo del monje y el arco largo dispara. 24 piezas de armadura en las 6 líneas épicas (ahogada, escamas, élfica, dracónica, demoníaca y celestial) que cambian el cuerpo entero, con halo y alitas en la celestial. 13 legendarias de nivel 60 a 90 cambiaron de forma, como el Tañido de la Campana, que ahora es un tridente, y La Primera Brasa, que ahora es una lanza del dragón. El Coro Ahogado viste la línea ahogada y la Vigilia de Mármol la celestial.
+- **Hielo, nieve, infierno y fortaleza.** 113 objetos nuevos de los actos 4 y 5: mamuts, cabañas con la ventana encendida, hogueras, columnas de hielo con alguien atrapado adentro, portales helados, jaulas colgantes, piras, carne que late y columnas de fuego. El Fortín de Vel y el Bastión del Último Coro tienen murallas almenadas con portón en las salidas. El Río de Lava ahora tiene un río de verdad que corta el mapa: no se cruza, salvo por los puentes donde pasa el camino. Hay un tema nuevo de fortaleza para mazmorras, con murallas o almenas según la partida.
+- **Bajo tierra.** 98 objetos nuevos de cuevas, minas y abismo. El Abismo ahora es de islas de verdad: cada sala es una isla con su acantilado, los pasillos son puentes sobre el vacío y abajo flotan islotes, cadenas, una mano colosal, ojos y estrellas. Las minas tienen vías con curvas, cruces y fin de vía, vagonetas y paredes con veta de oro, hierro o sangre. Las cuevas suman drusas que brillan, hongos gigantes, capullos que se mecen y un lago negro con ojos bajo el agua.
+- **Páramo, desierto y selva.** 98 objetos nuevos en los exteriores de los actos 1 a 3. El Páramo de Velmora tiene un arroyo que lo cruza con puentes de piedra y vados, horcas y picotas. El Bosque de los Ahorcados tiene árboles con ahorcados que se mecen y la hoguera de la bruja. En el desierto hay arenas movedizas y remolinos en las Dunas, un oasis con buitres en el Oasis Muerto y una esfinge con estatuas caídas en las Ruinas del Sol. La Selva tiene cascadas, ídolos con ojos que brillan y flores carnívoras, y el Manglar tiene chozas sobre pilotes y puentes colgantes.
+- **Ysmeral, la Corona y los jefes finales.** 89 objetos nuevos: naufragios, mástiles con la vela rota, campanas, la ciudad hundida con percebes y la costa con ballenas de hueso. El Barco Varado tiene su casco encallado detrás del campamento. Las Islas de Oro son islas de verdad sobre el vacío, con bordes dorados y escalones flotantes entre ellas. La Corona suma estatuas de los que intentaron subir, el trono por partes y la fuente seca. La Campana que Ahoga y Aun-Saar ya tienen cuerpo propio: ella es la sacerdotisa fundida con la campana, con luz verde de mar que crece al tañer, y él es de mármol agrietado, con seis manos de oro, halos rotos y una boca en el pecho que late con luz dorada.
+- **Guardado y jefes.** La partida se guarda sola cada 30 segundos y al cerrar u ocultar la pestaña. Antes solo se guardaba al cambiar de zona. Los jefes despiertan cuando te acercas a su sala aunque un muro los tape, y la sala de los jefes enormes queda despejada para verlos bien.
+- **Thor.** El perro de la familia acompaña al héroe desde el principio. Sigue, pelea, sube de nivel contigo y su armadura sube por tramos: niveles 1, 6, 15, 30, 50 y 75. Cada tramo le da vida y le quita daño recibido. Cuando estás en apuros o rodeado ladra y te pone un escudo. Si cae, se echa a descansar y vuelve solo en un minuto, o al llegar al pueblo, sin castigo. El Collar de Thor del Legado GG lo hace más fuerte y más rápido. Es un bóxer leonado con pecho blanco y collar azul, y su armadura cambia a la vista en cada tramo hasta la barda azul y oro de la Casa GG. Galopa cuando corres.
+- **Balance.** Hay un simulador de combate sin pantalla (juego/herramientas/balance.mts) que mide, con el código real del juego, cuánto tarda el héroe en matar y en morir del nivel 1 al 100 en las tres dificultades. Con él se ajustó la curva: los monstruos reusados en actos más altos ya no escalan dos veces, la Pesadilla va del 59 al 86 y el Infierno del 81 al 100, la penalización de resistencias baja a -30 y -60, y se ajustó la vida de varios jefes. Subir al 30 toma cerca de 1.5 h, al 70 unas 5 h y al 100 unas 23 h. El reporte completo está en juego/herramientas/BALANCE.md. Thor puede encontrar collar y barda propios: caen de únicos y jefes, se le ponen desde su panel junto al inventario o con clic derecho.
+- **La catedral de Santa Oria.** El Camposanto tiene en el centro una catedral gótica en ruinas: dos torres con agujas, rosetón, arbotantes y luz roja que late en los vitrales. Su puerta es la entrada a la Nave del Silencio. Está sellada hasta aceptar Las campanas mudas, entera después y herida cuando cae la Abadesa. Cuando te acercas por delante, la cámara sube para que se vean las torres, y como es un hito se ve desde lejos.
+- **Mapas siempre conectados.** Al generar cada zona se verifica que la entrada llegue a todas las salidas, al jefe, a la piedra de viaje y a los cofres. Si algo estorba, se quita solo lo necesario, los ríos abren un vado o un puente y, si hace falta, se rellena el vacío. Las piedras de viaje siempre quedan en piso firme. Probado con 50 semillas por zona: juego/herramientas/conectividad.cjs.
+- **La puerta de la catedral.** Cuando está abierta sale por la puerta una luz roja intensa que late con los vitrales, tiñe el piso, al héroe y a Thor y les saca sombras largas, con un cono de luz sobre la escalinata y brasas y ceniza que suben. Sellada, nada. Además el inicio es más amable: te repones despacio fuera de combate, arrancas con siete pociones de vida, el cinturón se rellena solo desde la bolsa y los grupos no despiertan enteros. Thor escala más rápido después del nivel 40.
+- **Pulido.** El clic sobre el nombre de un objeto en el piso siempre lo recoge, aunque haya un monstruo detrás. Las etiquetas de salida van sobre piso firme. Los pisos de prueba del Bastión y del cielo se cambiaron por baldosa de catedral. La tienda explica cómo comprar y vender. La selección muestra al héroe con su equipo. Las armas largas tienen un contorno claro en sus íconos. Las mazmorras de cada acto tienen su propia música. Hay quemadura, el héroe a veces se congela o se aturde un instante, los jefes ya no se aturden, y los afijos maldito y espectral hacen algo.
+- **Lágrima del Olvido.** Al cerrar los actos 2, 4 y 6 te dan una Lágrima del Olvido. Con clic derecho la bebes y te devuelve todos los puntos de atributo y de habilidad para repartirlos de nuevo.
+- **Clases parejas.** Los hechizos ahora crecen con el nivel del héroe y con un afijo nuevo de % de daño de hechizos (varitas, báculos, cetros, orbes, amuletos y tela), los puntos de habilidad suman lineal y las sinergias se suman con tope de +75 %. Del nivel 50 en adelante ninguna clase tarda más de 1.5 a 2 veces que otra contra el mismo jefe (antes hasta 42 veces). Hay 34 armas únicas nuevas de nivel 45 a 88, al menos una alta por cada tipo de arma, y 7 espadas legendarias nuevas con falcata, katana y estoque. El acto 5 corre más liviano: como mucho 18 luces por cuadro, las que más pesan en pantalla.
+- **Controles y pociones.** Clic derecho ataca o lanza la habilidad derecha hacia el cursor sin moverte. Mayúscula y clic izquierdo atacan en el sitio. El navegador ya no abre su menú. Las pociones se apilan hasta 20 por casilla. Pasan entre el cinturón y la bolsa arrastrando o con Mayúscula y clic, y con clic derecho en la bolsa te las bebes. Cada columna del cinturón tiene su tipo, y se cambia con clic derecho en una casilla vacía. Clic derecho o doble clic en la bolsa equipa al instante: intercambia, las armas a dos manos guardan el escudo y los anillos buscan la casilla libre. El clic que das durante un ataque se guarda y se ejecuta al terminar. Thor sigue sin trabarse. Los héroes tienen los ataques a dos manos nuevos y el berserker su presentación nueva. Ysmeral y la Corona tienen diez monstruos propios.
+- **Ozmaren, el inicio y la arcanista.** Ozmaren tiene un 29 % menos de vida y cada 16 segundos (13 cuando está desesperado) abre el pecho: suelta una ola de fuego que avisa, se queda quieto 4 segundos y medio con el núcleo a la vista, y recibe el doble de daño, con los números en dorado. Es el momento de meterse cuerpo a cuerpo. Con el simulador su pelea bajó de 84 a 55 segundos de mediana. Al empezar, en Normal, los monstruos pegan un 25 % menos hasta el nivel 8 y vuelven a lo normal hacia el 14, el primer grupo cerca de la entrada es un solo monstruo y hasta el nivel 5 las pociones curan en 2 segundos en vez de 4. La arcanista gana más vida por nivel y paga con maná un cuarto del daño que recibe.
+- **Clic derecho cuerpo a cuerpo.** Con un golpe cuerpo a cuerpo en la derecha, el clic derecho sobre un monstruo camina hasta él y pega, y sostenerlo encadena golpes igual que el izquierdo. Sobre el suelo, o con hechizos y habilidades de área, se lanza en el sitio hacia el cursor. Con Mayúscula siempre se queda en el sitio. Al cambiar de equipo el héroe sigue con su último aspecto completo hasta que cada animación nueva está pintada en las 8 direcciones, y al abrir la partida usa el último héroe pintado en vez del muñeco base.
+- **HUD para teléfono y tablet.** Con pantalla táctil el juego usa su propio HUD en vez de la barra de PC encogida.
+  - Arriba a la izquierda: vida y maná con su número, el recurso de tu clase y la misión en curso.
+  - Arriba a la derecha: personaje, bolsa, habilidades, mapa y menú, y el minimapa redondo (tócalo para esconderlo).
+  - Abajo a la derecha: Golpe grande en la esquina, un arco con tu Poder y tres atajos (con la recarga y el maná que falta) y el interruptor Agresivo / Calmo con su nombre.
+  - Abajo al centro: las cuatro pociones, tocar para beber, y la experiencia en una línea fina.
+  - Abajo a la izquierda: un joystick que aparece donde apoyas el pulgar. Tocar el suelo o un monstruo sigue funcionando.
+  - Los consejos de la primera vez salen en un cartel abajo al centro, encima de las pociones, sin tapar la misión, el minimapa ni el arco. Se cierra al tocarlo o solo a los 6 segundos.
+  - Todos los botones miden 44 puntos o más, nada queda a menos de 50 puntos de los bordes (el notch y la isla) y no hay pistas de teclado ni cursor. El portal al campamento está en el menú.
+  - La prueba juego/herramientas/hud_tactil.cjs revisa en cuatro tamaños de iPhone que nada se cruce, que los toques reales funcionen y que Poder y los tres atajos se vean del mismo tamaño en pantalla.
+- **Fuego vivo.** Las antorchas, braseros, piras, fogatas, velas, faroles y los vitrales de la catedral arden con un fuego que se simula en vivo, al estilo del Doom de PlayStation, en lugar de la llama pintada.
+  - La luz de cada fuego late con su llama, así que las sombras tiemblan con ella. Las chispas salen de las puntas.
+  - En los lugares fríos y en los actos 4 y 7 el fuego es de ánimas, verde azulado. Si elegiste la Corona Fría, el acto 7 arde con su llama helada. Los campamentos siempre tienen fuego cálido.
+  - Arden también los monstruos y el héroe quemados, los cadáveres de los que mueren por fuego, el piso después de los poderes de fuego, el cuerpo de Ozmaren y las armas encantadas, cada una con el color de su elemento.
+  - Poderes nuevos: el Cerco de llamas es un anillo de fuego y con 10 puntos se vuelve muro del infierno. El Sol negro suelta una lluvia de brasas, el Lamento del osario un llanto de ánimas y la Bomba ígnea deja el piso ardiendo. Ozmaren levanta un pilar de fuego al abrir el pecho y el Cetro de la Corona Fría envuelve al héroe en su llama.
+  - Como mucho arden 12 fuegos a la vez en el teléfono y 24 en la computadora, los más cercanos. Los demás muestran su llama pintada.
+  - La portada tiene fuego vivo en las ruinas y detrás de los vitrales de la catedral.
+- **Efectos de pixelfx.** 169 efectos animados en pixel art, adaptados por la Forja.
+  - Estados sobre el cuerpo con su color: congelado, lento por frío, envenenado, maldito, sangrando, aturdido y asustado.
+  - Muertes distintas según el monstruo y el golpe: el ánima que sube, el cuerpo helado que revienta, la magia que deshace, el ahogado que se vuelve agua, el saqueador que suelta su oro, las plumas de los alados y la explosión de los jefes.
+  - Los poderes de las 8 clases y las bolas de los monstruos lanzadores usan sus efectos.
+  - Clima por zona: tormenta, lluvia, nieve, niebla, hojas y luciérnagas. Cada zona tiene lo suyo: murciélagos, fuegos fatuos, goteras, burbujas, medusas, cuervos.
+  - Botín: el cofre que se abre, la columna de luz de los únicos y legendarios, el destello al recoger y la curación al beber. Cortes a pantalla completa al ver un jefe, al morir y al entrar a la catedral ahogada o al cielo.
+  - Se bajan en 4 paquetes cuando hacen falta, y en el teléfono nunca ocupan más de 60 Mpx de memoria.
+  - Créditos en Opciones: pixelfx, licencia MIT, de Patch, Hugo Duprez y Hollow Crown.
+- **La historia decide (actos 4 a 7).** La cadena principal tiene tres decisiones con consecuencias reales.
+  - Acto 4, "La sangre tibia": Vigdis se ofrece para abrir el trono. Si la dejas ir, Hjaldur llega con un cuarto menos de vida, el fortín se queda sin curandera y en su lugar queda su tumba. Si la detienes, el rey llega entero y ella te sigue en los campamentos de los actos 5 a 7.
+  - Acto 5: la Brasa, destruirla o absorberla.
+  - Acto 7: Aun-Saar ya no termina el juego al morir. Deja su Corona y la llevas al campamento: se la das a Auren, a Mira o te la quedas.
+  - Eso da cuatro finales con su epílogo y su legendaria: La Vigilia, El Cielo Abierto, El Rey de Ceniza y La Corona Fría. Lo que pasó con Vigdis cambia un párrafo de cada uno. La gente del pueblo habla distinto según lo que decidiste.
+  - Ocho misiones secundarias nuevas, dos por acto del 4 al 7, ninguna de matar: investigar, ritual, purga, elecciones y traición, donde alguien que escoltas se convierte en monstruo a mitad del camino. Cada una con su legendaria.
+- **Códice (J).** Notas, diarios y pistas que leíste, los jefes que viste, las decisiones que tomaste y las cinemáticas para volver a verlas.
+- **Cinemáticas de cierre de acto.** Al morir el jefe que cierra el acto, el mundo va en cámara lenta sobre su caída y después viene la cinemática ilustrada de la Forja: dos a cuatro planos con capas en paralaje, fuego, humo, cuervos y goteo animados, cámara que se acerca o recorre, y narración. Cambian según lo que decidiste: Vigdis viva con su farol o su tumba en el acto 4, la Brasa en el acto 5. Al entregar la Corona se ve además la cinemática de tu final antes del epílogo. Las cartas de acto también son nuevas.
+- **Sonido de horror, con volumen propio en Opciones.** Chapoteo de sangre, reventones, huesos que crujen, carne que se desgarra en los críticos, susurros que vienen desde donde están los ojos o la niebla, un golpe seco en los sustos, un latido bajo el 30 % de vida con la pantalla latiendo al mismo tiempo y un dron grave cerca de los jefes.
+- **Balance de noviembre.** La arcanista aguanta más: más vida por vitalidad y su escudo de maná absorbe el 40 % del daño. Aun-Saar ya no resiste tanto la luz, el fuego y la sombra, que eran justo los elementos del templario, la nigromante, la arcanista y la alquimista, y pega un poco menos. Ninguna arma al azar pega menos del 70 % de lo normal para su familia y su nivel, así que la cazadora ya no depende tanto de la suerte con el arco. Los números están en herramientas/BALANCE.md.
+- **Gore y detalles finales.** Cadáveres de verdad, huellas con suela, cráneos y astillas más grandes, armas legendarias y míticas con filos que brillan en la mano, cestus y frascos en el piso, y los pies ya no se hunden en el suelo.
+- **Cuerpos rehechos (ronda final de la Forja).** Todos los sprites se volvieron a pintar con el motor nuevo: los retratos, las 8 clases, todos los monstruos, bestias, jefes y NPC. La ropa ya no deja ver abdominales, las túnicas no dejan pasar rodillas, las armas a dos manos van al hombro, el berserker agarra el hacha con las dos manos en su presentación y nadie se tapa la cara. El pie apoyado ya no patina al caminar y las arañas y el cangrejo dejaron de rebotar.
+- **Menús que se cierran bien (iPhone y iPad).**
+  - Todo panel tiene una X grande arriba a la derecha y se cierra con Escape.
+  - En pantalla táctil se cierra también tocando fuera.
+  - Lo que abre un NPC u objeto se cierra solo si te alejas más de 4 casillas o cambias de zona: tienda, diálogo, baúl, piedra de viaje, páginas, pistas y altares.
+  - En pantallas bajas, como el iPhone apaisado, la barra de abajo y los botones táctiles se esconden mientras hay un panel, y los paneles se achican si no caben.
+  - La pantalla de carga pone el título arriba y la barra abajo, sin encimarse.
+  - Nunca se ve el título viejo: la portada y los títulos se precargan antes de empezar.
+  - Los nombres de las salidas siempre se leen enteros y en táctil nunca caen sobre los botones Golpe y Poder.
+  - En el teléfono vertical el juego ahora llena la pantalla de arriba abajo, y sale un aviso para girarlo porque se juega mejor en horizontal. Tocando el aviso se sigue en vertical.
+  - Los mensajes de abajo a la izquierda van encima del botón agresivo, y ese botón se esconde mientras hay un panel a la izquierda.
+  - En táctil la tienda explica cómo se usa con el dedo: tocar para comprar, y tocar algo de la bolsa y luego la tienda para vender.
+  - Antes de publicar se corre una prueba que abre y cierra cada panel de las cuatro maneras en 844x390, 390x844, 1180x820 y 1280x720, y además revisa que Golpe, Poder, la barra, el botón agresivo, los mensajes y los nombres de las salidas no se crucen entre sí ni con un panel (juego/herramientas/auditoria_paneles.cjs).
+- **Agresivo o pasivo (Z o el botón sobre la barra).** En agresivo, quieto y sin órdenes, el héroe le pega solo al enemigo más cercano dentro de su alcance, sin perseguirlo ni cortar tus movimientos. En pasivo no ataca nada sin tu orden. Se recuerda por héroe.
+- **Monstruos que caminan mejor.** No cambian de dirección por cada zigzag del camino y no alternan entre quieto y caminar de un cuadro a otro.
+- **Kit de gore y horror de la Forja.**
+  - La sangre del piso usa sus dibujos: salpicaduras orientadas en 8 direcciones, charcos que crecen, gotas y rastros sobre piedra, tierra, nieve o madera según la zona. Los no-muertos sueltan icor negro y las bestias, verde.
+  - Al reventar sale el reventón y de 5 a 9 pedazos (torso, brazos, costillas, cráneo, tripas) que vuelan girando, salpican al caer y se van a los 20 a 40 segundos.
+  - Con poca vida, la pantalla se cubre con un velo de sangre que chorrea: más denso bajo el 40, el 25 y el 12 % de vida, y en el último late.
+  - Las salas de jefe tienen su ambientación por acto:
+    - Acto 1: cabezas en picas, cuervos, colgados y empalados.
+    - Acto 2: jaulas, mesa de tortura, nidos de huesos y pilas de cadáveres.
+    - Acto 3: altares, crucificados y escritura de sangre.
+    - Actos 4 y 5: paredes de carne, fosos de sangre que hierven y piras.
+    - Actos 6 y 7: un poco de todo.
+  - El bosque de los que cuelgan y la guarida de Ciro en la Cripta tienen su escena propia.
+  - Sustos raros y espaciados:
+    - ojos en la oscuridad que se apagan si te acercas
+    - una sombra que cruza el borde de la pantalla
+    - manos que salen del piso una vez en criptas y catacumbas
+    - un susurro como niebla cerca de los jefes
+- **Arsenal elemental y afinidad.**
+  - 30 familias de armas en 5 niveles (tosca, templada, de élite, legendaria y mítica) y 7 elementos: fuego, hielo, veneno, rayo, sombra, luz y sangre. Son 360 armas nuevas en el botín, con el cesto del monje y el frasco de la alquimista.
+  - Cada arma juega como su familia del juego y su daño sigue la misma curva, así no rompe lo que había. El elemento suma daño propio que sube con el nivel, brilla vivo en la mano y en el ícono, y alumbra con su color.
+  - 60 legendarias con nombre e historia, cada una con un efecto que cambia cómo juegas según su elemento:
+    - Sangre: los críticos te curan y hacen sangrar.
+    - Rayo: cada golpe salta a dos enemigos.
+    - Sombra: al matar se levanta una sombra que pelea por ti.
+    - Hielo: cada tercer golpe congela alrededor.
+    - Fuego: lo que matas revienta en llamas.
+    - Veneno: lo que matas deja una nube que contagia.
+    - Luz: cada quinto golpe baja un castigo del cielo y te cura.
+  - En el piso, las armas de forma nueva y las 60 legendarias tienen su dibujo, y las elementales brillan con su color.
+  - Afinidad: cada clase pelea mejor con ciertas familias. Afín da +15 % de daño y +10 % de velocidad, torpe da −15 % de daño. Se ve en verde o en rojo en el tooltip. No hay armas prohibidas.
+- **Poderes con luz.**
+  - Cada poder prende su propia luz con la tabla de la Forja: un fogonazo en la mano al lanzar, la luz que viaja con el proyectil y el destello al pegar, cada una con su curva de intensidad y sus sombras.
+  - Hay efectos nuevos: virote (antes era un cuadrado blanco), saetas sagradas y de veneno, impactos de rayo, veneno, luz y hueso, nova de sangre, maldición de sombra y aura de furia.
+  - La sangre, el hueso, el humo y las flechas se dibujan sin sumar luz, para que no se pierdan.
+  - Las luces de poderes se reparten por prioridad: como mucho 6 proyectan sombra, y un abanico de más de 3 flechas da una sola luz.
+- **Portada y cartas de acto.**
+  - La portada es una escena con capas de la Forja que se mueven a distintas velocidades: cielo, nubes que corren, relámpagos con trueno, ruinas en llamas, la catedral con la luz roja que late, niebla, ceniza, brasas que salen de la puerta y el cementerio adelante.
+  - El título es nuevo, con letras forjadas propias: aparece y después queda en bucle. Los botones van en fila sobre el cementerio.
+  - Cada acto empieza con su carta ilustrada, con el nombre del acto y la primera línea de la narración. La del acto 1 sale al crear un héroe.
+  - Las imágenes pesadas van en WebP: la portada pasa de 73 a 21 MB. Lo primero que se ve baja enseguida y la animación del título después. Para regenerarla se corre `npx tsx scripts/gotico-portada.ts juego/public/assets/portada` y luego `python3 juego/hornear/portada_web.py`.
+- **Sangre y miedo.**
+  - La sangre queda en el piso: salpica hacia donde va el golpe, hace charcos que crecen bajo los cuerpos y deja rastro detrás del que huye herido. Hay un tope de 300 manchas por zona.
+  - Un golpe que se pasa de la mitad de la vida revienta al monstruo en pedazos de sangre y carne.
+  - Con menos del 30 % de vida la pantalla late en rojo, más fuerte y más rápido cuanto peor estás.
+  - La primera vez que ves a cada jefe, el mundo va en cámara lenta, la cámara lo mira y su nombre aparece grande entre franjas de cine y brasas.
+  - Cerca de un jefe despierto, las luces del mapa titubean y a ratos se apagan.
+- **Misiones con historia.** 14 misiones nuevas, dos por acto, que no son "mata a X". Cada una da una legendaria fija con su nombre y su historia, que nunca cae al azar:
+  - **Investigar:** encuentras pistas en la zona, cada una con su texto. Por ejemplo, los cuerpos del Bosque de los Ahorcados.
+  - **Traición:** las notas del bosque apuntan al Hermano Ciro, un penitente del Refugio. Lo cazas en la Cripta y deja de estar en el pueblo.
+  - **Escoltar:** llevas a alguien hasta el otro extremo de la zona: Yusra la cartógrafa, Ulfar el desertor o el último peregrino. Si cae, vuelves a intentarlo al entrar de nuevo.
+  - **Purgar:** matas una cantidad de monstruos antes de que se acabe el tiempo, con un contador arriba y oleadas que llegan.
+  - **Ritual:** llevas tres reliquias a tres altares, y al encender el último despierta un guardián.
+  - **Recuperar y elegir:** el ojo del ídolo y la perla de la sirena tienen dos finales con dos legendarias distintas.
+  - La gente del pueblo comenta lo que hiciste, y las cosas de misión brillan con un halo dorado para que se encuentren en la oscuridad.
+- **Nueva Partida+.** Al terminar el acto 7, después del epílogo, puedes volver a empezar con todo lo tuyo: nivel, equipo, bolsa, oro, habilidades, talismanes, Thor y el baúl. La historia vuelve al acto 1 y sube un escalón: Normal, Pesadilla, Infierno y después ciclos del Infierno, cada uno con monstruos 15 % más duros. Cada ciclo suma 25 % de hallazgo de objetos mágicos. También se puede desde la lista de héroes, que muestra el ciclo de cada uno.
+- **Jefes más justos.** Los jefes llaman 2 ayudantes cada 12 segundos con un tope de 8 alrededor. Antes eran 3 cada 9 segundos hasta 14, y eso era lo que mataba al cuerpo a cuerpo. Sus ayudantes pegan como mucho la mitad que el jefe: el carcelero de Ozmaren, que viene del acto 1, escalaba al nivel 46 y pegaba más fuerte que el propio Ozmaren. Los proyectiles de los monstruos se apagan a las 11 casillas, así nadie te pega desde fuera de la pantalla. La Abadesa, el primer jefe, tiene 19 % menos de vida, pega 30 % menos y llama una monja por vez, con un máximo de 4, cuyas saetas de hielo son más lentas y se pueden esquivar. En Normal el maná se recupera el doble de rápido hasta el nivel 15 y vuelve a lo normal hacia el 25. Con un abanico de flechas o virotes, la primera que le da a un monstruo pega entera y las demás al 60 %, así un jefe grande ya no se come todas. La arcanista gana 2 de vida por nivel y paga con maná el 30 % del daño, pero solo con el maná que le sobra por encima del 25 %, para que nunca se quede sin hechizos.
+- **Partidas largas sin jefes invisibles.** Los dibujos bajan de a 4 a la vez y si una descarga falla se reintenta con espera creciente. Al cambiar de zona se sueltan los dibujos viejos menos usados cuando la memoria pasa de 500 MB, y el jefe de cada zona vecina se baja en segundo plano antes de que llegues.
+- **Vesperio, el Pregonero de la Sed.** Aparece antes de cada jefe y escapa, hasta la pelea final en la Fragua de Ozmaren.
+- **La revelación y los finales.** Tras Ozmaren descubres qué es la Marca y eliges destruir o absorber la brasa. Eso cambia diálogos en los actos 6 y 7 y el final después de Aun-Saar, el Dios Sediento: La Hoguera o La Corona de Ceniza.
+- **70 armas legendarias** en 8 escalones (nivel 6 a 90), todas armas vivas. Cada jefe suelta la suya. Hay 7 conjuntos más el Legado GG de la familia (Rick, Steph, Sophie, Alana y Thor). Lo que no puedes usar todavía sale en rojo con "Requiere nivel X".
+- **Nivel 100 y tres dificultades.** Normal, Pesadilla (monstruos hasta ~80, resistencias -40) e Infierno (hasta 100, resistencias -100). La siguiente se abre al terminar el acto 7.
+
+- **Movimiento con peso.** Los cuerpos ya no arrancan ni frenan en seco:
+  - El héroe y los monstruos arrancan al 40 % y llegan a su velocidad en 0,16 s. Al final del camino frenan en la última media casilla.
+  - Los giros pasan por los sectores intermedios, uno cada 45 ms, y el cuerpo afloja mientras se da vuelta.
+  - La cámara sigue al héroe con un resorte corto y se adelanta unos 30 px hacia donde camina. Al cambiar de zona corta en seco.
+  - En el combate, quien pega se recoge y se va encima con el golpe, y quien recibe retrocede un instante. Es solo visual: no cambia alcances ni daño.
+  - La palanca táctil es analógica y al soltarla el héroe da un último medio paso.
+  - Cada monstruo camina a su propio ritmo, 6 % arriba o abajo, y respira desfasado de los demás. Los PNJ te siguen con la mirada y vuelven a su postura cuando te alejas.
+  - Pruebas: `juego/herramientas/movimiento.cjs`, `palanca.cjs` y `pelea.cjs`.
+- **Cada clase se mueve y pega a su manera.** La tabla está en `juego/src/juego/sensacion.ts`. No cambia daño, alcance ni el momento del golpe:
+  - Peso: el berserker y el templario arrancan y giran más lento, el monje y la cazadora casi al instante.
+  - Ritmo del ataque: los mismos 8 cuadros se reparten distinto. El berserker carga largo y descarga de un latigazo, el templario pega firme, el monje y la cazadora van secos, el druida y el alquimista fluyen, y la arcanista y el nigromante alzan el hechizo, lo sostienen y lo sueltan. El cuadro de impacto cae siempre en el golpe.
+  - Impacto: cuando el golpe conecta de cerca, el mundo se detiene unas centésimas (65 ms el berserker, 28 ms el monje) y la cámara cede hacia donde pegó. A distancia pasa solo al matar o con un crítico, y más suave.
+  - El que muere sale despedido lejos del golpe, más lejos con las clases pesadas. Los jefes no.
+  - Quien dispara o lanza un hechizo recula al soltarlo. Los pasos suenan según el peso.
+- **Animaciones por clase de la Forja.** `src/engine/gotico/animacion_heroes.json` dice cuántos cuadros tiene cada acción de cada clase (12 al atacar, lanzar, caminar y correr, 8 quieto, 6 herido), en qué cuadro cae el impacto y cuánto avanza la zancada. El juego lo lee en `juego/src/juego/anim.ts`: el golpe cae en el cuadro de impacto de la clase, y el pintor en vivo y el horneado usan esos cuadros.
+  - El monje pega tres veces en su ataque (cuadros 2, 5 y 8): el daño se reparte 30, 30 y 40 %, cada golpe con su tirada, su número y su sonido. Los efectos de arma y el remate van con el último. Prueba: `juego/herramientas/combo_monje.cjs`.
+- **Enemigos con cuerpo.** Cada monstruo saca su perfil de su tamaño y su carácter: los grandes y los brutos cargan lento y pesan, los chicos son nerviosos. Al descubrirte se vuelven hacia ti un instante antes de echarse encima, cada uno a su tiempo. De lejos corren si su animación lo tiene. Dormidos, miran alrededor.
+  - Prueba: `juego/herramientas/clases.cjs <clase> [vista]`.
+- **Animación rehecha cuadro a cuadro (motor).** Revisión de las 8 clases y los monstruos humanoides mirando cada cuadro a plena luz.
+  - Los brazos estaban cruzados: cada brazo iba con la pierna de su mismo lado. Ahora cada brazo va con la pierna contraria, como camina y corre una persona.
+  - El arma ya no va clavada al cuerpo. Va sujeta al antebrazo (`armaRel` en la pose), bracea con el paso menos que el brazo libre porque pesa, y la cabeza del arma se atrasa un poco en la muñeca. Sigue al torso cuando gira o se inclina.
+  - Berserker: el hacha a dos manos va al hombro y rebota con cada pisada. El hacha de una mano cuelga al costado al caminar y sube con el brazo al correr. El ataque sale de esa postura.
+  - Templario, nigromante y enemigos con espada, maza o daga: guardia baja que acompaña el brazo. Vara, arco y ballesta acompañan la mano. El brazo del escudo y el del orbe acompañan el paso.
+  - Monje: brazos sueltos al caminar y codos recogidos que bombean al correr. Antes llevaba los puños fijos adelante.
+  - El filo de hachas y espadas ya no se da vuelta de un cuadro al otro cuando el arma apunta al frente.
+  - La QA del motor (`scripts/qa-heroes.ts`) mide el giro real del arma entre cuadros seguidos en vez de exigir que no se mueva. Da 0 fallas en héroes y monstruos.
+  - Herramientas: `npx tsx scripts/revisar-anim.ts <carpeta> --clase berserker --accs caminar,correr --dirs so,o` saca tiras a plena luz. `npx tsx scripts/qa-rapida.ts berserker 1` mide una clase en segundos.
+- **Modo agresivo que defiende a los suyos.** Si a Thor, a una invocación o al héroe le están pegando a 4 casillas o menos, el héroe cuerpo a cuerpo va y responde. No sale a buscar pelea: solo va contra quien ya está peleando con los suyos. Antes se quedaba quieto mirando. Los brutos de golpe en área (ogro, verdugo, gólem) ya no pegan desde más lejos que el golpe del héroe. Prueba: `juego/herramientas/bruto_agresivo.cjs <clase>`.
+- **Personajes rehechos (menos geométricos, más ARPG gótico).** Trabajo conjunto del juego y la Forja.
+  - Proporción heroica: la cabeza de los héroes va al 86 %. Antes medían 6,3 cabezas de alto y se veían de muñeco.
+  - Reposo erguido, con el pecho arriba y los brazos cerca del cuerpo. Las mujeres tienen cintura, cadera y hombros finos.
+  - Hombreras por láminas solapadas con filo y junta, en vez de elipsoides. Piernas de armadura por piezas: quijote, rodillera en punta, greba con arista. Botas con puño y correa, escarpes de láminas, puños y correas en guantes y brazales.
+  - De la Forja: cascos, capuchas, corazas, cotas, jubones y cintos forjados, grano por material pegado a la pieza (metal golpeado, cuero con vetas, tela con trama, malla en anillas), brillo solo en los filos del metal, túnicas, capas y tabardos con pliegues y ruedo con peso, rostro y pelo con hebras.
+  - Vestuario nuevo de monje, cazadora, arcanista y alquimista, con paleta apagada. El cuero en general va menos saturado.
+  - Realce en el juego (`render/escena.ts`, `REALCE`): cada sprite se mezcla sobre sí mismo en modo screen, porque venía pintado en luz baja y encima caía la oscuridad de la zona. Héroe 1, aliados y monstruos 0,65, la mitad en el pueblo. `window.__sinRealce = true` lo apaga para comparar. Prueba: `juego/herramientas/realce_tres.cjs <clase> <nivel>`.
+
+## Qué falta o se puede mejorar
+
+- Las bestias del motor ya están en los actos: lobos, jabalíes, arañas, escorpiones, gárgolas, murciélagos, gólems, perros de la Herida, demonios alados, la Madre del Pozo, la Boca de Arena y Varnhul, el dragón de huesos. La primera vez que entras a una zona nueva tarda unos segundos en cargar sus dibujos.
+- Cofres de madera, hierro, malditos y relicarios que se abren con su animación, oro que cae en montones, haces de luz bajo el botín y salas de jefe con su tesoro. Íconos 3D en tienda y baúl.
+- Al vencer el acto 5 se abren Pesadilla e Infierno desde la lista de héroes. No hay multijugador.
+- Las partidas viven en el navegador donde se jugó (si se borran los datos del sitio se pierden).
+
+## Para desarrollar
+
+- `npm run juego` levanta el juego en http://localhost:5190.
+- `npm run juego:hornear` vuelve a pintar todos los atlas (unos 12 minutos con 4 núcleos) en `juego/public/assets`.
+- Después de cada horneado hay que correr `python3 juego/hornear/atlas_webp.py`. Pasa los atlas a WebP, actualiza `manifiesto.json` y borra los PNG. Los personajes en clave baja van con pérdida a calidad 92 y el resto va sin pérdida. Sin este paso el juego pasa los 256 MB que aguanta el artifact.
+- `npm run juego:build` y después `python3 juego/hornear/publicar.py` arman la página para publicar.

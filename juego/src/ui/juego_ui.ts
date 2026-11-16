@@ -1,7 +1,7 @@
 // La interfaz dentro del juego: barra de abajo con orbes, cinturón y habilidades; inventario, ficha, habilidades,
 // cofre, tiendas, diálogos, piedras de viaje, misiones, mapa y menú.
 import { iconoPintado } from './iconos_hab';
-import { ctx, W, H, E, pulso, ESCALA } from '../nucleo/lienzo';
+import { ctx, W, H, E, RES, pulso, ESCALA } from '../nucleo/lienzo';
 import { barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
 import { aLoot, arma3dDe } from './loot';
 import { texto, T, TT, IDI, marco, titulo, boton, dentro, icono, iconoThor, lineasObjeto, tooltip, cacheRaster, rasterACanvas, envolver, ancho, TITULO } from './comun';
@@ -104,7 +104,10 @@ export function dibujarBarra(j: Juego, t: number) {
     iconoHab(hb, bx + z.x, by + z.y, z.w, n <= 0);
     if (hb.id !== 'ataque' && h.mana < costoMana(j, hb)) { ctx.fillStyle = 'rgba(0,0,80,0.5)'; ctx.fillRect(bx + z.x, by + z.y, z.w, z.h); }
     const rc = h.recargas[hb.id] ?? 0; if (rc > 0) { ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(bx + z.x, by + z.y, z.w, z.h * Math.min(1, rc / (hb.recarga ?? 1))); }
-    if (dentro(bx + z.x, by + z.y, z.w, z.h)) { if (E.clicIzq) { ui.izq = null; ui.der = 'elegirHab'; ui.elegirLado = lado; E.clicIzq = false; } }
+    if (dentro(bx + z.x, by + z.y, z.w, z.h)) {
+      // la ficha entera del poder que está puesto en el botón: qué hace, cuánto pega y cómo se usa
+      if (!E.tactil && !ui.mano) fichaBarra = [...lineasHab(j, hb, false), ['', ''], [lado === 'izq' ? T('Botón izquierdo del ratón · clic acá para cambiarlo', 'Left mouse button · click here to change it') : T('Botón derecho del ratón · clic acá para cambiarlo', 'Right mouse button · click here to change it'), '#a09070']];
+      if (E.clicIzq) { ui.izq = null; ui.der = 'elegirHab'; ui.elegirLado = lado; E.clicIzq = false; } }
   }
   // cinturón: cada columna tiene su tipo de poción (clic derecho en una vacía lo cambia) y guarda una pila de hasta 4
   const tipos = tiposCinturon(h.d);
@@ -119,7 +122,7 @@ export function dibujarBarra(j: Juego, t: number) {
       ctx.save(); ctx.globalAlpha = 0.18; ctx.fillStyle = COLOR_POCION[tipos[i]]; ctx.fillRect(x0 + 2, y0 + 2, z.w - 4, z.h - 4);
       ctx.globalAlpha = 0.45; ctx.beginPath(); ctx.arc(x0 + z.w / 2, y0 + z.h / 2 + 3, 6, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(x0 + z.w / 2 - 2, y0 + z.h / 2 - 8, 4, 6); ctx.restore();
     }
-    texto(String(i + 1), x0 + 2, y0 + z.h - 2, { tam: 10, color: '#a09070' });
+    // (el número de la tecla ya viene grabado en la barra, debajo de cada casilla: acá salía repetido)
     if (dentro(x0, y0, z.w, z.h)) {
       if (o && !ui.mano) tooltip([...lineasObjeto(o), ...lineaCantidad(o), [T('Shift + clic: a la bolsa', 'Shift + click: to bag'), '#a09070']], E.x, y0);
       else if (!o && !ui.mano) tooltip([[`${T('Columna de', 'Column for')} ${TT(NOMBRE_POCION[tipos[i]])}`, COLOR_POCION[tipos[i]]], [T('Clic derecho: cambiar el tipo', 'Right click: change the type'), '#a09070']], E.x, y0);
@@ -165,12 +168,19 @@ export function dibujarBarra(j: Juego, t: number) {
     if (id) { iconoHab(habilidadDe(id), bx + z.x, by + z.y, z.w); if (id === h.d.der) { ctx.strokeStyle = '#ffd060'; ctx.strokeRect(bx + z.x + 0.5, by + z.y + 0.5, z.w - 1, z.h - 1); } }
     texto(i < 5 ? `${i + 5}` : i === 5 ? '0' : `F${i + 1}`, bx + z.x + 1, by + z.y + 9, { tam: 8, color: '#a09070' });
     if (dentro(bx + z.x, by + z.y, z.w, z.h)) {
-      if (id) texto(TT(habilidadDe(id).nombre), bx + z.x + z.w / 2, by + z.y - 6, { alin: 'center', tam: 12, color: '#fff' });
+      if (id && !E.tactil) fichaBarra = [...lineasHab(j, habilidadDe(id), false), ['', ''], [`${T('Tecla', 'Key')} ${i < 5 ? i + 5 : i === 5 ? '0' : 'F' + (i + 1)} ${T('o clic: ponerlo en el botón derecho', 'or click: set it on the right button')}`, '#a09070']];
+      else if (id) texto(TT(habilidadDe(id).nombre), bx + z.x + z.w / 2, by + z.y - 6, { alin: 'center', tam: 12, color: '#fff' });
       if (E.clicIzq) { E.clicIzq = false; if (id) { h.d.der = id; recalc(j); Sonido.efecto('click'); } else { ui.izq = null; ui.der = 'elegirHab'; ui.elegirLado = 'der'; } }
     }
   }
   // recurso de la clase (furia, aura, cargas, presas, cadáveres, combo, forma, frascos)
   { const z1 = Z('atajo_f1'), zd = Z('habilidad_der'); recursoClase(j, bx + z1.x, by + z1.y - 17, zd.x + zd.w - z1.x); }
+  // la ficha del poder de la barra, encima de todo lo demás de la barra y pegada a ella
+  if (fichaBarra) { const hh = fichaBarra.length * 15 + 12; let w = 0; for (const [q] of fichaBarra) w = Math.max(w, ancho(q, 12)); w += 20;
+    const tx = Math.max(4, Math.min(W - w - 4, E.x - w / 2)), ty = Math.max(4, by - hh - 6);
+    ctx.fillStyle = 'rgba(6,5,4,0.96)'; ctx.fillRect(tx, ty, w, hh); ctx.strokeStyle = '#8a6e3c'; ctx.lineWidth = 1; ctx.strokeRect(tx + 0.5, ty + 0.5, w - 1, hh - 1);
+    fichaBarra.forEach(([q, c], i) => { if (q) texto(q, tx + 10, ty + 18 + i * 15, { color: c, tam: 12 }); else { ctx.fillStyle = '#3a3024'; ctx.fillRect(tx + 10, ty + 11 + i * 15, w - 20, 1); } });
+    fichaBarra = null; }
   // botones chicos
   const botones: [string, PanelId | 'mapa', 'izq' | 'der'][] = [['boton_personaje', 'pers', 'izq'], ['boton_inventario', 'inv', 'der'], ['boton_habilidades', 'habs', 'der'], ['boton_mapa', 'mapa', 'der'], ['boton_menu', 'menu', 'izq']];
   for (const [id, p, lado] of botones) {
@@ -946,13 +956,20 @@ function panelHabs(j: Juego, x: number, y: number) {
 }
 /** Tooltip pegado a la izquierda de x (para paneles del lado derecho), centrado en y. */
 function tooltipAl(lineas: [string, string][], xDer: number, yc: number) {
+  // Los paneles se dibujan corridos (y en táctil, a escala): la ficha se ubica en puntos de PANTALLA, no del panel. Antes
+  // se calculaba en puntos del panel, creía que no entraba a la izquierda y la mandaba a la derecha, fuera de la pantalla:
+  // la ficha de las habilidades no se veía nunca.
+  const tr = ctx.getTransform(), k = tr.a / RES, ox = tr.e / RES, oy = tr.f / RES;
+  const sx = ox + xDer * k, sy = oy + yc * k, panelDer = ox + (xDer + 6 + PANEL_W) * k;
+  ctx.save(); ctx.setTransform(RES, 0, 0, RES, 0, 0);
   let w = 0; for (const [s] of lineas) w = Math.max(w, ancho(s, 12));
   w += 20; const hh = lineas.length * 15 + 12;
-  let tx = xDer - w; if (tx < 4) tx = Math.min(W - w - 4, xDer + PANEL_W + 12);
-  const ty = Math.max(4, Math.min(H - BAR_H - hh - 4, yc - hh / 2));
-  ctx.fillStyle = 'rgba(6,5,4,0.95)'; ctx.fillRect(tx, ty, w, hh);
-  ctx.strokeStyle = '#5a4a30'; ctx.lineWidth = 1; ctx.strokeRect(tx + 0.5, ty + 0.5, w - 1, hh - 1);
+  let tx = sx - w; if (tx < 4) tx = panelDer + 12 + w <= W - 4 ? panelDer + 12 : Math.max(4, Math.min(W - w - 4, sx - w));
+  const ty = Math.max(4, Math.min(Math.max(4, H - hh - 4), sy - hh / 2));
+  ctx.fillStyle = 'rgba(6,5,4,0.96)'; ctx.fillRect(tx, ty, w, hh);
+  ctx.strokeStyle = '#8a6e3c'; ctx.lineWidth = 1; ctx.strokeRect(tx + 0.5, ty + 0.5, w - 1, hh - 1);
   lineas.forEach(([s, c], i) => { if (s) texto(s, tx + 10, ty + 18 + i * 15, { color: c, tam: 12 }); else { ctx.fillStyle = '#3a3024'; ctx.fillRect(tx + 10, ty + 11 + i * 15, w - 20, 1); } });
+  ctx.restore();
 }
 const ETIQ: Record<string, [string, string]> = {
   esquiva: ['+{v}% de esquiva', '+{v}% dodge'], vida_pct: ['+{v}% de vida', '+{v}% life'], mana_pct: ['+{v}% de maná', '+{v}% mana'],
@@ -990,6 +1007,7 @@ function valoresHab(j: Juego, hb: Habilidad, k: number, col: string): [string, s
   return out;
 }
 /** Líneas de ayuda de una habilidad: qué hace, valores ahora y al siguiente nivel, requisitos y sinergias. */
+let fichaBarra: [string, string][] | null = null;
 function lineasHab(j: Juego, hb: Habilidad, conSiguiente: boolean): [string, string][] {
   const h = j.heroe, d = h.d, base = d.habs[hb.id] ?? 0, extra = base ? h.c.mas_habilidades : 0, n = base + extra;
   const cl = CLASES.find((q) => q.id === d.clase)!;

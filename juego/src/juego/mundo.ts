@@ -1423,7 +1423,7 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
       // en un combo, el efecto y el remate van una sola vez: con el último golpe, o con el que mata
       const fin = parte === undefined || parte >= REPARTO_COMBO.length - 1 || obj.muerto;
       if (fin && !basico && hb.efecto) efecto(j, efectoDe(hb.efecto, hb.elem, hb), obj.x, obj.y, efectoDir);
-      if (hb.explota) { j.areas.push({ x: obj.x, y: obj.y, radio: hb.explota, dano: [dh[0] * kRem, dh[1] * kRem], elem: hb.elem, t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: '', retraso: 0 }); efecto(j, hb.elem === 'luz' ? 'castigo' : hb.elem === 'rayo' ? 'trueno' : hb.elem === 'fisico' ? 'onda_aterrizaje' : 'explosion_fuego', obj.x, obj.y, 0, hb.explota / 2); }
+      if (hb.explota) { j.areas.push({ x: obj.x, y: obj.y, radio: hb.explota, dano: [dh[0] * kRem, dh[1] * kRem], elem: hb.elem, t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: '', retraso: 0 }); efecto(j, hb.elem === 'luz' ? 'castigo' : hb.elem === 'rayo' ? 'trueno' : hb.elem === 'fisico' ? 'onda_aterrizaje' : hb.elem === 'frio' ? 'nova_escarcha' : hb.elem === 'veneno' ? 'nube_veneno' : hb.elem === 'sombra' ? 'estallido_cadaver' : 'explosion_fuego', obj.x, obj.y, 0, hb.explota / 2); }   // (a quemarropa el virote de escarcha o de veneno reventaba en fuego)
       if (remate && fin) { rematar(j, obj.x, obj.y, hb, mult); if (cb) cb.remate = false; }
       break;
     }
@@ -1611,7 +1611,7 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
         for (const m of mios(j, 'arbol')) { m.vida = 0; m.muerto = true; m.acc = 'morir'; m.t = 0; }
         crearInvocado(j, 'arbol', n, tx, ty, val(hb.duracion, n), 1.3);
         efecto(j, 'estallido_enredaderas', h.x, h.y, 0, 2);
-        for (const e of enRadio(j, h.x, h.y, hb.radio ?? 6)) { if (!esJefe(e)) e.congelado = 1.5; e.maldicion = { amplificar: 0, debilitar: 0, lento: 60, t: 6, res: 0 }; }
+        for (const e of enRadio(j, h.x, h.y, hb.radio ?? 6)) { if (!esJefe(e)) { e.congelado = 1.5; (e as any).preso = 'raices'; } e.maldicion = { amplificar: 0, debilitar: 0, lento: 60, t: 6, res: 0 }; }
         break;
       }
       const max = Math.max(1, Math.floor(val(hb.max, n)));
@@ -1664,15 +1664,23 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
       const r = hb.radio ?? 3, dur = val(hb.duracion, n) * (1 + bono(h, 'maldicion_dur') / 100);
       const cx = hb.enHeroe ? h.x : tx, cy = hb.enHeroe ? h.y : ty;
       const ef = hb.efecto === 'raices' ? 'estallido_enredaderas' : hb.elem === 'frio' ? 'nova_escarcha' : hb.elem === 'veneno' ? 'nube_veneno' : hb.efecto === 'onda' ? 'grito_guerra' : 'prision_hueso';
-      efecto(j, ef, cx, cy, 0, r / 3);
+      // cada maldición con lo suyo: antes las seis de sombra levantaban la misma jaula de costillas. La jaula queda para
+      // las dos que son de hueso (Jaula de costillas y Condena del osario); las demás llevan su sello, su reloj, sus
+      // tentáculos o su robo de vida, puestos sobre cada maldito
+      const propio = MALDICION_PFX[hb.id];
+      // (la jaula de hueso es del nigromante: la Marca de presa de la cazadora y las demás de otras clases no la levantan)
+      if (ef !== 'prision_hueso' ? true : propio ? !!propio.jaula : hb.clase === 'nigromante') efecto(j, ef, cx, cy, 0, r / 3);
+      else if (!propio) { const ar = usosPfx.hab.get(hb.id)?.area; if (ar) efecto(j, 'pfx:' + ar, cx, cy, 0, Math.min(1.2, r / 3)); }
+      if (propio?.piso) efecto(j, 'pfx:' + propio.piso, cx, cy, 0, Math.min(1.4, r / 3));
       const b = hb.bonos ?? {};
       const maldice = !!(b.amplificar || b.debilitar || b.lento || b.res || b.sifon || b.condena);
       for (const e of enRadio(j, cx, cy, r)) {
         const m = e;
         if (b.marca) m.marca = Math.max(m.marca ?? 0, val(b.marca, n));
-        if (b.congelar && !esJefe(m)) m.congelado = Math.max(m.congelado, val(hb.duracion, n));
+        if (b.congelar && !esJefe(m)) { m.congelado = Math.max(m.congelado, val(hb.duracion, n)); if (hb.elem !== 'frio') (m as any).preso = hb.clase === 'druida' || hb.efecto === 'raices' ? 'raices' : 'hueso'; }
         if (maldice) m.maldicion = { amplificar: val(b.amplificar, n), debilitar: val(b.debilitar, n), lento: val(b.lento, n), t: dur, res: -val(b.res, n), sifon: b.sifon ? val(b.sifon, n) : undefined, condena: !!b.condena };
         if (b.miedo && !esJefe(m)) m.miedo = dur;
+        if (propio?.blanco) efecto(j, 'pfx:' + propio.blanco, m.x, m.y, 0, 0.9, 0, propio.dur);
         if (hb.dano) danar(j, m, golpeSimple(j, dh, hb.elem));
       }
       break;
@@ -1740,6 +1748,12 @@ const EFECTOS: Record<string, string> = {
   martillo: 'castigo', jabalina: 'chispa_cargada', viento: 'tornado', tornado: 'tornado', torbellino: 'torbellino', cadaver: 'estallido_cadaver', invocar: 'circulo_invocacion',
   aura_roja: 'aura_furia', aura_azul: 'escudo_divino', aura_gris: 'escudo_divino', aura_verde: 'chispas_curacion', aura_fuego: 'aura_furia', aura_morada: 'aura_sagrada', huesos_giran: 'prision_hueso', raices: 'estallido_enredaderas',
   maldicion: 'maldicion_sombra', lluvia_flechas: 'lluvia_flechas', cuervos: 'tajo_garras',
+};
+/** El efecto propio de cada maldición de sombra: lo que cae sobre cada maldito, lo que se dibuja en el piso y si lleva la jaula. */
+const MALDICION_PFX: Record<string, { blanco?: string; piso?: string; jaula?: boolean; dur?: number }> = {
+  jaula_costillas: { jaula: true, piso: 'fx_manos_que_agarran' }, condena_osario: { jaula: true, piso: 'fx_circulo_conjuro' },
+  amplificar: { blanco: 'fx_maldicion' }, debilidad: { blanco: 'fx_explosion_oscura' }, terror: { piso: 'fx_tentaculos_sombra', blanco: 'fx_maldicion' },
+  sifon_vida: { blanco: 'fx_robo_vida' }, huesos_vidrio: { blanco: 'fx_sello_maleficio' }, decrepitud: { blanco: 'fx_reloj_detenido' },
 };
 export function efectoDe(e: string, elem: Elemento, hb?: Habilidad, proyectil = false): string {
   // pixelfx: el efecto que la Forja asignó a esta habilidad (las flechas, virotes y el tornado siguen con los suyos)
@@ -1850,7 +1864,7 @@ export function actualizar(j: Juego, dt: number) {
       if (tr.cd <= 0) { tr.cd = 1.5; efecto(j, 'glifo_trampa', tr.x, tr.y, 0, 0.5, 0, 1.5); }
       if (enRadio(j, tr.x, tr.y, 0.9).length) {
         const r = tr.mina, el = tr.elem ?? 'fuego';
-        for (const e of enRadio(j, tr.x, tr.y, r)) { danar(j, e, golpeSimple(j, tr.dano, el)); if (tr.raiz && !esJefe(e)) e.congelado = Math.max(e.congelado, 2); }
+        for (const e of enRadio(j, tr.x, tr.y, r)) { danar(j, e, golpeSimple(j, tr.dano, el)); if (tr.raiz && !esJefe(e)) { e.congelado = Math.max(e.congelado, 2); (e as any).preso = 'raices'; } }
         efecto(j, tr.efecto ?? 'explosion_fuego', tr.x, tr.y, 0, r / 2); sonar(j, el === 'rayo' ? 'trueno' : el === 'veneno' ? 'veneno' : tr.raiz ? 'golpe_metal' : 'explosion', tr.x, tr.y, 0.8);
         j.sacudida = Math.max(j.sacudida, 0.2); tr.t = tr.dur;
       }
@@ -2418,7 +2432,9 @@ function chocar(j: Juego, p: Proyectil, contraMundo: boolean) {
 }
 function explotar(j: Juego, p: Proyectil) {
   const r = p.explota || 1.5;
-  efecto(j, p.elem === 'frio' ? 'nova_escarcha' : p.elem === 'veneno' ? 'nube_veneno' : p.elem === 'rayo' ? 'impacto_rayo' : 'explosion_fuego', p.x, p.y, 0, r / 2);
+  // (manda el elemento de la habilidad: el virote de escarcha y el de veneno viajan como golpe físico y reventaban en fuego)
+  const elx = (p.hab?.elem && p.hab.elem !== 'fisico' ? p.hab.elem : p.elem) as Elemento;
+  efecto(j, elx === 'frio' ? 'nova_escarcha' : elx === 'veneno' ? 'nube_veneno' : elx === 'rayo' ? 'impacto_rayo' : elx === 'sombra' ? 'estallido_cadaver' : elx === 'luz' ? 'castigo' : 'explosion_fuego', p.x, p.y, 0, r / 2);
   for (const e of enemigosDe(j, p.deHeroe)) if (dist(e.x, e.y, p.x, p.y) < r + e.radio) {
     danar(j, e, { min: p.dano[0], max: p.dano[1], elem: p.elem, deHeroe: p.deHeroe, fuente: p.deHeroe ? j.heroe : undefined, sinFallo: true });
     if (p.hab?.bonos?.miedo && !esJefe(e)) e.miedo = val(p.hab.duracion, p.nivelHab ?? 1);

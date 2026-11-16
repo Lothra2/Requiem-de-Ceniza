@@ -2,7 +2,7 @@
 // cofre, tiendas, diálogos, piedras de viaje, misiones, mapa y menú.
 import { iconoPintado } from './iconos_hab';
 import { ctx, W, H, E, RES, pulso, ESCALA } from '../nucleo/lienzo';
-import { botonForjado, barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
+import { marcoForjado, botonForjado, barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
 import { aLoot, arma3dDe } from './loot';
 import { texto, T, TT, IDI, marco, titulo, boton, dentro, icono, iconoThor, lineasObjeto, tooltip, cacheRaster, rasterACanvas, envolver, ancho, TITULO } from './comun';
 import { CLASES, HABILIDADES, habilidadesDe, ATAQUE, TIERS, ESCALA_HECHIZOS, type Habilidad } from '../datos/clases';
@@ -140,11 +140,20 @@ export function dibujarBarra(j: Juego, t: number) {
   }
   // experiencia
   const zx = Z('barra_experiencia'); const x0 = xpPara(h.d.nivel), x1 = xpPara(h.d.nivel + 1);
-  ctx.fillStyle = '#c0a040'; ctx.fillRect(bx + zx.x, by + zx.y + 1, zx.w * Math.max(0, Math.min(1, (h.d.xp - x0) / Math.max(1, x1 - x0))), zx.h - 2);
+  { // la experiencia: oro viejo con su luz arriba y su sombra abajo, y una muesca cada décimo
+    const kx = Math.max(0, Math.min(1, (h.d.xp - x0) / Math.max(1, x1 - x0))), ex = bx + zx.x, ey = by + zx.y + 1, ew = Math.round(zx.w * kx), eh = zx.h - 2;
+    ctx.fillStyle = '#b8952f'; ctx.fillRect(ex, ey, ew, eh); ctx.fillStyle = '#f0d070'; ctx.fillRect(ex, ey, ew, 1); ctx.fillStyle = '#6a5018'; ctx.fillRect(ex, ey + eh - 1, ew, 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.55)'; for (let i = 1; i < 10; i++) ctx.fillRect(Math.round(ex + (zx.w * i) / 10), ey, 1, eh);
+  }
   if (dentro(bx + zx.x, by + zx.y - 3, zx.w, zx.h + 6)) texto(`${T('Experiencia', 'Experience')}: ${h.d.xp.toLocaleString()} / ${x1.toLocaleString()}`, W / 2, by + zx.y - 8, { alin: 'center', color: '#fff' });
   // aguante = barra de correr (indicador)
-  const za = Z('barra_aguante'); ctx.fillStyle = h.correr ? '#b0a040' : '#606060'; ctx.fillRect(bx + za.x + 1, by + za.y + 2, za.w - 2, za.h - 4);
-  texto(h.correr ? T('Corriendo (R)', 'Running (R)') : T('Caminando (R)', 'Walking (R)'), bx + za.x + za.w / 2, by + za.y + 10, { alin: 'center', tam: 10, color: '#000', sombra: false });
+  // (una placa de metal grabada, no una barra lisa de color: latón cuando corre, hierro cuando camina)
+  const za = Z('barra_aguante');
+  { const ax = bx + za.x + 1, ay = by + za.y + 2, aw = za.w - 2, ah = za.h - 4, g = ctx.createLinearGradient(0, ay, 0, ay + ah);
+    if (h.correr) { g.addColorStop(0, '#d8b450'); g.addColorStop(0.45, '#a8862e'); g.addColorStop(1, '#6a5018'); } else { g.addColorStop(0, '#7a7a78'); g.addColorStop(0.45, '#56565a'); g.addColorStop(1, '#333338'); }
+    ctx.fillStyle = g; ctx.fillRect(ax, ay, aw, ah); ctx.fillStyle = h.correr ? 'rgba(255,240,180,0.55)' : 'rgba(255,255,255,0.25)'; ctx.fillRect(ax, ay, aw, 1); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(ax, ay + ah - 1, aw, 1);
+    const tx = bx + za.x + za.w / 2, ty = by + za.y + 10, s = h.correr ? T('Corriendo (R)', 'Running (R)') : T('Caminando (R)', 'Walking (R)');
+    texto(s, tx, ty + 1, { alin: 'center', tam: 10, color: h.correr ? 'rgba(255,236,170,0.3)' : 'rgba(255,255,255,0.15)', sombra: false }); texto(s, tx, ty, { alin: 'center', tam: 10, color: h.correr ? '#120a00' : '#060608', sombra: false }); }
   const zc = Z('caminar_correr'); if (dentro(bx + zc.x, by + zc.y, zc.w + za.w, zc.h) && E.clicIzq) { h.correr = !h.correr; E.clicIzq = false; }
   // agresivo o pasivo (Z): espada roja que ataca sola lo que entra en su alcance, o escudo gris que espera órdenes
   // con un panel a la izquierda se esconde, porque queda pegado al borde de abajo del panel
@@ -239,9 +248,12 @@ function cinturonABolsa(j: Juego, i: number) {
 export function recursoClase(j: Juego, x: number, y: number, w: number) {
   const h = j.heroe, d = h.d, hh = 13, t = j.t;
   let ayuda: [string, string] = ['', ''];
-  const fondo = () => { ctx.fillStyle = 'rgba(8,6,5,0.85)'; ctx.fillRect(x, y, w, hh); ctx.strokeStyle = '#4a3c28'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, hh - 1); };
+  // (el recurso de la clase va en una ranura de hierro hundida, con canto negro y filete de latón, como el resto de la barra)
+  const fondo = () => { const g = ctx.createLinearGradient(0, y, 0, y + hh); g.addColorStop(0, '#0a0807'); g.addColorStop(1, '#1a1612'); ctx.fillStyle = g; ctx.fillRect(x, y, w, hh);
+    ctx.lineWidth = 1; ctx.strokeStyle = '#000'; ctx.strokeRect(x - 0.5, y - 0.5, w + 1, hh + 1); ctx.strokeStyle = '#3a3630'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, hh - 1);
+    ctx.fillStyle = '#7a6236'; ctx.fillRect(x + 1, y + hh - 1, w - 2, 1); ctx.fillStyle = '#c8a860'; ctx.fillRect(x + 1, y + 1, 1, 1); ctx.fillRect(x + w - 2, y + 1, 1, 1); };
   const etiqueta = (s: string, col = '#c8b890') => texto(s, x + 5, y + 10, { tam: 10, color: col, sombra: false });
-  const pips = (n: number, max: number, x0: number, col: (i: number) => string, vacio = '#2a2420') => { for (let i = 0; i < max; i++) { ctx.fillStyle = i < n ? col(i) : vacio; ctx.fillRect(x0 + i * 13, y + 3, 10, hh - 6); } };
+  const pips = (n: number, max: number, x0: number, col: (i: number) => string, vacio = '#2a2420') => { for (let i = 0; i < max; i++) { ctx.fillStyle = i < n ? col(i) : vacio; ctx.fillRect(x0 + i * 13, y + 3, 10, hh - 6); ctx.fillStyle = i < n ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.06)'; ctx.fillRect(x0 + i * 13, y + 3, 10, 1); ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x0 + i * 13, y + hh - 4, 10, 1); } };
   const barra = (k: number, x0: number, col: string) => { const bw = x + w - 5 - x0; ctx.fillStyle = '#2a2420'; ctx.fillRect(x0, y + 3, bw, hh - 6); ctx.fillStyle = col; ctx.fillRect(x0, y + 3, bw * Math.max(0, Math.min(1, k)), hh - 6); };
   switch (d.clase) {
     case 'berserker': {
@@ -1379,7 +1391,16 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   { const [hx, hy] = p(h.x, h.y); ctx.fillStyle = '#ff3030'; ctx.beginPath(); ctx.arc(hx, hy, grande ? 4 : 3, 0, Math.PI * 2); ctx.fill(); }
   ctx.restore();
   if (mt) { ctx.strokeStyle = '#a08050'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mt.cx, mt.cy, mt.r, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }
-  else if (!grande) { ctx.strokeStyle = '#5a4a30'; ctx.strokeRect(W - 180.5, -1, 181, 161); texto(TT(z.nombre), W - 90, 154, { alin: 'center', tam: 10, color: '#c0a060', max: 170 }); }
+  else if (!grande) {
+    // el minimapa lleva el canto de hierro de los paneles (solo el canto: el centro queda libre para el mapa) y el
+    // nombre de la zona en una plaquita abajo. Antes era un recuadro de una línea
+    const mx = W - 184, mw = 184, mh = 166, c = cacheRaster(`marco_${mw}_${mh}`, () => marcoForjado(mw, mh));
+    ctx.save(); ctx.beginPath(); ctx.rect(mx, 0, mw, mh); ctx.rect(mx + 7, 7, mw - 14, mh - 14); ctx.clip('evenodd');
+    const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false; ctx.drawImage(c, mx, 0); ctx.imageSmoothingEnabled = su; ctx.restore();
+    const nm = TT(z.nombre), nw = Math.min(170, ancho(nm, 10) + 16);
+    ctx.fillStyle = 'rgba(10,8,7,0.82)'; ctx.fillRect(Math.round(W - 92 - nw / 2), 143, nw, 14); ctx.strokeStyle = '#7a6236'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(W - 92 - nw / 2) + 0.5, 143.5, nw - 1, 13);
+    texto(nm, W - 92, 154, { alin: 'center', tam: 10, color: '#d8b870', max: 166 });
+  }
   else texto(TT(z.nombre), W / 2, 30, { alin: 'center', tam: 18, color: '#c0a060', fuente: TITULO });
 }
 const dist2 = (a: number, b: number, c: number, d: number) => (a - c) ** 2 + (b - d) ** 2;

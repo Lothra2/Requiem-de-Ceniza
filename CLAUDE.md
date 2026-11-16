@@ -79,6 +79,15 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Siluetas de los exteriores** (`exterior` en `zona.ts`): ensenadas, penínsulas y macizos con azar propio por zona.
   Nada de rectángulos. Después de tocarla correr `conectividad.cjs 20` y `t370_zonas`.
 
+- **Auditoría de poderes**: `node juego/herramientas/t760_auditoria_poderes.cjs <clase>` lanza cada habilidad contra
+  tres zombis pegados, en campo abierto, cuatro cuadros seguidos, y `python3 juego/herramientas/t760_lamina.py <clase>`
+  arma la lámina en `/tmp/requiem-pruebas/pa`. No correr otras pruebas a la vez: se pisan.
+- **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
+  con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
+- **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.
+  Lo que inmoviliza sin ser hielo marca `preso` ('raices' o 'hueso') y no se dibuja como bloque de hielo.
+- **Números de daño** (`render/numeros.ts`): cifras de pixel con canto negro, brinco y apertura lateral, sin encimarse.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

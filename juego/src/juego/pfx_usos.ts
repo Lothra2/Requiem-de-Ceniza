@@ -6,7 +6,7 @@ export function muertePfx(m: { def: { id: string; sprite: string }; congelado: n
   const id = m.def.id, spr = m.def.sprite;
   if (/abadesa|ozmaren/.test(spr)) return 'fx_gran_explosion';
   if (/caballero_abismo/.test(id)) return 'fx_explosion_oscura';
-  if (m.congelado > 0) return 'fx_muerte_helada';
+  if (m.congelado > 0 && !(m as any).preso) return 'fx_muerte_helada';
   // muerto por fuego: el cadáver ya arde con el fuego de Doom
   if ((m.quema ?? 0) > 0 || elem === 'fuego') return null;
   if (/ahogado|sirena|marinero|sacerdote_marea/.test(id)) return 'fx_salpicadura';
@@ -24,7 +24,7 @@ export function muertePfx(m: { def: { id: string; sprite: string }; congelado: n
 export function estadosPfx(e: { congelado: number; frio: number; veneno: number; sangrado: number; aturdido: number; miedo: number; maldicion?: unknown; quema?: number; marca?: number }): string[] {
   const out: string[] = [];
   // (la quema ya arde con el fuego de Doom sobre el cuerpo: no se le suma fx_ardiendo)
-  if (e.congelado > 0 || e.frio > 0) out.push('fx_congelado');
+  if ((e.congelado > 0 && !(e as any).preso) || e.frio > 0) out.push('fx_congelado');
   if (e.veneno > 0) out.push('fx_envenenado');
   if (e.maldicion) out.push('fx_maldito');
   if (e.sangrado > 0) out.push('fx_sangrando');

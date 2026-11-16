@@ -48,10 +48,14 @@ function luzSpr(c: RGB): HTMLCanvasElement {
   x.fillStyle = g; x.fillRect(0, 0, 64, 64); sprites.set(k, s); return s;
 }
 
+let heroeXY: [number, number] = [-99, -99];
 function estallar(x: number, y: number, z: number, c: RGB, fuerza: number) {
   const tope = E.tactil ? 220 : 420, n = Math.round((E.tactil ? 7 : 12) + fuerza * (E.tactil ? 5 : 10));
   for (let i = 0; i < n && chispas.length < tope; i++) { const a = R() * Math.PI * 2, v = (1.6 + R() * 4.2) * (0.7 + fuerza * 0.4); chispas.push({ x, y, z: z + 8 + R() * 14, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 50 + R() * 150 * (0.7 + fuerza * 0.3), t: 0, d: 0.45 + R() * 0.55, c, s: R() < 0.3 ? 3 : 2, reb: 1 }); }
-  flashes.push({ x, y, z: z + 16, t: 0, d: 0.2 + fuerza * 0.05, r: 30 + fuerza * 26, c, a: 0.9 });
+  // el fogonazo: corto y medido. Antes era un disco blanco de hasta 180 puntos por cada efecto, y tres golpes juntos
+  // dejaban al héroe y a los enemigos tapados por una bola blanca. Ahora no se apilan (uno por sitio y momento) y
+  // el que cae encima del héroe va más bajo todavía
+  if (!flashes.some((q) => q.t < 0.1 && Math.hypot(q.x - x, q.y - y) < 1.6)) flashes.push({ x, y, z: z + 16, t: 0, d: 0.16 + fuerza * 0.04, r: 20 + fuerza * 13, c, a: Math.hypot(x - heroeXY[0], y - heroeXY[1]) < 1.3 ? 0.3 : 0.5 });
   anillos.push({ x, y, t: 0, d: 0.34 + fuerza * 0.08, r0: 0.25, r1: 1.3 + fuerza * 1.15, c, g: 2.5 + fuerza, a: 0.85 });
   if (fuerza >= 1.35) { anillos.push({ x, y, t: -0.09, d: 0.55, r0: 0.4, r1: 2.2 + fuerza * 1.5, c, g: 1.6, a: 0.5 }); pantalla = Math.max(pantalla, Math.min(0.2, 0.07 * fuerza)); pantallaC = c; }
 }
@@ -61,7 +65,7 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
   if ((window as any).__sinEnergia) return;
   if (j.zona.id !== zonaAnt) { zonaAnt = j.zona.id; chispas.length = anillos.length = flashes.length = motas.length = 0; estelas.clear(); vistos = new WeakSet(); tAnt = j.t; for (const e of j.efectos) vistos.add(e); }
   const dt = tAnt < 0 ? 0 : Math.max(0, Math.min(0.05, j.t - tAnt)); tAnt = j.t;
-  const h = j.heroe;
+  const h = j.heroe; heroeXY = [h.x, h.y];
   // ---- efectos nuevos: cada golpe de poder revienta
   for (const e of j.efectos as Efecto[]) {
     if (vistos.has(e)) continue; vistos.add(e);
@@ -83,10 +87,10 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
     while (tMota <= 0 && motas.length < 60) { tMota += E.tactil ? 0.035 : 0.02; motas.push({ ang: R() * Math.PI * 2, r: 1.1 + R() * 1.3, z: R() * 46, t: 0, d: Math.max(0.12, Math.min(0.5, h.golpeEn - h.t)), c: cHab, giro: (R() < 0.5 ? -1 : 1) * (3 + R() * 4) }); }
     if (!conjurando) anillos.push({ x: h.x, y: h.y, t: 0, d: Math.max(0.15, h.golpeEn), r0: 1.9, r1: 0.3, c: cHab, g: 1.6, a: 0.55 });
   } else if (conjurando && h.golpeo && (h.acc === 'lanzar' || h.acc === 'atacar')) {
-    if (oscuro > 0.2) { pantalla = 0.34; pantallaC = cHab; j.sacudida = Math.max(j.sacudida, 0.55); (j as any).congela = Math.max((j as any).congela ?? 0, 0.07);
+    if (oscuro > 0.2) { pantalla = 0.2; pantallaC = cHab; j.sacudida = Math.max(j.sacudida, 0.55); (j as any).congela = Math.max((j as any).congela ?? 0, 0.07);
       for (const [r1, d, t0] of [[4.2, 0.6, 0], [6.5, 0.85, -0.08], [9, 1.1, -0.18]] as [number, number, number][]) anillos.push({ x: h.x, y: h.y, t: t0, d, r0: 0.4, r1, c: cHab, g: 3.2, a: 0.8 });
-      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.45, r: 150, c: cHab, a: 1 }); estallar(h.x, h.y, 20, cHab, 2.2); }
-    flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.16, r: 34, c: cHab, a: 0.85 });
+      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: 0.5 }); /* la definitiva deslumbra un instante, pero el héroe se sigue viendo */ estallar(h.x, h.y, 20, cHab, 2.2); }
+    flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.14, r: 26, c: cHab, a: 0.45 });
     anillos.push({ x: h.x, y: h.y, t: 0, d: 0.3, r0: 0.3, r1: 1.7, c: cHab, g: 2.2, a: 0.6 });
     for (let i = 0; i < (E.tactil ? 5 : 9); i++) { const a = R() * Math.PI * 2, v = 1.5 + R() * 2.5; chispas.push({ x: h.x, y: h.y, z: 30 + R() * 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 40 + R() * 90, t: 0, d: 0.35 + R() * 0.3, c: cHab, s: 2, reb: 0 }); }
   }

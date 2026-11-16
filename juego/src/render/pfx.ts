@@ -76,6 +76,9 @@ export function precargarPfx(ids: string[]) {
   for (const id of ids) { const e = efectoPfx(id); if (e) for (const p of e.paginas) pagina(p); }
 }
 
+let fuerzaAditiva = 1;
+/** La escena avisa qué tan oscura es la zona (0 pleno día, 1 negro): de eso sale cuánto pesan los efectos de luz. */
+export function claridadPfx(oscuridad: number) { fuerzaAditiva = 0.58 + 0.42 * Math.max(0, Math.min(1, oscuridad / 0.55)); }
 /** Cuadro del efecto a los `seg` segundos (o -1 si ya terminó). */
 export function cuadroPfx(e: EfectoPfx, seg: number) {
   const i = Math.floor((seg * 25) / e.t);
@@ -108,6 +111,10 @@ export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: numbe
   ctx.save();
   ctx.imageSmoothingEnabled = false;
   if (o.alfa !== undefined) ctx.globalAlpha *= o.alfa;
+  if ((window as any).__pfxAlfa !== undefined) ctx.globalAlpha *= (window as any).__pfxAlfa;
+  // los que se suman como luz bajan con la claridad del lugar: de día, sobre arena o nieve, un cuadro de fogonazo
+  // quemaba a blanco al héroe y a los enemigos. En lo oscuro van enteros
+  if ((e.mezcla === 'aditiva' || e.mezcla === 'sumar') && e.capa !== 'pantalla') ctx.globalAlpha *= fuerzaAditiva;
   ctx.globalCompositeOperation = e.mezcla === 'aditiva' || e.mezcla === 'sumar' ? 'lighter' : 'source-over';
   if (e.capa === 'pantalla' && o.tesela) {
     // clima en mosaico: el cuadro a escala 2 (el mismo pixel que el mundo) con la esquina en (x, y)

@@ -14,7 +14,8 @@ import { sensacionDe, cuadroAtaque } from '../juego/sensacion';
 import { animClase, zancadaClase, zancadaCorrerMonstruo } from '../juego/anim';
 import ZANCADA_MONSTRUO from '../../../src/engine/gotico/datos/zancada_monstruos.json';
 import { baseDe } from '../juego/objetos';
-import { icono } from '../ui/comun';
+import { icono, TITULO } from '../ui/comun';
+import { dibujarNumeros } from './numeros';
 import { cuadrosVivos, cuadrosFinos, cambioVisible, FINO_RUMBOS } from '../motor/pintor';
 import { energiaSuelo, energiaAire } from './energia';
 import { dibujarMarca } from './marcas';
@@ -23,7 +24,7 @@ import { derrameArma, dibujarDerrames, luzPisoArma, type ElemArma } from './arma
 import { auraEquipo } from '../juego/visual';
 import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from './fuego';
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
-import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx } from './pfx';
+import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
@@ -236,7 +237,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   if (foco.k > 0) { const k = foco.k * foco.k * (3 - 2 * foco.k); cam.x += ((foco.x - foco.y) * 16 - camS.x) * k; cam.y += ((foco.x + foco.y) * 8 - 60 - camS.y + camAlzada) * k; }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   picks = [];
-  prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); dtCuadro = dt;
+  prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
   colorBruma = '96,100,108'; anclasCuadro = []; esAncla = new Set(z.salidas.flatMap((sa) => sa.piezas ?? []));
   recolectar(j, tiempo, aPant, W, H);
   // explorar
@@ -520,17 +521,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   }
   ctx.restore();
   // números de daño (encima de la oscuridad para que se lean)
-  ctx.textAlign = 'center';
-  for (const n of j.numeros) {
-    const [px, py] = aPant(n.x, n.y);
-    const k = 1 - n.t / 1.1;
-    ctx.globalAlpha = Math.max(0, Math.min(1, k * 1.6));
-    ctx.font = n.chico ? 'italic 10px Georgia, serif' : `bold ${n.grande ? 18 : n.menor ? 11 : 13}px Georgia, serif`;
-    if (n.chico) ctx.globalAlpha *= 0.8;
-    const yy = py - n.z - (n.grande ? Math.sin(Math.min(1, n.t * 5) * Math.PI) * 6 : 0);
-    ctx.fillStyle = '#000'; ctx.fillText(n.txt, px + 1, yy + 1); ctx.fillStyle = n.color; ctx.fillText(n.txt, px, yy);
-  }
-  ctx.globalAlpha = 1; ctx.textAlign = 'left';
+  dibujarNumeros(ctx, j.numeros, aPant, TITULO);
   // salidas: se leen de lejos. Sin puerta, un umbral de luz (dos pilares y un arco, aro en el piso y motas que suben);
   // con puerta o escalera, el objeto es el marco y lleva solo el aro y las motas. La luz propia que tiñe el piso va en luces.ts.
   // El nombre aparece a unas 6 casillas (con Alt, todos).
@@ -659,6 +650,7 @@ function dibujarRaw(raw: any[], x: number, y: number) {
   const q: Cuadro = { img: null, atlas: raw[0], x: raw[1], y: raw[2], w: raw[3], h: raw[4], ax: raw[5], ay: raw[6] };
   dibujar(ctx, q, x, y);
 }
+let heroeDibujo: { x: number; y: number } | null = null;
 /**
  * La luz que sale de un cofre al abrirse: nace en la boca cuando la tapa despega, crece con ella, echa un abanico de
  * rayos hacia arriba y se apaga dejando el resplandor del oro. Todo a puntos enteros y sumado como luz, sobre el cofre
@@ -687,6 +679,9 @@ function dibujarEfecto(e: Efecto, _t: number) {
   if (e.id.startsWith('pfx:')) { const [px, py] = aPant(e.x, e.y);
     // (un efecto cortado antes de su final se apaga en su último cuarto de segundo en vez de desaparecer de golpe)
     const corte = (e as any).corte ? Math.max(0, Math.min(1, ((e.dur ?? 9) - e.t) * 4)) : 1; if (corte < 1) ctx.globalAlpha = corte;
+    // un efecto grande y opaco plantado encima del héroe (una nova de hielo, una polvareda) lo dejaba tapado medio
+    // segundo: ese se pinta a media fuerza para que el cuerpo se siga leyendo. Los de luz ya bajan solos
+    { const def = efectoPfx(e.id.slice(4)), hj = heroeDibujo; if (def && hj && def.mezcla !== 'aditiva' && def.mezcla !== 'sumar' && def.capa !== 'pantalla' && (def.caja[2] - def.caja[0]) * Math.min(2, def.escala * (e.escala ?? 1)) > 170 && Math.hypot(e.x - hj.x, e.y - hj.y) < 1.4) ctx.globalAlpha *= 0.6; }
     dibujarPfx(ctx, e.id.slice(4), e.t, px, py - (e.z ?? 0), { dir: e.dir, escala: e.escala }); ctx.globalAlpha = 1; return; }
   const meta = manifiesto().wm?.[e.id];
   const [px, py] = aPant(e.x, e.y);
@@ -858,7 +853,10 @@ function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
   const alfaM = e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1;
   if (alfaM <= 0.01) return;
   if (alfaM < 1) ctx.globalAlpha = alfaM;
-  if (!e.muerto) { const cg = (e as any).congelado > 0; if (cg && !congelados.has(e)) j.efectos.push({ id: 'pfx:fx_congelar', x: e.x, y: e.y, t: 0, dir: 0, escala: Math.max(0.6, Math.min(3, (q.ay * esc) / 75)), z: 0, dur: 3.8 } as Efecto); if (cg) congelados.add(e); else congelados.delete(e); }
+  if (!e.muerto) { const cg = (e as any).congelado > 0; const preso = (e as any).preso as string | undefined;
+    // (lo que lo sujeta no siempre es hielo: las raíces del druida y la jaula de hueso inmovilizan igual, pero se ven como lo que son)
+    if (cg && !congelados.has(e)) { if (preso === 'raices') j.efectos.push({ id: 'pfx:fx_raices_atrapan', x: e.x, y: e.y, t: 0, dir: 0, escala: Math.max(0.6, Math.min(1.6, (q.ay * esc) / 75)), z: 0, dur: Math.max(1, (e as any).congelado) } as Efecto); else if (!preso) j.efectos.push({ id: 'pfx:fx_congelar', x: e.x, y: e.y, t: 0, dir: 0, escala: Math.max(0.6, Math.min(3, (q.ay * esc) / 75)), z: 0, dur: 3.8 } as Efecto); }
+    if (cg) congelados.add(e); else { congelados.delete(e); if (preso) (e as any).preso = undefined; } }
   if (!e.muerto && e.tipo === 'monstruo' && (m.fase ?? 0) >= 1 && (m.def.jefe || m.calidad >= 2) && m.def.sprite !== 'jefe_ozmaren') { ctx.save(); ctx.globalAlpha = 0.22 + 0.2 * Math.sin(tiempo * 6); for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) dibujarTenido(ctx, q, px + ox, py + oy, '#ff2a14', 1, esc); ctx.restore(); }
   // Ozmaren sobre su lava: un borde rojo brillante en la silueta (detrás del cuerpo) para que se despegue del piso
   if (!e.muerto && e.tipo === 'monstruo' && m.def.sprite === 'jefe_ozmaren') { ctx.save(); ctx.globalAlpha = 0.5; for (const [ox, oy] of [[-2, 0], [2, 0], [0, -2], [0, 2]]) dibujarTenido(ctx, q, px + ox, py + oy, '#ff5a20', 1, esc); ctx.restore(); }
@@ -1035,7 +1033,8 @@ function dibujarLuz(j: Juego, t: number) {
     if (!l.blanca) tinte(l.x, l.y - Math.min(30, l.h * 0.3), l.r * 0.85, `rgb(${l.c[0]},${l.c[1]},${l.c[2]})`, Math.min(0.5, 0.18 + l.k * 0.28));
   }
   ctx.drawImage(luz, 0, 0);
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(brillo, 0, 0);
+  // (de día el piso ya es claro: el tinte de las luces sumado entero lo quemaba a blanco, así que baja con la claridad)
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (window as any).__sinBrillo ? 0 : 0.45 + 0.55 * Math.min(1, z.oscuridad / 0.6); ctx.drawImage(brillo, 0, 0); ctx.globalAlpha = 1;
   if (destello > 0.02) { ctx.globalAlpha = destello * 0.16; ctx.fillStyle = `rgb(${destelloColor[0]},${destelloColor[1]},${destelloColor[2]})`; ctx.fillRect(0, 0, W, H); }
   ctx.restore();
   // niebla de guerra: lo no explorado se ve negro del todo (salvo las piezas ancla: la catedral no se recorta)

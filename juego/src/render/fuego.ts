@@ -142,17 +142,17 @@ function calor(ctx: CanvasRenderingContext2D, cx: number, top: number, w: number
 
 // ------------------------------------------------------------------ fuegos del mundo (fogatas, braseros, piras)
 // Las mismas llamas que Ozmaren pero chicas: nacen en la boca del fuego, suben meciéndose y se apagan en humo.
-interface Lengua { x: number; y: number; vx: number; vy: number; t: number; d: number; s: number; brasa: boolean; f: number }
+interface Lengua { x: number; y: number; vx: number; vy: number; t: number; d: number; s: number; brasa: boolean; f: number; /** profundidad en el mundo del fuego que la echó (para pintarla en su orden) */ p: number }
 const lenguas: Lengua[] = [];
 let ultimoMundo = 0, cuadroMundo = -1;
 /** Emite fuego en (x, y) de pantalla; `tam` ~ 1 para una fogata grande. Se llama por cada fuego visible en el cuadro. */
-export function fuegoMundo(ctx: CanvasRenderingContext2D, x: number, y: number, tam: number, t: number, camX: number, camY: number) {
+export function fuegoMundo(ctx: CanvasRenderingContext2D, x: number, y: number, tam: number, t: number, camX: number, camY: number, prof = 1e9) {
   if (t !== cuadroMundo) { cuadroMundo = t; avanzarMundo(Math.min(0.05, Math.max(0, t - ultimoMundo)), t); ultimoMundo = t; }
   const dt = 1 / 60;
   const n = Math.max(1, Math.round(3 * tam * calidad * dt * 60));
   for (let i = 0; i < n && lenguas.length < 500 * calidad; i++) {
     const brasa = R() < 0.1;
-    lenguas.push({ x: x + (R() - 0.5) * 18 * tam + camX, y: y - 4 * tam + (R() - 0.5) * 4 + camY, vx: (R() - 0.5) * 10, vy: -(brasa ? 50 + R() * 50 : 22 + R() * 26) * Math.sqrt(tam), t: 0, d: brasa ? 1 + R() : 0.4 + R() * 0.35, s: brasa ? 1.4 : (3.5 + R() * 4) * tam, brasa, f: R() * 10 });
+    lenguas.push({ x: x + (R() - 0.5) * 18 * tam + camX, y: y - 4 * tam + (R() - 0.5) * 4 + camY, vx: (R() - 0.5) * 10, vy: -(brasa ? 50 + R() * 50 : 22 + R() * 26) * Math.sqrt(tam), p: prof, t: 0, d: brasa ? 1 + R() : 0.4 + R() * 0.35, s: brasa ? 1.4 : (3.5 + R() * 4) * tam, brasa, f: R() * 10 });
   }
 }
 function avanzarMundo(dt: number, t: number) {
@@ -162,13 +162,16 @@ function avanzarMundo(dt: number, t: number) {
     l.x += l.vx * dt; l.y += l.vy * dt;
   }
 }
-/** Dibuja todas las llamas del mundo (después de los objetos, antes de la oscuridad). */
-export function dibujarFuegosMundo(ctx: CanvasRenderingContext2D, t: number, camX: number, camY: number) {
+/** Las profundidades de los fuegos que tienen llamas vivas (una por fuego). */
+export function profFuegosMundo(): number[] { const s = new Set<number>(); for (const l of lenguas) s.add(l.p); return [...s]; }
+/** Dibuja las llamas del mundo; con `prof`, solo las del fuego que está a esa profundidad (para pintarlas en su orden). */
+export function dibujarFuegosMundo(ctx: CanvasRenderingContext2D, t: number, camX: number, camY: number, prof?: number) {
   if (!lenguas.length) return;
   ctx.save();
-  for (const l of lenguas) { if (l.brasa) continue; const u = l.t / l.d; if (u < 0.6) continue; const r = l.s * (1.3 + u); ctx.globalAlpha = (1 - u) * 0.5; ctx.drawImage(humo, l.x - camX - r, l.y - camY - r, r * 2, r * 2); }
+  for (const l of lenguas) { if (l.brasa || (prof !== undefined && l.p !== prof)) continue; const u = l.t / l.d; if (u < 0.6) continue; const r = l.s * (1.3 + u); ctx.globalAlpha = (1 - u) * 0.5; ctx.drawImage(humo, l.x - camX - r, l.y - camY - r, r * 2, r * 2); }
   ctx.globalCompositeOperation = 'lighter';
   for (const l of lenguas) {
+    if (prof !== undefined && l.p !== prof) continue;
     const u = l.t / l.d, x = l.x - camX, y = l.y - camY;
     if (l.brasa) { ctx.globalAlpha = (1 - u) * (0.6 + 0.4 * Math.sin(t * 20 + l.f)); ctx.fillStyle = u < 0.5 ? '#ffd070' : '#ff5a20'; ctx.fillRect(x, y, 2, 2); continue; }
     if (u > 0.8) continue;

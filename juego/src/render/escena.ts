@@ -20,7 +20,7 @@ import { energiaSuelo, energiaAire } from './energia';
 import { dibujarMarca } from './marcas';
 import { R, rng } from '../nucleo/azar';
 import { auraEquipo } from '../juego/visual';
-import { calorOzmaren, fuegoMundo, dibujarFuegosMundo } from './fuego';
+import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from './fuego';
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
 import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
@@ -387,7 +387,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       if (esAncla.has(o)) anclasCuadro.push({ q, br, px, py });
       // fuego vivo sobre fogatas, braseros, piras y antorchas
       if (vivos && (gem?.f.length || !vivos[0].s.sprite)) dibujarVivos(ctx, vivos, px, py, alfa);
-      else if (meta.luz && !tieneFuegoDoom(o) && ES_FUEGO.test(o.id) && !/^(arma_|mis_)/.test(o.id) && !/apagad/.test(o.v)) fuegoMundo(ctx, px, py - meta.luz[2] * 1.1, Math.max(0.3, Math.min(1.3, meta.luz[0] / 160)), tiempo, cam.x, cam.y);
+      else if (meta.luz && !tieneFuegoDoom(o) && ES_FUEGO.test(o.id) && !/^(arma_|mis_)/.test(o.id) && !/apagad/.test(o.v)) fuegoMundo(ctx, px, py - meta.luz[2] * 1.1, Math.max(0.3, Math.min(1.3, meta.luz[0] / 160)), tiempo, cam.x, cam.y, o.cx + o.cy);
     } });
     if (o.dato?.mision && (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'destino')) items.push({ prof: prof - 0.01, draw: () => haloMision(px, py, tiempo, o.tag === 'destino') });
     if (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'libro' || o.tag === 'cofre' || o.tag === 'santuario' || o.tag === 'pozo' || o.tag === 'baul' || o.tag === 'romper' || o.id === 'com_piedra_viaje') picks.push({ tipo: 'objeto', ref: o, x0: px - q.ax, y0: py - q.ay, x1: px - q.ax + q.w, y1: py - q.ay + q.h, prof });
@@ -439,13 +439,28 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); ctx.globalCompositeOperation = mezclaDe(e.id) as GlobalCompositeOperation; dibujarEfecto(e, tiempo); ctx.restore(); };
     items.push({ prof: e.x + e.y - 0.03, draw: mitad(true) }, { prof: e.x + e.y + 0.03, draw: mitad(false) });
   }
+  // Lo que está parado en el mundo y antes se pintaba al final, encima de todo: el portal del héroe, los umbrales de
+  // salida, las torretas y las llamas de las fogatas sin fuego vivo. Ahora van en el orden de pintado: lo que tienen
+  // delante los tapa. Para que los umbrales se sigan leyendo de lejos, después de la luz se les suma solo un halo suave.
+  halosUmbral.length = 0;
+  if (j.portal && j.portal.destino && ((j as any).portalZona === z.id || z.tipo === 'pueblo')) {
+    const [wx, wy] = z.tipo === 'pueblo' ? [z.entradas.portal[0] + 0.5, z.entradas.portal[1] - 1] : [j.portal.x, j.portal.y];
+    items.push({ prof: wx + wy, draw: () => dibujarPortal(j, tiempo) });
+    const [hx, hy] = aPant(wx, wy); halosUmbral.push([hx, hy, z.tipo === 'pueblo' ? ZONAS[(j as any).portalZona] : { tipo: 'pueblo' }, 0.5 + 0.5 * Math.sin(tiempo * 3)]);
+  }
+  for (const sa of z.salidas) {
+    const [wx, wy] = puntoSalida(z, sa), [px, py] = aPant(wx, wy);
+    if (px < -120 || px > W + 120 || py < -140 || py > H + 80) continue;
+    const pulso = 0.5 + 0.5 * Math.sin(tiempo * 2.2 + sa.cx);
+    items.push({ prof: wx + wy, draw: () => umbralVivo(px, py, !sa.obj, ZONAS[sa.destino], tiempo, pulso, sa.cx * 7.3 + sa.cy * 3.1, dtCuadro) });
+    halosUmbral.push([px, py, ZONAS[sa.destino], pulso]);
+  }
+  for (const tr of j.torretas) items.push({ prof: tr.x + tr.y, draw: () => { const [px, py] = aPant(tr.x, tr.y); ctx.fillStyle = '#3a3430'; ctx.fillRect(px - 6, py - 20, 12, 20); ctx.fillStyle = '#80786c'; ctx.fillRect(px - 9, py - 24, 18, 5); ctx.fillStyle = '#ff9040'; ctx.fillRect(px - 1, py - 22, 2, 2); } });
+  for (const pf of profFuegosMundo()) items.push({ prof: pf + 0.02, draw: () => dibujarFuegosMundo(ctx, tiempo, cam.x, cam.y, pf) });
   // lo que vive en la zona (pixelfx) entra en el orden con todo lo demás: lo tapa lo que tiene delante
   for (const it of itemsAmbiente(ctx, j, aPant, W, H, tiempo)) items.push(it);
   items.sort((a, b) => a.prof - b.prof);
   for (const it of items) it.draw();
-  dibujarFuegosMundo(ctx, tiempo, cam.x, cam.y);
-  // portal
-  if (j.portal && j.portal.destino) dibujarPortal(j, tiempo);
   // poderes y efectos
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   // los de mucha materia (sangre, hueso, humo, flechas) van con alfa normal: sumados se pierden
@@ -472,8 +487,6 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // cuervos
   for (const c of j.cuervos) { const [px, py] = aPant(c.x, c.y); ctx.globalCompositeOperation = 'source-over'; pajaro(px, py - 50 - Math.sin(tiempo * 9 + c.ang) * 6, tiempo + c.ang); ctx.globalCompositeOperation = 'lighter'; }
   ctx.restore();
-  // torretas
-  for (const tr of j.torretas) { const [px, py] = aPant(tr.x, tr.y); ctx.fillStyle = '#3a3430'; ctx.fillRect(px - 6, py - 20, 12, 20); ctx.fillStyle = '#80786c'; ctx.fillRect(px - 9, py - 24, 18, 5); ctx.fillStyle = '#ff9040'; ctx.fillRect(px - 1, py - 22, 2, 2); }
   // partículas
   for (const p of j.particulas) {
     const [px, py] = aPant(p.x, p.y);
@@ -516,11 +529,16 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // con puerta o escalera, el objeto es el marco y lleva solo el aro y las motas. La luz propia que tiñe el piso va en luces.ts.
   // El nombre aparece a unas 6 casillas (con Alt, todos).
   etiquetasMundo.length = 0;
+  // el halo de los umbrales, sumado sobre la noche: se ven de lejos sin que el portal entero tape a nadie
+  { ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const [hx, hy, dest, pul] of halosUmbral) { const fuego = /infierno|lava|fragua|ceniza/.test(dest?.tema ?? ''), c = dest?.tipo === 'pueblo' ? '255,196,110' : fuego ? '255,96,48' : dest?.tipo === 'mazmorra' ? '96,220,204' : '170,198,255';
+      const g = ctx.createRadialGradient(hx, hy - 44, 6, hx, hy - 44, 64); g.addColorStop(0, `rgba(${c},${0.26 + pul * 0.1})`); g.addColorStop(0.5, `rgba(${c},0.09)`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(hx, hy - 40, 44, 66, 0, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore(); }
   for (const sa of z.salidas) {
     const [px, py] = aPant(...puntoSalida(z, sa));
     if (px < -120 || px > W + 120 || py < -140 || py > H + 80) continue;
     const pulso = 0.5 + 0.5 * Math.sin(tiempo * 2.2 + sa.cx);
-    umbralVivo(px, py, !sa.obj, ZONAS[sa.destino], tiempo, pulso, sa.cx * 7.3 + sa.cy * 3.1, dtCuadro);
+    void pulso;
     // el nombre: de cerca, entero en pantalla y en táctil fuera de los botones de abajo a la derecha
     const d = Math.hypot(j.heroe.x - sa.cx - 0.5, j.heroe.y - sa.cy - 0.5), kn = E.alt ? 1 : Math.max(0, Math.min(1, 6.5 - d));
     if (kn <= 0) continue;
@@ -543,6 +561,7 @@ const chispasPortal = new Map<number, { x: number; y: number; vx: number; vy: nu
  * que ondula adentro, dos braseros de fuego de Doom en los pies, un haz que sube y motas en espiral. El color dice a
  * dónde lleva: oro al pueblo, verde azulado a las mazmorras, rojo brasa a las tierras de fuego y luna fría al resto.
  */
+const halosUmbral: [number, number, { tipo?: string; tema?: string } | undefined, number][] = [];
 function umbralVivo(px: number, py: number, conArco: boolean, dest: { tipo?: string; tema?: string } | undefined, t: number, pulso: number, sem: number, dt: number) {
   const fuego = /infierno|lava|fragua|ceniza/.test(dest?.tema ?? '');
   const [c, pal]: [[number, number, number], 'sagrado' | 'animas' | 'infierno' | 'corona_fria'] = dest?.tipo === 'pueblo' ? [[255, 196, 110], 'sagrado'] : fuego ? [[255, 96, 48], 'infierno'] : dest?.tipo === 'mazmorra' ? [[96, 220, 204], 'animas'] : [[170, 198, 255], 'corona_fria'];

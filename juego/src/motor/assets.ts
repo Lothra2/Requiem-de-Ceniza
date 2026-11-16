@@ -108,6 +108,16 @@ function lista(grupo: 'h' | 'm' | 'p' | 'i' | 'r' | 'sel', clave: string): Cuadr
   if (!c) { const raw = (man as any)?.[grupo]?.[clave]; c = raw ? raw.map(aCuadro) : []; cuadros.set(k, c!); }
   return c!;
 }
+/**
+ * El paso fino horneado del héroe con su equipo de salida (rumbo k de 16, o 'k~' los medios cuadros). Solo si sus
+ * atlas ya bajaron: si no, los pide y devuelve null (el héroe sigue en sus 8 rumbos un instante, no desaparece).
+ */
+export function cuadrosHeroeFinos(clase: string, acc: string, k: number | string): Cuadro[] | null {
+  const fs = lista('h', `${clase}/${acc}@${k}`); if (!fs.length) return null;
+  let listo = true; for (const q of fs) if (!q.img && !imgs.has(q.atlas)) { listo = false; void cargarAtlas(q.atlas); }
+  return listo ? fs : null;
+}
+export const hayFinosHorneados = (clase: string) => lista('h', `${clase}/caminar@1`).length > 0;
 export const cuadrosHeroe = (clase: string, acc: string, dir: string) => lista('h', `${clase}/${acc}/${dir}`);
 export const cuadrosMonstruo = (id: string, acc: string, dir: string) => lista('m', `${id}/${acc}/${dir}`);
 export const cuadrosPiso = (id: string, v: number) => lista('p', `${id}|${v}`);

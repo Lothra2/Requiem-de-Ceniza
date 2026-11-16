@@ -1,5 +1,5 @@
 // Pinta en vivo (con Web Workers) los cuadros del héroe cuando cambia el equipo, y los guarda en IndexedDB.
-import type { Cuadro } from './assets';
+import { cuadrosHeroeFinos, hayFinosHorneados, type Cuadro } from './assets';
 import Obrero from './pintor.worker.ts?worker&inline';
 import { accionesClase } from '../juego/anim';
 
@@ -16,7 +16,11 @@ export const FINO_RUMBOS = 16;
 const finos = new Map<string, Cuadro[]>();
 let firmaFinos = '', claseFina = '';
 /** Los cuadros finos de caminar o correr para el rumbo k (0..15, de a 22.5°, 0 = 'se'), si ya están pintados para el héroe que se ve. */
-export const cuadrosFinos = (acc: string, k: number | string): Cuadro[] | null => (firmaFinos === firmaVivos ? finos.get(acc + '@' + k) ?? null : null);
+export const cuadrosFinos = (acc: string, k: number | string): Cuadro[] | null => {
+  // con el equipo de salida el paso fino viene horneado en los archivos del juego: está desde el primer paso
+  if (firmaActual === 'base' && !vivos && claseFina) { const h = cuadrosHeroeFinos(claseFina, acc, k); if (h) return h; }
+  return firmaFinos === firmaVivos ? finos.get(acc + '@' + k) ?? null : null;
+};
 const DIRS = ['s', 'so', 'o', 'no', 'n', 'ne', 'e', 'se'];
 let vivos: Map<string, Cuadro[]> | null = null;
 /** Lo nuevo que ya está listo: cada animación se cambia cuando está pintada en las 8 direcciones (antes se mezclaban). */
@@ -114,7 +118,7 @@ export async function pintarHeroe(clase: string, cuerpo: any, equipo: any, firma
     if (yo !== trabajo) return;
     escribir(clave, crudos);
   };
-  if (firma === 'base') { if (cache) ponerFinos(cache); void afinar(cache ?? {}); return; }
+  if (firma === 'base') { if (hayFinosHorneados(clase)) return; if (cache) ponerFinos(cache); void afinar(cache ?? {}); return; }
   if (cache) { vivos = aMapa(cache); firmaVivos = firma; nuevosVivos = null; accListas.clear(); progresoPintura = 1; cambioVisible = performance.now() / 1000; recordar(clase, clave); ponerFinos(cache); void afinar(cache); return; }
   // sin nada pintado todavía (partida recién abierta): mostrar el último héroe completo de esta clase en vez del horneado
   if (!vivos) { const ult = ultima(clase); const c2 = ult && ult.startsWith(VER + '|') ? await leer(ult) : null; if (yo !== trabajo) return; if (c2) { vivos = aMapa(c2); firmaVivos = ult!.slice((VER + '|' + clase + '|').length); } }

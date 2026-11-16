@@ -31,7 +31,7 @@ parentPort!.on('message', (job: any) => {
     const out: Cuadro[] = [];
     if (job.tipo === 'personaje') {
       for (let i = 0; i < job.cuadros; i++) {
-        const f = i * (job.paso ?? 1);
+        const f = (i + (job.desfase ?? 0)) * (job.paso ?? 1);
         const r = pintarEscena({ ...personajeEscena(job.cuerpo, job.equipo, job.dir, job.acc, f), sinSombra: true });
         const c = recortar(r.img, r.ancla[0], r.ancla[1]);
         c.hoja = extra.hojaDe(esqueleto, aPantalla, job.cuerpo, job.equipo, job.dir, job.acc, f);

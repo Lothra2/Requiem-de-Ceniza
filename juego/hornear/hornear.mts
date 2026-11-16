@@ -38,6 +38,19 @@ if (GRUPOS.includes('h')) for (const h of HEROES) {
   if (SOLO && !SOLO.includes(h.id)) continue;
   for (const acc of ACCS) for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'h', clave: `${h.id}/${acc}/${dir}`, tipo: 'personaje', cuerpo: h.cuerpo, equipo: extras.equipoInicial(h.id, h.niveles[0]), dir, acc, cuadros: cuadrosDe(acc, h.cuerpo.presentacion) });
 }
+// Grupo 'g': el paso fino del héroe con su equipo de salida, horneado: los 8 rumbos intermedios de caminar y correr
+// (claves `clase/acc@k`, k impar de 16) y los medios cuadros de los 16 rumbos (`clase/acc@k~`). Sin esto el aparato los
+// pinta solo después de entrar, y en un teléfono tarda minutos: el héroe arrancaba en 8 rumbos. Con otro equipo los
+// sigue pintando el aparato. Va al manifiesto junto a los cuadros del héroe: hornear 'h' los borra, hornear 'g' después.
+if (GRUPOS.includes('g')) for (const h of HEROES as any[]) {
+  if (SOLO && !SOLO.includes(h.id)) continue;
+  const equipo = extras.equipoInicial(h.id, h.niveles[0]);
+  for (const acc of ['caminar', 'correr']) {
+    const n = cuadrosDe(acc as any, h.cuerpo.presentacion);
+    for (let k = 1; k < 16; k += 2) jobs.push({ id_job: nid++, grupo: 'g', clave: `${h.id}/${acc}@${k}`, tipo: 'personaje', cuerpo: h.cuerpo, equipo, dir: 'r' + k * 22.5, acc, cuadros: n });
+    for (let k = 0; k < 16; k++) jobs.push({ id_job: nid++, grupo: 'g', clave: `${h.id}/${acc}@${k}~`, tipo: 'personaje', cuerpo: h.cuerpo, equipo, dir: 'r' + k * 22.5, acc, cuadros: n, desfase: 0.5 });
+  }
+}
 if (GRUPOS.includes('m')) for (const m of [...MONSTRUOS, ...extras.MONSTRUOS_EXTRA]) {
   if (SOLO && !SOLO.includes(m.id)) continue;
   for (const acc of ACCS) {
@@ -190,6 +203,7 @@ for (const g of GRUPOS) {
   if (!SOLO) {
     if (g === 'm') { const ids = new Set(js.map((j) => j.clave.split('/')[0])); for (const k of Object.keys(man.m ?? {})) if (ids.has(k.split('/')[0])) delete man.m[k]; }
     else if (g === 'f') { for (const k of Object.keys(man.m ?? {})) if (/\/r[\d.]+$/.test(k)) delete man.m[k]; }
+    else if (g === 'g') { for (const k of Object.keys(man.h ?? {})) if (k.includes('@')) delete man.h[k]; }
     else if (g !== 'n' && g !== 'b' && g !== 'j') man[g] = {};
     for (const k of Object.keys(man.atlas)) if (k.startsWith(g + '_')) delete man.atlas[k]; }
   const items: { j: Job; f: number; c: any }[] = [];
@@ -232,7 +246,7 @@ for (const g of GRUPOS) {
   }
   for (const [k, fs] of Object.entries(listas)) {
     if (g === 'o') man.o[k] = { f: fs, ...objMeta[k] };
-    else (man[g === 'n' || g === 'b' || g === 'j' || g === 'f' ? 'm' : g] ??= {})[k] = fs;
+    else (man[g === 'n' || g === 'b' || g === 'j' || g === 'f' ? 'm' : g === 'g' ? 'h' : g] ??= {})[k] = fs;
   }
 }
 // alto de cada cuerpo: el juego lo usa con la zancada del motor para que los pies no patinen

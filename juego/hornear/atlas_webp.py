@@ -13,7 +13,7 @@ def convertir(archivo):
     src = os.path.join(D, archivo); dst = src[:-4] + '.webp'
     im = Image.open(src)
     # (los f_, el andar de los monstruos en los rumbos intermedios, iban sin pérdida por descuido: 34 MB que son 12)
-    if os.path.basename(archivo)[:2] in ('h_', 'm_', 'b_', 'j_', 'n_', 'r_', 'f_'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
+    if os.path.basename(archivo)[:2] in ('h_', 'm_', 'b_', 'j_', 'n_', 'r_', 'f_', 'g_'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
     else: im.save(dst, 'WEBP', lossless=True, method=4)
     a, b = os.path.getsize(src), os.path.getsize(dst)
     os.remove(src)

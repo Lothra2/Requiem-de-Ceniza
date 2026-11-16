@@ -2,6 +2,7 @@
 import { BASES, PREFIJOS, SUFIJOS, UNICOS, CONJUNTOS, GEMAS, RUNAS, PALABRAS, NOMBRES_RAROS } from '../datos/objetos_datos';
 import '../datos/talismanes';
 import { LEGENDARIA_JEFE } from '../datos/legendarias';
+import '../datos/reliquias';
 import type { Base, Elemento, Stat, Ranura, Afijo, Unico } from './tipos_objetos';
 import { R, entero, elegir, clamp } from '../nucleo/azar';
 
@@ -308,12 +309,14 @@ export function botin(nivel: number, calidad: number, hallazgo: number, oroExtra
     if (k < 0.46) { out.push({ obj: crearGema(nivel) }); continue; }
     if (k < 0.475 && nivel > 4) { out.push({ obj: crearRuna(nivel) }); continue; }
     if (k < 0.49) { out.push({ obj: crearPergamino('portal') }); continue; }
-    out.push({ obj: crearObjeto(nivel, tirarRareza(calidad, hallazgo)) });
+    out.push({ obj: crearObjeto(nivel, tirarRareza(calidad, hallazgo, nivel)) });
   }
   return out;
 }
-export function tirarRareza(calidad: number, hallazgo: number): Rareza {
-  const mf = 1 + hallazgo / 100, mfu = 1 + hallazgo / 250;
+export function tirarRareza(calidad: number, hallazgo: number, nivel = 99): Rareza {
+  // en los primeros niveles lo único y lo legendario cae más seguido: la primera reliquia tiene que llegar temprano
+  const pronto = nivel <= 12 ? 2.2 : nivel <= 30 ? 1.5 : 1;
+  const mf = 1 + hallazgo / 100, mfu = (1 + hallazgo / 250) * pronto;
   const bono = [1, 2, 3, 5, 8][calidad] ?? 1;
   const r = R();
   if (r < 0.0025 * bono * mfu) return 'legendario';

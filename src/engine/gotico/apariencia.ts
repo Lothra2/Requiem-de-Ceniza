@@ -118,10 +118,10 @@ export function equipoDeInventario(puesto: Partial<Record<string, Puesto | undef
     const cara2 = cara ?? (epica(izq.linea) ? MAT_LINEA[izq.linea].placa : izq.linea === 'cuero' ? 'madera' : izq.linea === 'oscuro' ? 'cu_placa_oscura' : izq.linea === 'sagrado' ? 'cu_tela_blanca' : izq.linea === 'malla' ? 'cu_placa' : undefined);
     const borde = epica(izq.linea) ? (MAT_LINEA[izq.linea].acento === 'cu_percebe' ? 'cu_bronce' : MAT_LINEA[izq.linea].acento) : duro(izq.linea) ? 'cu_oro' : izq.linea === 'malla' ? 'cu_placa' : 'hierro';
     switch (izq.pieza) {
-      case 'escudo_redondo': e.izq = { tipo: izq.variante === 'rodela' ? 'rodela' : 'escudo_redondo', mat: cara2 ?? (izq.linea === 'cuero' ? 'madera' : 'cu_placa'), mat2: borde }; break;
-      case 'escudo_cometa': e.izq = { tipo: 'escudo_cometa', mat: cara2 ?? 'cu_placa', mat2: borde }; break;
-      case 'escudo_torre': e.izq = { tipo: 'escudo_torre', mat: cara2 ?? 'cu_placa', mat2: borde }; break;
-      case 'escudo_calavera': e.izq = { tipo: 'escudo_calavera', mat: cara2 ?? 'cu_placa_oscura', mat2: 'cu_hueso' }; break;
+      case 'escudo_redondo': e.izq = { tipo: izq.variante === 'rodela' ? 'rodela' : 'escudo_redondo', mat: cara2 ?? (izq.linea === 'cuero' ? 'madera' : 'cu_placa'), mat2: borde, icono: izq }; break;
+      case 'escudo_cometa': e.izq = { tipo: 'escudo_cometa', mat: cara2 ?? 'cu_placa', mat2: borde, icono: izq }; break;
+      case 'escudo_torre': e.izq = { tipo: 'escudo_torre', mat: cara2 ?? 'cu_placa', mat2: borde, icono: izq }; break;
+      case 'escudo_calavera': e.izq = { tipo: 'escudo_calavera', mat: cara2 ?? 'cu_placa_oscura', mat2: 'cu_hueso', icono: izq }; break;
       case 'orbe': e.izq = { tipo: 'orbe', mat: 'magia' }; break;
       case 'libro': e.izq = { tipo: 'libro', mat: cara2 ?? 'cu_cuero' }; break;
       default: break;

@@ -84,19 +84,22 @@ class Taller {
   /** luz que tiñe lo cercano (poción, brasa, orbe) */
   resp?: { c: V3; r: number; color: string };
   private pila: { m: M3; t: V3 }[] = [{ m: I3, t: [0, 0, 0] }];
-  constructor(public s: number, private zoff: number) {}
+  /** `base`: en vez de la cámara del ícono, los ejes y el origen donde va la pieza (un escudo en el brazo de un cuerpo). */
+  constructor(public s: number, private zoff: number, private base?: { x: V3; y: V3; z: V3; o: V3 }) {}
   private get top() { return this.pila[this.pila.length - 1]; }
   /** Punto del objeto al mundo. */
   P(p: V3): V3 {
     const q = add(this.top.t, aplicar(this.top.m, p));
+    if (this.base) { const b = this.base, w = add(add(mul(b.x, q[0]), b.y, q[1]), b.z, q[2]); return [b.o[0] + w[0] * this.s, b.o[1] + w[1] * this.s, b.o[2] + w[2] * this.s]; }
     const w = add(add(mul(CAM_X, q[0]), CAM_Y, q[1]), CAM_Z, q[2]);
     return [w[0] * this.s, w[1] * this.s, w[2] * this.s + this.zoff];
   }
   /** Dirección del objeto al mundo. */
-  D(v: V3): V3 { const q = aplicar(this.top.m, v); return nor(add(add(mul(CAM_X, q[0]), CAM_Y, q[1]), CAM_Z, q[2])); }
+  D(v: V3): V3 { const q = aplicar(this.top.m, v); if (this.base) return nor(add(add(mul(this.base.x, q[0]), this.base.y, q[1]), this.base.z, q[2])); return nor(add(add(mul(CAM_X, q[0]), CAM_Y, q[1]), CAM_Z, q[2])); }
   /** Arma lo de `fn` movido a `t` y girado. */
   en(t: V3, r: Rot | M3, fn: () => void) {
-    const m = (typeof r[0] === 'number' ? rot(...(r as Rot)) : r) as M3;
+    // (puesta en un cuerpo, la pieza no lleva la inclinación de vitrina del ícono: manda el brazo)
+    const m = (this.base && this.pila.length === 1 ? I3 : typeof r[0] === 'number' ? rot(...(r as Rot)) : r) as M3;
     this.pila.push({ m: componer(this.top.m, m), t: add(this.top.t, aplicar(this.top.m, t)) });
     fn();
     this.pila.pop();
@@ -1095,6 +1098,18 @@ function emblema(t: Taller, e: Estilo, y0: number, k = 1, z0 = 0) {
   // cruz o estrella de metal
   if (e.n >= 3) { for (let i = 0; i < 5; i++) { const a = 90 + i * 72; t.poli([[0, y0, z0], [Math.cos(rad(a)) * 4 * k, y0 + 0.3, z0 + Math.sin(rad(a)) * 4 * k], [Math.cos(rad(a + 36)) * 1.6 * k, y0 + 0.3, z0 + Math.sin(rad(a + 36)) * 1.6 * k], [Math.cos(rad(a - 36)) * 1.6 * k, y0 + 0.3, z0 + Math.sin(rad(a - 36)) * 1.6 * k], [0, y0 + 1.0, z0]], { mat: oro }); } if (e.n >= 4) gemaEngastada(t, [0, y0 + 0.8, z0], 1.0 * k, e, { engaste: oro }); }
   else { t.caja([0, y0, z0], [1.4 * k, 0.6, 8 * k], { mat: oro }); t.caja([0, y0, z0 + 1.4 * k], [6 * k, 0.6, 1.4 * k], { mat: oro }); }
+}
+/**
+ * El escudo del ícono, puesto en el brazo: las mismas piezas (canto, campo, umbo, remaches, emblema, color) armadas en
+ * el lugar del cuerpo. `o` es el centro, `lado` su derecha, `frente` hacia donde mira la cara y `k` cuánto mide una
+ * unidad del ícono (el redondo tiene 11 de radio). Lo que se ve en la casilla del inventario es lo que lleva el héroe.
+ */
+export function escudoPuesto(d: Icono3D, o: V3, lado: V3, frente: V3, k: number): Pieza[] {
+  const t = new Taller(k, 0, { x: lado, y: frente, z: [0, 0, 1], o }), e = estilo(d);
+  if (d.pieza === 'escudo_redondo') escudoRedondo(t, e, d); else if (d.pieza === 'escudo_cometa') escudoCometa(t, e, d);
+  else if (d.pieza === 'escudo_torre') escudoTorre(t, e, d); else if (d.pieza === 'escudo_calavera') escudoCalavera(t, e, d);
+  // (la luz baja del personaje lo dejaba más oscuro que en la casilla: se le sube el tono para que se lea el mismo escudo)
+  return t.ps.map((p) => ({ ...p, tono: (p.tono ?? 0) + 0.22 }));
 }
 function escudoRedondo(t: Taller, e: Estilo, d: Icono3D) {
   const R = d.variante === 'rodela' ? 8 : 11, cara = caraEscudo(e, d.color);

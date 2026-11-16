@@ -1,3 +1,4 @@
+import { escudoPuesto } from './iconos3d';
 import { caja, cilindro, elipsoide, esfera, palo, poliedro, masa, hueso, bulto, distMasa, type Comp, type Pieza, type V3, type Iluminacion } from './render';
 import { claveBaja } from './clave_baja';
 import * as superficie from './superficie';
@@ -196,7 +197,7 @@ export interface Equipo {
   cinturon?: { mat: string; hebilla?: string; linea?: LineaCuerpo };
   capa?: { mat: string; largo?: number; forro?: string };
   arma?: { tipo: TipoArma; mat?: string; mango?: string; gema?: string; encanto?: Encanto; /** nivel del arsenal elemental (1 común a 5 mítica): forma forjada y adornos */ nivel?: 1 | 2 | 3 | 4 | 5 };
-  izq?: { tipo: 'escudo_redondo' | 'escudo_cometa' | 'escudo_torre' | 'rodela' | 'escudo_calavera' | 'orbe' | 'libro' | 'antorcha' | 'arma'; mat?: string; mat2?: string; arma?: TipoArma };
+  izq?: { tipo: 'escudo_redondo' | 'escudo_cometa' | 'escudo_torre' | 'rodela' | 'escudo_calavera' | 'orbe' | 'libro' | 'antorcha' | 'arma'; mat?: string; mat2?: string; arma?: TipoArma; /** el diseño del ícono del objeto: el escudo se arma con ese mismo modelo */ icono?: import('./iconos3d').Icono3D };
   /** Tabardo o faldón con color de la orden. */
   tabardo?: { mat: string; borde?: string };
   /** Lo que dice el oficio, encima de la ropa (vestuario.ts): faja, rosario, estola, libro, delantal, carcaj... */
@@ -2398,6 +2399,12 @@ function manoIzq(e: Esqueleto, iz: NonNullable<Equipo['izq']>, derecha?: TipoArm
     if (isFinite(fh[0]) && len([fh[0], fh[1], 0]) > 0.5) F = fh;
   }
   const c = add(add(b.mano, F, 1.2 * S), [0, 0, 2.2 * S]);
+  // el escudo del inventario: el mismo modelo que pinta su ícono, a tamaño de escudo (el redondo cubre del hombro a la
+  // cadera; antes era un disco liso de un cuarto del cuerpo que no se parecía al que uno agarraba)
+  if (iz.icono && /^escudo/.test(iz.tipo)) {
+    const lado = nor(cruz([0, 0, 1], F)), alto = iz.tipo === 'escudo_torre' ? 1.5 : iz.tipo === 'rodela' ? -0.5 : 0.5;
+    return escudoPuesto(iz.icono, add(add(b.mano, F, 1.6 * S), [0, 0, alto * S]), lado, F, 1.14 * S);
+  }
   const mat = iz.mat ?? 'madera', m2 = iz.mat2 ?? 'cu_placa';
   const ga = angulo(F);
   switch (iz.tipo) {

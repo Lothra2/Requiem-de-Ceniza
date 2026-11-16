@@ -2,7 +2,7 @@
 const { chromium } = require('playwright');
 const URL = process.env.URL || 'http://localhost:5190/';
 (async () => {
-  const b = await chromium.launch({ args: ['--autoplay-policy=user-gesture-required'] });
+  const b = await chromium.launch({ executablePath: process.env.CHROMIUM || undefined, args: ['--autoplay-policy=user-gesture-required'] });
   const out = {};
   for (const [w, h] of [[1024, 768], [1180, 820]]) {
     const c = await b.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });

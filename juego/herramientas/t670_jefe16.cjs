@@ -1,6 +1,6 @@
 // Tira de los 16 cuadros de caminar de dos jefes para verlos seguidos.
 const { chromium } = require('playwright');
-(async () => { const b = await chromium.launch(); const p = await b.newPage({ viewport: { width: 1800, height: 620 } });
+(async () => { const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const p = await b.newPage({ viewport: { width: 1800, height: 620 } });
   await p.goto('http://127.0.0.1:5190/'); await p.waitForFunction(() => window.__T, null, { timeout: 90000 });
   await p.evaluate(async () => {
     const m = await (await fetch('/assets/manifiesto.json')).json(); const c = document.createElement('canvas'); c.width = 1800; c.height = 620; c.style.cssText = 'position:fixed;left:0;top:0;z-index:99;background:#222'; document.body.appendChild(c); const g = c.getContext('2d');

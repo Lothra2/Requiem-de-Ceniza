@@ -1,7 +1,7 @@
 // El retrato en grande del héroe en la portada y en «Tus héroes».
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const c = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const c = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); });
   const aMenu = async () => { for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
   await p.goto('http://127.0.0.1:5190/'); await aMenu(); await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });

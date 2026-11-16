@@ -4,7 +4,7 @@
 const { chromium } = require('playwright');
 const RES = [[844, 390], [932, 430], [667, 375], [844, 340]];
 (async () => {
-  const b = await chromium.launch(); const fallas = [];
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const fallas = [];
   for (const [w, h] of RES) {
     const ctx = await b.newContext({ viewport: { width: w, height: h }, hasTouch: true, isMobile: true, deviceScaleFactor: 1 });
     const p = await ctx.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));

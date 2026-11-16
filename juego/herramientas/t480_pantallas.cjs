@@ -1,7 +1,7 @@
 // Pantallas de menú con tres héroes guardados: selección, crear y opciones, en PC, iPad y teléfono.
 const { chromium, devices } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const solo = process.argv[2];
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const solo = process.argv[2];
   for (const [nom, cfg] of [['pc', { viewport: { width: 1280, height: 720 } }], ['ipad', { viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true }], ['movil', { ...devices['iPhone 13'], viewport: { width: 844, height: 390 } }]]) {
     if (solo && solo !== nom) continue;
     const c = await b.newContext({ ...cfg, deviceScaleFactor: 1 }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));

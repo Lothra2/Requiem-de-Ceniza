@@ -3,7 +3,7 @@
 const { chromium, devices } = require('playwright');
 const MOVIL = process.argv[2] === 'movil', URL = process.env.URL || 'http://127.0.0.1:5190/';
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
   const c = MOVIL ? await b.newContext({ ...devices['iPhone 13'], viewport: { width: 844, height: 390 } }) : await b.newContext({ viewport: { width: 1280, height: 720 } });
   const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); });

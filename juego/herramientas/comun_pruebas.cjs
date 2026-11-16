@@ -2,7 +2,7 @@
 const { chromium, devices } = require('playwright');
 const VISTAS = { pc: { viewport: { width: 1280, height: 720 } }, ipad: { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true }, ipad11: { viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true }, movil: { ...devices['iPhone 13'], viewport: { width: 844, height: 390 } } };
 async function entrar(vista, clase, nivel, URL = process.env.URL || 'http://127.0.0.1:5190/', ajustes = '') {
-  const b = await chromium.launch(); const c = await b.newContext({ ...VISTAS[vista], deviceScaleFactor: +(process.env.DPR || 1) });
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const c = await b.newContext({ ...VISTAS[vista], deviceScaleFactor: +(process.env.DPR || 1) });
   const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
   await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); });
   const aMenu = async () => { for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };

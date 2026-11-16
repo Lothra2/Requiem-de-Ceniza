@@ -1,7 +1,7 @@
 // Lámina de los iconos de habilidad: uno por cada glifo y todas las del berserker y la arcanista.
 const { chromium } = require('playwright'); const fs = require('fs');
 (async () => {
-  const b = await chromium.launch(); const p = await (await b.newContext({ viewport: { width: 1280, height: 720 } })).newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const p = await (await b.newContext({ viewport: { width: 1280, height: 720 } })).newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto('http://127.0.0.1:5190/'); await p.waitForTimeout(4000);
   const url = await p.evaluate(async () => {
     const I = await import('/src/ui/iconos_hab.ts'), C = await import('/src/datos/clases.ts');

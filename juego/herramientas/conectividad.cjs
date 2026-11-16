@@ -5,7 +5,7 @@
 // Reinicia el servidor después de muchos cambios en caliente: módulos viejos pueden esconder zonas.
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const p = await b.newPage();
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const p = await b.newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto('http://127.0.0.1:5190/', { waitUntil: 'load' });
   for (let i = 0; i < 60 && !(await p.evaluate(() => !!window.__T)); i++) await p.waitForTimeout(500);

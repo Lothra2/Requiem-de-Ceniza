@@ -1,7 +1,7 @@
 // El menú de la portada con una partida guardada: captura en reposo, con el puntero sobre un renglón, y en iPad y teléfono.
 const { chromium, devices } = require('playwright');
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
   for (const [nom, cfg] of [['pc', { viewport: { width: 1280, height: 720 } }], ['ipad', { viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true }], ['movil', { ...devices['iPhone 13'], viewport: { width: 844, height: 390 } }]]) {
     const c = await b.newContext({ ...cfg, deviceScaleFactor: 1 }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
     await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); });

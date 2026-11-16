@@ -5,7 +5,7 @@
 const { chromium, devices } = require('playwright');
 const RES = [[844, 390, true, 'iphone_apaisado'], [390, 844, true, 'iphone_vertical'], [1180, 820, true, 'ipad'], [1280, 720, false, 'escritorio']];
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
   const fallas = [];
   for (const [w, h, tactil, nombre] of RES) {
     const ctx = await b.newContext({ viewport: { width: w, height: h }, hasTouch: tactil, isMobile: tactil, deviceScaleFactor: 1 });

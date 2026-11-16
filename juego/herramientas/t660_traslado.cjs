@@ -1,7 +1,7 @@
 // La partida viaja: se saca como código en un navegador y entra por enlace (#partida=) en otro limpio; con partida ya puesta pide confirmar.
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const errs = [];
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const errs = [];
   const nueva = async (init) => { const c = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await c.newPage(); p.on('pageerror', (e) => errs.push(e.message)); if (init) await p.addInitScript(init); return p; };
   const aMenu = async (p) => { for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
   const p = await nueva(() => localStorage.setItem('marca.intro', '1'));

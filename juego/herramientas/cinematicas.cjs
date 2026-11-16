@@ -3,7 +3,7 @@ const { chromium, devices } = require('playwright');
 const modo = process.argv[2] || 'pc', URL = process.env.URL || 'http://127.0.0.1:5190/';
 const CASOS = [['acto_1', 1, []], ['acto_2', 2, []], ['acto_3', 3, []], ['acto_4', 4, ['vigdis_viva']], ['acto_4', 4, ['vigdis_muerta']], ['acto_5', 5, ['brasa_destruir']], ['acto_5', 5, ['brasa_absorber']], ['acto_6', 6, []], ['acto_7', 7, []], ['acto_7_vigilia', 7, []], ['acto_7_cielo', 7, []], ['acto_7_rey_ceniza', 7, []], ['acto_7_corona_fria', 7, []]];
 (async () => {
-  const b = await chromium.launch();
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
   const c = await b.newContext(modo === 'movil' ? { ...devices['iPhone 13 landscape'] } : { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 });
   const p = await c.newPage(); const errores = [], fallos = [];
   p.on('pageerror', (e) => errores.push(String(e))); p.on('console', (m) => { if (m.type() === 'error') errores.push(m.text()); });

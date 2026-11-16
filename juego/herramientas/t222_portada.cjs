@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch(); const c = await b.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: +(process.env.DPR || 1), hasTouch: true, isMobile: true }); const p = await c.newPage();
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const c = await b.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: +(process.env.DPR || 1), hasTouch: true, isMobile: true }); const p = await c.newPage();
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); });
   await p.goto('http://127.0.0.1:5190/');

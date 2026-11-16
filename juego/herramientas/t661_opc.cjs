@@ -1,5 +1,5 @@
 const { chromium } = require('playwright');
-(async () => { const b = await chromium.launch();
+(async () => { const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
   for (const [nom, vp, dpr] of [['movil', { width: 844, height: 390 }, 3], ['pc', { width: 1280, height: 720 }, 1]]) {
     const c = await b.newContext({ viewport: vp, hasTouch: nom === 'movil', isMobile: nom === 'movil', deviceScaleFactor: dpr }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error' && errs.length < 3) { errs.push(m.text().slice(0, 300)); console.log(m.text().slice(0, 300)); } });
     await p.addInitScript(() => { localStorage.setItem('marca.intro', '1');  });

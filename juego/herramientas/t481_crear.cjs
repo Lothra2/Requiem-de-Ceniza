@@ -2,7 +2,7 @@
 const { chromium } = require('playwright');
 (async () => {
   const sinSel = process.argv[2] === 'retrato', clases = +(process.argv[3] || 1);
-  const b = await chromium.launch(); const c = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
+  const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const c = await b.newContext({ viewport: { width: 1280, height: 720 } }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.addInitScript((s) => { localStorage.setItem('marca.intro', '1'); window.__sinSel = s; }, sinSel);
   await p.goto('http://127.0.0.1:5190/'); for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; }
   await p.waitForTimeout(7000);

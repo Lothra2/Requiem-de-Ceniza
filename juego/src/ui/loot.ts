@@ -9,6 +9,7 @@ const GEMA: Record<string, string> = { rubi: 'ruby', zafiro: 'sapphire', topacio
 const GRADO = (id: string) => (/astillad/.test(id) ? 'chipped' : /agrietad/.test(id) ? 'flawed' : /pulid/.test(id) ? 'flawless' : /perfect/.test(id) ? 'perfect' : 'normal');
 
 const COLOR_TELA: Record<string, string> = { cu_tela_azul: '#2f4f9a', cu_tela_roja: '#9a2626', cu_tela_verde: '#2f6a34', cu_tela_morada: '#5a2f7a', cu_tela_negra: '#1c1a20', cu_tela_blanca: '#d8d2c4', cu_tela_parda: '#6a5236' };
+import { ASPECTO_RELIQUIA } from '../datos/reliquias';
 const cache = new Map<string, LootItem>();
 export function aLoot(o: Objeto): LootItem {
   const k = o.uid + '|' + o.rareza;
@@ -64,6 +65,18 @@ export function aLoot(o: Objeto): LootItem {
       if (a.linea !== 'metal') delete extra.flavor;
     } else if (base.cat === 'offhand' && (pz?.color ?? a?.color)) { diseno = { ...(diseno ?? {}), face: pz?.color ?? a!.color }; grado = 5; }
   }
+  // reliquias: cada una con su aspecto propio (línea, grado, color, ribete, gema y brillo; el escudo, su cara), en la
+  // casilla y en el cuerpo. Misma regla que los conjuntos.
+  const rq = !asp && b && (o.rareza === 'unico' || o.rareza === 'legendario') ? ASPECTO_RELIQUIA.get(o.nombre[0]) : undefined;
+  if (rq?.armadura && base.cat === 'armor') {
+    const a = rq.armadura, epica = !['tunica', 'cuero', 'malla', 'placas', 'metal'].includes(a.linea), corona = /corona|diadema|aro/.test(JSON.stringify(b!.visual));
+    if (epica) { base = { ...base, line: a.linea, tier: 5 }; diseno = corona ? { helm: 'crown' } : undefined; }
+    else {
+      base = { ...base, line: a.linea === 'metal' ? 'placas' : a.linea, tier: a.grado };
+      diseno = { ...(diseno ?? {}), base: a.color, ...(a.ribete ? { trim: a.ribete } : {}), ...(a.gema ? { gem: a.gema } : {}), ...(a.brillo ? { glow: a.brillo } : {}) };
+      if (a.linea === 'metal' && o.lore) extra = { ...extra, flavor: { es: o.lore[0], en: o.lore[1] } };
+    }
+  } else if (rq?.cara && base.cat === 'offhand') { diseno = { ...(diseno ?? {}), face: rq.cara }; grado = 5; }
   const it: LootItem = { id: String(o.uid), name: { es: o.nombre[0], en: o.nombre[1] }, rarity: RAREZA[o.rareza] ?? 'normal', base, level: o.nivel, stats: { mods: [] }, ...(diseno ? { design: diseno } : {}), ...(grado ? { grade: grado } : {}), ...extra } as LootItem;
   cache.set(k, it);
   if (cache.size > 2000) cache.clear();
@@ -73,6 +86,9 @@ export function aLoot(o: Objeto): LootItem {
 export function arma3dDe(o: Objeto): any {
   const b = baseDe(o);
   if (!b?.arma || b.arma === 'puno' || b.arma === 'nada') return undefined;
-  const v: any = (o.vis ?? (b.visual as any).arma ?? { tipo: b.arma });
+  const v0: any = (o.vis ?? (b.visual as any).arma ?? { tipo: b.arma });
+  // el arma de una reliquia: su metal, su gema y su nivel de forja (más adornada que la base)
+  const ra = o.rareza === 'unico' || o.rareza === 'legendario' ? ASPECTO_RELIQUIA.get(o.nombre[0])?.arma : undefined;
+  const v: any = ra ? { ...v0, ...ra } : v0;
   return { tipo: v.tipo ?? b.arma, mat: v.mat, mango: v.mango, gema: v.gema, encanto: o.vivo ? ENC[o.vivo] : v.encanto, ...(v.nivel ? { nivel: v.nivel } : {}) };
 }

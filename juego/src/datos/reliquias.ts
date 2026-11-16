@@ -99,3 +99,41 @@ for (const [id, es, en, base, nivel, leg, vivo, st, l1, l2] of F) {
   RELIQUIAS.push({ id, nombre: [es, en], base, nivel, stats: stats(st), lore: [l1, l2], ...(vivo ? { vivo } : {}), ...(leg ? { legendario: true } : {}), req: nivel });
 }
 UNICOS.push(...RELIQUIAS);
+
+// ------------------------------------------------------------------ el aspecto propio de cada reliquia
+// Lo que se ve en la casilla y puesto en el cuerpo. Armadura: línea, grado (1 a 5), color, ribete, gema y brillo (las
+// líneas épicas del motor traen sus formas propias: escamas, dracónica, élfica, demoníaca, celestial, ahogada).
+// Escudo: 'cara' y su color. Arma: 'arma', metal, gema y nivel de forja (3 a 5: más adornada).
+// Se busca por el nombre del objeto, así que también vale para las reliquias que ya estaban en una partida guardada.
+const ASPECTO: Record<string, string> = {
+  capucha_que_volvio: 'tunica,3,#3a4a5a,#b0b8c0', jubon_sobreviviente: 'cuero,3,#6a3a2a,#c0a060', manos_enterrador: 'cuero,3,#2e2a26,#8a8478',
+  botas_mensajero: 'cuero,3,#7a2a22,#d0b060', faja_abuela: 'tunica,3,#a03a50,#e8d8b0', gorro_trampero: 'cuero,3,#5a4024,#a08050',
+  yelmo_centinela_dormido: 'placas,4,#4a5a6a,#c0c8d0,#80c0ff', visera_verdugo_arrepentido: 'metal,4,#2a2226,#7a2018,#c02018',
+  diadema_novia_ahogada: 'ahogada,5,#2a5c62,#d8d0b8,#5fd0d8,#5fd0d8', habito_remendado: 'tunica,3,#5a5046,#8a7a60',
+  piel_lobo_gris: 'cuero,4,#6a6a70,#c8c8d0', cota_mil_remiendos: 'malla,4,#7a7468,#b08a4a', coraza_herrero_ciego: 'placas,4,#3a3230,#d07020,#ff8030,#ff7020',
+  habito_ultima_misa: 'tunica,5,#e8e0d0,#c8a040,#ffd060,#ffd060', loriga_guardia_rota: 'malla,5,#5a6a7a,#c0c8d0,#4080c0',
+  vendas_campeon_manco: 'cuero,3,#b02a20,#e0c080', brazales_escriba_guerra: 'placas,4,#8a6a3a,#e0c080', guanteletes_recaudador: 'placas,4,#c8a040,#f0e0a0',
+  sandalias_camino_largo: 'cuero,3,#a08050,#e8d8a0', botas_jinete_sin_caballo: 'cuero,4,#2a2a3a,#8090c0,#60a0ff', sabatones_vado: 'placas,4,#6a8088,#c0d8e0',
+  cinto_contrabandista: 'cuero,3,#3a2a20,#c8a040', tahali_cien_presas: 'cuero,4,#5a3a22,#d8c8a0', cinturon_sargento: 'placas,4,#6a6a70,#b08a4a',
+  rostro_que_no_descansa: 'metal,5,#c8b890,#6a5a40,#40d0a0,#40d0a0', corona_ascua_viva: 'metal,5,#c84a18,#ffd060,#ff6020,#ff7020',
+  coraza_doce_juramentos: 'celestial,5,#c8a040,#f4e0a0,#f8f4e8,#ffd060', mortaja_ultimo_rey: 'metal,5,#3a2a4a,#c8a040,#a040ff,#a040ff',
+  punos_verdugo_mayor: 'demoniaca,5,#5a1410,#c02018,#ff4020,#ff4020', pasos_sobre_brasa: 'draconica,5,#7a2a14,#ff8030,#ffb040,#ff6020',
+  cenidor_coloso: 'escamas,5,#5a6a50,#c8a040,#80c060',
+  tapa_caldero: 'cara,#3a3a40', rueda_carretero: 'cara,#7a5a36', cometa_cruzado_nino: 'cara,#a02028', sol_bronce: 'cara,#d09030', puerta_capilla: 'cara,#5a3a22',
+  muro_lamentos: 'cara,#2a2a30', amanecer_santa_oria: 'cara,#f0e8d0',
+  diente_primer_invierno: 'arma,acero,hielo,3', juramento_novicio: 'arma,acero,,3', chispa_aprendiz: 'arma,,magia,3', silbo_paramo: 'arma,,fuego_verde,3',
+  falange_sepulturero: 'arma,cu_hueso,fuego_verde,3', nudillos_ayuno: 'arma,bronce,fuego,3', rama_roble_hendido: 'arma,,fuego_verde,3',
+  ballesta_boticario: 'arma,bronce,fuego,3', mondadientes_tabernero: 'arma,hierro,,3', lucero_alba_chica: 'arma,cu_oro,,3', media_luna_guia: 'arma,bronce,fuego,3',
+  partetroncos: 'arma,hierro,fuego,4', aguijon_pantano: 'arma,bronce,fuego_verde,4', ultima_palabra: 'arma,acero,,4', chicharra: 'arma,bronce,fuego,4',
+  viento_velmora: 'arma,,magia,4', media_cosecha: 'arma,acero,hielo,4', lapida: 'arma,hierro,,5',
+};
+export interface AspectoReliquia { armadura?: { linea: string; grado: 1 | 2 | 3 | 4 | 5; color: string; ribete?: string; gema?: string; brillo?: string }; cara?: string; arma?: { mat?: string; gema?: string; nivel?: 1 | 2 | 3 | 4 | 5 } }
+/** El aspecto propio de una reliquia, por su nombre en español. */
+export const ASPECTO_RELIQUIA = new Map<string, AspectoReliquia>();
+for (const u of RELIQUIAS) {
+  const a = ASPECTO[u.id]; if (!a) continue;
+  const q = a.split(',');
+  if (q[0] === 'cara') ASPECTO_RELIQUIA.set(u.nombre[0], { cara: q[1] });
+  else if (q[0] === 'arma') ASPECTO_RELIQUIA.set(u.nombre[0], { arma: { ...(q[1] ? { mat: q[1] } : {}), ...(q[2] ? { gema: q[2] } : {}), nivel: +q[3] as 3 | 4 | 5 } });
+  else ASPECTO_RELIQUIA.set(u.nombre[0], { armadura: { linea: q[0], grado: +q[1] as 3 | 4 | 5, color: q[2], ...(q[3] ? { ribete: q[3] } : {}), ...(q[4] ? { gema: q[4] } : {}), ...(q[5] ? { brillo: q[5] } : {}) } });
+}

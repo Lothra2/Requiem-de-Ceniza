@@ -56,6 +56,10 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   `juego/herramientas/t720_escudo.cjs <base> <clase>`.
 - **Reliquias** (`juego/src/datos/reliquias.ts`): únicos y legendarios en formato de tabla, uno de arranque por clase.
   `req` fija el nivel necesario aunque caigan más adelante. Se agregan filas ahí.
+  Cada una lleva su **aspecto propio** en la tabla `ASPECTO` del mismo archivo (línea, grado, color, ribete, gema y
+  brillo para armadura, `cara` para escudos, `arma` con metal, gema y nivel de forja): se ve en la casilla y puesto.
+  Una reliquia sin fila en `ASPECTO` sale con el aspecto de su base: no entregar reliquias así. Se revisa con
+  `juego/herramientas/t740_reliquias.cjs`.
 - **Ambientación** (`ambientarVida` en `juego/src/mundo/zona.ts`): matas, telarañas, cráneos y velas del tema, siempre
   sin tapar el paso y con su propio azar al final de la generación, para no mover nada de una partida guardada.
   `juego/herramientas/t730_ambiente.cjs` genera las 96 zonas y revisa que todo exista horneado.

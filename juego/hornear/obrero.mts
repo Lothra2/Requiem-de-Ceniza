@@ -13,6 +13,7 @@ const { personajeEscena, esqueleto } = await import(join(raiz, 'cuerpo.ts'));
 const { pintarPoder } = await import(join(raiz, 'poderes.ts'));
 const extra = await import('../src/motor/hoja.ts');
 const { HEROES } = await import(join(raiz, 'catalogo/personajes.ts'));
+const { retrato } = await import(join(raiz, 'retrato.ts'));
 
 type Cuadro = { w: number; h: number; ax: number; ay: number; data: Uint8ClampedArray; hoja?: number[] };
 
@@ -38,14 +39,15 @@ parentPort!.on('message', (job: any) => {
       }
     } else if (job.tipo === 'retrato') {
       // como retratoHeroe del motor, pero sin sombra: el juego le pone la suya con sus luces
-      const h = HEROES.find((x: any) => x.id === job.id), k = 2.4;
-      // (la luz de color de cada clase bañaba el cuerpo entero y le lavaba la ropa: el berserker parecía desnudo.
-      //  Ahora lo alumbra la fogata, cálida y más corta; el color de la clase lo ponen las partículas de la pantalla)
-      const LUZ_FOGATA = '#ffd0a0';
-      const LUZ: Record<string, string> = { berserker: '#ff6020', templario: '#ffe090', arcanista: '#70b0ff', cazadora: '#a0c0ff', nigromante: '#60e080', monje: '#ffb040', druida: '#80e060', alquimista: '#c060ff' }; void LUZ;
+      // El héroe a tamaño de pantalla (5,4 veces el del juego: unos 540 px de alto, que en un monitor de 1080 sale punto
+      // por punto) y con la luz de retrato del motor: la fogata a su derecha como luz principal, el otro lado en sombra con
+      // un relleno frío y la contraluz que recorta cabeza y hombros. Antes iba a 2,4 y la pantalla lo estiraba al doble.
+      const h = HEROES.find((x: any) => x.id === job.id), k = 5.4;
+      const LUZ_RETRATO = { ...retrato(k), relieve: 1, cavidad: 1, amb: 0.07, cielo: 0.04, gamma: 1.18, expo: 1.22,
+        relleno: { dir: [-0.6, 0.6, 0.35], color: '#6f86b8', fuerza: 0.3, tinte: 0.6 }, sombra: { color: '#0a0c16', fuerza: 0.5, hasta: 0.3 } };
       for (let f = 0; f < job.cuadros; f++) {
         const e = personajeEscena({ ...h.cuerpo, alto: (h.cuerpo.alto ?? 1) * k }, h.niveles[job.nivel], 'so', 'presentar', f);
-        const r = pintarEscena({ ...e, resplandor: e.resplandor ?? { c: [20 * k, -8 * k, 6 * k], r: 46 * k, color: LUZ_FOGATA }, ss: 2, sinSombra: true });
+        const r = pintarEscena({ ...e, luz: { ...(e.luz ?? {}), ...LUZ_RETRATO }, resplandor: undefined, ss: 2, sinSombra: true });
         out.push(recortar(r.img, r.ancla[0], r.ancla[1]));
       }
     } else if (job.tipo === 'objeto') {

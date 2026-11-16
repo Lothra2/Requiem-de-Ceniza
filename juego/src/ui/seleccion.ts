@@ -1,7 +1,7 @@
 // Crear héroe: cada clase se presenta en grande con su pose, su luz y su ficha (rol, dificultad, atributos y ramas).
 import { ctx, W, H, E, pulso } from '../nucleo/lienzo';
 import { texto, T, TT, boton, marco, dentro, envolver, TITULO } from './comun';
-import { cuadrosHeroe, cuadrosPiso, cuadrosRetrato, cuadrosSel, metaSel, objetoMeta, dibujar, dibujarTenido, type Cuadro } from '../motor/assets';
+import { cuadrosHeroe, cuadrosPiso, cuadrosRetrato, RETRATO_ESC, cuadrosSel, metaSel, objetoMeta, dibujar, dibujarTenido, type Cuadro } from '../motor/assets';
 import { CLASES, HABILIDADES, type Habilidad } from '../datos/clases';
 import { iconoHab } from './juego_ui';
 import { fuegoMundo, dibujarFuegosMundo } from '../render/fuego';
@@ -188,7 +188,9 @@ export function dibujarCrear(t: number, sel: number | null): { accion: 'crear' |
   const ret = cuadrosRetrato(c.id, vista);
   const esc = Math.min(1.3, (H * 0.56) / 240);
   let q: Cuadro | undefined = ret.length ? ret[cuadroPresentar(t - tCambio, ret.length)] : undefined;
-  let escQ = esc;
+  // (el retrato viene horneado a tamaño de pantalla: se achica, no se estira, y con suavizado para que no baile)
+  let escQ = ret.length ? esc * RETRATO_ESC : esc;
+  const suaveAntes = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   // la presentación de la Forja (grupo 'sel', al doble): la entrada al elegir la clase y después el reposo en bucle
   const sl = cuadrosSel(c.id, vista), ms = metaSel();
   if (sl.length && ms && USAR_SEL && !(window as any).__sinSel) {
@@ -214,7 +216,7 @@ export function dibujarCrear(t: number, sel: number | null): { accion: 'crear' |
     // luz de retrato: contraluz fría que recorta la silueta desde atrás a la izquierda (una copia teñida corrida un par de
     // píxeles por detrás del cuerpo), el canto cálido del lado de la fogata, el héroe y un pulso cálido muy leve con el fuego
     const hx = cx - (1 - k) * 40, pul = 0.75 + 0.25 * Math.sin(t * 7.3) * Math.sin(t * 3.1 + 1);
-    const conSel = escQ === 1 && sl.length > 0 && !!ms && USAR_SEL; // la presentación de la Forja ya trae su contraluz y su luz de fogata
+    const conSel = ret.length > 0 || (escQ === 1 && sl.length > 0 && !!ms && USAR_SEL); // la presentación de la Forja ya trae su contraluz y su luz de fogata
     if (!conSel) { ctx.globalAlpha = 0.22 * k; dibujarTenido(ctx, q, hx - 2, cy - 1, '#7f9fd8', 1, escQ); }
     if (!conSel) { ctx.globalAlpha = 0.18 * k; dibujarTenido(ctx, q, hx + 2, cy, '#ff9a48', 1, escQ); }
     ctx.globalAlpha = k; dibujar(ctx, q, hx, cy, escQ);
@@ -222,7 +224,10 @@ export function dibujarCrear(t: number, sel: number | null): { accion: 'crear' |
     // la luz de la fogata sobre el cuerpo: viene de abajo y del lado del fuego. El lado contrario se hunde en sombra azul
     // y el lado del fuego se enciende, con el pulso de la llama (una máscara del mismo cuadro, no un velo parejo)
     if (!conSel) luzFogata(q, hx, cy, escQ, fx > cx ? 1 : -1, pulF, k);
+    // el retrato ya trae su luz de fogata: acá solo late con la llama, apenas
+    else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.07 * k * Math.max(0, pulF - 0.75) * 4; dibujar(ctx, q, hx, cy, escQ); ctx.restore(); }
   }
+  ctx.imageSmoothingEnabled = suaveAntes;
   ctx.globalAlpha = 1;
   dibFogata();
   // luz: oscuridad alrededor, el fuego y el color de la clase

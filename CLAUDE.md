@@ -49,6 +49,18 @@ con su equipo de salida (los 8 rumbos intermedios y los medios cuadros, 6 min): 
 que `firmaVisual` llama 'base'. Con otro equipo lo pinta el aparato (`motor/pintor.ts`). Los PNG intermedios
 no se suben (están en `.gitignore`): se hace commit recién después de pasar a webp.
 
+## Objetos y ambientación
+
+- **Lo que se ve puesto es lo del ícono**: `src/engine/gotico/apariencia.ts` traduce cada casilla al cuerpo. Los escudos y
+  los talismanes de mano se arman con el mismo modelo del ícono (`escudoPuesto` en `iconos3d.ts`). Se revisa con
+  `juego/herramientas/t720_escudo.cjs <base> <clase>`.
+- **Reliquias** (`juego/src/datos/reliquias.ts`): únicos y legendarios en formato de tabla, uno de arranque por clase.
+  `req` fija el nivel necesario aunque caigan más adelante. Se agregan filas ahí.
+- **Ambientación** (`ambientarVida` en `juego/src/mundo/zona.ts`): matas, telarañas, cráneos y velas del tema, siempre
+  sin tapar el paso y con su propio azar al final de la generación, para no mover nada de una partida guardada.
+  `juego/herramientas/t730_ambiente.cjs` genera las 96 zonas y revisa que todo exista horneado.
+- El servidor de desarrollo se cae seguido: `sh juego/herramientas/servidor.sh &` lo vuelve a levantar solo.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

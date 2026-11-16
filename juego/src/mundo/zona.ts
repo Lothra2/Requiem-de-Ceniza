@@ -1486,6 +1486,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   const fort = def.tipo === 'mazmorra' ? 'baldosa_catedral' : def.tema === 'celestial' ? 'arenisca' : 'lajas';
   for (const t of z.pisos) if (t && (t.id === 'fortaleza' || t.id === 'arcano')) t.id = t.id === 'fortaleza' ? fort : 'arenisca';
   if (def.tipo !== 'pueblo') ambientarHorror(z, def);
+  ambientarVida(z, def);
   conectar(z);
   destapar(z);
   // un grupo sembrado en un rincón que no se alcanza desde la entrada no sale (quedaba vivo e inalcanzable)
@@ -1602,6 +1603,36 @@ function ambientarHorror(z: Zona, def: DefZona) {
   if (esc) { const s = z.spawns.filter((q) => q.tipo !== 'jefe'); const c = s[Math.floor(s.length / 2)] ?? { cx: z.W / 2, cy: z.H / 2 }; for (const [id, v] of esc) poner(id, v, c.cx, c.cy); }
   // y alguna pieza suelta en las zonas de combate (rara: no tiene que estar en todas partes)
   if (r() < 0.45) { const s = z.spawns[Math.floor(r() * z.spawns.length)]; if (s && s.tipo !== 'jefe') { const [id, vs] = lista[Math.floor(r() * lista.length)]; poner(id, vs[Math.floor(r() * vs.length)], s.cx, s.cy); } }
+}
+// Lo que le da vida al escenario: matas, hongos, musgo y raíces donde crece algo, y telarañas, cráneos, huesos, velas y
+// cuerpos donde hubo gente. Todo del tema de la zona, chico y SIN tapar el paso (no cambia por dónde se camina ni dónde
+// quedó parado un héroe guardado). Va al final y con su propio azar: no mueve nada de lo que ya estaba generado.
+const PAL_VIDA = ['pasto', 'hierba', 'helecho', 'hongo', 'seta', 'musgo', 'flor', 'junco', 'raiz', 'raices', 'zarza', 'liana', 'alga', 'coral', 'escarcha', 'planta', 'cardo', 'brote'];
+const PAL_MACABRO = ['telar', 'craneo', 'calav', 'hueso', 'costill', 'sangre', 'cadaver', 'esquel', 'osario', 'vela', 'candel', 'lampara', 'linterna', 'cadena', 'gancho', 'restos', 'ceniza', 'mortaja', 'ofrenda'];
+const SIN_AMBIENTE = /^(mis_|arma_|bot_|mon_|per_|jefe_|npc_|portal|com_|camp_|pue_|casa_|mur|borde|piso|par_arroyo|inf2_rio)|_sin_llama$|puerta|escalera|cofre|baul|altar|trono|puente/;
+function ambientarVida(z: Zona, def: DefZona) {
+  const t = TEMATICAS[def.tema]; if (!t) return;
+  const k = new Constructor(z), r = rng(z.semilla * 4099 + 977);
+  k.reserva = new Uint8Array(z.W * z.H);
+  const res = (x: number, y: number, rr: number) => { for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) { const X = Math.round(x) + dx, Y = Math.round(y) + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; } };
+  for (const e of Object.values(z.entradas)) res(e[0], e[1], 3);
+  for (const s of z.salidas) res(s.cx, s.cy, 3);
+  const jf = z.spawns.find((s) => s.tipo === 'jefe'); if (jf) res(jf.cx, jf.cy, 7);
+  // los catálogos del tema (los mismos de su decorado), más lo común
+  const temas = [...new Set([...(t.disperso ?? []), ...(t.luces ?? []), ...(t.grande ?? [])].flatMap((q) => q.t as string[]))];
+  const chico = (d: ObjetoDef) => !d.bloquea && !SIN_AMBIENTE.test(d.id) && (d.huella ?? [1, 1])[0] <= 2 && (d.huella ?? [1, 1])[1] <= 2;
+  const vida = buscar(temas, PAL_VIDA).filter(chico), macabro = def.tipo === 'pueblo' ? [] : buscar([...temas, 'horror'], PAL_MACABRO).filter(chico);
+  const area = z.W * z.H, nV = Math.floor(area / (def.tipo === 'mazmorra' ? 520 : def.tipo === 'pueblo' ? 700 : 300)), nM = Math.floor(area / (def.tipo === 'mazmorra' ? 300 : 620));
+  const regar = (op: ObjetoDef[], n: number) => {
+    if (!op.length) return;
+    for (let i = 0, q = 0; i < n && q < n * 12; q++) {
+      const d = op[Math.floor(r() * op.length)], v = d.variantes[Math.floor(r() * d.variantes.length)];
+      const x = 2 + Math.floor(r() * (z.W - 4)), y = 2 + Math.floor(r() * (z.H - 4));
+      if (z.bloq[y * z.W + x] || !z.pisos[Math.floor(y / 5) * z.tw + Math.floor(x / 5)] || (z.hueco && z.hueco[y * z.W + x])) continue;
+      if (k.poner(d, x, y, v)) i++;
+    }
+  };
+  regar(vida, nV); regar(macabro, nM);
 }
 /** Dónde se dibuja y se pisa una salida: las del borde un poco hacia adentro (sobre piso firme), las de puerta en su casilla. */
 export function puntoSalida(z: Zona, sa: Salida): [number, number] {

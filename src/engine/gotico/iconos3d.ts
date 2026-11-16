@@ -1108,6 +1108,8 @@ export function escudoPuesto(d: Icono3D, o: V3, lado: V3, frente: V3, k: number)
   const t = new Taller(k, 0, { x: lado, y: frente, z: [0, 0, 1], o }), e = estilo(d);
   if (d.pieza === 'escudo_redondo') escudoRedondo(t, e, d); else if (d.pieza === 'escudo_cometa') escudoCometa(t, e, d);
   else if (d.pieza === 'escudo_torre') escudoTorre(t, e, d); else if (d.pieza === 'escudo_calavera') escudoCalavera(t, e, d);
+  // (la cabeza reducida del nigromante, que en la casilla es su «escudo de calavera», también se lleva tal cual, colgando de la mano)
+  else if (d.pieza === 'talisman') talisman(t, e, d);
   // (la luz baja del personaje lo dejaba más oscuro que en la casilla: se le sube el tono para que se lea el mismo escudo)
   return t.ps.map((p) => ({ ...p, tono: (p.tono ?? 0) + 0.22 }));
 }

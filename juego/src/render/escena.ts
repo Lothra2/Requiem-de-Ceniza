@@ -359,11 +359,14 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     const alto = q.ay;
     // lo que es hoja o tela se mece con el viento (un cizallado desde el pie), y el pasto se aparta de quien lo pisa
     let ciz = 0;
-    if (MECE.test(o.id) && fViento) {
-      const blanda = BLANDA.test(o.id), amp = blanda ? 0.05 : alto > 150 ? 0.011 : 0.028;
+    const idv = o.id + '|' + o.v, cuelga = CUELGA.test(idv), meceMas = !cuelga && !MECE.test(o.id) && MECE_MAS.test(idv);
+    // lo que cuelga se hamaca siempre un poco (también bajo techo): un péndulo lento, cada uno a su ritmo
+    if (cuelga) { ciz = Math.sin(tiempo * 1.1 + o.cx * 1.7 + o.cy * 0.9) * 0.035 + Math.sin(tiempo * 2.3 + o.cx) * 0.012 * (0.4 + fViento); nMecen++; }
+    else if ((MECE.test(o.id) || meceMas) && (fViento || meceMas)) {
+      const blanda = BLANDA.test(o.id) || (meceMas && alto < 46), amp = (blanda ? 0.05 : alto > 150 ? 0.011 : 0.028) * (meceMas && !fViento ? 0.35 : 1), fViento2 = Math.max(fViento, meceMas ? 0.35 : 0);
       // ráfagas: una ola lenta que recorre el mapa y, encima, el temblor propio de cada planta
       const raf = 0.55 + 0.45 * Math.sin(tiempo * 0.5 - (o.cx + o.cy) * 0.11);
-      ciz = (Math.sin(tiempo * 1.5 + o.cx * 0.7 + o.cy * 0.45) + 0.45 * Math.sin(tiempo * 3.3 + o.cx * 1.3)) * amp * raf * fViento + amp * 0.6 * raf * fViento;
+      ciz = (Math.sin(tiempo * 1.5 + o.cx * 0.7 + o.cy * 0.45) + 0.45 * Math.sin(tiempo * 3.3 + o.cx * 1.3)) * amp * raf * fViento2 + amp * 0.6 * raf * fViento2;
       nMecen++;
       if (blanda) for (const e of pisan) {
         const dx = o.cx + 0.5 - e.x, dy = o.cy + 0.5 - e.y, d2 = dx * dx + dy * dy; if (d2 > 1.7) continue;
@@ -380,7 +383,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       // lo alto (más de 200 px sobre el ancla) lleva bruma de altura: perspectiva atmosférica
       const br = q.ay > 200 ? conBruma(q, colorBruma) : null;
       if (alfa < 1) ctx.globalAlpha = alfa;
-      if (ciz) { ctx.save(); ctx.transform(1, 0, ciz, 1, -ciz * py, 0); }
+      // (lo que cuelga gira desde su punto más alto; lo que está plantado, desde el pie)
+      if (ciz) { ctx.save(); ctx.transform(1, 0, ciz, 1, -ciz * (cuelga ? py - q.ay : py), 0); }
       if (br) ctx.drawImage(br, Math.round(px - q.ax), Math.round(py - q.ay)); else dibujar(ctx, q, px, py);
       if (ciz) ctx.restore();
       if (alfa < 1) ctx.globalAlpha = 1;
@@ -697,6 +701,10 @@ function rayo(ax: number, ay: number, bx: number, by: number, k: number) {
 const ambJefe: { k: number; m: { x: number; y: number; v: number; f: number; s: number }[] } = { k: 0, m: [] };
 /** Lo que el viento mece: árboles, matas, pasto, estandartes y toldos. Lo BLANDO además se aparta de quien lo pisa. */
 const MECE = /^(arb_(roble|sauce|pino_alto|pino_bajo|abeto|cipres|palmera|arbol_selva|arbol_seco|arbusto|helecho|pasto_alto|flores|juncos)|[a-z0-9]+_estandarte|des2?_(palmera|arbusto)|des_toldo|nie2?_pino|sel2?_(arbol|palmera|helecho|planta|planta_hojas)|par_(juncos_orilla|pasto)|dec_planta|cem_flores_secas|cel_arbol_oro)$/;
+// lo demás que también se mueve con el aire: telarañas, lianas, algas, matas y trapos de cualquier tema (el id o la variante lo dicen)
+const MECE_MAS = /telar|liana|alga|helecho|pasto|hierba|junco|flor|cardo|planta|zarza|brote|trapo|vela_raida|cortina|mortaja|estandarte|bandera/;
+// lo que cuelga se hamaca desde arriba: cadenas, jaulas, ahorcados, campanas y faroles colgantes
+const CUELGA = /colg|ahorc|pendul|horca/;
 const BLANDA = /^(arb_(arbusto|helecho|pasto_alto|flores|juncos)|dec_planta|par_(juncos_orilla|pasto)|sel2?_(helecho|planta|planta_hojas)|des2?_arbusto|cem_flores_secas)$/;
 function pajaro(x: number, y: number, t: number) {
   const a = Math.sin(t * 18) * 5;

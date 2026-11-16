@@ -2403,7 +2403,10 @@ function manoIzq(e: Esqueleto, iz: NonNullable<Equipo['izq']>, derecha?: TipoArm
   // cadera; antes era un disco liso de un cuarto del cuerpo que no se parecía al que uno agarraba)
   if (iz.icono && /^escudo/.test(iz.tipo)) {
     const lado = nor(cruz([0, 0, 1], F)), alto = iz.tipo === 'escudo_torre' ? 1.5 : iz.tipo === 'rodela' ? -0.5 : 0.5;
-    return escudoPuesto(iz.icono, add(add(b.mano, F, 1.6 * S), [0, 0, alto * S]), lado, F, 1.14 * S);
+    if (iz.icono.pieza === 'talisman') { const pt = escudoPuesto(iz.icono, add(add(b.mano, F, 1.4 * S), [0, 0, -5.5 * S]), lado, F, 0.62 * S); if (pt.length) return pt; }
+    // (si el ícono no es un escudo de los cuatro modelos, por ejemplo un talismán de hueso, sigue el escudo de siempre)
+    const pz = escudoPuesto(iz.icono, add(add(b.mano, F, 1.6 * S), [0, 0, alto * S]), lado, F, 1.14 * S);
+    if (pz.length) return pz;
   }
   const mat = iz.mat ?? 'madera', m2 = iz.mat2 ?? 'cu_placa';
   const ga = angulo(F);

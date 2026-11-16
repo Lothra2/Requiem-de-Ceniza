@@ -122,6 +122,8 @@ export function equipoDeInventario(puesto: Partial<Record<string, Puesto | undef
       case 'escudo_cometa': e.izq = { tipo: 'escudo_cometa', mat: cara2 ?? 'cu_placa', mat2: borde, icono: izq }; break;
       case 'escudo_torre': e.izq = { tipo: 'escudo_torre', mat: cara2 ?? 'cu_placa', mat2: borde, icono: izq }; break;
       case 'escudo_calavera': e.izq = { tipo: 'escudo_calavera', mat: cara2 ?? 'cu_placa_oscura', mat2: 'cu_hueso', icono: izq }; break;
+      // la cabeza reducida y los demás talismanes de mano: antes no se veía nada puesto
+      case 'talisman': e.izq = { tipo: 'escudo_calavera', mat: 'cu_hueso', mat2: 'cu_cuero_negro', icono: izq }; break;
       case 'orbe': e.izq = { tipo: 'orbe', mat: 'magia' }; break;
       case 'libro': e.izq = { tipo: 'libro', mat: cara2 ?? 'cu_cuero' }; break;
       default: break;

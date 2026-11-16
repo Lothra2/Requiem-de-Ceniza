@@ -217,6 +217,17 @@ export const nivelEnDificultad = (nivel: number, dif: number) => (dif >= 2 ? Mat
 export const nivelHab = (h: DatosHeroe, id: string, c?: Calc) => (h.habs[id] ? h.habs[id] + (c?.mas_habilidades ?? 0) : 0);
 const v2 = (b: [number, number] | undefined, n: number) => (b ? b[0] + b[1] * (n - 1) : 0);
 
+/**
+ * El elemento que se ve vivo en un arma única, legendaria o de conjunto que no lo trae escrito: el del daño elemental
+ * más alto que da. Es solo lo que se ve (la llama, el derrame): no cambia ningún número ni toca lo guardado.
+ */
+const ELEM_STAT: [string, Elemento][] = [['dano_fuego', 'fuego'], ['dano_frio', 'frio'], ['dano_rayo', 'rayo'], ['dano_veneno', 'veneno'], ['dano_sombra', 'sombra'], ['dano_luz', 'luz'], ['dano_sangre', 'sangre']];
+function vivoPorStats(arma: Objeto | null | undefined): Elemento | undefined {
+  if (!arma || !(arma.rareza === 'unico' || arma.rareza === 'legendario' || arma.rareza === 'conjunto')) return undefined;
+  let mejor: Elemento | undefined, v = 0;
+  for (const [st, n] of arma.stats) for (const [k, e] of ELEM_STAT) if (st === k && n > v) { v = n; mejor = e; }
+  return mejor;
+}
 export function calcular(h: DatosHeroe, buffs: Record<string, number> = {}): Calc {
   const cl = CLASES.find((x) => x.id === h.clase)!;
   const st: Record<string, number> = {};
@@ -279,7 +290,7 @@ export function calcular(h: DatosHeroe, buffs: Record<string, number> = {}): Cal
     golpe_aplastante: st.golpe_aplastante ?? 0, herida_abierta: st.herida_abierta ?? 0, ralentizar: st.ralentizar ?? 0, aturdir: st.aturdir ?? 0, perforar: st.perforar ?? 0,
     vida_por_muerte: st.vida_por_muerte ?? 0, mana_por_muerte: st.mana_por_muerte ?? 0,
     distancia, dosManos: !!ba?.dosManos, tipoArma: fam ?? 'puno', fuego_pct: st.fuego_pct ?? 0, invocados_pct: st.invocados_pct ?? 0,
-    vivo: arma?.vivo, conjuntos, valor: Math.min(100, st.valor ?? 0), st,
+    vivo: arma?.vivo ?? vivoPorStats(arma), conjuntos, valor: Math.min(100, st.valor ?? 0), st,
   };
 }
 

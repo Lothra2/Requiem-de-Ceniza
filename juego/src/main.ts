@@ -439,7 +439,9 @@ function usarObjeto(jj: Juego, o: ObjZ) {
   if (o.tag === 'cofre') {
     if (o.v.startsWith('abiert') || o.v.startsWith('abriendo')) return;
     const deCasa = !!o.dato?.casa, escondido = !!o.dato?.escondido;
-    o.v = o.v.endsWith('_y') ? 'abriendo_y' : 'abriendo'; o.tag = undefined; o.dato = { abre: jj.t }; jj.efectos.push({ id: 'pfx:fx_cofre_abre', x: o.cx + 0.5, y: o.cy + 0.5, t: 0, dir: 0, escala: 1, z: 0, dur: 4.2 } as any);
+    o.v = o.v.endsWith('_y') ? 'abriendo_y' : 'abriendo'; o.tag = undefined; o.dato = { abre: jj.t }; // (el cofre se abre con SUS cuadros: antes un efecto 2D traía otro cofre encima, y al terminar volvía el del juego)
+    setTimeout(() => { particulas(jj, o.cx + 0.5, o.cy + 0.5, 16, 'chispa', /maldito/.test(o.id) ? '#c080ff' : '#ffd870', 0.9, 14); }, 330);
+    setTimeout(() => { particulas(jj, o.cx + 0.5, o.cy + 0.5, 8, 'chispa', '#fff0b0', 0.6, 18); }, 620);
     Sonido.efecto('cofre');
     // el cofre de una casa abandonada (una vez por casa y ciclo) y los escondidos lejos del camino pagan de verdad
     const llave = jj.zona.id + '|' + ((h.d as any).ciclo ?? 0), saqueadas: string[] = ((h.d as any).casas ??= []), premio = deCasa && !saqueadas.includes(llave);

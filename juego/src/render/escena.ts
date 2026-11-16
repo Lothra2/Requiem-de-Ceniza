@@ -19,6 +19,7 @@ import { cuadrosVivos, cuadrosFinos, cambioVisible, FINO_RUMBOS } from '../motor
 import { energiaSuelo, energiaAire } from './energia';
 import { dibujarMarca } from './marcas';
 import { R, rng } from '../nucleo/azar';
+import { derrameArma, dibujarDerrames, luzPisoArma, type ElemArma } from './arma_viva';
 import { auraEquipo } from '../juego/visual';
 import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from './fuego';
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
@@ -347,8 +348,6 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       q = meta.f[Math.min(meta.f.length - 1, i)];
     }
     const [px, py] = aPant(o.cx + 0.5, o.cy + 0.5);
-    // el cofre que se abre con pixelfx: el del catálogo se oculta mientras dura (el efecto trae su cofre)
-    if (o.dato?.abre !== undefined && j.t - o.dato.abre < 4.2 && efectoPfx('fx_cofre_abre') && j.efectos.some((e) => e.id === 'pfx:fx_cofre_abre' && e.x === o.cx + 0.5 && e.y === o.cy + 0.5)) continue;
     // fuego de Doom vivo: el gemelo sin llama y el fuego encima
     const vivos = vivosDe(o), gem = vivos?.[0].s.sprite ? objetoMeta(vivos[0].s.sprite, o.v) : null;
     if (vivos && gem?.f.length) q = gem.f[0];
@@ -388,6 +387,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       if (br) ctx.drawImage(br, Math.round(px - q.ax), Math.round(py - q.ay)); else dibujar(ctx, q, px, py);
       if (ciz) ctx.restore();
       if (alfa < 1) ctx.globalAlpha = 1;
+      // la luz del cofre que se abre va con el cofre en el orden de fondo: quien esté parado delante la tapa, no al revés
+      if (o.dato?.abre !== undefined && j.t - o.dato.abre < 2.6 && /cofre/.test(o.id)) luzCofre(px, py, j.t - o.dato.abre, /ornado|noble|sarcofago|gg/.test(o.id) ? 1.25 : 1, /maldito/.test(o.id) ? '#b060ff' : '#ffc860');
       if (esAncla.has(o)) anclasCuadro.push({ q, br, px, py });
       // fuego vivo sobre fogatas, braseros, piras y antorchas
       if (vivos && (gem?.f.length || !vivos[0].s.sprite)) dibujarVivos(ctx, vivos, px, py, alfa);
@@ -470,6 +471,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // los de mucha materia (sangre, hueso, humo, flechas) van con alfa normal: sumados se pierden
   const mezclar = (id: string) => { ctx.globalCompositeOperation = LUZ_EFECTO[id]?.mezcla === 'normal' ? 'source-over' : 'lighter'; };
   for (const e of j.efectos) { if ((e as any).partido && !(window as any).__sinPartir) continue; mezclar(e.id); dibujarEfecto(e, tiempo); }
+  { const [ox, oy] = aPant(0, 0); dibujarDerrames(ctx, ox, oy, dtCuadro); }
   energiaAire(ctx, j, aPant, W, H);
   for (const p of j.proyectiles) {
     const [px, py] = aPant(p.x, p.y);
@@ -656,6 +658,29 @@ function umbralVivo(px: number, py: number, conArco: boolean, dest: { tipo?: str
 function dibujarRaw(raw: any[], x: number, y: number) {
   const q: Cuadro = { img: null, atlas: raw[0], x: raw[1], y: raw[2], w: raw[3], h: raw[4], ax: raw[5], ay: raw[6] };
   dibujar(ctx, q, x, y);
+}
+/**
+ * La luz que sale de un cofre al abrirse: nace en la boca cuando la tapa despega, crece con ella, echa un abanico de
+ * rayos hacia arriba y se apaga dejando el resplandor del oro. Todo a puntos enteros y sumado como luz, sobre el cofre
+ * del juego (que se abre con sus propios cuadros) y en su mismo lugar del orden de fondo.
+ */
+function luzCofre(px0: number, py0: number, t: number, k: number, col: string) {
+  const px = Math.round(px0), py = Math.round(py0) - 12;
+  const sube = Math.max(0, Math.min(1, (t - 0.18) / 0.3)), baja = Math.max(0, Math.min(1, (2.6 - t) / 1.5)), a = sube * baja; if (a <= 0) return;
+  const golpe = Math.max(0, 1 - Math.abs(t - 0.5) / 0.28);
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  // el resplandor en la boca
+  { const r = (26 + golpe * 22) * k, g = ctx.createRadialGradient(px, py, 1, px, py, r); g.addColorStop(0, col + 'cc'); g.addColorStop(0.35, col + '55'); g.addColorStop(1, col + '00'); ctx.globalAlpha = a * (0.55 + golpe * 0.45); ctx.fillStyle = g; ctx.fillRect(px - r, py - r, r * 2, r * 2); }
+  // el abanico de rayos: tiras de un punto que suben desde la boca, cada una con su largo y su parpadeo
+  for (let i = 0; i < 9; i++) {
+    const u = (i - 4) / 4, ang = -Math.PI / 2 + u * 0.62, par = 0.6 + 0.4 * Math.sin(t * 9 + i * 2.3), largo = (30 + (i % 3) * 12 + golpe * 26) * k * sube;
+    const g = ctx.createLinearGradient(px, py, px + Math.cos(ang) * largo, py + Math.sin(ang) * largo); g.addColorStop(0, '#fff4d0'); g.addColorStop(0.3, col); g.addColorStop(1, col + '00');
+    ctx.globalAlpha = a * par * 0.5; ctx.strokeStyle = g; ctx.lineWidth = i % 2 ? 1 : 2; ctx.beginPath(); ctx.moveTo(px + u * 7 * k, py); ctx.lineTo(Math.round(px + u * 7 * k + Math.cos(ang) * largo), Math.round(py + Math.sin(ang) * largo)); ctx.stroke();
+  }
+  // motas de oro que suben despacio
+  ctx.fillStyle = '#fff0b8';
+  for (let i = 0; i < 10; i++) { const v = (t * 0.55 + i * 0.137) % 1, x = px + Math.round(Math.sin(i * 7.1 + t * 1.3) * (6 + i * 1.4) * k), y = py - Math.round(v * 46 * k); ctx.globalAlpha = a * (1 - v) * 0.9; ctx.fillRect(x, y, i % 3 ? 1 : 2, i % 3 ? 1 : 2); }
+  ctx.restore();
 }
 function dibujarEfecto(e: Efecto, _t: number) {
   if (e.id === 'arco_cadena') return;
@@ -896,6 +921,12 @@ function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
   }
   // arma viva del héroe
   if (ok && e.tipo === 'heroe' && j.heroe.c.vivo && !e.muerto && !armaArde(ctx, q, px, py, j.heroe.c.vivo, dtCuadro)) armaViva(q, px, py, j.heroe.c.vivo, tiempo);
+  // el derrame propio del arma: brasas, vaho, arcos, gotas, humo o rayos según su elemento, y el orbe de los cetros.
+  // Las únicas y legendarias sin elemento llevan el brillo que recorre el filo
+  if (ok && e.tipo === 'heroe' && !e.muerto && q.hoja && !(window as any).__sinDerrame) {
+    const ar = j.heroe.d.equipo.arma as any, el = (j.heroe.c.vivo ?? (ar && (ar.rareza === 'unico' || ar.rareza === 'legendario') ? 'acero' : null)) as ElemArma | null;
+    if (el && el !== ('fisico' as any)) { const [ox, oy] = aPant(0, 0); derrameArma(ctx, [px + q.hoja[0], py + q.hoja[1], px + q.hoja[2], py + q.hoja[3]], py, ox, oy, el, j.heroe.c.tipoArma, tiempo, dtCuadro); }
+  }
   // aura del héroe: la mitad de adelante, encima del cuerpo
   if (e.tipo === 'heroe' && !e.muerto) auraHeroe(j, px, py, tiempo, false);
   // zona de clic
@@ -911,6 +942,7 @@ const GEMAS = ['rubi', 'zafiro', 'topacio', 'esmeralda', 'amatista', 'diamante']
 function auraHeroe(j: Juego, px: number, py: number, tiempo: number, atras: boolean) {
   // el cetro del final de la Corona Fría: el héroe arde con su llama fría (detrás del cuerpo)
   if (atras && Object.values(j.heroe.d.equipo).some((o: any) => o?.rareza === 'legendario' && o.nombre?.[0] === 'Cetro de la Corona Fría')) dibujarEfecto({ id: 'llama_corona_fria', x: j.heroe.x, y: j.heroe.y, t: tiempo, dir: 0, escala: 0.9, z: 0 } as Efecto, tiempo);
+  if (atras && j.heroe.c.vivo) luzPisoArma(ctx, px, py, j.heroe.c.vivo, tiempo);
   const au = Object.values(j.heroe.buffs).find((b) => b.t > 9000);
   const ae = auraEquipo(j.heroe.d.equipo as any);
   // mitad trasera del anillo: de PI a 2PI (arriba en pantalla); delantera: de 0 a PI

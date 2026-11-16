@@ -65,6 +65,20 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   `juego/herramientas/t730_ambiente.cjs` genera las 96 zonas y revisa que todo exista horneado.
 - El servidor de desarrollo se cae seguido: `sh juego/herramientas/servidor.sh &` lo vuelve a levantar solo.
 
+## Armas vivas, cofres, poderes y siluetas
+
+- **Armas vivas** (`juego/src/render/arma_viva.ts`): cada elemento tiene su derrame (brasas, vaho, arcos, gotas, humo,
+  rayos) y los cetros, báculos y varitas llevan un orbe de poder en la cabeza. Las únicas y legendarias sin `vivo` toman
+  el elemento de su daño elemental más alto (`vivoPorStats` en `heroe.ts`, solo visual) o el brillo de filo. Todo va
+  pegado al arma: no tapar al héroe. Se revisa con una lámina de los ocho elementos (cambiar `equipo.arma.vivo` y
+  volver a `calcular`).
+- **Cofres**: se abren con sus propios cuadros (`abriendo`), nunca con un efecto que traiga otro cofre. La luz
+  (`luzCofre` en `escena.ts`) se dibuja con el cofre en el orden de fondo: el héroe parado delante la tapa.
+- **Grano de los efectos**: `dibujarPfx` no agranda un efecto a más de 2 puntos de pantalla por punto del dibujo. No
+  subir ese tope: a 3 o 4 salen bloques gruesos que tapan todo.
+- **Siluetas de los exteriores** (`exterior` en `zona.ts`): ensenadas, penínsulas y macizos con azar propio por zona.
+  Nada de rectángulos. Después de tocarla correr `conectividad.cjs 20` y `t370_zonas`.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

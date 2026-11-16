@@ -117,7 +117,11 @@ export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: numbe
     const k = Math.max(o.W / c[3], (o.H ?? 0) / c[4]);
     ctx.drawImage(bmp, c[1], c[2], c[3], c[4], (o.W - c[3] * k) / 2, ((o.H ?? 0) - c[4] * k) / 2, c[3] * k, c[4] * k);
   } else {
-    const k = e.escala * (o.escala ?? 1), w = c[3] * k, h = c[4] * k;
+    const reg = (window as any).__regEsc; if (reg) reg[id] = Math.max(reg[id] ?? 0, +(e.escala * (o.escala ?? 1)).toFixed(2));
+    // El grano del efecto no pasa de dos puntos de pantalla por punto del dibujo: agrandado a 3 o 4 salía en bloques
+    // gruesos (otro juego encima del juego) y tapaba al héroe y a medio campo. El radio real lo marcan el anillo y la
+    // energía del piso, que se pintan al grano del mundo.
+    const k = (window as any).__pfxSinTope ? e.escala * (o.escala ?? 1) : Math.min(e.escala * (o.escala ?? 1), Math.max(2, e.escala)), w = c[3] * k, h = c[4] * k;
     if (espejo) { ctx.translate(Math.round(x - (c[5] + c[3]) * k) + w, Math.round(y + c[6] * k)); ctx.scale(-1, 1); ctx.drawImage(bmp, c[1], c[2], c[3], c[4], 0, 0, w, h); }
     else ctx.drawImage(bmp, c[1], c[2], c[3], c[4], Math.round(x + c[5] * k), Math.round(y + c[6] * k), w, h);
   }

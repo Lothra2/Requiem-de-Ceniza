@@ -393,10 +393,40 @@ function exterior(def: DefZona, semilla: number): Zona {
   const { tw, th } = z;
   // forma: un manchón irregular que llena casi todo el rectángulo
   const forma = ruido2(r, tw, th, 4);
-  const dentro = (bx: number, by: number) => {
+  // La silueta: antes era el rectángulo entero con el canto mordido, y un mapa así se recorre en línea recta. Ahora el
+  // borde entra en ensenadas grandes (entre cuatro y seis, cada una de un tamaño), quedan penínsulas, gargantas y claros,
+  // y adentro hay uno o dos macizos que obligan a rodear. El centro (donde va la obra ancla) queda siempre libre y lo que
+  // quede suelto del cuerpo principal se borra. Lleva su propio azar para no correr el del resto de la generación.
+  let hz = 0; for (let i = 0; i < def.id.length; i++) hz = (hz * 31 + def.id.charCodeAt(i)) >>> 0;   // cada zona, su silueta
+  const rs = rng((semilla ^ 0x5f3a91 ^ hz) >>> 0), ens: [number, number, number, number, number][] = [];
+  { const n = 4 + Math.floor(rs() * 3), per = 2 * (tw + th), paso = per / n, d0 = rs() * per;
+    for (let i = 0; i < n; i++) {
+      let d = (d0 + i * paso + (rs() - 0.5) * paso * 0.5 + per) % per, cx: number, cy: number;
+      if (d < tw) { cx = d; cy = 0; } else if (d < tw + th) { cx = tw - 1; cy = d - tw; } else if (d < 2 * tw + th) { cx = tw - 1 - (d - tw - th); cy = th - 1; } else { cx = 0; cy = th - 1 - (d - 2 * tw - th); }
+      const hondo = 0.16 + rs() * 0.17, ancho = 0.12 + rs() * 0.13, enX = cy === 0 || cy === th - 1;
+      ens.push([cx, cy, (enX ? ancho : hondo) * tw, (enX ? hondo : ancho) * th, rs() * 6.28]);
+    }
+    // macizos de adentro: lejos del centro y del borde
+    for (let i = 0, m = 1 + Math.floor(rs() * 2); i < m; i++) { const a = rs() * 6.28, q = 0.24 + rs() * 0.08; ens.push([tw / 2 + Math.cos(a) * tw * q, th / 2 + Math.sin(a) * th * q, tw * (0.05 + rs() * 0.04), th * (0.05 + rs() * 0.04), rs() * 6.28]); }
+  }
+  const enCuadro = (bx: number, by: number) => {
     const ex = Math.min(bx, tw - 1 - bx), ey = Math.min(by, th - 1 - by), borde = Math.min(ex, ey);
     return borde >= 1 && (borde >= 3 || forma[by * tw + bx] > 0.3 + (3 - borde) * 0.12);
   };
+  const silueta = new Uint8Array(tw * th);
+  for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
+    if (!enCuadro(bx, by)) continue;
+    const dc = Math.hypot((bx - tw / 2) / tw, (by - th / 2) / th);
+    let ok = true;
+    if (dc > 0.15) for (const [cx, cy, rx, ry] of ens) { const d = Math.hypot((bx - cx) / rx, (by - cy) / ry); if (d < 0.82 + (forma[by * tw + bx] - 0.5) * 0.7) { ok = false; break; } }
+    if (ok) silueta[by * tw + bx] = 1;
+  }
+  { // solo el cuerpo unido al centro
+    const c0 = Math.floor(th / 2) * tw + Math.floor(tw / 2), cola = [c0], visto = new Uint8Array(tw * th); visto[c0] = 1; silueta[c0] = 1;
+    while (cola.length) { const q = cola.pop()!, x = q % tw, y = (q / tw) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= tw || Y >= th) continue; const n = Y * tw + X; if (!visto[n] && silueta[n]) { visto[n] = 1; cola.push(n); } } }
+    for (let i = 0; i < tw * th; i++) if (!visto[i]) silueta[i] = 0;
+  }
+  const dentro = (bx: number, by: number) => silueta[by * tw + bx] === 1;
   const manchas = ruido2(r, tw, th, 3), manchas2 = ruido2(r, tw, th, 5);
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!dentro(bx, by)) { k.vaciar(bx, by); continue; }

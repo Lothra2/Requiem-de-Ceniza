@@ -43,7 +43,10 @@ mkdir -p /tmp/requiem-pruebas && node juego/herramientas/t440_matanza.cjs   # un
 
 `GRUPOS=h,m,n,r npx tsx juego/hornear/hornear.mts` (unos 40 min) y `GRUPOS=b,j,f` (unos 45 min), después
 `python3 juego/hornear/atlas_webp.py`. Grupos: h héroes, m monstruos humanoides, n PNJ, b bestias, j jefes, r retratos,
-f direcciones finas. Hornear `m` borra las finas de esos ids, así que después hay que hornear `f`. Los PNG intermedios
+f direcciones finas. Hornear `m` borra las finas de esos ids, así que después hay que hornear `f`. `g` es el paso fino del héroe
+con su equipo de salida (los 8 rumbos intermedios y los medios cuadros, 6 min): hornear `h` lo borra, así que van juntos
+(`GRUPOS=h,g`). El héroe se hornea con lo que lleva un héroe recién creado (`equipoVisual(nuevoHeroe())`), que es lo
+que `firmaVisual` llama 'base'. Con otro equipo lo pinta el aparato (`motor/pintor.ts`). Los PNG intermedios
 no se suben (están en `.gitignore`): se hace commit recién después de pasar a webp.
 
 ## La presentación de las clases

@@ -316,9 +316,12 @@ export function equipoVisual(h: DatosHeroe): Equipo {
 }
 /** JSON con las claves ordenadas: dos equipos iguales dan la misma firma aunque se armen en otro orden. */
 const canon = (v: any): string => (Array.isArray(v) ? `[${v.map(canon).join(',')}]` : v && typeof v === 'object' ? `{${Object.keys(v).filter((k) => v[k] !== undefined).sort().map((k) => JSON.stringify(k) + ':' + canon(v[k])).join(',')}}` : JSON.stringify(v));
+const firmaSalida = new Map<string, string>();
 export function firmaVisual(h: DatosHeroe): string {
+  // 'base' = lo que lleva un héroe recién creado de esa clase, que es lo que está horneado (hornear.mts usa esta misma cuenta)
   const s = canon(equipoVisual(h));
-  return s === canon(HEROES.find((x) => x.id === h.clase)!.niveles[0]) ? 'base' : s;
+  let b = firmaSalida.get(h.clase); if (b === undefined) { b = canon(equipoVisual(nuevoHeroe(h.clase, 'x'))); firmaSalida.set(h.clase, b); }
+  return s === b ? 'base' : s;
 }
 export const cuerpoDe = (clase: Clase) => HEROES.find((x) => x.id === clase)!.cuerpo;
 

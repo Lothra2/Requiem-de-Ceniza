@@ -30,13 +30,18 @@ interface Job { id_job: number; grupo: string; clave: string; tipo: string; [k: 
 const jobs: Job[] = [];
 let nid = 0;
 const ACCS = ['quieto', 'caminar', 'correr', 'atacar', 'lanzar', 'herido', 'morir'];
+// El héroe se hornea con lo que de verdad lleva puesto un héroe recién creado (lo que arma el juego con sus objetos de
+// salida), no con el nivel novato del motor: en seis de las ocho clases eran distintos (varita, arco, espada) y el
+// aparato repintaba al héroe entero apenas entraba. Es la misma cuenta que hace firmaVisual para decir 'base'.
+const juegoHeroe = await import('../src/juego/heroe.ts');
+const equipoDeSalida = (id: string) => juegoHeroe.equipoVisual(juegoHeroe.nuevoHeroe(id as any, 'x'));
 /** Cada cuánto del cuadro del motor se hornea un cuadro de andar: 0.5 = el doble de cuadros (monstruos y bestias); los jefes, 2/3. */
 const PASO_ANDAR = 0.5, PASO_ANDAR_JEFE = 0.5;
 const andar = (acc: string) => acc === 'caminar' || acc === 'correr';
 const CORREN = new Set(['necrofago', 'diablillo', 'chacal', 'cazacabezas']);
 if (GRUPOS.includes('h')) for (const h of HEROES) {
   if (SOLO && !SOLO.includes(h.id)) continue;
-  for (const acc of ACCS) for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'h', clave: `${h.id}/${acc}/${dir}`, tipo: 'personaje', cuerpo: h.cuerpo, equipo: extras.equipoInicial(h.id, h.niveles[0]), dir, acc, cuadros: cuadrosDe(acc, h.cuerpo.presentacion) });
+  for (const acc of ACCS) for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'h', clave: `${h.id}/${acc}/${dir}`, tipo: 'personaje', cuerpo: h.cuerpo, equipo: equipoDeSalida(h.id), dir, acc, cuadros: cuadrosDe(acc, h.cuerpo.presentacion) });
 }
 // Grupo 'g': el paso fino del héroe con su equipo de salida, horneado: los 8 rumbos intermedios de caminar y correr
 // (claves `clase/acc@k`, k impar de 16) y los medios cuadros de los 16 rumbos (`clase/acc@k~`). Sin esto el aparato los
@@ -44,7 +49,7 @@ if (GRUPOS.includes('h')) for (const h of HEROES) {
 // sigue pintando el aparato. Va al manifiesto junto a los cuadros del héroe: hornear 'h' los borra, hornear 'g' después.
 if (GRUPOS.includes('g')) for (const h of HEROES as any[]) {
   if (SOLO && !SOLO.includes(h.id)) continue;
-  const equipo = extras.equipoInicial(h.id, h.niveles[0]);
+  const equipo = equipoDeSalida(h.id);
   for (const acc of ['caminar', 'correr']) {
     const n = cuadrosDe(acc as any, h.cuerpo.presentacion);
     for (let k = 1; k < 16; k += 2) jobs.push({ id_job: nid++, grupo: 'g', clave: `${h.id}/${acc}@${k}`, tipo: 'personaje', cuerpo: h.cuerpo, equipo, dir: 'r' + k * 22.5, acc, cuadros: n });

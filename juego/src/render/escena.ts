@@ -652,6 +652,51 @@ function dibujarRaw(raw: any[], x: number, y: number) {
 }
 let heroeDibujo: { x: number; y: number } | null = null;
 /**
+ * El arco del golpe. Visto en video, el golpe básico no se leía: el brazo subía y bajaba pero la hoja no dejaba nada y el
+ * ojo no sabía por dónde había pasado. Acá se guarda dónde estuvo la hoja en cada cuadro del ataque (relativo al cuerpo)
+ * y se pinta lo que barrió entre uno y otro como una cinta de luz que se apaga en un quinto de segundo, más un filo
+ * claro en la hoja mientras baja. Del color del arma viva, o acero. Va para el héroe y para todo enemigo con arma.
+ */
+const estelas = new WeakMap<object, { s: [number, number, number, number, number][]; ult: string; atq: number }>();
+const COLOR_ESTELA: Record<string, string> = { fuego: '255,150,60', frio: '150,210,255', rayo: '220,220,255', veneno: '150,255,110', sombra: '190,120,255', luz: '255,236,170', sangre: '255,80,70' };
+function estelaArma(j: Juego, e: Ent, q: Cuadro, px: number, py: number, esc: number, tiempo: number) {
+  const h = q.hoja!, melee = e.acc === 'atacar' && !(e as any).aDist && !(e.tipo === 'heroe' && j.heroe.c.distancia);
+  let st = estelas.get(e);
+  if (!melee) { if (st && st.s.length && tiempo - st.s[st.s.length - 1][4] > 0.25) st.s.length = 0; if (!st || !st.s.length) return; }
+  if (!st) { st = { s: [], ult: '', atq: 0 }; estelas.set(e, st); }
+  if (melee) {
+    // puños y garras casi no tienen hoja: se les da un largo mínimo para que el golpe también deje su trazo
+    let x0 = h[0] * esc, y0 = h[1] * esc, x1 = h[2] * esc, y1 = h[3] * esc; const l = Math.hypot(x1 - x0, y1 - y0);
+    if (l < 9) { const [vx, vy] = DIR_VEC[e.dir] ?? [0, 1], ux = (vx - vy) * 0.71, uy = (vx + vy) * 0.355, n = Math.hypot(ux, uy) || 1; x1 = x0 + (ux / n) * 11; y1 = y0 + (uy / n) * 11; }
+    const k = `${h[0]},${h[1]},${h[2]},${h[3]}`;
+    if (e.t < 0.05 && st.atq !== Math.floor(tiempo * 4)) { st.s.length = 0; st.atq = Math.floor(tiempo * 4); }
+    if (k !== st.ult) { st.ult = k; st.s.push([x0, y0, x1, y1, tiempo]); if (st.s.length > 7) st.s.shift(); }
+  }
+  const DUR = 0.2, rgb = (e.tipo === 'heroe' && j.heroe.c.vivo && COLOR_ESTELA[j.heroe.c.vivo]) || (e.tipo === 'heroe' ? '235,240,255' : '255,214,190');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  for (let i = 1; i < st.s.length; i++) {
+    const a = st.s[i - 1], b = st.s[i], edad = tiempo - b[4]; if (edad > DUR) continue;
+    // solo cuenta lo que de verdad barre: si la hoja casi no se movió entre cuadros, no hay arco
+    const mov = Math.hypot(b[2] - a[2], b[3] - a[3]); if (mov < 5) continue;
+    const al = (1 - edad / DUR) ** 1.5 * Math.min(1, mov / 16);
+    // la hoja gira alrededor de la mano: el barrido se arma en gajos por ángulo (un arco curvo, no un triángulo plano),
+    // más tenue hacia atrás y vivo en el filo de adelante
+    const a0 = Math.atan2(a[3] - a[1], a[2] - a[0]), l0 = Math.hypot(a[2] - a[0], a[3] - a[1]), l1 = Math.hypot(b[2] - b[0], b[3] - b[1]);
+    let da = Math.atan2(b[3] - b[1], b[2] - b[0]) - a0; while (da > Math.PI) da -= Math.PI * 2; while (da < -Math.PI) da += Math.PI * 2;
+    const N = Math.max(3, Math.min(9, Math.ceil(Math.abs(da) / 0.22)));
+    const pt = (u: number, r: number): [number, number] => { const an = a0 + da * u, l = (l0 + (l1 - l0) * u) * r; return [px + a[0] + (b[0] - a[0]) * u + Math.cos(an) * l, py + a[1] + (b[1] - a[1]) * u + Math.sin(an) * l]; };
+    for (let n = 0; n < N; n++) {
+      const u0 = n / N, u1 = (n + 1) / N, k = al * (0.25 + 0.75 * u1 * u1);
+      const [ax, ay] = pt(u0, 0.45), [bx, by] = pt(u0, 1), [cx, cy] = pt(u1, 1), [dx, dy] = pt(u1, 0.45);
+      const g = ctx.createLinearGradient((ax + dx) / 2, (ay + dy) / 2, (bx + cx) / 2, (by + cy) / 2);
+      g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(1, `rgba(${rgb},${0.62 * k})`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.lineTo(dx, dy); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = `rgba(255,255,255,${0.8 * k})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(cx, cy); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+/**
  * La luz que sale de un cofre al abrirse: nace en la boca cuando la tapa despega, crece con ella, echa un abanico de
  * rayos hacia arriba y se apaga dejando el resplandor del oro. Todo a puntos enteros y sumado como luz, sobre el cofre
  * del juego (que se abre con sus propios cuadros) y en su mismo lugar del orden de fondo.
@@ -852,7 +897,13 @@ function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
   const pm = (e as any).pfxMuerte as { id: string; t0: number } | undefined;
   const alfaM = e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1;
   if (alfaM <= 0.01) return;
-  if (alfaM < 1) ctx.globalAlpha = alfaM;
+  // el enemigo que queda delante del héroe y lo tapa se vuelve medio transparente: antes no veías tu propio golpe
+  let tapa = 1;
+  if (e.tipo === 'monstruo' && !e.muerto && !(e as any).dueno && heroeDibujo && e.x + e.y > heroeDibujo.x + heroeDibujo.y) {
+    const [hx, hy] = aPant(heroeDibujo.x, heroeDibujo.y), dx = Math.abs(px - hx);
+    if (dx < 34 && py - hy < 62 && py - hy > -6) tapa = 0.4 + 0.6 * Math.min(1, dx / 34) ** 2;
+  }
+  if (alfaM * tapa < 1) ctx.globalAlpha = alfaM * tapa;
   if (!e.muerto) { const cg = (e as any).congelado > 0; const preso = (e as any).preso as string | undefined;
     // (lo que lo sujeta no siempre es hielo: las raíces del druida y la jaula de hueso inmovilizan igual, pero se ven como lo que son)
     if (cg && !congelados.has(e)) { if (preso === 'raices') j.efectos.push({ id: 'pfx:fx_raices_atrapan', x: e.x, y: e.y, t: 0, dir: 0, escala: Math.max(0.6, Math.min(1.6, (q.ay * esc) / 75)), z: 0, dur: Math.max(1, (e as any).congelado) } as Efecto); else if (!preso) j.efectos.push({ id: 'pfx:fx_congelar', x: e.x, y: e.y, t: 0, dir: 0, escala: Math.max(0.6, Math.min(3, (q.ay * esc) / 75)), z: 0, dur: 3.8 } as Efecto); }
@@ -894,9 +945,9 @@ function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
   if (ok && !e.muerto && alfaM >= 1 && !(window as any).__sinRealce) {
     const k = (window as any).__realce ?? (e.tipo === 'heroe' ? REALCE.heroe : (e as any).dueno || e.tipo === 'npc' ? REALCE.aliado : REALCE.monstruo);
     // (en el pueblo hay luz de sobra: nada)
-    if (k > 0) { ctx.save(); ctx.globalCompositeOperation = (window as any).__realceModo ?? 'screen'; ctx.globalAlpha = k * (j.zona.tipo === 'pueblo' ? 0 : 1); dibujar(ctx, q, px, py, esc); ctx.restore(); }
+    if (k > 0) { ctx.save(); ctx.globalCompositeOperation = (window as any).__realceModo ?? 'screen'; ctx.globalAlpha = k * tapa * (j.zona.tipo === 'pueblo' ? 0 : 1); dibujar(ctx, q, px, py, esc); ctx.restore(); }
   }
-  if (alfaM < 1) ctx.globalAlpha = 1;
+  if (alfaM * tapa < 1) ctx.globalAlpha = 1;
   if (ok && !e.muerto && !(window as any).__sinReflejos) reflejos(ctx, e, q, px, py, esc);
   if (ok && ests.length) { const k = Math.max(0.6, Math.min(3, (q.ay * esc) / 75)); for (const id of ests) dibujarPfx(ctx, id, tiempo + (e.id % 7) * 0.31, px, py, { escala: k }); }
   if (ok && !e.muerto && !(window as any).__sinFuego && e.tipo === 'monstruo' && m.def.sprite === 'jefe_ozmaren') {
@@ -917,6 +968,8 @@ function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
     const g = ctx.createRadialGradient(px, py - 30 * esc, 4, px, py - 30 * esc, 46 * esc); g.addColorStop(0, m.calidad >= 3 ? '#ff4010' : '#c08020'); g.addColorStop(1, '#00000000');
     ctx.fillStyle = g; ctx.fillRect(px - 50 * esc, py - 80 * esc, 100 * esc, 100 * esc); ctx.restore();
   }
+  // el arco del arma: lo que barre la hoja entre un cuadro y el siguiente queda dibujado un instante
+  if (ok && !e.muerto && q.hoja && !(window as any).__sinEstela) estelaArma(j, e, q, px, py, esc, tiempo);
   // arma viva del héroe
   if (ok && e.tipo === 'heroe' && j.heroe.c.vivo && !e.muerto && !armaArde(ctx, q, px, py, j.heroe.c.vivo, dtCuadro)) armaViva(q, px, py, j.heroe.c.vivo, tiempo);
   // el derrame propio del arma: brasas, vaho, arcos, gotas, humo o rayos según su elemento, y el orbe de los cetros.

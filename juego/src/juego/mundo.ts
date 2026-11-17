@@ -1099,6 +1099,7 @@ function golpeArma(j: Juego, mult: number, elemHab?: Elemento, extraHab?: [numbe
   return { min: c.dano[0] * mult * fk, max: c.dano[1] * mult * fk, elem: 'fisico', precision: c.precision, critico: c.critico, robo: c.robo_vida, aturdir: c.aturdir, aplastar: c.golpe_aplastante, herida: c.herida_abierta, lento: c.ralentizar, deHeroe: true, fuente: h, extra, arma: true };
 }
 /** Velocidad de ataque/lanzamiento: duración de la animación. */
+const PASO_CLASE: Record<string, number> = { monje: 1.07, cazadora: 1.05, arcanista: 1.0, alquimista: 1.0, druida: 1.0, nigromante: 0.98, berserker: 0.98, templario: 0.95 };
 export const durAtaque = (h: Heroe) => clamp(0.62 / (1 + h.c.vel_ataque / 100), 0.25, 1);
 export const durLanzar = (h: Heroe) => clamp(0.6 / (1 + h.c.vel_lanzar / 100), 0.25, 1);
 const rangoMelee = (h: Heroe) => (h.c.tipoArma === 'lanza' || h.c.tipoArma === 'alabarda' || h.c.tipoArma === 'guadana' ? 2.0 : 1.4);
@@ -2057,7 +2058,8 @@ function actualizarHeroe(j: Juego, dt: number) {
     return;
   }
   // caminar
-  const vel = (h.correr ? 5.4 : 3.4) * (1 + h.c.vel_mover / 100) * (h.frio > 0 ? 0.6 : 1);
+  // cada clase con su paso: los livianos son un poco más veloces y los de armadura un poco menos (antes las ocho iban igual)
+  const vel = (h.correr ? 5.4 : 3.4) * (PASO_CLASE[h.d.clase] ?? 1) * (1 + h.c.vel_mover / 100) * (h.frio > 0 ? 0.6 : 1);
   if (h.camino && h.camino.length) {
     const [tx, ty] = h.camino[0];
     if (moverHacia(j, h, tx, ty, vel, dt, h.camino.length === 1)) h.camino.shift();

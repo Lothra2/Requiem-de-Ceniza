@@ -88,6 +88,10 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Lo que inmoviliza sin ser hielo marca `preso` ('raices' o 'hueso') y no se dibuja como bloque de hielo.
 - **Números de daño** (`render/numeros.ts`): cifras de pixel con canto negro, brinco y apertura lateral, sin encimarse.
 
+- **Ríos**: el camino cruza el agua siempre por un puente, nunca por vado (se veía igual que lo hondo y Rick creyó que
+  se podía atravesar el río). También donde el arreglo de conectividad abre paso.
+- **Rodela**: puesta usa el modelo del ícono como los demás escudos (quedaba afuera por el nombre).
+- **Frases de jefes y campeones**: van encima de todo en una placa (`frasesMonstruos`), no dentro del orden del mundo.
 - **Mapa y minimapa** (`dibujarMapa` y `SIGNO` en `ui/juego_ui.ts`): cada cosa lleva su signo de pixel (carpa dorada
   al campamento, boca morada mazmorra, flecha verde otra región, casita, óvalo celeste tu portal, rombo azul piedra de
   viaje, cofre, altar, calavera jefe, misión nueva y por entregar). El mapa grande trae la leyenda de lo que hay a la vista.
@@ -147,6 +151,10 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
 - **Siempre la última versión**: `vite.config.ts` graba la versión (commit y hora) en el juego y en `dist/version.json`.
   Al abrir, al volver a la pestaña y cada 5 min el juego la pide sin caché y, si es otra, guarda y recarga una sola vez
   (`buscarVersion` en `main.ts`). La versión se lee abajo a la derecha del panel de Pausa. GitHub Pages cachea 10 min.
+- **Caché de héroes pintados**: el pintor guarda los cuadros del héroe con su equipo en IndexedDB con la clave
+  `VER = 'p' + __PINTOR__`, una huella de `src/engine/gotico/*.ts`, `visual.ts` y `pintor.ts` (`vite.config.ts`). Si
+  cambia cómo se pinta el cuerpo o el equipo, el héroe guardado se repinta solo. Antes era una versión a mano que nadie
+  subió y Rick seguía viendo el escudo viejo en su héroe.
 - Los push grandes pueden rebotar: subir los atlas en tandas de unos 40 MB por commit.
 - **Artifact** (copia vieja, https://claude.ai/artifact/VHUF6kHA1Tt5VG7uGUDRBb): tiene tope de 256 MB y va por 252.
   Solo actualizar si Rick lo pide: `npm run build`, `python3 juego/hornear/publicar.py`,

@@ -543,6 +543,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   ctx.restore();
   // números de daño (encima de la oscuridad para que se lean)
   dibujarNumeros(ctx, j.numeros, aPant, TITULO);
+  frasesMonstruos();
   // salidas: se leen de lejos. Sin puerta, un umbral de luz (dos pilares y un arco, aro en el piso y motas que suben);
   // con puerta o escalera, el objeto es el marco y lleva solo el aro y las motas. La luz propia que tiñe el piso va en luces.ts.
   // El nombre aparece a unas 6 casillas (con Alt, todos).
@@ -672,6 +673,18 @@ function dibujarRaw(raw: any[], x: number, y: number) {
   dibujar(ctx, q, x, y);
 }
 let heroeDibujo: { x: number; y: number } | null = null;
+/** Lo que dice un jefe o un campeón al verte: encima de todo, en una placa oscura que se lee, dentro de la pantalla. */
+const frasesPendientes: { txt: string; x: number; y: number; a: number }[] = [];
+function frasesMonstruos() {
+  ctx.save(); ctx.font = `italic 14px ${TITULO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const f of frasesPendientes) {
+    const w = ctx.measureText(f.txt).width + 22, h = 22, x = Math.round(Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, f.x))), y = Math.round(Math.max(h + 6, f.y));
+    ctx.globalAlpha = f.a * 0.86; ctx.fillStyle = '#0a0706'; ctx.fillRect(x - w / 2, y - h / 2, w, h);
+    ctx.globalAlpha = f.a; ctx.strokeStyle = '#6a2a1a'; ctx.lineWidth = 1; ctx.strokeRect(x - w / 2 + 0.5, y - h / 2 + 0.5, w - 1, h - 1);
+    ctx.fillStyle = '#000'; ctx.fillText(f.txt, x + 1, y + 1); ctx.fillStyle = '#ffb080'; ctx.fillText(f.txt, x, y);
+  }
+  ctx.restore(); frasesPendientes.length = 0;
+}
 // Lo que es plano de verdad (anillos, ondas, charcos, círculos): va debajo de todo lo que está de pie. Si se pintara
 // en su sitio del orden, la parte de atrás de un anillo grande quedaba encima del pie de las lápidas de más atrás.
 const PISO_FX = /nova|onda|circulo|suelo|charco|glifo|anillo|grito|temblor|grieta|runas|aterrizaje|golpe_piso|curacion_area|estallido_mana|remolino|ondas|burbujas|toxico|sello_lacre/;
@@ -1034,7 +1047,8 @@ function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
   // los aliados (Thor, invocados, escoltas) no se eligen con el clic: el clic los atraviesa
   if (!e.muerto && e.tipo !== 'heroe' && !(e as any).dueno) picks.push({ tipo: e.tipo === 'npc' ? 'npc' : 'monstruo', ref: e, x0: px - q.ax * esc + q.w * esc * 0.2, y0: py - q.ay * esc, x1: px - q.ax * esc + q.w * esc * 0.8, y1: py + 6, prof: e.x + e.y });
   // frase del jefe
-  if (e.tipo === 'monstruo' && m.habla && m !== j.jefe) { ctx.font = 'italic 13px Georgia, serif'; ctx.textAlign = 'center'; ctx.fillStyle = '#000'; ctx.fillText(m.habla, px + 1, py - 95 * esc + 1); ctx.fillStyle = '#ff9060'; ctx.fillText(m.habla, px, py - 95 * esc); ctx.textAlign = 'left'; }
+  // (la frase del jefe ya no se escribe acá, dentro del orden del mundo: las rocas de delante la tapaban. Va encima, ver frasesMonstruos)
+  if (e.tipo === 'monstruo' && m.habla && m !== j.jefe) frasesPendientes.push({ txt: m.habla, x: px, y: py - 95 * esc, a: Math.min(1, ((m as any).hablaT ?? 1) / 0.6) });
 }
 
 const PILAR: Record<string, string> = { magico: 'magico', raro: 'raro', conjunto: 'conjunto', unico: 'unico', legendario: 'legendario' };

@@ -733,7 +733,8 @@ export function conectar(z: Zona) {
         const o = z.objetos[oi]; if (fijos.has(o)) continue;
         const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2);
         if (x < x0 || x >= x0 + o.hw || y < y0 || y >= y0 + o.hh) continue;
-        if (/rio_lava|arroyo/.test(o.id)) { if (/arroyo/.test(o.id)) o.v = 'vado_y'; else { o.id = 'inf2_puente'; o.v = 'piedra'; } }
+        // (donde el paso tiene que cruzar el agua se tiende un puente, nunca un vado que se ve igual que lo hondo)
+        if (/rio_lava|arroyo/.test(o.id)) { const arr = /arroyo/.test(o.id); o.id = arr ? 'par_puente' : 'inf2_puente'; o.v = arr ? 'musgoso' : 'piedra'; (z.puentes ??= []).push({ cx: o.cx + 0.5, cy: o.cy + 0.5 }); }
         // (un cofre, un santuario o cualquier cosa con la que se interactúa no se borra por estorbar: se queda y deja pasar)
         else if (o.bloquea && o.tag) o.bloquea = false;
         else if (o.bloquea) z.objetos.splice(oi, 1);
@@ -761,9 +762,11 @@ function rioDeLava(k: Constructor, r: () => number, arroyo = false) {
     const x0 = tx * 5, y0 = ty * 5;
     if (!arroyo) k.piso('lava_grietas', tx, ty);
     if (!codo && cruzaCamino(tx, ty)) {
-      if (arroyo && r() < 0.35) { k.poner(rio, x0 + 2, y0 + 2, 'vado_y', true); return; }
+      // (antes el camino cruzaba a veces por un vado: agua que se pisaba y se veía igual que la honda. Rick lo vio: «¿puedo
+      // atravesar ríos?». Ahora el camino cruza siempre por un puente. Se sigue tirando el mismo azar para no mover nada más)
+      const vado = arroyo && r() < 0.35;
       if (puente) {
-        k.poner(puente, x0 + 2, y0 + 2, arroyo ? (r() < 0.7 ? 'x' : 'musgoso') : r() < 0.7 ? 'piedra' : 'hueso', true);
+        k.poner(puente, x0 + 2, y0 + 2, vado ? 'musgoso' : arroyo ? (r() < 0.7 ? 'x' : 'musgoso') : r() < 0.7 ? 'piedra' : 'hueso', true);
         // solo se pasa por el tablero: el agua a los lados del puente bloquea (antes la baldosa entera quedaba libre y el
         // héroe cruzaba por el agua, dibujado detrás del puente). El juego sube al que va por el tablero (ver escena.ts)
         bloquear(tx, ty, 1);

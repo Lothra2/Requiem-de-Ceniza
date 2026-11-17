@@ -6,7 +6,9 @@ import { accionesClase } from '../juego/anim';
 /** Sin datos de la clase: los cuadros de siempre. Cada clase trae los suyos (ver juego/anim.ts). */
 const ACCS_BASE: [string, number][] = [['quieto', 4], ['caminar', 8], ['correr', 8], ['atacar', 8], ['lanzar', 8], ['herido', 4], ['morir', 8]];
 /** Versión de la caché de cuadros pintados: sube cuando cambian las animaciones de la Forja. */
-const VER = 'v19';
+// Versión del caché de cuadros pintados (IndexedDB): la huella del código que pinta (ver vite.config.ts). Cambia sola
+// cuando cambia cómo se pinta el cuerpo o el equipo, y el héroe guardado se vuelve a pintar con lo nuevo.
+const VER = 'p' + __PINTOR__;
 /**
  * El paso fino: caminar y correr en 16 rumbos (lo normal son 8). El héroe se mueve en cualquier ángulo; con 8 rumbos el
  * cuerpo iba hasta 30° cruzado respecto de sus pies y parecía patinar. Solo se pintan los 8 rumbos intermedios (los otros

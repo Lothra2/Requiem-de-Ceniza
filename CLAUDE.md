@@ -110,6 +110,10 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Enemigo que tapa**: el monstruo que queda delante del héroe y lo cubre va medio transparente (`tapa`).
 - **Paso por clase**: `PASO_CLASE` en `mundo.ts` (monje y cazadora más veloces, templario más lento).
 
+- **Orden de los efectos**: todo efecto del mundo entra en el orden de pintado (`enOrden`, `esDePiso` en `escena.ts`):
+  lo de pie se pinta justo después de quien está en ese sitio y lo tendido en el piso antes que los cuerpos. Nada se
+  dibuja encima de todo salvo los de pantalla entera. Rick lo vio en el teléfono: el hielo tapaba la reja de delante.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

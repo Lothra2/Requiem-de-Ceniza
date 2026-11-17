@@ -445,6 +445,16 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); ctx.globalCompositeOperation = mezclaDe(e.id) as GlobalCompositeOperation; dibujarEfecto(e, tiempo); ctx.restore(); };
     items.push({ prof: e.x + e.y - 0.03, draw: mitad(true) }, { prof: e.x + e.y + 0.03, draw: mitad(false) });
   }
+  // Y todos los demás efectos del mundo también entran en el orden de pintado. Antes se dibujaban al final, encima de
+  // todo: el hielo de un congelado tapaba la reja, la lápida y el árbol que tenía delante (visto en el teléfono de Rick).
+  // Lo que va de pie (un bloque de hielo, una explosión, una columna) se pinta justo después de quien está en ese sitio.
+  // Lo que va tendido en el piso (anillos, novas, charcos, círculos) se pinta antes que los cuerpos de su zona.
+  // Solo quedan arriba los de pantalla entera.
+  for (const e of j.efectos) {
+    if (!enOrden(e)) continue;
+    const piso = esDePiso(e);
+    items.push({ prof: e.x + e.y + (piso ? -1.4 : 0.06), draw: () => { ctx.save(); ctx.globalCompositeOperation = mezclaDe(e.id) as GlobalCompositeOperation; dibujarEfecto(e, tiempo); ctx.restore(); } });
+  }
   // Lo que está parado en el mundo y antes se pintaba al final, encima de todo: el portal del héroe, los umbrales de
   // salida, las torretas y las llamas de las fogatas sin fuego vivo. Ahora van en el orden de pintado: lo que tienen
   // delante los tapa. Para que los umbrales se sigan leyendo de lejos, después de la luz se les suma solo un halo suave.
@@ -471,7 +481,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   // los de mucha materia (sangre, hueso, humo, flechas) van con alfa normal: sumados se pierden
   const mezclar = (id: string) => { ctx.globalCompositeOperation = LUZ_EFECTO[id]?.mezcla === 'normal' ? 'source-over' : 'lighter'; };
-  for (const e of j.efectos) { if ((e as any).partido && !(window as any).__sinPartir) continue; mezclar(e.id); dibujarEfecto(e, tiempo); }
+  for (const e of j.efectos) { if (((e as any).partido && !(window as any).__sinPartir) || enOrden(e)) continue; mezclar(e.id); dibujarEfecto(e, tiempo); }
   { const [ox, oy] = aPant(0, 0); dibujarDerrames(ctx, ox, oy, dtCuadro); }
   energiaAire(ctx, j, aPant, W, H);
   for (const p of j.proyectiles) {
@@ -651,6 +661,17 @@ function dibujarRaw(raw: any[], x: number, y: number) {
   dibujar(ctx, q, x, y);
 }
 let heroeDibujo: { x: number; y: number } | null = null;
+const PISO_FX = /nova|onda|circulo|suelo|charco|glifo|anillo|grito|temblor|grieta|sello|runas|aterrizaje|golpe_piso|trueno|curacion_area|pilar_sagrado|manos_que|tentaculos|estallido_mana|remolino|ondas|burbujas|nube_veneno|toxico|surge_del_piso/;
+/** ¿Este efecto se ordena con el mundo? Todos menos los partidos (ya van ordenados), el arco de cadena y los de pantalla entera. */
+function enOrden(e: Efecto): boolean {
+  if ((window as any).__efectosEncima || e.id === 'arco_cadena' || ((e as any).partido && !(window as any).__sinPartir)) return false;
+  if (e.id.startsWith('pfx:')) { const d = efectoPfx(e.id.slice(4)); if (d?.capa === 'pantalla') return false; }
+  return true;
+}
+function esDePiso(e: Efecto): boolean {
+  if (e.id.startsWith('pfx:')) { const d = efectoPfx(e.id.slice(4)); return d?.capa === 'piso' || PISO_FX.test(e.id); }
+  return PISO_FX.test(e.id);
+}
 /**
  * El arco del golpe. Visto en video, el golpe básico no se leía: el brazo subía y bajaba pero la hoja no dejaba nada y el
  * ojo no sabía por dónde había pasado. Acá se guarda dónde estuvo la hoja en cada cuadro del ataque (relativo al cuerpo)

@@ -570,7 +570,8 @@ function cartelComenzar(t: number) {
 (window as any).__usar = (o: ObjZ) => { if (j) usarObjeto(j, o); };
 function cuadro(ahora: number) {
   marcarCuadro(ahora);
-  const dt = Math.min(0.05, (ahora - ultimo) / 1000); ultimo = ahora;
+  // (nunca hacia atrás: si el reloj del sistema retrocede, un paso negativo dejaba el tiempo del juego en negativo)
+  const dt = Math.max(0, Math.min(0.05, (ahora - ultimo) / 1000)); ultimo = ahora;
   tiempo += dt; tEstado += dt;
   // si sales del menú antes de que el título termine de forjarse, entra ya la música del menú
   if (musicaMenuEn && estado !== 'menu') { musicaMenuEn = 0; if (estado !== 'intro' && estado !== 'juego') Sonido.musica('menu'); }
@@ -751,7 +752,7 @@ function paso(dt: number) {
       // un panel: mientras siga apretado no es una orden de caminar, aunque el panel ya se haya cerrado debajo del cursor
       if ((clicAntes && !E.clicIzq) || ((E.izq || E.der) && ui.sobreUI)) presaEnMenu = true;
       if ((!E.izq && !E.der) || (window as any).__sinPresa) presaEnMenu = false;
-      if (!jj.heroe.muerto) controlar(jj, dt); else { dibujarMuerte(); controlar(jj, dt); }
+      if (!jj.heroe.muerto) controlar(jj, dt); else { dibujarMuerte(jj.t - ((jj.heroe as any).murioEn ?? -9)); controlar(jj, dt); }
       dibujarTooltipObjeto(jj);
       dibujarFicha(jj, tiempo);
       if (pickEncima && !ui.sobreUI) etiquetaPick(jj, pickEncima);

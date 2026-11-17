@@ -92,6 +92,19 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   al campamento, boca morada mazmorra, flecha verde otra región, casita, óvalo celeste tu portal, rombo azul piedra de
   viaje, cofre, altar, calavera jefe, misión nueva y por entregar). El mapa grande trae la leyenda de lo que hay a la vista.
 
+## Auditoría en video
+
+- `node juego/herramientas/t770_video.cjs heroe <clase>`, `monstruos <id,id,...>` o `jefes <id>` (un jefe por corrida:
+  matar a uno dispara la cinemática de cierre). Graba cuadro a cuadro con el reloj del juego controlado (25 por segundo)
+  en `/tmp/requiem-pruebas/vid`: un mp4 y un json con acción, rumbo y posición de cada cuadro.
+- `t770_lineas.py` imprime la línea de tiempo de cada enemigo (velocidad, tramos de caminata, duración de ataques),
+  `t770_tiras.py <clip>` arma las tiras por acción y `t770_zoom.py` las amplía.
+- No editar código mientras graba: Vite recarga la página y el lote se cae. Con el reloj congelado los atlas tardan en
+  aparecer (siluetas blancas al principio): es de la prueba, no del juego.
+- Lo que salió de la primera pasada (17 nov 2026): los jefes temblaban entre caminar y parar (decidían al azar en cada
+  cuadro, ahora sostienen la decisión), todos los enemigos pegaban en 0,8 s (ahora según su peso), el cartel de muerte
+  tapaba la caída y las bestias soltaban un alma con forma humana.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

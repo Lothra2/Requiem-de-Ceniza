@@ -398,9 +398,11 @@ function mensajesTactil(j: Juego) {
   }
   if (ultimos.length) hud.mensajes = [mx, y0, Math.min(anchoMax, anchoM), y - y0 - lh + tam + 4]; else delete hud.mensajes;
 }
-export function dibujarMuerte() {
+/** El cartel de la muerte entra después de la caída: primero se ve morir al héroe (1,1 s) y recién entonces aparece, de a poco. */
+export function dibujarMuerte(desde = 9) {
+  const k = Math.max(0, Math.min(1, (desde - 1.1) / 0.5)); if (k <= 0) return;
   const c = cacheRaster('muerte' + IDI, () => cartelMuerte(IDI ? 'en' : 'es'));
-  ctx.drawImage(c, Math.round(W / 2 - c.width / 2), Math.round(H / 2 - c.height / 2 - 40));
+  ctx.save(); ctx.globalAlpha = k; ctx.drawImage(c, Math.round(W / 2 - c.width / 2), Math.round(H / 2 - c.height / 2 - 40 + (1 - k) * 10)); ctx.restore();
 }
 
 // ------------------------------------------------------------------ paneles

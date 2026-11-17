@@ -215,7 +215,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     camS.x += (hx + camS.mx - camS.x) * ks; camS.y += (hy + camS.my - camS.y) * ks;
     cam.x = camS.x + sx; cam.y = camS.y + sy - camAlzada;
     // el empujón del golpe: la cámara cede un instante hacia donde pegó el héroe
-    const pt = j.patada; if (pt) { const ed = (performance.now() - pt.t) / 140; if (ed < 1) { const q = (1 - ed) ** 2 * pt.k; cam.x += pt.dx * q; cam.y += pt.dy * q; } }
+    const pt = j.patada; if (pt) { const ed = (performance.now() - pt.t) / 140; if (ed >= 0 && ed < 1) { const q = (1 - ed) ** 2 * pt.k; cam.x += pt.dx * q; cam.y += pt.dy * q; } }
   }
   // plano de llegada a la catedral: la primera vez que el héroe entra al camposanto o se acerca a la puerta, 3.5 s con la
   // fachada entera (el foco de siempre, sin zoom); se suelta antes si el héroe camina más de 2 casillas

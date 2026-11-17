@@ -1033,7 +1033,7 @@ export function ganarXp(j: Juego, xp: number) {
 function morirHeroe(j: Juego) {
   const h = j.heroe;
   if (h.muerto) return;
-  h.muerto = true; h.acc = 'morir'; h.t = 0; h.vida = 0; transicionPfx('fx_trans_quemar');
+  h.muerto = true; h.acc = 'morir'; h.t = 0; h.vida = 0; (h as any).murioEn = j.t; transicionPfx('fx_trans_quemar');
   h.d.muertes++;
   sonar(j, 'muerte_heroe');
   Sonido.latido(false);
@@ -2266,7 +2266,12 @@ function pelear(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   const d = dist(m.x, m.y, obj.x, obj.y);
   // el sobresalto: al descubrirte se vuelve hacia ti un instante antes de echarse encima (cada uno a su tiempo)
   if ((m as any).alerta > 0) { (m as any).alerta -= dt; girarHacia(m, obj.x - m.x, obj.y - m.y, dt, sensacionDe(m).giro); if (m.acc === 'caminar' || m.acc === 'correr') m.acc = 'quieto'; return; }
-  const distancia = m.def.ia === 'distancia' || m.def.ia === 'mago' || m.def.ia === 'invocador' || (m.def.jefe && m.def.proyectil && R() < 0.4);
+  // El jefe que también dispara decide si esta vez pelea de lejos o se echa encima, y sostiene esa decisión un rato.
+  // Antes la tiraba al azar en cada cuadro: el cuerpo temblaba entre caminar y quedarse quieto (visto cuadro a cuadro,
+  // 20 arranques de menos de 0,2 s en diez segundos).
+  let jefeLejos = false;
+  if (m.def.jefe && m.def.proyectil) { const q = m as any; q.modoT = (q.modoT ?? 0) - dt; if (q.modoT <= 0) { q.modoLejos = R() < 0.4; q.modoT = 1.6 + R() * 1.4; } jefeLejos = !!q.modoLejos; }
+  const distancia = m.def.ia === 'distancia' || m.def.ia === 'mago' || m.def.ia === 'invocador' || jefeLejos;
   // (los de golpe en área llegan un poco más lejos, pero nunca más que el golpe del héroe (1,4 + radio del monstruo):
   // con 0,4 de más un ogro pegaba desde 2,39 y el héroe en modo agresivo, que alcanza 2,24, no le respondía nunca)
   const alcance = m.radio + obj.radio + 0.75 + (m.def.area ? 0.2 : 0);
@@ -2308,7 +2313,10 @@ function iniciarAtaque(j: Juego, m: Monstruo, obj: Ent, distancia: boolean) {
   m.dir = dirDe(obj.x - m.x, obj.y - m.y);
   const lanza = distancia && (m.def.ia === 'mago' || m.def.ia === 'invocador' || m.def.jefe) && (MONSTRUOS[m.def.id]?.ia !== 'distancia');
   m.acc = lanza && hayLanzar(m) ? 'lanzar' : 'atacar'; m.t = 0;
-  m.dur = (m.def.jefe ? 0.9 : 0.8) / (m.mods.includes('rapido') ? 1.4 : 1); m.golpeEn = m.dur * 0.55; m.golpeo = false;
+  // El golpe de cada uno dura lo que pesa: antes todos, del chacal al ogro, pegaban en 0,8 s con el impacto al 55 %.
+  // Los livianos son secos (0,6 s, pegan pronto) y los pesados cargan largo y se les ve venir (hasta 1,05 s, impacto al 62 %).
+  { const ps = sensacionDe(m).peso, kp = Math.max(0, Math.min(1, (ps - 0.7) / 1.1));
+    m.dur = (m.def.jefe ? 0.9 : 0.6 + 0.45 * kp) / (m.mods.includes('rapido') ? 1.4 : 1); m.golpeEn = m.dur * (m.def.jefe ? 0.55 : 0.46 + 0.16 * kp); m.golpeo = false; }
   m.cd = (m.def.jefe || m.def.ia === 'jefe' ? entre(0.5, 1.1) : entre(0.9, 1.7)) + (distancia ? 0.6 : 0);
   (m as any).aDist = distancia; m.objetivo = obj;
 }

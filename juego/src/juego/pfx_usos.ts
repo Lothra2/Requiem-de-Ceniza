@@ -16,6 +16,9 @@ export function muertePfx(m: { def: { id: string; sprite: string }; congelado: n
   if (/espectro|aparecida|sin_rostro|abismo|monja_hueca/.test(id)) return 'fx_implosion';
   if (elem === 'frio' && azar < 0.5) return 'fx_muerte_helada';
   if (elem === 'sombra' || elem === 'luz' || elem === 'rayo') return 'fx_desintegrar';
+  // el alma que sube es una figura humana: no sale de bestias, bichos ni cosas de piedra (un jabalí o un gólem soltando
+  // una silueta de persona se veía en uno de cada cinco)
+  if (/lobo|jabali|perro|arana|escorpion|gusano|golem|gargola|murcielago|dragon|cangrejo|chacal|mano_dorada|trol|ogro|gigante/.test(id + spr)) return null;
   if (m.calidad >= 1 || azar < 0.2) return 'fx_alma_sube';
   return null;
 }

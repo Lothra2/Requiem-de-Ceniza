@@ -186,7 +186,8 @@ export function superficieDe(j: Juego): 'piedra' | 'tierra' | 'nieve' | 'madera'
   if (d?.tipo === 'mazmorra' || /catedral|celestial|cripta|catacumbas|fortaleza/.test(t)) return 'piedra';
   return 'tierra';
 }
-const sangraHueso = (m: Monstruo) => m.def?.sonido === 'hueso';
+// (lo de hueso y lo de piedra o metal no sangra rojo: suelta polvo gris. El gólem dejaba un charco de sangre)
+const sangraHueso = (m: Monstruo) => m.def?.sonido === 'hueso' || /golem|gargola|mano_dorada|suplicante|cangrejo_relicario|guardian_halo/.test(m.def?.id ?? '');
 const colorSangre = (m: Monstruo) => (sangraHueso(m) ? '#4a4436' : m.def?.elem === 'veneno' ? '#2a4a10' : '#6a0a0a');
 /** Salpicadura en la dirección del golpe: sangre que vuela y una mancha alargada en el piso detrás del herido. */
 function salpicar(j: Juego, v: Monstruo, de: Ent | undefined, fuerza: number, crit: boolean) {

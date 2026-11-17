@@ -667,13 +667,25 @@ function estelaArma(j: Juego, e: Ent, q: Cuadro, px: number, py: number, esc: nu
   if (melee) {
     // puños y garras casi no tienen hoja: se les da un largo mínimo para que el golpe también deje su trazo
     let x0 = h[0] * esc, y0 = h[1] * esc, x1 = h[2] * esc, y1 = h[3] * esc; const l = Math.hypot(x1 - x0, y1 - y0);
-    if (l < 9) { const [vx, vy] = DIR_VEC[e.dir] ?? [0, 1], ux = (vx - vy) * 0.71, uy = (vx + vy) * 0.355, n = Math.hypot(ux, uy) || 1; x1 = x0 + (ux / n) * 11; y1 = y0 + (uy / n) * 11; }
+    // (y como el puño no gira sino que sale recto, el trazo se arma del hombro al puño: una ráfaga corta hacia adelante)
+    const puno = l < 9;
+    if (puno) { const [vx, vy] = DIR_VEC[e.dir] ?? [0, 1], ux = (vx - vy) * 0.71, uy = (vx + vy) * 0.355, n = Math.hypot(ux, uy) || 1; x1 = x0 + (ux / n) * 6; y1 = y0 + (uy / n) * 6; x0 -= (ux / n) * 14; y0 -= (uy / n) * 14; }
+    (st as any).puno = puno;
     const k = `${h[0]},${h[1]},${h[2]},${h[3]}`;
     if (e.t < 0.05 && st.atq !== Math.floor(tiempo * 4)) { st.s.length = 0; st.atq = Math.floor(tiempo * 4); }
     if (k !== st.ult) { st.ult = k; st.s.push([x0, y0, x1, y1, tiempo]); if (st.s.length > 7) st.s.shift(); }
   }
   const DUR = 0.2, rgb = (e.tipo === 'heroe' && j.heroe.c.vivo && COLOR_ESTELA[j.heroe.c.vivo]) || (e.tipo === 'heroe' ? '235,240,255' : '255,214,190');
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  if ((st as any).puno) {
+    // el golpe de puño: tres líneas de velocidad detrás del puño en el cuadro en que sale, y un destello chico en el nudillo
+    for (let i = 1; i < st.s.length; i++) { const a = st.s[i - 1], b = st.s[i], edad = tiempo - b[4]; if (edad > 0.14) continue;
+      const mov = Math.hypot(b[2] - a[2], b[3] - a[3]); if (mov < 3) continue; const al = (1 - edad / 0.14) * Math.min(1, mov / 8);
+      const dx = b[2] - b[0], dy = b[3] - b[1], n = Math.hypot(dx, dy) || 1, nx = -dy / n, ny = dx / n;
+      for (const o of [-3, 0, 3]) { const g = ctx.createLinearGradient(px + b[0], py + b[1], px + b[2], py + b[3]); g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(1, `rgba(255,255,255,${(o ? 0.5 : 0.9) * al})`); ctx.strokeStyle = g; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(px + b[0] + nx * o), Math.round(py + b[1] + ny * o)); ctx.lineTo(Math.round(px + b[2] + nx * o), Math.round(py + b[3] + ny * o)); ctx.stroke(); }
+      ctx.fillStyle = `rgba(255,255,255,${al})`; ctx.fillRect(Math.round(px + b[2]) - 1, Math.round(py + b[3]) - 1, 3, 3); }
+    ctx.restore(); return;
+  }
   for (let i = 1; i < st.s.length; i++) {
     const a = st.s[i - 1], b = st.s[i], edad = tiempo - b[4]; if (edad > DUR) continue;
     // solo cuenta lo que de verdad barre: si la hoja casi no se movió entre cuadros, no hay arco

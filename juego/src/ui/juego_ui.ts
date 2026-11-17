@@ -2,6 +2,7 @@
 // cofre, tiendas, diálogos, piedras de viaje, misiones, mapa y menú.
 import { iconoPintado } from './iconos_hab';
 import { ctx, W, H, E, RES, pulso, ESCALA } from '../nucleo/lienzo';
+import { marcaNpc } from '../juego/historia';
 import { marcoForjado, botonForjado, barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
 import { aLoot, arma3dDe } from './loot';
 import { texto, T, TT, IDI, marco, titulo, boton, dentro, icono, iconoThor, lineasObjeto, tooltip, cacheRaster, rasterACanvas, envolver, ancho, TITULO } from './comun';
@@ -1332,6 +1333,33 @@ function segmentosMapa(z: Juego['zona'], bx: number, by: number): number[] {
   }
   segsMapa.set(idx, sg); return sg;
 }
+/** Los signos del mapa: dibujos de 7 puntos con canto negro. '#' color, '+' luz, '.' sombra. El pie del dibujo cae en (x, y). */
+const SIGNO: Record<string, [string[], string, string, string]> = {
+  campamento: [['   #   ', '  #+#  ', '  #+#  ', ' ##+## ', ' #+.+# ', '##...##', '#######'], '#e8b040', '#fff0a0', '#5a3408'],
+  mazmorra: [[' ##### ', '#+###+#', '##...##', '#.....#', '#.....#', '#.....#', '#.....#'], '#9a6ae0', '#d8c0ff', '#1a0c2a'],
+  region: [['   #   ', '  #+#  ', ' #+++# ', '###+###', '  #+#  ', '  #+#  ', '  ###  '], '#60c048', '#c8ff90', '#1c4010'],
+  casa: [['   #   ', '  ###  ', ' ##+## ', '#######', '#+#.#+#', '###.###', '###.###'], '#b08050', '#f0d0a0', '#3a2008'],
+  portal: [['  ###  ', ' #+++# ', '#+.#.+#', '#+#.#+#', '#+.#.+#', ' #+++# ', '  ###  '], '#40b8f0', '#d0f8ff', '#083850'],
+  viaje: [['   #   ', '  #+#  ', ' #+.+# ', '#+.#.+#', ' #+.+# ', '  #+#  ', '   #   '], '#5080f0', '#c0d8ff', '#102060'],
+  cofre: [['       ', '       ', ' ##### ', '#+++++#', '##.#.##', '#.....#', '#######'], '#d09030', '#ffe080', '#4a2808'],
+  altar: [['   #   ', '   #   ', ' ##+## ', '   #   ', '   #   ', '  ###  ', ' ##### '], '#d8e0f0', '#ffffff', '#506080'],
+  jefe: [[' ##### ', '#+++++#', '#.#+#.#', '#+++++#', ' #+.+# ', ' #.#.# ', '  # #  '], '#e83020', '#ffb090', '#3a0400'],
+  npc: [['       ', '  ###  ', ' #+++# ', ' #+++# ', '  ###  ', ' #+++# ', ' ##### '], '#a8a8e8', '#f0f0ff', '#303060'],
+  oferta: [['  ###  ', '  #+#  ', '  #+#  ', '  #+#  ', '  ###  ', '  #+#  ', '  ###  '], '#f0c020', '#fff8b0', '#5a3c00'],
+  entrega: [[' ####  ', '#+..+# ', '   #+# ', '  #+#  ', '  ###  ', '  #+#  ', '  ###  '], '#f0c020', '#fff8b0', '#5a3c00'],
+  heroe: [['   #   ', '  #+#  ', ' #+++# ', '#+++++#', ' #+++# ', '  #+#  ', '   #   '], '#ff3828', '#ffd0c0', '#500000'],
+};
+function signoMapa(tipo: string, x: number, y: number, k = 1) {
+  const g = SIGNO[tipo]; if (!g) return;
+  const c = cacheRaster(`signo_${tipo}`, () => { const w = 9, r = new Uint8ClampedArray(w * w * 4), pon = (px: number, py: number, hex: string) => { const n = parseInt(hex.slice(1), 16), i = (py * w + px) * 4; r[i] = n >> 16; r[i + 1] = (n >> 8) & 255; r[i + 2] = n & 255; r[i + 3] = 255; };
+    const [fil, col, luz, som] = g;
+    for (let yy = 0; yy < 7; yy++) for (let xx = 0; xx < 7; xx++) if (fil[yy][xx] !== ' ') for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) pon(xx + 1 + dx, yy + 1 + dy, '#000000');
+    for (let yy = 0; yy < 7; yy++) for (let xx = 0; xx < 7; xx++) { const q = fil[yy][xx]; if (q !== ' ') pon(xx + 1, yy + 1, q === '+' ? luz : q === '.' ? som : col); }
+    return { w, h: w, data: r } as any; });
+  const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(c, Math.round(x - 4.5 * k), Math.round(y - (tipo === 'heroe' || tipo === 'viaje' || tipo === 'portal' ? 4.5 : 7) * k), 9 * k, 9 * k);
+  ctx.imageSmoothingEnabled = su;
+}
 export function dibujarMapa(j: Juego, grande: boolean) {
   const z = j.zona, h = j.heroe;
   // el grande llena la pantalla con la zona entera y se centra en ella (no en el héroe)
@@ -1375,20 +1403,46 @@ export function dibujarMapa(j: Juego, grande: boolean) {
     ctx.stroke();
     ctx.fillStyle = 'rgba(80,70,50,0.12)'; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(e, f); ctx.lineTo(g, hh); ctx.closePath(); ctx.fill();
   }
-  // salidas: un arco ámbar con borde negro (se distingue de los puntos de monstruos y PNJ)
+  // Cada cosa con su signo (de pixel, con canto negro): antes todas las salidas eran el mismo arco ámbar y el portal al
+  // campamento ni salía. Carpa dorada = al campamento, boca morada = mazmorra, flecha verde = otra región, casita =
+  // casa, óvalo celeste que late = tu portal, rombo azul = piedra de viaje, cofre, altar, calavera roja = jefe.
+  const k = grande ? 2 : 1, visto = (cx: number, cy: number) => !!z.explorado[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)];
+  const usados = new Set<string>();
   for (const s of z.salidas) {
-    const [a, b] = p(s.cx, s.cy); if (!z.explorado[Math.floor(s.cy / 5) * z.tw + Math.floor(s.cx / 5)]) continue;
-    const r = grande ? 6 : 4;
-    ctx.beginPath(); ctx.moveTo(a - r, b + r); ctx.lineTo(a - r, b - r * 0.2); ctx.arc(a, b - r * 0.2, r, Math.PI, 0); ctx.lineTo(a + r, b + r); ctx.closePath();
-    ctx.fillStyle = '#000'; ctx.lineWidth = 3; ctx.strokeStyle = '#000'; ctx.stroke(); ctx.fillStyle = '#ffc860'; ctx.fill();
-    ctx.fillStyle = '#3a2408'; ctx.fillRect(a - r * 0.4, b, r * 0.8, r);
-    if (grande) etiqueta(TT(s.nombre), a, b - r - 4, '#ffd060', 11);
+    if (!visto(s.cx, s.cy)) continue;
+    const [a, b] = p(s.cx, s.cy), dz = ZONAS[s.destino], tipo = dz?.tipo === 'pueblo' ? 'campamento' : /~c\d/.test(s.destino) ? 'casa' : dz?.tipo === 'mazmorra' ? 'mazmorra' : 'region';
+    signoMapa(tipo, a, b, k); usados.add(tipo);
+    if (grande) etiqueta(TT(s.nombre), a, b - 7 * k - 2, tipo === 'campamento' ? '#ffd060' : tipo === 'mazmorra' ? '#c8a0ff' : tipo === 'region' ? '#a0e080' : '#d0b090', 11);
   }
-  for (const m of z.marcas) if (m.tipo === 'viaje') { const [a, b] = p(m.cx, m.cy); if (z.explorado[Math.floor(m.cy / 5) * z.tw + Math.floor(m.cx / 5)]) { ctx.fillStyle = '#60a0ff'; ctx.fillRect(a - 3, b - 3, 6, 6); } }
-  for (const m of j.monstruos) if (!m.muerto && (m.calidad >= 2 || m.dueno) && dist2(m.x, m.y, h.x, h.y) < 400) { const [a, b] = p(m.x, m.y); ctx.fillStyle = m.dueno ? '#40ff40' : '#ff4020'; ctx.fillRect(a - 1, b - 1, 3, 3); }
-  for (const n of j.npcs) { const [a, b] = p(n.x, n.y); ctx.fillStyle = '#e0e0ff'; ctx.fillRect(a - 1, b - 1, 3, 3); if (grande) etiqueta(TT(NPCS[n.npc].nombre), a, b - 5, '#c0c0ff'); }
+  for (const m of z.marcas) if (m.tipo === 'viaje' && visto(m.cx, m.cy)) { const [a, b] = p(m.cx, m.cy); signoMapa('viaje', a, b, k); usados.add('viaje'); if (grande) etiqueta(T('Piedra de viaje', 'Travel stone'), a, b - 7 * k - 2, '#90c0ff'); }
+  for (const o of z.objetos) { if (o.tag !== 'cofre' && o.tag !== 'santuario') continue; if (!visto(o.cx, o.cy)) continue; const [a, b] = p(o.cx + 0.5, o.cy + 0.5); if (!grande && (Math.abs(a - cx) > 84 || Math.abs(b - cy) > 76)) continue; const t = o.tag === 'cofre' ? 'cofre' : 'altar'; signoMapa(t, a, b, k); usados.add(t); }
+  // tu portal al campamento (o, en el campamento, el de vuelta): late para que se encuentre de un vistazo
+  if (j.portal && ((j as any).portalZona === z.id || z.tipo === 'pueblo')) {
+    const [qx, qy] = z.tipo === 'pueblo' && z.entradas.portal ? [z.entradas.portal[0] + 0.5, z.entradas.portal[1] - 1] : [j.portal.x, j.portal.y], [a, b] = p(qx, qy);
+    const pul = 0.5 + 0.5 * Math.sin(j.t * 4); ctx.save(); ctx.globalAlpha = 0.35 + 0.35 * pul; ctx.strokeStyle = '#80e0ff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(a, b - 3 * k, (5 + pul * 3) * k, (7 + pul * 3) * k, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    signoMapa('portal', a, b, k); usados.add('portal'); if (grande) etiqueta(z.tipo === 'pueblo' ? T('Portal de vuelta', 'Portal back') : T('Portal al campamento', 'Portal to camp'), a, b - 9 * k - 2, '#a0e8ff', 11);
+  }
+  for (const m of j.monstruos) {
+    if (m.muerto) continue;
+    if (m.def.jefe && visto(m.x, m.y)) { const [a, b] = p(m.x, m.y); signoMapa('jefe', a, b, k); usados.add('jefe'); continue; }
+    if ((m.calidad >= 2 || m.dueno) && dist2(m.x, m.y, h.x, h.y) < 400) { const [a, b] = p(m.x, m.y); ctx.fillStyle = '#000'; ctx.fillRect(Math.round(a) - 2, Math.round(b) - 2, 4, 4); ctx.fillStyle = m.dueno ? '#50ff50' : '#ff5028'; ctx.fillRect(Math.round(a) - 1, Math.round(b) - 1, 2, 2); }
+  }
+  for (const n of j.npcs) {
+    const [a, b] = p(n.x, n.y), mq = marcaNpc(n.npc, h.d);
+    signoMapa(mq === '!' ? 'oferta' : mq === '?' ? 'entrega' : 'npc', a, b, k); usados.add(mq === '!' ? 'oferta' : mq === '?' ? 'entrega' : 'npc');
+    if (grande) etiqueta(TT(NPCS[n.npc].nombre), a, b - 6 * k - 2, mq ? '#ffe070' : '#c0c0ff');
+  }
   ctx.globalAlpha = 1;
-  { const [hx, hy] = p(h.x, h.y); ctx.fillStyle = '#ff3030'; ctx.beginPath(); ctx.arc(hx, hy, grande ? 4 : 3, 0, Math.PI * 2); ctx.fill(); }
+  { const [hx, hy] = p(h.x, h.y), pul = 0.5 + 0.5 * Math.sin(j.t * 5); ctx.save(); ctx.globalAlpha = 0.5 * (1 - pul); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hx, hy, (4 + pul * 5) * k, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); signoMapa('heroe', hx, hy, k); }
+  // en el mapa grande, la leyenda de lo que hay a la vista
+  if (grande) {
+    const orden = ['heroe', 'campamento', 'portal', 'viaje', 'mazmorra', 'region', 'casa', 'oferta', 'entrega', 'npc', 'cofre', 'altar', 'jefe'].filter((t) => t === 'heroe' || usados.has(t));
+    const NOM: Record<string, [string, string]> = { heroe: ['Tú', 'You'], campamento: ['Al campamento', 'To camp'], portal: ['Tu portal', 'Your portal'], viaje: ['Piedra de viaje', 'Travel stone'], mazmorra: ['Mazmorra', 'Dungeon'], region: ['Otra región', 'Another region'], casa: ['Casa', 'House'], oferta: ['Misión nueva', 'New quest'], entrega: ['Entregar misión', 'Turn in quest'], npc: ['Gente', 'People'], cofre: ['Cofre', 'Chest'], altar: ['Altar', 'Shrine'], jefe: ['Jefe', 'Boss'] };
+    // (a la derecha y arriba: abajo a la izquierda la tapaban los mensajes)
+    const lx = W - 176, alto = orden.length * 18 + 14, ly = 56;
+    ctx.fillStyle = 'rgba(10,8,7,0.82)'; ctx.fillRect(lx - 10, ly, 170, alto); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(lx - 10.5, ly - 0.5, 171, alto + 1); ctx.strokeStyle = '#7a6236'; ctx.strokeRect(lx - 7.5, ly + 2.5, 165, alto - 5);
+    orden.forEach((t, i) => { signoMapa(t, lx + 8, ly + 20 + i * 18, 2); texto(TT(NOM[t]), lx + 26, ly + 20 + i * 18, { tam: 11, color: '#d8c8a0' }); });
+  }
   ctx.restore();
   if (mt) { ctx.strokeStyle = '#a08050'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mt.cx, mt.cy, mt.r, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }
   else if (!grande) {

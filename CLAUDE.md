@@ -88,6 +88,10 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Lo que inmoviliza sin ser hielo marca `preso` ('raices' o 'hueso') y no se dibuja como bloque de hielo.
 - **Números de daño** (`render/numeros.ts`): cifras de pixel con canto negro, brinco y apertura lateral, sin encimarse.
 
+- **Mapa y minimapa** (`dibujarMapa` y `SIGNO` en `ui/juego_ui.ts`): cada cosa lleva su signo de pixel (carpa dorada
+  al campamento, boca morada mazmorra, flecha verde otra región, casita, óvalo celeste tu portal, rombo azul piedra de
+  viaje, cofre, altar, calavera jefe, misión nueva y por entregar). El mapa grande trae la leyenda de lo que hay a la vista.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

@@ -1351,8 +1351,15 @@ const SIGNO: Record<string, [string[], string, string, string]> = {
   entrega: [[' ####  ', '#+..+# ', '   #+# ', '  #+#  ', '  ###  ', '  #+#  ', '  ###  '], '#f0c020', '#fff8b0', '#5a3c00'],
   heroe: [['   #   ', '  #+#  ', ' #+++# ', '#+++++#', ' #+++# ', '  #+#  ', '   #   '], '#ff3828', '#ffd0c0', '#500000'],
 };
-function signoMapa(tipo: string, x: number, y: number, k = 1) {
+/** Los signos ya puestos en este cuadro: el que cae encima de otro se corre al costado, para que no se amontonen. */
+let signosPuestos: [number, number][] = [];
+function signoMapa(tipo: string, x: number, y: number, k = 1, suelto = false) {
   const g = SIGNO[tipo]; if (!g) return;
+  if (!suelto) {
+    const paso = 10 * k;
+    for (let n = 0; n < 6 && signosPuestos.some(([qx, qy]) => Math.abs(qx - x) < paso - 1 && Math.abs(qy - y) < paso - 1); n++) x += (n % 2 ? -1 : 1) * paso * (n + 1);
+    signosPuestos.push([x, y]);
+  }
   const c = cacheRaster(`signo_${tipo}`, () => { const w = 9, r = new Uint8ClampedArray(w * w * 4), pon = (px: number, py: number, hex: string) => { const n = parseInt(hex.slice(1), 16), i = (py * w + px) * 4; r[i] = n >> 16; r[i + 1] = (n >> 8) & 255; r[i + 2] = n & 255; r[i + 3] = 255; };
     const [fil, col, luz, som] = g;
     for (let yy = 0; yy < 7; yy++) for (let xx = 0; xx < 7; xx++) if (fil[yy][xx] !== ' ') for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) pon(xx + 1 + dx, yy + 1 + dy, '#000000');
@@ -1408,6 +1415,7 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   // Cada cosa con su signo (de pixel, con canto negro): antes todas las salidas eran el mismo arco ámbar y el portal al
   // campamento ni salía. Carpa dorada = al campamento, boca morada = mazmorra, flecha verde = otra región, casita =
   // casa, óvalo celeste que late = tu portal, rombo azul = piedra de viaje, cofre, altar, calavera roja = jefe.
+  signosPuestos = [];
   const k = grande ? 2 : 1, visto = (cx: number, cy: number) => !!z.explorado[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)];
   const usados = new Set<string>();
   for (const s of z.salidas) {
@@ -1435,7 +1443,7 @@ export function dibujarMapa(j: Juego, grande: boolean) {
     if (grande) etiqueta(TT(NPCS[n.npc].nombre), a, b - 6 * k - 2, mq ? '#ffe070' : '#c0c0ff');
   }
   ctx.globalAlpha = 1;
-  { const [hx, hy] = p(h.x, h.y), pul = 0.5 + 0.5 * Math.sin(j.t * 5); ctx.save(); ctx.globalAlpha = 0.5 * (1 - pul); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hx, hy, (4 + pul * 5) * k, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); signoMapa('heroe', hx, hy, k); }
+  { const [hx, hy] = p(h.x, h.y), pul = 0.5 + 0.5 * Math.sin(j.t * 5); ctx.save(); ctx.globalAlpha = 0.5 * (1 - pul); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hx, hy, (4 + pul * 5) * k, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); signoMapa('heroe', hx, hy, k, true); }
   // en el mapa grande, la leyenda de lo que hay a la vista
   if (grande) {
     const orden = ['heroe', 'campamento', 'portal', 'viaje', 'mazmorra', 'region', 'casa', 'oferta', 'entrega', 'npc', 'cofre', 'altar', 'jefe'].filter((t) => t === 'heroe' || usados.has(t));
@@ -1443,7 +1451,7 @@ export function dibujarMapa(j: Juego, grande: boolean) {
     // (a la derecha y arriba: abajo a la izquierda la tapaban los mensajes)
     const lx = W - 176, alto = orden.length * 18 + 14, ly = 56;
     ctx.fillStyle = 'rgba(10,8,7,0.82)'; ctx.fillRect(lx - 10, ly, 170, alto); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(lx - 10.5, ly - 0.5, 171, alto + 1); ctx.strokeStyle = '#7a6236'; ctx.strokeRect(lx - 7.5, ly + 2.5, 165, alto - 5);
-    orden.forEach((t, i) => { signoMapa(t, lx + 8, ly + 20 + i * 18, 2); texto(TT(NOM[t]), lx + 26, ly + 20 + i * 18, { tam: 11, color: '#d8c8a0' }); });
+    orden.forEach((t, i) => { signoMapa(t, lx + 8, ly + 20 + i * 18, 2, true); texto(TT(NOM[t]), lx + 26, ly + 20 + i * 18, { tam: 11, color: '#d8c8a0' }); });
   }
   ctx.restore();
   if (mt) { ctx.strokeStyle = '#a08050'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mt.cx, mt.cy, mt.r, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }

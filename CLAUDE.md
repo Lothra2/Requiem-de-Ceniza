@@ -144,6 +144,9 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
 
 - **Sitio**: cada push a `main` arma el juego y lo deja en `gh-pages` (`.github/workflows/publicar.yml`).
   Dirección: https://lothra2.github.io/Requiem-de-Ceniza/
+- **Siempre la última versión**: `vite.config.ts` graba la versión (commit y hora) en el juego y en `dist/version.json`.
+  Al abrir, al volver a la pestaña y cada 5 min el juego la pide sin caché y, si es otra, guarda y recarga una sola vez
+  (`buscarVersion` en `main.ts`). La versión se lee abajo a la derecha del panel de Pausa. GitHub Pages cachea 10 min.
 - Los push grandes pueden rebotar: subir los atlas en tandas de unos 40 MB por commit.
 - **Artifact** (copia vieja, https://claude.ai/artifact/VHUF6kHA1Tt5VG7uGUDRBb): tiene tope de 256 MB y va por 252.
   Solo actualizar si Rick lo pide: `npm run build`, `python3 juego/hornear/publicar.py`,

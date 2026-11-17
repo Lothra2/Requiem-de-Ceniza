@@ -265,7 +265,7 @@ export function dibujarHudTactil(j: Juego, t: number) {
     for (let i = 0; i < 4; i++) {
       const r: Rect = [P.cinturon[0] + i * (P.P + P.gap), P.cinturon[1], P.P, P.P], o = d.cinturon[i];
       boton('poc' + i, r, () => {
-        if (o) { icono(o, r[0] + L(4), r[1] + L(4), r[2] - L(8), r[3] - L(8)); texto(String(cant(o)), r[0] + r[2] - L(4), r[1] + L(13), { alin: 'right', tam: Math.round(L(11)), color: '#fff' }); }
+        if (o) { icono(o, r[0] + L(4), r[1] + L(4), r[2] - L(8), r[3] - L(8)); texto('×' + cant(o), r[0] + r[2] - L(4), r[1] + r[3] - L(5), { alin: 'right', tam: Math.round(L(10)), color: '#e8dcc0' }); }
         else { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = COLOR_POCION[tipos[i]]; ctx.beginPath(); ctx.arc(r[0] + r[2] / 2, r[1] + r[3] / 2, r[2] * 0.22, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
       }, () => { if (o) usarPocion(j, i); else Sonido.efecto('negado'); }, false, false, '');
       delete hud['poc' + i];

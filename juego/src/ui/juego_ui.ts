@@ -117,7 +117,8 @@ export function dibujarBarra(j: Juego, t: number) {
     const x0 = bx + z.x, y0 = by + z.y;
     if (o) {
       icono(o, x0, y0, z.w, z.h);
-      texto(String(cant(o)), x0 + z.w - 2, y0 + 10, { tam: 10, alin: 'right', color: '#ffffff' });
+      // (la cantidad va con su ×, chica y abajo a la derecha: el número de la tecla está grabado debajo de la casilla y se leían como el mismo número repetido)
+      texto('×' + cant(o), x0 + z.w - 2, y0 + z.h - 3, { tam: 9, alin: 'right', color: '#e8dcc0' });
     } else {
       // vacía: un tinte tenue y un frasquito del tipo de la columna
       ctx.save(); ctx.globalAlpha = 0.18; ctx.fillStyle = COLOR_POCION[tipos[i]]; ctx.fillRect(x0 + 2, y0 + 2, z.w - 4, z.h - 4);
@@ -1314,6 +1315,7 @@ function panelMenu(j: Juego, x: number, y: number) {
   op(T('Códice (J)', 'Codex (J)'), () => { ui.izq = 'codice'; });
   if (j.zona.tipo !== 'pueblo') op(T('Portal al campamento (B)', 'Portal to camp (B)'), () => { ui.izq = null; abrirPortal(j); });
   op(T('Guardar y salir', 'Save and quit'), () => j.eventos.push({ tipo: 'salir' }));
+  texto(`${T('Versión', 'Version')} ${__VERSION__.split('-')[0]}`, x + 312, y + 424, { alin: 'right', tam: 9, color: '#6a5a40' });
   texto(T('Teclas: clic izq. caminar/atacar · clic der. habilidad · 1-4 pociones · 5-0 atajos · I inventario · C personaje · T habilidades · Q misiones · Tab mapa · Alt botín · R correr · Shift atacar sin moverse · B portal', 'Keys: left click walk/attack · right click skill · 1-4 potions · I inventory · C character · T skills · Q quests · Tab map · Alt loot · R run · Shift attack in place · B portal'), x + 18, y + 330, { tam: 1 });
   envolver(T('Clic izquierdo camina y ataca · clic derecho usa la habilidad · 1-4 pociones · I inventario · C personaje · T habilidades · Q misiones · J códice · Tab mapa · Alt muestra el botín · R correr o caminar · Shift ataca sin moverte · B portal al campamento', 'Left click walks and attacks · right click uses the skill · 1-4 potions · I inventory · C character · T skills · Q quests · J codex · Tab map · Alt shows loot · R run or walk · Shift attacks in place · B portal to camp'), 280, 11).forEach((l, i) => texto(l, x + 20, y + 338 + i * 14, { tam: 11, color: '#a09070' }));
 }

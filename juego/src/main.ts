@@ -584,7 +584,24 @@ function cuadro(ahora: number) {
 let tAutoguardado = performance.now();
 const guardarYa = () => { if (estado === 'juego' && j) guardar(); };
 addEventListener('pagehide', guardarYa);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') guardarYa(); });
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') guardarYa(); else buscarVersion(); });
+/**
+ * Siempre la última versión: al abrir y cada vez que se vuelve a la pestaña se pregunta al sitio qué versión hay (sin
+ * caché). Si es otra, se guarda la partida y se recarga. Así el teléfono no se queda con la copia vieja del juego.
+ */
+let buscando = false, ultimaBusqueda = -1e9;
+function buscarVersion() {
+  if (import.meta.env.DEV || buscando || performance.now() - ultimaBusqueda < 20000) return;
+  buscando = true; ultimaBusqueda = performance.now();
+  fetch('./version.json?t=' + Date.now(), { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => {
+    if (d && d.v && d.v !== __VERSION__) { guardarYa(); try { sessionStorage.setItem('marca.recargo', d.v); } catch { /* nada */ }
+      // (una sola vez por versión: si el sitio todavía sirve la página vieja, no se queda recargando en círculo)
+      let ya = ''; try { ya = sessionStorage.getItem('marca.recargo_hecho') ?? ''; } catch { /* nada */ }
+      if (ya !== d.v) { try { sessionStorage.setItem('marca.recargo_hecho', d.v); } catch { /* nada */ } location.replace(location.pathname + '?v=' + encodeURIComponent(d.v) + location.hash); } }
+  }).catch(() => { /* sin red: se sigue con lo que hay */ }).finally(() => { buscando = false; });
+}
+buscarVersion();
+setInterval(buscarVersion, 5 * 60 * 1000);
 function paso(dt: number) {
   if (estado === 'juego' && j && performance.now() - tAutoguardado > 30000) { tAutoguardado = performance.now(); guardar(); }
   ctx.imageSmoothingEnabled = false;

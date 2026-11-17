@@ -110,9 +110,16 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Enemigo que tapa**: el monstruo que queda delante del héroe y lo cubre va medio transparente (`tapa`).
 - **Paso por clase**: `PASO_CLASE` en `mundo.ts` (monje y cazadora más veloces, templario más lento).
 
-- **Orden de los efectos**: todo efecto del mundo entra en el orden de pintado (`enOrden`, `esDePiso` en `escena.ts`):
-  lo de pie se pinta justo después de quien está en ese sitio y lo tendido en el piso antes que los cuerpos. Nada se
-  dibuja encima de todo salvo los de pantalla entera. Rick lo vio en el teléfono: el hielo tapaba la reja de delante.
+- **Orden de los efectos** (`escena.ts`): nada del mundo se dibuja encima de todo. Efectos, proyectiles, fogonazos,
+  chispas de impacto y el piso que arde entran en el orden de pintado. Lo tendido en el piso (`esDePiso`) se corta en
+  franjas de 16 puntos, cada una con la profundidad de su fila: un anillo pasa por detrás del muro del fondo y por
+  delante del de acá. Lo que envuelve un cuerpo va partido por los pies. Lo de pie va justo después de quien está ahí.
+  Arriba solo quedan los de pantalla entera, el rayo en cadena, las partículas y los números. Rick lo vio en el
+  teléfono (17 nov 2026): el hielo de un congelado tapaba la reja de delante.
+- **Prueba de tapado**: `node juego/herramientas/t781_tapado.cjs <clase>` planta un muro en campo abierto del desierto,
+  pone el blanco detrás y mide por cada poder cuánto del dibujo del muro se pierde (10 % es nada encima). Con `FOTO=1`
+  guarda capturas en `/tmp/requiem-pruebas/or`, con `SOLO=a,b` corre solo esos. Los que nacen en el héroe o lo mueven
+  (cargas, saltos, auras) dan alto y está bien.
 
 ## La presentación de las clases
 

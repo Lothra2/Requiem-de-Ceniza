@@ -17,7 +17,7 @@ import { baseDe } from '../juego/objetos';
 import { icono, TITULO } from '../ui/comun';
 import { dibujarNumeros } from './numeros';
 import { cuadrosVivos, cuadrosFinos, cambioVisible, FINO_RUMBOS } from '../motor/pintor';
-import { energiaSuelo, energiaAire } from './energia';
+import { energiaSuelo, energiaAire, itemsEnergia } from './energia';
 import { dibujarMarca } from './marcas';
 import { R, rng } from '../nucleo/azar';
 import { derrameArma, dibujarDerrames, luzPisoArma, type ElemArma } from './arma_viva';
@@ -28,7 +28,7 @@ import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
-import { cuerpoArde, armaArde, seguirSuelo, dibujarSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
+import { cuerpoArde, armaArde, seguirSuelo, itemsSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
 let dtCuadro = 1 / 60;
 // bruma de altura: cada cuadro alto se pinta una vez con el degradado del color de la niebla de la zona
 let colorBruma = '78,82,96', anclasCuadro: { q: Cuadro; br: HTMLCanvasElement | null; px: number; py: number }[] = [], esAncla = new Set<object>();
@@ -287,7 +287,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     ctx.restore();
   }
   // el piso que sigue ardiendo después de los poderes de fuego
-  dibujarSuelo(ctx, aPant, dt);
+  // (el piso que arde ya no se pinta acá, debajo de todo: va en el orden del mundo, ver itemsSuelo)
   // aviso del aliento: el cono se enciende en el piso antes de soplar (para poder salir de él)
   for (const m of j.monstruos) {
     const al = (m as any).aliento; if (!al || al.fase !== 'aviso' || m.muerto) continue;
@@ -441,19 +441,26 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // los efectos que envuelven un cuerpo van en el orden de profundidad, partidos por la línea de los pies: la mitad de
   // atrás justo antes del cuerpo y la de adelante justo después
   const mezclaDe = (id: string) => (LUZ_EFECTO[id]?.mezcla === 'normal' ? 'source-over' : 'lighter');
-  for (const e of j.efectos) if ((e as any).partido && !(window as any).__sinPartir) {
-    const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); ctx.globalCompositeOperation = mezclaDe(e.id) as GlobalCompositeOperation; dibujarEfecto(e, tiempo); ctx.restore(); };
-    items.push({ prof: e.x + e.y - 0.03, draw: mitad(true) }, { prof: e.x + e.y + 0.03, draw: mitad(false) });
-  }
-  // Y todos los demás efectos del mundo también entran en el orden de pintado. Antes se dibujaban al final, encima de
-  // todo: el hielo de un congelado tapaba la reja, la lápida y el árbol que tenía delante (visto en el teléfono de Rick).
-  // Lo que va de pie (un bloque de hielo, una explosión, una columna) se pinta justo después de quien está en ese sitio.
-  // Lo que va tendido en el piso (anillos, novas, charcos, círculos) se pinta antes que los cuerpos de su zona.
+  // Todos los efectos del mundo entran en el orden de pintado. Antes se dibujaban al final, encima de todo: el hielo de
+  // un congelado tapaba la reja, la lápida y el árbol que tenía delante (visto en el teléfono de Rick).
+  //   - lo que está tendido en el piso (anillos, novas, charcos, círculos) se corta en franjas de pantalla y cada franja
+  //     va con la profundidad del piso en esa fila: así un anillo grande pasa por DETRÁS del muro que tiene al fondo y por
+  //     DELANTE del que tiene más acá, y los cuerpos parados adentro quedan encima;
+  //   - lo que envuelve un cuerpo va partido por la línea de los pies (media atrás, media adelante);
+  //   - lo que está de pie (un bloque de hielo, una explosión, una columna) va justo después de quien está en ese sitio.
   // Solo quedan arriba los de pantalla entera.
   for (const e of j.efectos) {
-    if (!enOrden(e)) continue;
-    const piso = esDePiso(e);
-    items.push({ prof: e.x + e.y + (piso ? -1.4 : 0.06), draw: () => { ctx.save(); ctx.globalCompositeOperation = mezclaDe(e.id) as GlobalCompositeOperation; dibujarEfecto(e, tiempo); ctx.restore(); } });
+    const partido = (e as any).partido && !(window as any).__sinPartir;
+    if (!partido && !enOrden(e)) continue;
+    const pinta = () => { ctx.globalCompositeOperation = mezclaDe(e.id) as GlobalCompositeOperation; dibujarEfecto(e, tiempo); };
+    if (esDePiso(e)) {
+      const [, py] = aPant(e.x, e.y), F = 16, alc = Math.round(60 + 70 * Math.min(2.4, e.escala ?? 1));
+      for (let y0 = -alc; y0 < alc; y0 += F) { const borde = y0 + F >= alc, arriba = y0 === -alc;
+        items.push({ prof: e.x + e.y + (y0 + F / 2) / 8 - 0.55, draw: () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, arriba ? py - 4000 : py + y0, W + 8000, arriba ? 4000 + y0 + F : borde ? 4000 : F); ctx.clip(); pinta(); ctx.restore(); } }); }
+    } else if (partido) {
+      const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); pinta(); ctx.restore(); };
+      items.push({ prof: e.x + e.y - 0.03, draw: mitad(true) }, { prof: e.x + e.y + 0.03, draw: mitad(false) });
+    } else items.push({ prof: e.x + e.y + 0.06, draw: () => { ctx.save(); pinta(); ctx.restore(); } });
   }
   // Lo que está parado en el mundo y antes se pintaba al final, encima de todo: el portal del héroe, los umbrales de
   // salida, las torretas y las llamas de las fogatas sin fuego vivo. Ahora van en el orden de pintado: lo que tienen
@@ -475,6 +482,27 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const pf of profFuegosMundo()) items.push({ prof: pf + 0.02, draw: () => dibujarFuegosMundo(ctx, tiempo, cam.x, cam.y, pf) });
   // lo que vive en la zona (pixelfx) entra en el orden con todo lo demás: lo tapa lo que tiene delante
   for (const it of itemsAmbiente(ctx, j, aPant, W, H, tiempo)) items.push(it);
+  // los proyectiles también van en el orden del mundo: el que pasa por detrás de un muro o de un árbol queda tapado
+  const dibujarProyectil = (p: (typeof j.proyectiles)[number]) => {
+    const [px, py] = aPant(p.x, p.y);
+    if (p.arco) { const [ax, ay] = [px, py - p.z * 1.2]; ctx.fillStyle = p.elem === 'frio' ? '#a0e0ff' : p.elem === 'veneno' ? '#80ff60' : '#ffa040'; ctx.beginPath(); ctx.arc(ax, ay, 4, 0, Math.PI * 2); ctx.fill(); return; }
+    const id = p.efecto;
+    // los hechizos lanzados arden en vivo (cometas de fuego de Doom); flechas y virotes llevan además su sprite
+    if (!(window as any).__sinCometa && cometa(ctx, p, px, py, dtCuadro) === 'solo') return;
+    if (id.startsWith('pfx:')) { if (dibujarPfx(ctx, id.slice(4), p.t, px, py, { dir: dirPfx(p.vx, p.vy) })) return; }
+    ctx.globalCompositeOperation = LUZ_EFECTO[id]?.mezcla === 'normal' ? 'source-over' : 'lighter';
+    const meta = manifiesto().wm?.[id];
+    const d = Math.round(((Math.atan2(p.vy, p.vx) * 180) / Math.PI / 45 + 8) % 8);
+    const dname = (['se', 's', 'so', 'o', 'no', 'n', 'ne', 'e'])[d];
+    if (meta) {
+      const fs = manifiesto().w?.[`${id}/${meta.dir ? dname : 's'}`];
+      if (fs) { const raw = fs[Math.floor(p.t * 25 / meta.t) % fs.length]; dibujarRaw(raw, px, py); return; }
+    }
+    ctx.fillStyle = '#fff'; ctx.fillRect(px - 2, py - 34, 4, 4);
+  };
+  for (const p of j.proyectiles) items.push({ prof: p.x + p.y + 0.07, draw: () => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; dibujarProyectil(p); ctx.restore(); } });
+  for (const it of itemsEnergia(ctx, aPant)) items.push(it);
+  for (const it of itemsSuelo(ctx, aPant, dtCuadro)) items.push(it);
   items.sort((a, b) => a.prof - b.prof);
   for (const it of items) it.draw();
   // poderes y efectos
@@ -484,23 +512,6 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const e of j.efectos) { if (((e as any).partido && !(window as any).__sinPartir) || enOrden(e)) continue; mezclar(e.id); dibujarEfecto(e, tiempo); }
   { const [ox, oy] = aPant(0, 0); dibujarDerrames(ctx, ox, oy, dtCuadro); }
   energiaAire(ctx, j, aPant, W, H);
-  for (const p of j.proyectiles) {
-    const [px, py] = aPant(p.x, p.y);
-    if (p.arco) { const [ax, ay] = [px, py - p.z * 1.2]; ctx.fillStyle = p.elem === 'frio' ? '#a0e0ff' : p.elem === 'veneno' ? '#80ff60' : '#ffa040'; ctx.beginPath(); ctx.arc(ax, ay, 4, 0, Math.PI * 2); ctx.fill(); continue; }
-    const id = p.efecto;
-    // los hechizos lanzados arden en vivo (cometas de fuego de Doom); flechas y virotes llevan además su sprite
-    if (!(window as any).__sinCometa && cometa(ctx, p, px, py, dtCuadro) === 'solo') continue;
-    if (id.startsWith('pfx:')) { if (dibujarPfx(ctx, id.slice(4), p.t, px, py, { dir: dirPfx(p.vx, p.vy) })) continue; }
-    mezclar(id);
-    const meta = manifiesto().wm?.[id];
-    const d = Math.round(((Math.atan2(p.vy, p.vx) * 180) / Math.PI / 45 + 8) % 8);
-    const dname = (['se', 's', 'so', 'o', 'no', 'n', 'ne', 'e'])[d];
-    if (meta) {
-      const fs = manifiesto().w?.[`${id}/${meta.dir ? dname : 's'}`];
-      if (fs) { const raw = fs[Math.floor(p.t * 25 / meta.t) % fs.length]; dibujarRaw(raw, px, py); continue; }
-    }
-    ctx.fillStyle = '#fff'; ctx.fillRect(px - 2, py - 34, 4, 4);
-  }
   // cuervos
   for (const c of j.cuervos) { const [px, py] = aPant(c.x, c.y); ctx.globalCompositeOperation = 'source-over'; pajaro(px, py - 50 - Math.sin(tiempo * 9 + c.ang) * 6, tiempo + c.ang); ctx.globalCompositeOperation = 'lighter'; }
   ctx.restore();
@@ -661,7 +672,11 @@ function dibujarRaw(raw: any[], x: number, y: number) {
   dibujar(ctx, q, x, y);
 }
 let heroeDibujo: { x: number; y: number } | null = null;
-const PISO_FX = /nova|onda|circulo|suelo|charco|glifo|anillo|grito|temblor|grieta|sello|runas|aterrizaje|golpe_piso|trueno|curacion_area|pilar_sagrado|manos_que|tentaculos|estallido_mana|remolino|ondas|burbujas|nube_veneno|toxico|surge_del_piso/;
+// Lo que es plano de verdad (anillos, ondas, charcos, círculos): va debajo de todo lo que está de pie. Si se pintara
+// en su sitio del orden, la parte de atrás de un anillo grande quedaba encima del pie de las lápidas de más atrás.
+const PISO_FX = /nova|onda|circulo|suelo|charco|glifo|anillo|grito|temblor|grieta|runas|aterrizaje|golpe_piso|curacion_area|estallido_mana|remolino|ondas|burbujas|toxico|sello_lacre/;
+/** Lo que nace en el piso pero se levanta (manos, tentáculos, pilares, lo que surge, nubes): va de pie, en su sitio. */
+const ALZADO_FX = /pilar|manos|tentaculos|surge|trueno|nube|columna|geiser|puas|espinas|raices|muro|cerco/;
 /** ¿Este efecto se ordena con el mundo? Todos menos los partidos (ya van ordenados), el arco de cadena y los de pantalla entera. */
 function enOrden(e: Efecto): boolean {
   if ((window as any).__efectosEncima || e.id === 'arco_cadena' || ((e as any).partido && !(window as any).__sinPartir)) return false;
@@ -669,6 +684,7 @@ function enOrden(e: Efecto): boolean {
   return true;
 }
 function esDePiso(e: Efecto): boolean {
+  if (ALZADO_FX.test(e.id)) return false;
   if (e.id.startsWith('pfx:')) { const d = efectoPfx(e.id.slice(4)); return d?.capa === 'piso' || PISO_FX.test(e.id); }
   return PISO_FX.test(e.id);
 }

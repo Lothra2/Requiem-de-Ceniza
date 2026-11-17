@@ -149,6 +149,18 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
   ctx.restore();
 }
 
+/** Los fogonazos de impacto como piezas del orden de pintado: el que revienta detrás de un muro o una lápida queda tapado. */
+export function itemsEnergia(ctx: CanvasRenderingContext2D, aP: (x: number, y: number) => [number, number]): { prof: number; draw: () => void }[] {
+  if ((window as any).__sinEnergia) return [];
+  const out: { prof: number; draw: () => void }[] = [];
+  for (const q of chispas) out.push({ prof: q.x + q.y + 0.08, draw: () => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+    const [px, py0] = aP(q.x, q.y), py = py0 - q.z, a = Math.min(1, (1 - q.t / q.d) * 1.6);
+    if (q.px !== undefined) { ctx.strokeStyle = `rgba(${q.c[0]},${q.c[1]},${q.c[2]},${a * 0.7})`; ctx.lineWidth = q.s * 0.7; ctx.beginPath(); ctx.moveTo(q.px, q.py!); ctx.lineTo(px, py); ctx.stroke(); }
+    ctx.fillStyle = `rgba(${Math.min(255, q.c[0] + 90)},${Math.min(255, q.c[1] + 90)},${Math.min(255, q.c[2] + 90)},${a})`; ctx.fillRect(Math.round(px - q.s / 2), Math.round(py - q.s / 2), q.s, q.s);
+    q.px = px; q.py = py;
+    ctx.restore(); } });
+  return out.concat(flashes.map((q) => ({ prof: q.x + q.y + 0.08, draw: () => { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.a * (1 - u) ** 1.5; ctx.drawImage(luzSpr(q.c), px - r, py - q.z - r, r * 2, r * 2); ctx.restore(); } })));
+}
 /** Lo que va en el aire, sumado como luz: estelas, destellos, chispas, las motas del conjuro y el resplandor de pantalla. */
 export function energiaAire(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: number, y: number) => [number, number], W: number, H: number) {
   if ((window as any).__sinEnergia) return;
@@ -160,14 +172,9 @@ export function energiaAire(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: num
     for (let i = 1; i < n; i++) { const [ax, ay] = aP(es.p[i - 1][0], es.p[i - 1][1]), [bx, by] = aP(es.p[i][0], es.p[i][1]), k = i / n; ctx.strokeStyle = `rgba(${es.c[0]},${es.c[1]},${es.c[2]},${0.5 * k})`; ctx.lineWidth = 1 + 5 * k; ctx.beginPath(); ctx.moveTo(ax, ay - es.p[i - 1][2]); ctx.lineTo(bx, by - es.p[i][2]); ctx.stroke(); }
     const u = es.p[n - 1], [ux, uy] = aP(u[0], u[1]); ctx.globalAlpha = 0.55; ctx.drawImage(luzSpr(es.c), ux - 22, uy - u[2] - 22, 44, 44); ctx.globalAlpha = 1;
   }
-  for (const q of flashes) { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.globalAlpha = q.a * (1 - u) ** 1.5; ctx.drawImage(luzSpr(q.c), px - r, py - q.z - r, r * 2, r * 2); }
+  // (los fogonazos ya no van acá: entran en el orden del mundo con itemsEnergia, para que no tapen lo que tienen delante)
   ctx.globalAlpha = 1;
-  for (const q of chispas) {
-    const [px, py0] = aP(q.x, q.y), py = py0 - q.z, a = Math.min(1, (1 - q.t / q.d) * 1.6);
-    if (q.px !== undefined) { ctx.strokeStyle = `rgba(${q.c[0]},${q.c[1]},${q.c[2]},${a * 0.7})`; ctx.lineWidth = q.s * 0.7; ctx.beginPath(); ctx.moveTo(q.px, q.py!); ctx.lineTo(px, py); ctx.stroke(); }
-    ctx.fillStyle = `rgba(${Math.min(255, q.c[0] + 90)},${Math.min(255, q.c[1] + 90)},${Math.min(255, q.c[2] + 90)},${a})`; ctx.fillRect(Math.round(px - q.s / 2), Math.round(py - q.s / 2), q.s, q.s);
-    q.px = px; q.py = py;
-  }
+  // (las chispas tampoco van acá: entran en el orden del mundo con itemsEnergia)
   // el rayo que mata: arcos que saltan del cuerpo al piso mientras se sacude (cambian cada cuadro)
   for (const m of j.monstruos as Monstruo[]) {
     if (!m.muerto || (m as any).mElem !== 'rayo' || m.tMuerto > 0.58) continue;

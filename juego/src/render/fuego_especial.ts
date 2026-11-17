@@ -155,6 +155,10 @@ export function dibujarSuelo(ctx: CanvasRenderingContext2D, aPant: (x: number, y
     pintarEn(ctx, c.s, px - w / 2, py + c.rpx / 4 - h, 1, Math.min(1, (c.dura + 1.5 - c.t) / 1));
   }
 }
+/** El piso que sigue ardiendo, como piezas del orden de pintado: las llamas son altas y antes iban debajo de todo (las tapaba lo de atrás). */
+export function itemsSuelo(ctx: CanvasRenderingContext2D, aPant: (x: number, y: number) => [number, number], dt: number): { prof: number; draw: () => void }[] {
+  return charcos.map((c) => ({ prof: c.x + c.y + 0.04, draw: () => { const [px, py] = aPant(c.x, c.y); avanzar(c.s, dt); const w = c.s.f.w * c.s.celda, h = c.s.f.h * c.s.celda; pintarEn(ctx, c.s, px - w / 2, py + c.rpx / 4 - h, 1, Math.min(1, (c.dura + 1.5 - c.t) / 1)); } }));
+}
 /** Luces de los charcos para luces.ts. */
 export function lucesSuelo(aPant: (x: number, y: number) => [number, number]) {
   const esp = ESPECIALES.suelo_ardiente;

@@ -358,7 +358,7 @@ export function sombras(ctx: CanvasRenderingContext2D, e: Ent, q: Cuadro, px: nu
   const lejos = Math.hypot(px - W / 2, py - H * 0.45) > 320;
   if ((lejos || gastoSombras > 150) && !grande && e.tipo !== 'heroe') { const s0 = lista[0]; dibujarSombra(ctx, q, px, py, esc, s0.gx, s0.gy, s0.len, Math.min(0.72, s0.a), 1); gastoSombras += 1; return; }
   const usar = grande ? lista.slice(0, 2) : lista;
-  for (const s of usar) dibujarSombra(ctx, q, px, py, esc, s.gx, s.gy, s.len, Math.min(0.72, s.a * norm), grande ? 1 : 3);
+  for (const s of usar) dibujarSombra(ctx, q, px, py, esc, s.gx, s.gy, s.len, Math.min(0.82, s.a * norm), grande ? 1 : 3);
   gastoSombras += usar.length * (grande ? 1 : 3);
 }
 
@@ -368,17 +368,23 @@ function dibujarSombra(ctx: CanvasRenderingContext2D, q: Cuadro, px: number, py:
   const cx = -gx * len, cy = -gy * 0.5 * len;
   let ux = -gy, uy = gx; if (ux < 0) { ux = -ux; uy = -uy; }
   const ax = ux, ay = uy * 0.5;
-  // tres copias corridas: bordes suaves y la punta más difusa
-  for (let c = copias === 1 ? 1 : 0; c < (copias === 1 ? 2 : 3); c++) {
-    const k = 1 + (c - 1) * 0.07;
+  // Un núcleo nítido, a puntos enteros y del mismo negro de los pies a la punta (la sombra que sigue al fuego en el
+  // Diablo de Rick), y alrededor un borde apenas difuso. Antes eran tres copias corridas que la volvían una mancha gris.
+  const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  const capas: [number, number, number][] = copias === 1 ? [[1, 0, alfa]] : [[1.05, 0.8, alfa * 0.22], [1, 0, alfa]];
+  for (const [k, desp, a] of capas) {
     ctx.save();
-    ctx.globalAlpha = copias === 1 ? alfa : alfa / (c === 1 ? 2 : 4);
-    ctx.translate(px + (c - 1) * 0.8, py);
+    ctx.globalAlpha = a;
+    ctx.translate(Math.round(px + desp), Math.round(py));
     ctx.transform(ax, ay, cx * k, cy * k, 0, 0);
     ctx.drawImage(tmp, 0, 0, q.w, q.h, -q.ax * esc, -q.ay * esc, q.w * esc, q.h * esc);
     ctx.restore();
   }
+  ctx.imageSmoothingEnabled = su;
 }
+
+/** Cuánto lo alumbra un fuego o un poder de color (0 nada, 1 de lleno). Junto al fuego el cuerpo se deja oscuro y el filo lo dibuja. */
+export function luzFuerte(e: Ent, px: number, py: number): number { let k = 0; for (const i of influencias(e, px, py)) if (!i.l.blanca) k = Math.max(k, i.f); return Math.min(1, k); }
 
 /** Sombra de un sprite suelto (menús): una luz en (lx, ly) de pantalla a la altura lh. */
 export function sombraSuelta(ctx: CanvasRenderingContext2D, q: Cuadro | undefined, px: number, py: number, esc: number, lx: number, ly: number, lh: number, alfa: number) {
@@ -392,19 +398,26 @@ export function reflejos(ctx: CanvasRenderingContext2D, e: Ent, q: Cuadro, px: n
   if (!q.img) return;
   const inf = influencias(e, px, py).filter((i) => !i.l.blanca).slice(0, q.w * q.h * esc * esc > 50000 ? 1 : 2);
   for (const i of inf) {
-    // solo un borde del lado de la luz, suave: al 50 % sobre toda la silueta la aplanaba (el héroe junto a la fogata se veía
-    // como una figura naranja plana, y los esqueletos de la cripta como fantasmas rojos)
-    const fuerza = Math.min(0.24, i.f * 0.3);
-    if (fuerza < 0.04) continue;
-    // degradado en coordenadas del sprite: desde el lado de la luz hacia el otro
-    const dx = i.d > 1 ? -i.gx / i.d : 0, dy = i.d > 1 ? -i.gy / i.d * 0.5 : 1;
-    const mx = q.ax, my = q.ay * 0.55;
-    const ext = Math.max(q.w, q.h) * 0.6;
-    const g = tctx.createLinearGradient(mx + dx * ext, my + dy * ext - (i.l.h > 30 ? ext * 0.3 : 0), mx - dx * ext, my - dy * ext);
-    g.addColorStop(0, hex(i.l.c, 1)); g.addColorStop(0.22, hex(i.l.c, 0.3)); g.addColorStop(0.45, hex(i.l.c, 0));
-    if (!silueta(q, g)) return;
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fuerza;
-    ctx.drawImage(tmp, 0, 0, q.w, q.h, px - q.ax * esc, py - q.ay * esc, q.w * esc, q.h * esc);
-    ctx.restore();
+    // Dos capas, como el caballero del fuego de Diablo: un baño muy suave del color de la luz del lado que la mira, y
+    // sobre todo el FILO: los puntos del borde de la silueta que dan al fuego se encienden. El cuerpo sigue oscuro
+    // y la forma se lee por el canto de luz (antes era un degradado ancho que aplanaba la figura).
+    const dx = i.d > 1 ? -i.gx / i.d : 0, dy = i.d > 1 ? (-i.gy / i.d) * 0.5 : -1, n = Math.hypot(dx, dy) || 1, ux = dx / n, uy = dy / n;
+    const fuerza = Math.min(0.2, i.f * 0.24);
+    if (fuerza >= 0.03) {
+      const mx = q.ax, my = q.ay * 0.55, ext = Math.max(q.w, q.h) * 0.6;
+      const g = tctx.createLinearGradient(mx + ux * ext, my + uy * ext - (i.l.h > 30 ? ext * 0.3 : 0), mx - ux * ext, my - uy * ext);
+      g.addColorStop(0, hex(i.l.c, 1)); g.addColorStop(0.3, hex(i.l.c, 0.25)); g.addColorStop(0.5, hex(i.l.c, 0));
+      if (silueta(q, g)) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fuerza; ctx.drawImage(tmp, 0, 0, q.w, q.h, px - q.ax * esc, py - q.ay * esc, q.w * esc, q.h * esc); ctx.restore(); }
+    }
+    // (más fuerte cuando la luz viene de un costado; las figuras flacas, como un esqueleto, son casi todo borde: con la
+    // luz encima o detrás el filo las contorneaba enteras como un fantasma, así que ahí baja)
+    const flaca = (() => { const a = q.w * q.h; return a > 0 ? Math.min(1, (q.w * 0.5) / Math.max(1, q.h * 0.42)) : 1; })();
+    const filo = Math.min(0.6, i.f * 0.8) * (0.3 + 0.7 * Math.abs(ux)) * (0.55 + 0.45 * flaca);
+    if ((window as any).__sinFilo || filo < 0.06 || !silueta(q, `rgb(${Math.min(255, i.l.c[0] + 40)},${Math.min(255, i.l.c[1] + 30)},${Math.min(255, i.l.c[2] + 20)})`)) continue;
+    // lo que queda de la silueta después de restarle ella misma corrida hacia la luz es el canto que la mira
+    const k = Math.max(1, Math.round(1.6 / Math.max(0.5, esc)));
+    tctx.globalCompositeOperation = 'destination-out'; tctx.drawImage(q.img, q.x, q.y, q.w, q.h, Math.round(-ux * k), Math.round(-uy * k), q.w, q.h); tctx.globalCompositeOperation = 'source-over';
+    const su = ctx.imageSmoothingEnabled; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = filo;
+    ctx.drawImage(tmp, 0, 0, q.w, q.h, px - q.ax * esc, py - q.ay * esc, q.w * esc, q.h * esc); ctx.restore(); ctx.imageSmoothingEnabled = su;
   }
 }

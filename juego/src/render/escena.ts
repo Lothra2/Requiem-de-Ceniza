@@ -49,7 +49,7 @@ function conBruma(q: Cuadro, c: string): HTMLCanvasElement | null {
 const nieblaCv = document.createElement('canvas');
 const congelados = new WeakSet<object>();
 const ES_FUEGO = /fogata|hoguera|brasero|pira|antorcha|fuego|caldero|hogar/;
-import { recolectar, sombras, reflejos, luces, destello, destelloColor } from './luces';
+import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
 export const cam = { x: 0, y: 0 };
 /** Hacia dónde mira la cámara además del héroe (presentación de un jefe): k de 0 a 1. */
@@ -992,7 +992,8 @@ function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
   // orden de dibujo: lo que lo tapa lo sigue tapando): sube la luz y el contraste, los cantos de metal saltan y lo oscuro
   // sigue oscuro. El héroe más que los demás: es el que se mira todo el tiempo
   if (ok && !e.muerto && alfaM >= 1 && !(window as any).__sinRealce) {
-    const k = (window as any).__realce ?? (e.tipo === 'heroe' ? REALCE.heroe : (e as any).dueno || e.tipo === 'npc' ? REALCE.aliado : REALCE.monstruo);
+    // junto a un fuego el realce baja: el cuerpo queda en clave baja y lo dibuja el filo de luz (ver reflejos)
+    const k = ((window as any).__realce ?? (e.tipo === 'heroe' ? REALCE.heroe : (e as any).dueno || e.tipo === 'npc' ? REALCE.aliado : REALCE.monstruo)) * (1 - 0.55 * luzFuerte(e, px, py));
     // (en el pueblo hay luz de sobra: nada)
     if (k > 0) { ctx.save(); ctx.globalCompositeOperation = (window as any).__realceModo ?? 'screen'; ctx.globalAlpha = k * tapa * (j.zona.tipo === 'pueblo' ? 0 : 1); dibujar(ctx, q, px, py, esc); ctx.restore(); }
   }

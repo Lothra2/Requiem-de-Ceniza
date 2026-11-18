@@ -13,7 +13,9 @@ def convertir(archivo):
     src = os.path.join(D, archivo); dst = src[:-4] + '.webp'
     im = Image.open(src)
     # (los f_, el andar de los monstruos en los rumbos intermedios, iban sin pérdida por descuido: 34 MB que son 12)
-    if os.path.basename(archivo)[:2] in ('h_', 'm_', 'b_', 'j_', 'n_', 'r_', 'f_', 'g_'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
+    # (el relieve, normales y altura, va con pérdida a 90: es liso y así pesa un tercio que sin pérdida)
+    if archivo[:-4].endswith(('_n', '_h')): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
+    elif os.path.basename(archivo)[:2] in ('h_', 'm_', 'b_', 'j_', 'n_', 'r_', 'f_', 'g_'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
     else: im.save(dst, 'WEBP', lossless=True, method=4)
     a, b = os.path.getsize(src), os.path.getsize(dst)
     os.remove(src)
@@ -21,11 +23,12 @@ def convertir(archivo):
 
 if __name__ == '__main__':
     man = json.load(open(os.path.join(D, 'manifiesto.json')))
-    pend = [v[0] for v in man['atlas'].values() if v[0].endswith('.png') and os.path.exists(os.path.join(D, v[0]))]
+    tablas = [man['atlas']] + ([man['rel']] if 'rel' in man else [])
+    pend = [v[0] for t in tablas for v in t.values() if v[0].endswith('.png') and os.path.exists(os.path.join(D, v[0]))]
     antes = despues = 0
     with ProcessPoolExecutor() as ex:
         for archivo, a, b in ex.map(convertir, pend): antes += a; despues += b
-    for k, v in man['atlas'].items():
+    for v in (v for t in tablas for v in t.values()):
         if v[0].endswith('.png') and not os.path.exists(os.path.join(D, v[0])) and os.path.exists(os.path.join(D, v[0][:-4] + '.webp')): v[0] = v[0][:-4] + '.webp'
     json.dump(man, open(os.path.join(D, 'manifiesto.json'), 'w'), separators=(',', ':'))
     print(len(pend), 'atlas a WebP:', round(antes / 1e6, 1), 'MB ->', round(despues / 1e6, 1), 'MB')

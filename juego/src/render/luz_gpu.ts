@@ -8,8 +8,8 @@
 import { relDe } from '../motor/assets';
 import type { Cuadro } from '../motor/assets';
 
-export const lab = { on: true, fuerza: 1, bloom: 1.1, ms: 0 };
-(window as any).__lab = lab;
+export const lab = { on: true, fuerza: 1, bloom: 1.1, ms: 0, heroe: 0.7 };
+(window as any).__lab = lab; (window as any).__luzCv = () => ({ relCv, altCv, glCv });
 
 let relCv: HTMLCanvasElement | null = null, altCv: HTMLCanvasElement | null = null;
 let relC: CanvasRenderingContext2D | null = null, altC: CanvasRenderingContext2D | null = null;
@@ -54,7 +54,7 @@ let pLuz: WebGLProgram, pBrillo: WebGLProgram, pBlur: WebGLProgram, pFin: WebGLP
 const tex: Record<string, WebGLTexture> = {}; const fbo: Record<string, { f: WebGLFramebuffer; t: WebGLTexture; w: number; h: number }> = {};
 const VS = `#version 300 es
 in vec2 p; out vec2 uv; void main() { uv = p * 0.5 + 0.5; gl_Position = vec4(p, 0.0, 1.0); }`;
-const MAXL = 24;
+const MAXL = 48;
 const FS_LUZ = `#version 300 es
 precision highp float; in vec2 uv; out vec4 o;
 uniform sampler2D tC, tN, tA; uniform vec2 res; uniform int nl; uniform vec4 lp[${MAXL}]; uniform vec4 lc[${MAXL}]; uniform float fuerza, zpx;
@@ -78,8 +78,10 @@ void main() {
     if (att <= 0.0) continue;
     float dif = dot(nf, normalize(d));
     // lo que mira al fuego se enciende de su color; lo que le da la espalda se hunde en gris (sin teñirse)
-    acc += lc[i].rgb * lc[i].a * att * max(dif, 0.0);
-    sombra += lc[i].a * att * (max(-dif, 0.0) + 0.18);
+    float ka = abs(lc[i].a);
+    acc += lc[i].rgb * ka * att * max(dif, 0.0);
+    // (la lámpara del héroe, con a negativa, solo alumbra: si hundiera lo que le da la espalda, el héroe quedaba gris)
+    if (lc[i].a > 0.0) sombra += ka * att * (max(-dif, 0.0) + 0.18);
   }
   // (el piso, que mira para arriba, se quemaba junto a cada vela: lo horizontal toma menos que los cuerpos y los muros)
   acc *= mix(1.0, 0.5, nf.z * nf.z);
@@ -155,8 +157,15 @@ export function aplicarLuzGPU(c: CanvasRenderingContext2D, luces: LuzLab[], tr: 
   if (glCv!.width !== w || glCv!.height !== h) { glCv!.width = w; glCv!.height = h; }
   subir('C', c.canvas); subir('N', relCv); subir('A', altCv!);
   // luces al lienzo: posición del pie, alto y radio por la escala del pase del mundo
-  const ls = luces.filter((l) => !(l as any).blanca).slice(0, MAXL), lp = new Float32Array(MAXL * 4), lc = new Float32Array(MAXL * 4), k = tr.a;
-  ls.forEach((l, i) => { lp.set([tr.a * l.x + tr.c * l.y + tr.e, tr.b * l.x + tr.d * l.y + tr.f, l.h * k, l.r * k * 1.35], i * 4); lc.set([l.c[0] / 255, l.c[1] / 255, l.c[2] / 255, Math.min(1.4, 0.55 + l.k * 0.9)], i * 4); });
+  // (con la vista Lejos en pantalla grande entran muchas más velas: antes se tomaban las 24 primeras de la lista, que
+  // podían quedar fuera de cuadro, y las de al lado del héroe no alumbraban. Ahora van las que tocan la pantalla, las
+  // más cercanas al centro primero)
+  const k = tr.a, lp = new Float32Array(MAXL * 4), lc = new Float32Array(MAXL * 4);
+  const ls = luces.map((l) => ({ l, x: tr.a * l.x + tr.c * l.y + tr.e, y: tr.b * l.x + tr.d * l.y + tr.f, r: l.r * k * 1.35 }))
+    .filter((q) => q.x > -q.r && q.x < w + q.r && q.y > -q.r && q.y < h + q.r)
+    .map((q) => ({ ...q, d: Math.hypot(q.x - w / 2, q.y - h / 2) - q.r })).sort((a, b) => a.d - b.d).slice(0, MAXL);
+  ls.forEach((q, i) => { const l = q.l; lp.set([q.x, q.y, l.h * k, q.r], i * 4); lc.set([l.c[0] / 255, l.c[1] / 255, l.c[2] / 255, (l as any).blanca ? -lab.heroe : Math.min(1.4, 0.55 + l.k * 0.9)], i * 4); });
+  // (la lámpara del héroe también: en las mazmorras es la que alumbra casi todo y sin ella el relieve no se veía)
   // 1. reiluminar
   const mL = marco('luz', w, h); g.bindFramebuffer(g.FRAMEBUFFER, mL.f); g.viewport(0, 0, w, h);
   usar(pLuz, [['tC', tex.C], ['tN', tex.N], ['tA', tex.A]]);

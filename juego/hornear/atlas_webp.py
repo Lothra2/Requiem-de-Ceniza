@@ -14,7 +14,11 @@ def convertir(archivo):
     im = Image.open(src)
     # (los f_, el andar de los monstruos en los rumbos intermedios, iban sin pérdida por descuido: 34 MB que son 12)
     # (el relieve, normales y altura, va con pérdida a 90: es liso y así pesa un tercio que sin pérdida)
-    if archivo[:-4].endswith(('_n', '_h')): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
+    # (de la altura el shader solo lee el byte alto en R: el fino en G y lo de B se aplanan y pesa un tercio)
+    if archivo[:-4].endswith('_h'):
+        r, g, b, a = im.convert('RGBA').split()
+        Image.merge('RGBA', (r, g.point(lambda v: 128), b.point(lambda v: 0), a)).save(dst, 'WEBP', quality=80, alpha_quality=100, method=5)
+    elif archivo[:-4].endswith('_n'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
     elif os.path.basename(archivo)[:2] in ('h_', 'm_', 'b_', 'j_', 'n_', 'r_', 'f_', 'g_'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
     else: im.save(dst, 'WEBP', lossless=True, method=4)
     a, b = os.path.getsize(src), os.path.getsize(dst)

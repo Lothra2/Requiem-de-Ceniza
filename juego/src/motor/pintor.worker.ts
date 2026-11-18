@@ -5,7 +5,7 @@ import { hojaDe } from './hoja';
 import { tinte } from '../../../src/engine/gotico/apariencia';
 
 /** Los materiales teñidos se registran al vuelo en el hilo principal: aquí hay que volver a crearlos. */
-function tenir(equipo: any) { for (const m of JSON.stringify(equipo).matchAll(/cu_tinte_(tela|cuero|metal)_([0-9a-f]{6})/g)) tinte('#' + m[2], m[1] as any); }
+function tenir(equipo: any) { for (const m of JSON.stringify(equipo).matchAll(/cu_tinte_(tela|cuero|metal|malla)_([0-9a-f]{6})/g)) tinte('#' + m[2], m[1] as any); }
 
 self.onmessage = (ev: MessageEvent) => {
   const { id, cuerpo, equipo, acc, dir, cuadros, calidad, base, clave, retrato, fs, desfase } = ev.data;

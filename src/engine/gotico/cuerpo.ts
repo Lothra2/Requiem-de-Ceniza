@@ -889,7 +889,7 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
     ps.push(masaTorso);
     if (to.tipo === 'tunica' || to.tipo === 'harapos') ps.push(...faldon(e, to.mat, to.tipo === 'harapos' ? 13 : 12, 1.2, acc, f, cu.presentacion && pz?.tipo !== 'tunica_larga' ? to.ribete : undefined, pz?.tipo !== 'tunica_larga'));
     if (to.tipo === 'vestido') { const fl = faldon(e, to.mat, 29, 1.7, acc, f); masaFalda = fl[0]; ps.push(...fl); }
-    if (to.tipo === 'cuero_tachonado') for (let i = 0; i < 4; i++) for (const s of [1, -1, 0]) ps.push(esfera(...T(3.9 * A + 0.6, s * 2.6 * A, e.zc + (5 + i * 3) * S), 0.5, { mat: 'cu_placa' }));
+    if (to.tipo === 'cuero_tachonado') for (let i = 0; i < 4; i++) for (const s of [1, -1, 0]) ps.push(esfera(...T(3.9 * A + 0.6, s * 2.6 * A, e.zc + (5 + i * 3) * S), 0.5, { mat: to.mat2 && /placa|oro|bronce|laton|plata|tinte_metal/.test(to.mat2) ? to.mat2 : 'cu_placa' }));
     if (to.tipo === 'malla' && !to.linea) ps.push(...mallaForjada(e, cu, to));
     // (la túnica cruzada lleva su solapa en el vestuario: sin la abertura recta ni los pliegues de la túnica oscura)
     if (to.tipo === 'tunica' && !eq.prendas?.some((p) => p.tipo === 'cruce')) ps.push(...tunicaForjada(e, cu, to));

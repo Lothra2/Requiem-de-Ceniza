@@ -135,8 +135,13 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   piso a menos de 14 celdas) se llena de peñascos, bajos si hay piso detrás. Antes se veía como hoyo negro (Rick, 18 nov
   2026). `z.roca` evita que la niebla las vuelva a tapar. `__sinRelleno` lo apaga para comparar. Ojo: las zonas visitadas
   quedan en `zonasVivas`, para comparar hay que generar con `generarZona` directo o abrir otra página.
-- **Sello de nivel** (`selloNivel` en `ui/juego_ui.ts`): latón con el número en la cumbre del orbe de vida (entre los
-  orbes en el táctil), arde 3,5 s al subir de nivel.
+- **Rosetón del nivel** (`ui/sello_nivel.ts`, lo llama `selloNivel` en `ui/juego_ui.ts`): pieza forjada pixel a pixel
+  con la paleta y la luz de la barra (hierro con cuatro lóbulos remachados, filete de latón, esmalte oscuro y cifras de
+  pixel en relieve, 6x9 y 5x7 para el 100) en la punta de la ojiva del orbe de vida (entre los orbes en el táctil, a 1 o
+  1,5 puntos). El canal de oro se llena con la experiencia hacia el nivel siguiente, desde arriba en el sentido del reloj.
+  Al subir arde 3,5 s (esmalte al rojo, anillo y chispas, con `acc.destellos`). No va en `src/engine/gotico` para no
+  cambiar `__PINTOR__`. El de antes Rick lo vio "como un parche" (18 nov 2026). Prueba: `t840_nivel.cjs [etiqueta] [vistas]`
+  (pc, pc1080, ipad, movil; capturas en `/tmp/requiem-pruebas/nivel`).
 - **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos
   40 s los 8 rumbos y otros 45 s los 16 con 2 obreros, ahora van 4). En ese rato camina en 8: no es que se pierdan.
 

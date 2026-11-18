@@ -17,11 +17,12 @@ import { EPILOGOS } from '../mundo/decisiones';
 import { colorObj, crearObjeto, crearPocion, crearPergamino, engarzar, baseDe, textoStat, crearUnicoId, type Objeto } from '../juego/objetos';
 import { BASES } from '../datos/objetos_datos';
 import type { DatosHeroe } from '../juego/heroe';
-import { CASILLAS, BOLSA_W, BOLSA_H, equipoVisual, ropaBase, cuerpoDe, firmaVisual, libre, cumpleReq, nivelHab, puedeAprender, xpPara, recoger, type Casilla, type EnBolsa, nivelEnDificultad, cant, apilable, partir, alCinturon, meterEnBolsa, tiposCinturon, PILA_BOLSA, PILA_CINTURON, type TipoPocion } from '../juego/heroe';
+import { CASILLAS, BOLSA_W, BOLSA_H, equipoVisual, ropaBase, cuerpoDe, firmaVisual, libre, cumpleReq, nivelHab, puedeAprender, xpPara, NIVEL_MAX, recoger, type Casilla, type EnBolsa, nivelEnDificultad, cant, apilable, partir, alCinturon, meterEnBolsa, tiposCinturon, PILA_BOLSA, PILA_CINTURON, type TipoPocion } from '../juego/heroe';
 import { recalc, usarPocion, beberPocion, noRellenar, abrirPortal, costoMana, danoHab, habilidadDe, msg, frascosMax, ventanaCombo, cadaveresCerca, MAX_CARGAS, colorElem, thorDe, tramoThor, type Juego, type Monstruo } from '../juego/mundo';
 import { cuadrosMonstruo, dibujar as dibujarCuadro } from '../motor/assets';
 import { Sonido } from '../audio/sonido';
 import { R, entero } from '../nucleo/azar';
+import { dibujarRoseton } from './sello_nivel';
 
 export type PanelId = 'inv' | 'pers' | 'habs' | 'cofre' | 'tienda' | 'dialogo' | 'viaje' | 'misiones' | 'codice' | 'menu' | 'elegirHab' | null;
 export const ui = {
@@ -78,34 +79,14 @@ export function iconoHab(hb: Habilidad, x: number, y: number, s: number, apagado
 }
 
 /**
- * El nivel del héroe: un sello de latón con su número, montado en la cumbre del orbe de vida (y entre los orbes en el
- * táctil). Al subir de nivel arde unos segundos. Rick pidió ver en qué nivel está sin abrir la ficha (18 nov 2026).
+ * El nivel del héroe: un rosetón forjado (hierro, latón y esmalte, con el número en cifras de pixel) en la punta de la
+ * ojiva del orbe de vida, con un canal de oro que se llena con la experiencia hacia el nivel siguiente (en el táctil va
+ * entre los orbes). Al subir de nivel arde unos segundos. Ver ui/sello_nivel.ts.
  */
-let nivelVisto = -1, subioEn = -10;
-export function selloNivel(nivel: number, cx: number, cy: number, r: number, t: number) {
-  if (nivelVisto >= 0 && nivel > nivelVisto) subioEn = t;
-  nivelVisto = nivel;
-  const ard = Math.max(0, 1 - (t - subioEn) / 3.5);
-  ctx.save();
-  if (ard > 0) { // el resplandor de la subida
-    const g = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * (2.4 + 0.4 * Math.sin(t * 9)));
-    g.addColorStop(0, `rgba(255,214,120,${0.7 * ard})`); g.addColorStop(1, 'rgba(255,160,40,0)');
-    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r * 2.8, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
-  }
-  // sombra, aro de hierro, bisel de latón y la placa hundida
-  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.arc(cx + 1, cy + 2, r + 1, 0, Math.PI * 2); ctx.fill();
-  let g = ctx.createLinearGradient(0, cy - r, 0, cy + r); g.addColorStop(0, '#6c6c70'); g.addColorStop(0.5, '#3a3a3e'); g.addColorStop(1, '#1c1c20');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
-  g = ctx.createLinearGradient(0, cy - r, 0, cy + r); g.addColorStop(0, '#f2d47a'); g.addColorStop(0.45, '#b08a32'); g.addColorStop(1, '#5a4214');
-  ctx.strokeStyle = g; ctx.lineWidth = Math.max(1.5, r * 0.16); ctx.beginPath(); ctx.arc(cx, cy, r * 0.8, 0, Math.PI * 2); ctx.stroke();
-  g = ctx.createRadialGradient(cx, cy - r * 0.3, r * 0.1, cx, cy, r * 0.72); g.addColorStop(0, '#2a1a10'); g.addColorStop(1, '#0c0806');
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r * 0.68, 0, Math.PI * 2); ctx.fill();
-  // cuatro remaches en el aro
-  ctx.fillStyle = '#d8b860'; for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + (i * Math.PI) / 2; ctx.fillRect(Math.round(cx + Math.cos(a) * r * 0.8) - 1, Math.round(cy + Math.sin(a) * r * 0.8) - 1, 2, 2); }
-  ctx.restore();
-  // el número: oro grabado, más chico con tres cifras
-  const s = String(nivel), tam = Math.round(r * (s.length > 2 ? 0.78 : 0.98));
-  texto(s, cx, cy + tam * 0.36, { alin: 'center', tam, negrita: true, color: ard > 0 ? '#fff4c8' : '#f0d078' });
+let pistaNivel: (() => void) | null = null;
+export function selloNivel(d: DatosHeroe, cx: number, cy: number, esc: number, t: number) {
+  const a = xpPara(d.nivel), b = xpPara(d.nivel + 1);
+  dibujarRoseton(d.nivel, d.nivel >= NIVEL_MAX ? 1 : (d.xp - a) / Math.max(1, b - a), cx, cy, esc, t);
 }
 
 // ------------------------------------------------------------------ barra de abajo
@@ -130,8 +111,11 @@ export function dibujarBarra(j: Juego, t: number) {
     if (dentro(bx + z.x, by + z.y, z.w, z.h)) { const v = id === 'orbe_vida' ? `${T('Vida', 'Life')}: ${Math.ceil(h.vida)} / ${h.vidaMax}` : `${T('Maná', 'Mana')}: ${Math.floor(h.mana)} / ${h.c.manaMax}`; texto(v, bx + z.x + z.w / 2, by + z.y - 6, { alin: 'center', color: '#fff' }); }
   }
   // el nivel: sello de latón en la cumbre del orbe de vida
-  { const z = Z('orbe_vida'), cx = bx + z.x + z.w / 2, cy = by + z.y - 19; selloNivel(h.d.nivel, cx, cy, 12, j.t);
-    if (Math.hypot(E.x - cx, E.y - cy) < 13) texto(`${T('Nivel', 'Level')} ${h.d.nivel}  ·  ${T('faltan', 'next in')} ${Math.max(0, xpPara(h.d.nivel + 1) - h.d.xp).toLocaleString()} ${T('de experiencia', 'experience')}`, cx - 8, cy - 18, { color: '#f0d078' }); }
+  // (la punta de la ojiva: el eje cae entre dos pixeles de la barra, en x = 62, y el rosetón tapa el que estaba tallado)
+  { const z = Z('orbe_vida'), cx = bx + z.x + z.w / 2, cy = by + 16; selloNivel(h.d, cx, cy, 1, j.t);
+    if (!ui.mano && Math.hypot(E.x - cx, E.y - cy) < 14) { const d = h.d, x0 = xpPara(d.nivel), x1 = xpPara(d.nivel + 1), max = d.nivel >= NIVEL_MAX;
+      pistaNivel = () => tooltip([[`${T('Nivel', 'Level')} ${d.nivel}`, '#f0d078'], max ? [T('Nivel máximo', 'Maximum level'), '#c8b890'] : [`${T('Experiencia', 'Experience')}: ${d.xp.toLocaleString()} / ${x1.toLocaleString()}  (${Math.floor((100 * (d.xp - x0)) / Math.max(1, x1 - x0))} %)`, '#d8c8a0'],
+        ...(max ? [] : [[`${T('Faltan', 'Next level in')} ${Math.max(0, x1 - d.xp).toLocaleString()}`, '#a09070'] as [string, string]])], cx, cy - 14); } }
   // habilidades izq y der
   for (const [id, lado] of [['habilidad_izq', 'izq'], ['habilidad_der', 'der']] as const) {
     const z = Z(id); const hb = habilidadDe(h.d[lado]);
@@ -224,6 +208,7 @@ export function dibujarBarra(j: Juego, t: number) {
     ctx.fillStyle = 'rgba(6,5,4,0.96)'; ctx.fillRect(tx, ty, w, hh); ctx.strokeStyle = '#8a6e3c'; ctx.lineWidth = 1; ctx.strokeRect(tx + 0.5, ty + 0.5, w - 1, hh - 1);
     fichaBarra.forEach(([q, c], i) => { if (q) texto(q, tx + 10, ty + 18 + i * 15, { color: c, tam: 12 }); else { ctx.fillStyle = '#3a3024'; ctx.fillRect(tx + 10, ty + 11 + i * 15, w - 20, 1); } });
     fichaBarra = null; }
+  if (pistaNivel) { pistaNivel(); pistaNivel = null; }
   // botones chicos
   const botones: [string, PanelId | 'mapa', 'izq' | 'der'][] = [['boton_personaje', 'pers', 'izq'], ['boton_inventario', 'inv', 'der'], ['boton_habilidades', 'habs', 'der'], ['boton_mapa', 'mapa', 'der'], ['boton_menu', 'menu', 'izq']];
   for (const [id, p, lado] of botones) {

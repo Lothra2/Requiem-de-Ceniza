@@ -18,7 +18,9 @@ export interface Traje {
   ribete?: string;
   /** sobreveste o tabardo sobre la cota o la coraza */
   tabardo?: string;
-  /** corte: tunica, habito, vestido, camisa (tela); jubon o pieles (cuero); puas o pieles (placas) */
+  /** corte: tunica, habito, vestido, camisa (tela); jubon o pieles (cuero); puas o pieles (placas). En los cascos, la
+   * forma (`FormaCasco` de iconos3d.ts): capucha, turbante, gorro, cofia, nasal, abierto, celada, bacinete, gran_yelmo,
+   * astado, mascara, calavera o ciervo */
   corte?: string;
   /** pelaje de las pieles: pardo o gris */
   pelo?: 'pardo' | 'gris';
@@ -62,7 +64,7 @@ const METAL_MAT: Record<string, MetalTraje> = {
   cu_placa: 'acero', acero: 'acero', cu_malla: 'acero', hierro: 'hierro', hierro_oxido: 'hierro', cu_placa_oscura: 'negro', negro: 'negro',
   cu_oro: 'oro', oro: 'oro', bronce: 'bronce', cu_bronce: 'bronce', cu_laton_viejo: 'laton', cu_plata_vieja: 'plata',
 };
-interface Propio { linea: LineaTraje; color?: string; metal?: MetalTraje; corte?: string; tabardo?: string }
+interface Propio { linea: LineaTraje; color?: string; metal?: MetalTraje; corte?: string; tabardo?: string; /** las formas que puede tener un casco de esta base */ formas?: string[] }
 /** La línea y los colores que la base dice en su dibujo (`visual`). */
 export function propioDe(b: Base): Propio | null {
   const v = b.visual as any;
@@ -79,12 +81,13 @@ export function propioDe(b: Base): Propio | null {
     }
     case 'cabeza': {
       const c = v.cabeza; if (!c) return null;
-      if (c.tipo === 'capucha' || c.tipo === 'turbante') return { linea: 'tela', color: TELA_HEX[c.mat] };
-      if (c.tipo === 'gorro') return { linea: 'cuero', color: CUERO_HEX[c.mat] };
-      if (c.tipo === 'calavera' || c.tipo === 'cuernos') return { linea: 'hueso' };
-      if (c.tipo === 'casco') return { linea: 'malla', metal: METAL_MAT[c.mat] ?? 'hierro' };
-      if (c.tipo === 'yelmo' || c.tipo === 'gran_yelmo') return { linea: 'placas', metal: METAL_MAT[c.mat] ?? 'acero' };
-      if (c.tipo === 'mascara') return { linea: 'placas', metal: 'laton' };
+      if (c.tipo === 'capucha' || c.tipo === 'turbante') return { linea: 'tela', color: TELA_HEX[c.mat], formas: [c.tipo] };
+      if (c.tipo === 'gorro') return { linea: 'cuero', color: CUERO_HEX[c.mat], formas: ['gorro'] };
+      if (c.tipo === 'calavera' || c.tipo === 'cuernos') return { linea: 'hueso', formas: [c.tipo === 'cuernos' ? 'ciervo' : 'calavera'] };
+      if (c.tipo === 'casco') return { linea: 'malla', metal: METAL_MAT[c.mat] ?? 'hierro', formas: ['nasal', 'cofia', 'abierto'] };
+      if (c.tipo === 'yelmo') return { linea: 'placas', metal: METAL_MAT[c.mat] ?? 'acero', formas: ['celada', 'bacinete'] };
+      if (c.tipo === 'gran_yelmo') return { linea: 'placas', metal: METAL_MAT[c.mat] ?? 'acero', formas: ['gran_yelmo', 'gran_yelmo', 'astado'] };
+      if (c.tipo === 'mascara') return { linea: 'placas', metal: 'laton', formas: ['mascara'] };
       return null; // coronas, diademas y aros: su dibujo propio
     }
     case 'manos': {
@@ -170,6 +173,8 @@ export function trajeDe(o: { uid: number; nivel: number; rareza: string }, b: Ba
       } else if (r() < (ti === 3 ? 0.45 : 0.15)) { tj.corte = 'pieles'; tj.pelo = T.pelo; }
     }
   }
+  // la forma del casco (con su propio dado: no mueve nada de lo de arriba)
+  if (b.ranura === 'cabeza' && p.formas) tj.corte = de(dado(mezclar(o.uid) ^ hashTexto('forma|' + b.id)), p.formas);
   // lo gastado: el color apagado y sin ribete de metal
   if (rar === 'gris') { if (tj.color) tj.color = gastar(tj.color); if (tj.tabardo) tj.tabardo = gastar(tj.tabardo); if (tj.ribete && !tj.ribete.startsWith('#')) delete tj.ribete; }
   for (const k of Object.keys(tj) as (keyof Traje)[]) if (tj[k] === undefined) delete tj[k];

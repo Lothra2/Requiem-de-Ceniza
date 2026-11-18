@@ -2,7 +2,7 @@
 name: Publicar el juego
 on:
   push:
-    branches: [main]
+    branches: [main, luz-gpu]
   workflow_dispatch:
 permissions:
   contents: write
@@ -13,16 +13,34 @@ jobs:
   sitio:
     runs-on: ubuntu-latest
     steps:
+      # el juego de siempre (main) va en la raíz del sitio
       - uses: actions/checkout@v4
+        with:
+          ref: main
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: mv juego/dist /tmp/sitio
+      # la versión con luz avanzada (rama luz-gpu) va en /luz/, para tener las dos y compararlas
+      - uses: actions/checkout@v4
+        continue-on-error: true
+        id: luz
+        with:
+          ref: luz-gpu
+          path: luz
+      - name: Armar la versión con luz avanzada
+        if: steps.luz.outcome == 'success'
+        run: |
+          cd luz
+          npm ci
+          npm run build
+          mv juego/dist /tmp/sitio/luz
       - name: Subir a gh-pages
         run: |
-          cd juego/dist
+          cd /tmp/sitio
           touch .nojekyll
           git init -q -b gh-pages
           git config user.name "github-actions[bot]"

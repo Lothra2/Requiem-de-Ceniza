@@ -140,7 +140,7 @@ if (GRUPOS.includes('o')) for (const d of REGISTRO) {
     jobs.push({ id_job: nid++, grupo: 'o', clave: k, tipo: 'objeto', id: d.id, v, seed: 1, cuadros: CUADROS_MAX ? Math.min(CUADROS_MAX, d.cuadros ?? 1) : d.cuadros ?? 1 });
   }
 }
-if (GRUPOS.includes('p')) for (const p of PISOS) for (let v = 0; v < p.variantes; v++) jobs.push({ id_job: nid++, grupo: 'p', clave: `${p.id}|${v}`, tipo: 'piso', id: p.id, v, cuadros: p.cuadros ?? 1 });
+if (GRUPOS.includes('p')) for (const p of PISOS) if (!SOLO || SOLO.includes(p.id)) for (let v = 0; v < p.variantes; v++) jobs.push({ id_job: nid++, grupo: 'p', clave: `${p.id}|${v}`, tipo: 'piso', id: p.id, v, cuadros: p.cuadros ?? 1 });
 
 console.log('trabajos', jobs.length);
 const resultados = new Map<number, any[]>();
@@ -221,7 +221,7 @@ for (const g of GRUPOS) {
   for (const [sk, its] of porSub) {
     its.sort((a, b) => b.c.h - a.c.h);
     const prefijo = (SOLO ? `${g}${Date.now().toString(36)}_` : `${g}_`) + sk + '_';
-    let atlas: { nombre: string; buf: Uint8Array; x: number; y: number; filaH: number; usadoH: number; usadoW: number } | null = null;
+    let atlas: { nombre: string; buf: Uint8Array; bufN?: Uint8Array; bufH?: Uint8Array; x: number; y: number; filaH: number; usadoH: number; usadoW: number } | null = null;
     let na = 0;
     const cerrar = () => {
       if (!atlas) return;
@@ -231,6 +231,14 @@ for (const g of GRUPOS) {
       const buf = png(w, h, recorte);
       writeFileSync(join(SALIDA, atlas.nombre + '.png'), buf);
       man.atlas[atlas.nombre] = [atlas.nombre + '.png', w, h];
+      // laboratorio de luz: los gemelos de relieve y de alto, con el mismo acomodo
+      for (const [suf, b] of [['_n', atlas.bufN], ['_h', atlas.bufH]] as const) {
+        if (!b) continue;
+        const rc = new Uint8Array(w * h * 4);
+        for (let y = 0; y < h; y++) rc.set(b.subarray(y * LADO * 4, y * LADO * 4 + w * 4), y * w * 4);
+        writeFileSync(join(SALIDA, atlas.nombre + suf + '.png'), png(w, h, rc));
+        (man.rel ??= {})[atlas.nombre + suf] = [atlas.nombre + suf + '.png', w, h];
+      }
       console.log('atlas', atlas.nombre, w, h, (buf.length / 1024).toFixed(0) + 'KB');
       atlas = null;
     };
@@ -242,6 +250,8 @@ for (const g of GRUPOS) {
       if (a.x + c.w + 1 > LADO) { a.x = 0; a.y += a.filaH + 1; a.filaH = 0; }
       if (a.y + c.h + 1 > LADO) { nuevo(); a = atlas!; }
       for (let y = 0; y < c.h; y++) a.buf.set(c.data.subarray(y * c.w * 4, (y + 1) * c.w * 4), ((a.y + y) * LADO + a.x) * 4);
+      if (c.rel) { a.bufN ??= new Uint8Array(LADO * LADO * 4); for (let y = 0; y < c.h; y++) a.bufN.set(c.rel.subarray(y * c.w * 4, (y + 1) * c.w * 4), ((a.y + y) * LADO + a.x) * 4); }
+      if (c.alt) { a.bufH ??= new Uint8Array(LADO * LADO * 4); for (let y = 0; y < c.h; y++) a.bufH.set(c.alt.subarray(y * c.w * 4, (y + 1) * c.w * 4), ((a.y + y) * LADO + a.x) * 4); }
       const e: any[] = [a.nombre, a.x, a.y, c.w, c.h, c.ax, c.ay];
       if (c.hoja) e.push(...c.hoja);
       (listas[it.j.clave] ??= [])[it.f] = e;

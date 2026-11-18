@@ -159,6 +159,16 @@ export function clavesCon(grupo: 'h' | 'm' | 'p' | 'o' | 'i' | 'w', prefijo: str
 }
 
 /** Dibuja un cuadro con el ancla en (x, y). Devuelve si se pudo (el atlas puede estar bajando). */
+// ---------------- laboratorio de luz: los atlas gemelos de relieve (_n) y alto (_h), y el gancho que los dibuja en paralelo
+const rels = new Map<string, HTMLImageElement | null>();
+/** La imagen de un atlas de relieve si ya está bajada (la pide la primera vez). */
+export function relDe(nombre: string): HTMLImageElement | null {
+  const r = rels.get(nombre); if (r !== undefined) return r && r.complete && r.naturalWidth ? r : null;
+  const a = (man as any)?.rel?.[nombre]; if (!a) { rels.set(nombre, null); return null; }
+  const im = new Image(); im.src = BASE + a[0]; rels.set(nombre, im); return null;
+}
+let gancho: ((c: CanvasRenderingContext2D, q: Cuadro, im: CanvasImageSource, x: number, y: number, escala: number) => void) | null = null;
+export const fijarGanchoRelieve = (f: typeof gancho) => { gancho = f; };
 export function dibujar(c: CanvasRenderingContext2D, q: Cuadro | undefined, x: number, y: number, escala = 1): boolean {
   if (!q) return false;
   let im = q.img;
@@ -166,6 +176,7 @@ export function dibujar(c: CanvasRenderingContext2D, q: Cuadro | undefined, x: n
   usado.set(q.atlas, ahoraCuadro);
   if (escala === 1) c.drawImage(im, q.x, q.y, q.w, q.h, Math.round(x - q.ax), Math.round(y - q.ay), q.w, q.h);
   else c.drawImage(im, q.x, q.y, q.w, q.h, x - q.ax * escala, y - q.ay * escala, q.w * escala, q.h * escala);
+  if (gancho) gancho(c, q, im, x, y, escala);
   return true;
 }
 
@@ -184,6 +195,7 @@ export function dibujarTenido(c: CanvasRenderingContext2D, q: Cuadro | undefined
   tctx.globalAlpha = k; tctx.fillStyle = color; tctx.fillRect(0, 0, q.w, q.h); tctx.globalAlpha = 1;
   tctx.globalCompositeOperation = 'source-over';
   c.drawImage(tmp, 0, 0, q.w, q.h, x - q.ax * escala, y - q.ay * escala, q.w * escala, q.h * escala);
+  if (gancho) gancho(c, { ...q, atlas: '' }, im, x - 1e-6, y, escala === 1 ? 1.000001 : escala);
   return true;
 }
 /** Silueta para sombras y fantasmas: todo el sprite de un color. */

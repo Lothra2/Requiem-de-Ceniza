@@ -702,6 +702,8 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
     // y el que muere sale despedido lejos del golpe (los jefes no)
     if (g.deHeroe && g.fuente === h && total > 0) {
       const S = SENSACION[h.d.clase], dxm = m.x - h.x, dym = m.y - h.y, dm = Math.hypot(dxm, dym) || 1, mata = m.vida <= 0;
+      // (solo lo que se ve: el arma viva revienta su materia en el blanco, lo dibuja escena.ts)
+      if (g.arma && h.c.vivo && dm < 3.4 && ((j as any).golpesVivos?.length ?? 0) < 8) ((j as any).golpesVivos ??= []).push({ x: m.x, y: m.y, el: h.c.vivo, fuerte: crit || m.vida <= 0, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40) });
       if (S && g.arma && dm < 3.4) {
         const f = (crit ? 1.5 : 1) * (mata ? 1.35 : 1) * (g.parte !== undefined && g.parte < 2 ? 0.5 : 1);
         j.congela = Math.max(j.congela ?? 0, Math.min(0.12, S.pausa * f));

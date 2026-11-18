@@ -1,5 +1,5 @@
 // Obrero del navegador: pinta los cuadros del héroe con el equipo que lleva puesto.
-import { personajeEscena, esqueleto } from '../../../src/engine/gotico/cuerpo';
+import { personajeEscena, esqueleto, filoDe } from '../../../src/engine/gotico/cuerpo';
 import { pintarEscena, aPantalla, fijarCalidad } from '../../../src/engine/gotico/render';
 import { hojaDe } from './hoja';
 import { tinte } from '../../../src/engine/gotico/apariencia';
@@ -43,7 +43,7 @@ self.onmessage = (ev: MessageEvent) => {
       const w = x1 - x0 + 1, h = y1 - y0 + 1, d = new Uint8ClampedArray(w * h * 4);
       for (let y = 0; y < h; y++) d.set(img.data.subarray(((y0 + y) * img.w + x0) * 4, ((y0 + y) * img.w + x1 + 1) * 4), y * w * 4);
       const recorte = (src?: { data: Uint8ClampedArray }) => { if (!src) return undefined; const q = new Uint8ClampedArray(w * h * 4); for (let y = 0; y < h; y++) q.set(src.data.subarray(((y0 + y) * img.w + x0) * 4, ((y0 + y) * img.w + x1 + 1) * 4), y * w * 4); bufs.push(q.buffer as ArrayBuffer); return q; };
-      out.push({ w, h, ax: r.ancla[0] - x0, ay: r.ancla[1] - y0, data: d, hoja: hojaDe(esqueleto, aPantalla, cuerpo, equipo, dir, acc, f), rel: recorte(r.rel), alt: recorte(r.alt) });
+      out.push({ w, h, ax: r.ancla[0] - x0, ay: r.ancla[1] - y0, data: d, hoja: hojaDe(esqueleto, aPantalla, cuerpo, equipo, dir, acc, f, filoDe as any), rel: recorte(r.rel), alt: recorte(r.alt) });
       bufs.push(d.buffer as ArrayBuffer);
     }
     (self as any).postMessage({ id, acc, dir, out, clave }, bufs);

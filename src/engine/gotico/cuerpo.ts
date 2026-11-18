@@ -2296,7 +2296,7 @@ function varaDe(e: Esqueleto, m: V3, lg: number): [V3, V3, V3] {
 }
 
 /** El tramo vivo del arma (la hoja, la cabeza o la gema) desde la mano a lo largo de su eje. */
-function filoDe(e: Esqueleto, tipo: TipoArma, b: Brazo): [V3, V3] {
+export function filoDe(e: Esqueleto, tipo: TipoArma, b: Brazo): [V3, V3] {
   const S = e.S, en = (k: number) => add(b.mano, b.eje, k * S);
   switch (tipo) {
     case 'espada': case 'cimitarra': return [en(2), en(23)];

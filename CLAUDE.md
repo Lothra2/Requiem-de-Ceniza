@@ -105,11 +105,25 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 
 ## Armas vivas, cofres, poderes y siluetas
 
-- **Armas vivas** (`juego/src/render/arma_viva.ts`): cada elemento tiene su derrame (brasas, vaho, arcos, gotas, humo,
-  rayos) y los cetros, báculos y varitas llevan un orbe de poder en la cabeza. Las únicas y legendarias sin `vivo` toman
-  el elemento de su daño elemental más alto (`vivoPorStats` en `heroe.ts`, solo visual) o el brillo de filo. Todo va
-  pegado al arma: no tapar al héroe. Se revisa con una lámina de los ocho elementos (cambiar `equipo.arma.vivo` y
-  volver a `calcular`).
+- **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de
+  Doom teñida, tapaba la hoja, se pintaba encima del héroe de espaldas y se apagaba justo al pegar). Todo va sobre el
+  **tramo vivo** que arma el motor (`filoDe` en `cuerpo.ts`: la hoja, la cabeza del hacha o la maza, el remate del báculo,
+  la gema de la varita), que el pintor guarda en `hoja[5..8]` junto con la **máscara** de tramos que se ven (`hoja[4]`,
+  `motor/hoja.ts`): lo que pasa por detrás del cuerpo no se dibuja. Capas: el filo encendido a puntos enteros (con su
+  latido por elemento), la forma del elemento (fuego y sombra: la llama de Doom en una grilla fija por portador,
+  `armaArdeViva` en `fuego_especial.ts`, donde solo cambia dónde nace el calor, así sigue viva en el golpe y deja su cola;
+  escarcha: cristales en el filo, vaho que cae y destellos; rayo: arcos quebrados por el filo, a tierra y chispas; veneno:
+  perlas que corren, gota que se junta y cae, miasma y burbujas; luz: runas y estrella en la punta; sangre: latido y
+  goteo), lo que suelta en el vuelo (queda atrás en el mundo), el estallido al conectar (`golpeVivo`, lo pide
+  `danar` con `golpesVivos`, solo visual) y la luz en la hoja (`luzViva`, la lee `luces.ts`: contenida quieto, entera
+  pegando, y un fogonazo corto en el blanco). El arco del golpe (`estelaArma`) toma la materia del elemento
+  (`estiloEstela`). Los cetros, báculos y varitas llevan un orbe con volumen (canto oscuro, núcleo corrido a la luz,
+  brillo duro, motas por delante y por detrás). Los enemigos encantados, campeones, únicos y jefes con arma de elemento
+  la llevan también (`elemMonstruo`, más contenida, sin luz, seis a la vez como mucho). Las únicas y legendarias sin
+  `vivo` toman el elemento de su daño elemental más alto (`vivoPorStats` en `heroe.ts`, solo visual) o el brillo de filo.
+  Prueba: `t870_armas_vivas.cjs <clase> <fam,...> [etiqueta]` (`ELEMS`, `DIRS`, `BLANCO=1` pega a un zombi) y las láminas
+  con `t870_lamina.py` en `/tmp/requiem-pruebas/armas`. `__sinDerrame`, `__sinLlamaArma` y `__sinVivaMonstruos` apagan
+  partes para comparar.
 - **Cofres**: se abren con sus propios cuadros (`abriendo`), nunca con un efecto que traiga otro cofre. La luz
   (`luzCofre` en `escena.ts`) se dibuja con el cofre en el orden de fondo: el héroe parado delante la tapa.
 - **Grano de los efectos**: `dibujarPfx` no agranda un efecto a más de 2 puntos de pantalla por punto del dibujo. No

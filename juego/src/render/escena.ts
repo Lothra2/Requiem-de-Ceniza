@@ -20,7 +20,7 @@ import { cuadrosVivos, cuadrosFinos, cambioVisible, FINO_RUMBOS } from '../motor
 import { energiaSuelo, energiaAire, itemsEnergia } from './energia';
 import { dibujarMarca } from './marcas';
 import { R, rng } from '../nucleo/azar';
-import { derrameArma, dibujarDerrames, luzPisoArma, type ElemArma } from './arma_viva';
+import { armaViva, dibujarDerrames, luzPisoArma, golpeVivo, estiloEstela, luzViva, LUZ_RGB, elemMonstruo, mascaraMonstruo, llamaArmaAtras, type ElemArma } from './arma_viva';
 import { auraEquipo } from '../juego/visual';
 import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from './fuego';
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
@@ -28,7 +28,7 @@ import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
-import { cuerpoArde, armaArde, seguirSuelo, itemsSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
+import { cuerpoArde, seguirSuelo, itemsSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
 let dtCuadro = 1 / 60;
 // bruma de altura: cada cuadro alto se pinta una vez con el degradado del color de la niebla de la zona
 let colorBruma = '78,82,96', anclasCuadro: { q: Cuadro; br: HTMLCanvasElement | null; px: number; py: number }[] = [], esAncla = new Set<object>();
@@ -147,25 +147,7 @@ export function framesMonstruo(sprite: string, acc: string, dir: string): Cuadro
 }
 
 
-// chispas de las armas vivas (en pantalla)
-const chispas: { x: number; y: number; vx: number; vy: number; t: number; c: string }[] = [];
-const COLOR_VIVO: Record<string, [string, string]> = { fuego: ['#ff7020', '#ffd060'], frio: ['#60b0ff', '#e0f8ff'], rayo: ['#a0a0ff', '#ffffff'], veneno: ['#40c040', '#c0ff80'], sombra: ['#6020a0', '#c080ff'], luz: ['#ffe080', '#ffffff'], sangre: ['#a00010', '#ff4040'] };
-function armaViva(q: Cuadro, x: number, y: number, elem: string, t: number) {
-  if (!q.hoja) return;
-  const [a, b] = COLOR_VIVO[elem] ?? COLOR_VIVO.fuego;
-  const x0 = x + q.hoja[0], y0 = y + q.hoja[1], x1 = x + q.hoja[2], y1 = y + q.hoja[3];
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createLinearGradient(x0, y0, x1, y1); g.addColorStop(0, a + '00'); g.addColorStop(0.5, a + '80'); g.addColorStop(1, b + 'a0');
-  ctx.strokeStyle = g; ctx.lineWidth = 4 + Math.sin(t * 20) * 1.5; ctx.lineCap = 'round';
-  ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-  ctx.restore();
-  for (let k = 0; k < 2; k++) if (R() < 0.7 && chispas.length < 200) {
-    const u = R();
-    chispas.push({ x: x0 + (x1 - x0) * u, y: y0 + (y1 - y0) * u, vx: (R() - 0.5) * 20, vy: elem === 'frio' ? 10 : -20 - R() * 30, t: 0.4 + R() * 0.4, c: R() < 0.5 ? a : b });
-  }
-}
-
-let camAlzada = 0, camJefe = 0;
+let camAlzada = 0, camJefe = 0, vivasMonstruo = 0;
 /** La puerta abierta de la catedral: un cono de luz roja que sale sobre el piso hacia +y y brasas y ceniza que salen y suben. */
 function puertaCatedral(j: Juego, dt: number, t: number) {
   for (const sa of j.zona.salidas) {
@@ -241,7 +223,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   }
   if (foco.k > 0) { const k = foco.k * foco.k * (3 - 2 * foco.k); cam.x += ((foco.x - foco.y) * 16 - camS.x) * k; cam.y += ((foco.x + foco.y) * 8 - 60 - camS.y + camAlzada) * k; }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-  picks = [];
+  picks = []; vivasMonstruo = 0;
   prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
   colorBruma = '96,100,108'; anclasCuadro = []; esAncla = new Set(z.salidas.flatMap((sa) => sa.piezas ?? []));
   recolectar(j, tiempo, aPant, W, H);
@@ -547,7 +529,10 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // los de mucha materia (sangre, hueso, humo, flechas) van con alfa normal: sumados se pierden
   const mezclar = (id: string) => { ctx.globalCompositeOperation = LUZ_EFECTO[id]?.mezcla === 'normal' ? 'source-over' : 'lighter'; };
   for (const e of j.efectos) { if (((e as any).partido && !(window as any).__sinPartir) || enOrden(e)) continue; mezclar(e.id); dibujarEfecto(e, tiempo); }
-  { const [ox, oy] = aPant(0, 0); dibujarDerrames(ctx, ox, oy, dtCuadro); }
+  { const [ox, oy] = aPant(0, 0), gv = (j as any).golpesVivos as { x: number; y: number; el: ElemArma; fuerte: boolean; alto: number }[] | undefined;
+    // los golpes del arma viva que conectaron este cuadro revientan en el blanco, a la altura del pecho
+    if (gv?.length) { for (const g of gv) { const [gx, gy] = aPant(g.x, g.y); golpeVivo(g.el, gx, gy - g.alto, ox, oy, gy, g.fuerte); luzViva.golpe = { x: gx - ox, y: gy - oy, t: tiempo, c: LUZ_RGB[g.el] }; } gv.length = 0; }
+    dibujarDerrames(ctx, ox, oy, dtCuadro); }
   energiaAire(ctx, j, aPant, W, H);
   // cuervos
   for (const c of j.cuervos) { const [px, py] = aPant(c.x, c.y); ctx.globalCompositeOperation = 'source-over'; pajaro(px, py - 50 - Math.sin(tiempo * 9 + c.ang) * 6, tiempo + c.ang); ctx.globalCompositeOperation = 'lighter'; }
@@ -562,10 +547,6 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     else ctx.fillRect(px - p.tam / 2, py - p.z - p.tam / 2, p.tam, p.tam);
   }
   ctx.globalAlpha = 1;
-  // chispas de armas vivas
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (let i = chispas.length - 1; i >= 0; i--) { const c = chispas[i]; c.t -= dt; c.x += c.vx * dt; c.y += c.vy * dt; if (c.t <= 0) { chispas.splice(i, 1); continue; } ctx.globalAlpha = Math.min(1, c.t * 2); ctx.fillStyle = c.c; ctx.fillRect(c.x, c.y, 2, 2); }
-  ctx.restore();
   // bruma baja al pie de la catedral, y después la luz
   brumaAncla(j);
   dibujarLuz(j, tiempo);
@@ -746,7 +727,6 @@ function esDePiso(e: Efecto): boolean {
  * claro en la hoja mientras baja. Del color del arma viva, o acero. Va para el héroe y para todo enemigo con arma.
  */
 const estelas = new WeakMap<object, { s: [number, number, number, number, number][]; ult: string; atq: number }>();
-const COLOR_ESTELA: Record<string, string> = { fuego: '255,150,60', frio: '150,210,255', rayo: '220,220,255', veneno: '150,255,110', sombra: '190,120,255', luz: '255,236,170', sangre: '255,80,70' };
 function estelaArma(j: Juego, e: Ent, q: Cuadro, px: number, py: number, esc: number, tiempo: number) {
   const h = q.hoja!, melee = e.acc === 'atacar' && !(e as any).aDist && !(e.tipo === 'heroe' && j.heroe.c.distancia);
   let st = estelas.get(e);
@@ -763,7 +743,9 @@ function estelaArma(j: Juego, e: Ent, q: Cuadro, px: number, py: number, esc: nu
     if (e.t < 0.05 && st.atq !== Math.floor(tiempo * 4)) { st.s.length = 0; st.atq = Math.floor(tiempo * 4); }
     if (k !== st.ult) { st.ult = k; st.s.push([x0, y0, x1, y1, tiempo]); if (st.s.length > 7) st.s.shift(); }
   }
-  const DUR = 0.2, rgb = (e.tipo === 'heroe' && j.heroe.c.vivo && COLOR_ESTELA[j.heroe.c.vivo]) || (e.tipo === 'heroe' ? '235,240,255' : '255,214,190');
+  // con arma viva el arco es de su materia: cuerpo del color del elemento, más espeso, y el filo de su color caliente
+  const viva = e.tipo === 'heroe' && j.heroe.c.vivo ? estiloEstela(j.heroe.c.vivo) : null;
+  const DUR = viva ? 0.24 : 0.2, rgb = viva?.cuerpo ?? (e.tipo === 'heroe' ? '235,240,255' : '255,214,190'), filo = viva?.filo ?? '255,255,255', kv = viva ? viva.k : 1;
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   if ((st as any).puno) {
     // el golpe de puño: tres líneas de velocidad detrás del puño en el cuadro en que sale, y un destello chico en el nudillo
@@ -789,9 +771,9 @@ function estelaArma(j: Juego, e: Ent, q: Cuadro, px: number, py: number, esc: nu
       const u0 = n / N, u1 = (n + 1) / N, k = al * (0.25 + 0.75 * u1 * u1);
       const [ax, ay] = pt(u0, 0.45), [bx, by] = pt(u0, 1), [cx, cy] = pt(u1, 1), [dx, dy] = pt(u1, 0.45);
       const g = ctx.createLinearGradient((ax + dx) / 2, (ay + dy) / 2, (bx + cx) / 2, (by + cy) / 2);
-      g.addColorStop(0, `rgba(${rgb},0)`); g.addColorStop(1, `rgba(${rgb},${0.62 * k})`);
+      g.addColorStop(0, `rgba(${rgb},0)`); if (viva) g.addColorStop(0.72, `rgba(${rgb},${0.26 * k * kv})`); g.addColorStop(1, `rgba(${viva ? viva.centro : rgb},${Math.min(1, 0.62 * k * kv)})`);
       ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.lineTo(cx, cy); ctx.lineTo(dx, dy); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = `rgba(255,255,255,${0.8 * k})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(cx, cy); ctx.stroke();
+      ctx.strokeStyle = `rgba(${filo},${Math.min(1, 0.8 * k * kv)})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(cx, cy); ctx.stroke();
     }
   }
   ctx.restore();
@@ -987,6 +969,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   }
   // la mitad de atrás del aura va antes del cuerpo
   if (e.tipo === 'heroe' && !e.muerto) auraHeroe(j, px, py, tiempo, true);
+  // la llama del arma viva va detrás del cuerpo (el filo encendido va encima, después)
+  if (e.tipo === 'heroe' && !e.muerto && q.hoja && j.heroe.c.vivo && !(window as any).__sinDerrame) { const [ox, oy] = aPant(0, 0); llamaArmaAtras(ctx, e, q, px, py, esc, j.heroe.c.vivo as ElemArma, j.heroe.c.tipoArma, tiempo, dtCuadro, ox, oy); }
   let ok: boolean;
   // estados de pixelfx: el primero tiñe el cuerpo, todos van en bucle encima
   const ests = e.muerto ? [] : estadosPfx(e as any);
@@ -1073,13 +1057,20 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   }
   // el arco del arma: lo que barre la hoja entre un cuadro y el siguiente queda dibujado un instante
   if (ok && !e.muerto && q.hoja && !(window as any).__sinEstela) estelaArma(j, e, q, px, py, esc, tiempo);
-  // arma viva del héroe
-  if (ok && e.tipo === 'heroe' && j.heroe.c.vivo && !e.muerto && !armaArde(ctx, q, px, py, j.heroe.c.vivo, dtCuadro)) armaViva(q, px, py, j.heroe.c.vivo, tiempo);
-  // el derrame propio del arma: brasas, vaho, arcos, gotas, humo o rayos según su elemento, y el orbe de los cetros.
-  // Las únicas y legendarias sin elemento llevan el brillo que recorre el filo
+  // el arma viva: el filo encendido, la forma de su elemento pegada a la hoja, lo que suelta en el vuelo y el orbe de los
+  // cetros. Las únicas y legendarias sin elemento llevan el brillo que recorre el filo
   if (ok && e.tipo === 'heroe' && !e.muerto && q.hoja && !(window as any).__sinDerrame) {
     const ar = j.heroe.d.equipo.arma as any, el = (j.heroe.c.vivo ?? (ar && (ar.rareza === 'unico' || ar.rareza === 'legendario') ? 'acero' : null)) as ElemArma | null;
-    if (el && el !== ('fisico' as any)) { const [ox, oy] = aPant(0, 0); derrameArma(ctx, [px + q.hoja[0], py + q.hoja[1], px + q.hoja[2], py + q.hoja[3]], py, ox, oy, el, j.heroe.c.tipoArma, tiempo, dtCuadro); }
+    if (el && el !== ('fisico' as any)) { const [ox, oy] = aPant(0, 0); armaViva(ctx, e as any, q, px, py, esc, el, j.heroe.c.tipoArma, tiempo, dtCuadro, ox, oy, 1, true); }
+  }
+  // (prueba: la hoja en magenta y el tramo vivo en verde, con lo tapado más oscuro)
+  if (ok && q.hoja && (window as any).__verHoja && e.tipo === 'heroe') { const h = q.hoja as number[]; ctx.save(); ctx.globalAlpha = 1; ctx.fillStyle = '#ff00ff'; ctx.fillRect(px + h[0], py + h[1], 1, 1); ctx.fillRect(px + h[2], py + h[3], 1, 1);
+    if (h.length >= 9) for (let i = 0; i <= 12; i++) { const u = i / 12, s2 = Math.min(5, Math.floor(u * 6)); ctx.fillStyle = (h[4] >> s2) & 1 ? '#00ff00' : '#006000'; ctx.fillRect(Math.round(px + h[5] + (h[7] - h[5]) * u), Math.round(py + h[6] + (h[8] - h[6]) * u), 1, 1); } ctx.restore(); }
+  // los enemigos con arma de elemento (encantados, campeones, únicos y jefes con arma en la mano) la llevan viva también,
+  // más contenida y sin luz propia, y como mucho seis a la vez
+  if (ok && e.tipo === 'monstruo' && !e.muerto && !(e as any).dueno && q.hoja && !(window as any).__sinVivaMonstruos && vivasMonstruo < (E.tactil ? 3 : 6) && Math.hypot((q.hoja[2] - q.hoja[0]) * esc, (q.hoja[3] - q.hoja[1]) * esc) >= 10) {
+    const el = elemMonstruo(m);
+    if (el) { vivasMonstruo++; const [ox, oy] = aPant(0, 0); armaViva(ctx, e as any, q, px, py, esc, el, '', tiempo, dtCuadro, ox, oy, 0.6, false, mascaraMonstruo(q, px, py, esc, e.dir)); }
   }
   // aura del héroe: la mitad de adelante, encima del cuerpo
   if (e.tipo === 'heroe' && !e.muerto) auraHeroe(j, px, py, tiempo, false);

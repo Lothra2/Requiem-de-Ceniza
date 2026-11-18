@@ -17,7 +17,8 @@ import { vivosDe } from './fuego_vivo';
 import { efectoPfx } from './pfx';
 /** La luz de un poder: la tabla de la Forja o, si es de pixelfx, la que trae el efecto. */
 const luzDe = (id: string): any => (id.startsWith('pfx:') ? efectoPfx(id.slice(4))?.luz : LUZ_EFECTO[id]);
-import { pulsosOzmaren, pulsoArma, lucesSuelo } from './fuego_especial';
+import { pulsosOzmaren, lucesSuelo } from './fuego_especial';
+import { luzViva } from './arma_viva';
 import { pulsoLuz } from '../../../src/engine/gotico/fuego_doom';
 
 export interface Luz {
@@ -78,13 +79,18 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     const nv = (h.d.equipo.arma?.vis?.nivel ?? (h.d.equipo.arma ? (baseDeObj(h.d.equipo.arma) as any)?.arsenal?.nivel : undefined) ?? 3) as number;
     const la = ENC[h.c.vivo] ? luzDeArma(ENC[h.c.vivo] as any, nv) : null;
     if (la) {
-      const c = hexRgb(la.color);
-      L.push({ id: 'mano', x: hx + 10, y: hy, h: 42, r: la.radio, c, k: Math.min(1, la.intensidad * pulsoArma), de: h, prio: 1 });
+      // en la hoja (la pone arma_viva.ts cada cuadro): contenida quieto y entera pegando, titilando según su elemento
+      const c = hexRgb(la.color), v = luzViva.on, [ox, oy] = aPant(0, 0);
+      L.push({ id: 'mano', x: v ? ox + luzViva.x : hx + 10, y: v ? oy + luzViva.y : hy, h: v ? luzViva.h : 42, r: la.radio, c, k: Math.min(1, la.intensidad * (v ? luzViva.k : 0.85)), de: h, prio: 1 });
     } else {
       const cv = COLOR_ELEM[h.c.vivo === 'luz' ? 'sagrado' : h.c.vivo] ?? COLOR_ELEM.fuego;
       L.push({ x: hx + 10, y: hy, h: 40, r: 120, c: cv, k: 0.55 + Math.sin(t * 13) * 0.08, de: h, sinSombra: true });
     }
   }
+  // el golpe del arma viva que conecta: un fogonazo corto de su color en el blanco
+  const gv = luzViva.golpe, eg = gv ? t - gv.t : 9;
+  luzViva.on = false;
+  if (gv && eg >= 0 && eg < 0.16) { const [ox, oy] = aPant(0, 0); L.push({ x: ox + gv.x, y: oy + gv.y, h: 30, r: 110, c: gv.c, k: 0.75 * (1 - eg / 0.16), sinSombra: true }); }
   // equipo legendario: el héroe mismo da una luz de su color
   const au = auraEquipo(h.d.equipo as any);
   if (au) L.push({ x: hx, y: hy, h: 45, r: 110 + au.k * 70, c: au.color, k: (0.35 + au.k * 0.35) * (0.85 + Math.sin(t * 3) * 0.15), de: h, sinSombra: true });

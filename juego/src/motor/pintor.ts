@@ -40,10 +40,10 @@ export const cuadrosDeFirma = (firma: string, acc: string, dir: string) => (firm
 let firmaVivos = '';
 export const cuadrosVivos = (acc: string, dir: string) => (accListas.has(acc) ? nuevosVivos?.get(acc + '/' + dir) : null) ?? vivos?.get(acc + '/' + dir) ?? (vivos ? null : nuevosVivos?.get(acc + '/' + dir)) ?? null;
 
+const lienzoDe = (data: any, w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(data), w, h), 0, 0); return c; };
 function aCuadro(f: any): Cuadro {
-  const c = document.createElement('canvas'); c.width = f.w; c.height = f.h;
-  c.getContext('2d')!.putImageData(new ImageData(new Uint8ClampedArray(f.data), f.w, f.h), 0, 0);
-  return { img: c, atlas: '', x: 0, y: 0, w: f.w, h: f.h, ax: f.ax, ay: f.ay, hoja: f.hoja };
+  // (con la luz por GPU cada cuadro pintado trae también su relieve y su alto)
+  return { img: lienzoDe(f.data, f.w, f.h), atlas: '', x: 0, y: 0, w: f.w, h: f.h, ax: f.ax, ay: f.ay, hoja: f.hoja, rel: f.rel ? lienzoDe(f.rel, f.w, f.h) : undefined, alt: f.alt ? lienzoDe(f.alt, f.w, f.h) : undefined };
 }
 
 // ---------------- IndexedDB (si no hay, se pinta igual)

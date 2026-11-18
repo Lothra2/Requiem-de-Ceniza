@@ -7,6 +7,8 @@ export interface Cuadro {
   ax: number; ay: number;
   /** Hoja del arma (de la mano a la punta) relativa al ancla, si es personaje. */
   hoja?: [number, number, number, number];
+  /** Luz por GPU: relieve y alto del cuadro pintado en vivo (los horneados los traen en sus atlas gemelos). */
+  rel?: CanvasImageSource; alt?: CanvasImageSource;
 }
 export interface ObjMeta { f: Cuadro[]; t: number; hu: [number, number]; b: number; tema: string; luz: [number, string, number] | 0; plano: number }
 interface Manifiesto { atlas: Record<string, [string, number, number]>; h: Record<string, any[]>; m: Record<string, any[]>; o: Record<string, any>; p: Record<string, any[]>; i?: Record<string, any[]>; w?: Record<string, any[]>; wm?: Record<string, any>; r?: Record<string, any[]>; za?: Record<string, number> }

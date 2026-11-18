@@ -4,6 +4,7 @@ import { equipoVisual, firmaVisual, cuerpoDe } from '../juego/heroe';
 import { abrirExportar, abrirImportar, abrirCopias } from './traslado';
 import { renglonMenu } from '../nucleo/instalar';
 import { acc } from '../nucleo/accesible';
+import { lab, hayGPU } from '../render/luz_gpu';
 import { ctx, W, H, E, RES, vistaActual, fijarVista } from '../nucleo/lienzo';
 import { texto, T, TT, IDI, boton, dentro, envolver, TITULO, fijarIdioma } from './comun';
 import { cuadrosHeroe, cuadrosPiso, variantePiso, cuadrosRetrato, RETRATO_ALTO, objetoMeta, dibujar, dibujarTenido, cuadrosMonstruo } from '../motor/assets';
@@ -16,9 +17,9 @@ import { R, rng } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
 import { dibujarPortada, tituloFijo, dibujarCarta, prepararCarta } from './portada';
 
-export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number; temblor?: number; destellos?: 0 | 1 }
+export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number; temblor?: number; destellos?: 0 | 1; luz?: 0 | 1 }
 export const opciones: Opciones = { general: 0.8, musica: 0.6, efectos: 0.8, horror: 0.8, idioma: 0, brillo: 1, temblor: 1, destellos: 0 };
-const fijarAcc = () => { acc.temblor = Math.max(0, Math.min(1, opciones.temblor ?? 1)); acc.destellos = opciones.destellos ? 0.3 : 1; };
+const fijarAcc = () => { acc.temblor = Math.max(0, Math.min(1, opciones.temblor ?? 1)); acc.destellos = opciones.destellos ? 0.3 : 1; lab.on = hayGPU && (opciones.luz ?? 1) === 1; };
 export function cargarOpciones() { try { Object.assign(opciones, JSON.parse(localStorage.getItem('marca.opciones') ?? '{}')); } catch { /* nada */ } fijarIdioma(opciones.idioma); aplicarVolumen(); fijarAcc(); }
 export function guardarOpciones() { fijarAcc(); try { localStorage.setItem('marca.opciones', JSON.stringify(opciones)); } catch { /* nada */ } }
 export const aplicarVolumen = () => Sonido.volumen(opciones.general, opciones.musica, opciones.efectos, opciones.horror ?? 0.8);
@@ -510,7 +511,7 @@ const opcP = { agarra: '' };
 export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   const chico = H < 520;
   if (fondo) { fondoVigilia(t, W / 2, H * 0.62, 320); brasas(t, 22); } else { ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.fillRect(0, 0, W, H); }
-  const fh = chico ? (H < 420 ? 25 : 28) : H < 760 ? 38 : 44, w = Math.min(W - 24, chico ? 560 : 600), cab = chico ? 44 : 74, pie = chico ? 46 : 70, h = Math.min(H - 12, cab + fh * 11 + (chico ? 10 : 34) + pie), x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
+  const fh = chico ? (H < 420 ? 23 : 27) : H < 800 ? 36 : 44, w = Math.min(W - 24, chico ? 560 : 600), cab = chico ? 44 : 74, pie = chico ? 46 : 70, h = Math.min(H - 12, cab + fh * 12 + (chico ? 10 : 34) + pie), x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
   const pant: Record<string, [number, number]> = ((window as any).__pantalla = {});
   // la losa: esquinas cortadas, hierro oscuro, doble filo de oro y rombos en los cuatro costados
   const c = 14, losa = (m: number) => { ctx.beginPath(); ctx.moveTo(x + c + m, y + m); ctx.lineTo(x + w - c - m, y + m); ctx.lineTo(x + w - m, y + c + m); ctx.lineTo(x + w - m, y + h - c - m); ctx.lineTo(x + w - c - m, y + h - m); ctx.lineTo(x + c + m, y + h - m); ctx.lineTo(x + m, y + h - c - m); ctx.lineTo(x + m, y + c + m); ctx.closePath(); };
@@ -562,6 +563,9 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   // la vista: cuánto se acerca la cámara (el héroe y el mundo más grandes; se ve menos alrededor)
   const lv = llave(T('Vista', 'View'), [T('Lejos', 'Far'), T('Cerca', 'Near'), T('Muy cerca', 'Closest')], vistaActual(), 'vista');
   if (lv !== null) { opciones.vista = lv; guardarOpciones(); fijarVista(lv); E.clicIzq = false; }
+  // la luz: clásica (la de siempre) o avanzada (cada fuego ilumina los cuerpos y los muros según su relieve; tarjeta gráfica)
+  const lz = llave(T('Luz', 'Light'), [T('Clásica', 'Classic'), hayGPU ? T('Avanzada', 'Advanced') : T('Sin GPU', 'No GPU')], hayGPU && (opciones.luz ?? 1) === 1 ? 1 : 0, 'luz');
+  if (lz !== null && (lz === 0 || hayGPU)) { opciones.luz = lz as 0 | 1; guardarOpciones(); E.clicIzq = false; }
   const ld = llave(T('Destellos', 'Flashes'), [T('Normales', 'Normal'), T('Suaves', 'Soft')], opciones.destellos ? 1 : 0, 'destellos');
   if (ld !== null) { opciones.destellos = ld as 0 | 1; guardarOpciones(); E.clicIzq = false; }
   const completa = typeof document !== 'undefined' && !!document.fullscreenElement;

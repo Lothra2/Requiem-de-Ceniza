@@ -247,6 +247,16 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   //  en medio de una pantalla negra. Bajo tierra se sigue descubriendo de a poco: 22 casillas)
   const rv = (window as any).__rv ?? (z.tipo === 'mazmorra' ? 20 : 38);
   for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const X = btx + dx, Y = bty + dy; if (X >= 0 && Y >= 0 && X < z.tw && Y < z.th && dx * dx + dy * dy <= rv) z.explorado[Y * z.tw + X] = 1; }
+  // a cielo abierto se ve lo que entra en pantalla, sea del tamaño que sea: en una pantalla grande (1920 de ancho en Lejos)
+  // el círculo de seis baldosas dejaba los costados negros, como piso que no existía, hasta caminar hasta allá
+  if (z.tipo !== 'mazmorra' && rv >= 38) {
+    const A = Math.ceil(W / 2 / 80) + 1, B = Math.ceil(H / 2 / 40) + 1;
+    for (let u = -A; u <= A; u++) for (let v = -B; v <= B; v++) {
+      if ((u + v) & 1) continue;
+      const dx = (u + v) / 2, dy = (v - u) / 2, X = btx + dx, Y = bty + dy;
+      if (X >= 0 && Y >= 0 && X < z.tw && Y < z.th) z.explorado[Y * z.tw + X] = 1;
+    }
+  }
   // pisos visibles
   const f25 = Math.floor(tiempo * 25);
   const [wx0] = aMundo(0, 0), [, wy0] = aMundo(W, 0), [wx1] = aMundo(W, H), [, wy1] = aMundo(0, H);
@@ -1170,8 +1180,9 @@ function dibujarLuz(j: Juego, t: number) {
   for (let by = Math.floor(fy0 / 5) - 2; by <= Math.ceil(fy1 / 5) + 2; by++) for (let bx = Math.floor(fx0 / 5) - 2; bx <= Math.ceil(fx1 / 5) + 2; bx++) {
     const dentro = bx >= 0 && by >= 0 && bx < z.tw && by < z.th;
     if (dentro && z.explorado[by * z.tw + bx] && z.pisos[by * z.tw + bx]) continue;
-    // la roca encerrada de las cavernas (rellenarBolsas) no se tapa si ya se vio el piso de al lado
-    if (dentro && z.roca?.[by * z.tw + bx]) { const v = (x: number, y: number) => x >= 0 && y >= 0 && x < z.tw && y < z.th && !!z.pisos[y * z.tw + x] && !!z.explorado[y * z.tw + x]; if (v(bx - 1, by) || v(bx + 1, by) || v(bx, by - 1) || v(bx, by + 1)) continue; }
+    // la roca encerrada (rellenarBolsas) no se tapa si ya se vio piso cerca: a tres baldosas o menos, porque el centro de un
+    // macizo ancho no tiene piso al lado y la niebla le dejaba un ojo negro en medio de la roca
+    if (dentro && z.roca?.[by * z.tw + bx]) { let visto = false; for (let dy = -3; dy <= 3 && !visto; dy++) for (let dx = -3; dx <= 3; dx++) { const x = bx + dx, y = by + dy; if (x >= 0 && y >= 0 && x < z.tw && y < z.th && z.pisos[y * z.tw + x] && z.explorado[y * z.tw + x]) { visto = true; break; } } if (visto) continue; }
     // una baldosa vacía que queda justo DETRÁS de piso ya visto no se tapa: en pantalla cae sobre los muros, los árboles y
     // la cabeza del que está parado en ese borde
     if (!(dentro && z.pisos[by * z.tw + bx])) {

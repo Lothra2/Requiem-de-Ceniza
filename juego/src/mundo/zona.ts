@@ -433,7 +433,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!dentro(bx, by)) { k.vaciar(bx, by); continue; }
     const m = manchas[by * tw + bx], m2 = manchas2[by * tw + bx];
-    k.piso(m > 0.62 ? t.parches[0] : m2 > 0.6 ? t.parches[1] : m < 0.25 ? t.parches[2] : t.piso, bx, by);
+    k.piso(m > 0.62 ? t.parches[0] : m2 > 0.6 ? t.parches[1] : m < 0.25 ? t.parches[2] ?? t.piso : t.piso, bx, by);
   }
   // salidas en los lados y el camino que las une pasando por el centro
   const puntos: [number, number][] = [];
@@ -1246,9 +1246,12 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   });
   const abierto = t.organica ? cavarCueva(k, orden, enlaces, suelo, sala, !!def.jefe) : null;
   const manchas = ruido2(r, tw, th, 3);
+  // (los temas con dos parches no tienen tercero: esas baldosas salían sin piso, negras, y se caminaba por encima de la
+  //  nada. Rick las veía en las tumbas, abadías, minas y cuevas. El tercero es el primero, salvo si es agua o lava)
+  const parche3 = t.parches[2] ?? (/^(agua|lava|pantano)$/.test(t.parches[0]) ? t.piso : t.parches[0]);
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) if (suelo[by * tw + bx]) {
     const m = manchas[by * tw + bx];
-    k.piso(m > 0.66 ? t.parches[1] : m < 0.22 ? t.parches[2] : t.piso, bx, by);
+    k.piso(m > 0.66 ? t.parches[1] : m < 0.22 ? parche3 : t.piso, bx, by);
     for (let y = by * 5; y < by * 5 + 5; y++) for (let x = bx * 5; x < bx * 5 + 5; x++) z.bloq[y * z.W + x] = 0;
   }
   if (abierto) {
@@ -1510,36 +1513,62 @@ function destapar(z: Zona) {
   }
 }
 /**
- * Cavernas: la roca que queda encerrada entre salas (una isla en medio, una lengua entre dos cámaras, la franja entre dos
- * cuartos pegados) se pintaba como un hoyo negro con peñascos solo en el contorno. Rick la vio como "espacios en negro"
- * en las guaridas de los jefes. Ahí va roca maciza: peñascos que la llenan entera, altos donde nada queda detrás y bajos
- * pegados al piso de atrás (para no tapar al que camina por ahí). Con su propio azar y al final de todo: no mueve nada de
- * una partida guardada. `z.roca` marca las baldosas sin piso rellenas, para que la niebla no las vuelva a tapar.
+ * Lo negro que queda entre lo que se juega. Antes solo en las cavernas, ahora en todo el mundo:
+ *  - Cavernas: la roca encerrada entre salas (una isla en medio, una lengua entre dos cámaras, la franja entre dos cuartos
+ *    pegados) se pintaba como un hoyo negro con peñascos solo en el contorno. Rick la vio como "espacios en negro" en las
+ *    guaridas de los jefes.
+ *  - A cielo abierto (y en los pueblos): los macizos de adentro y las ensenadas angostas de la silueta eran baldosas sin
+ *    piso, negras, en medio del desierto o del jardín. Y cuando la costa no se podía poner (en una de cada cuatro zonas
+ *    cortaba un paso y se deshacía entera) el filo quedaba en escalones de baldosa contra el negro.
+ *  - Mazmorras de obra: el hueco entre dos salas, cerrado por los muros de una y el escombro de la otra, era un pozo negro.
+ * Ahí va roca maciza del tema: peñascos que lo llenan entero, altos donde nada queda detrás y bajos pegados al piso de
+ * atrás (para no tapar al que camina por ahí). A cielo abierto, además, una orilla de roca de tres celdas por todo el filo.
+ * Nada de esto bloquea ni toca lo caminable (va sobre celdas que ya no se pisan). Con su propio azar y al final de todo: no
+ * mueve nada de una partida guardada. `z.roca` marca las baldosas sin piso rellenas, para que la niebla no las tape.
+ * (Las islas del abismo y del cielo no: ahí el vacío es el abismo, con lo que flota en él.)
  */
 function rellenarBolsas(z: Zona, def: DefZona) {
-  const t = TEMATICAS[def.tema]; if (!z.hueco || !t?.organica || (globalThis as any).__sinRelleno) return;
-  const { W, H, tw, th } = z, pre = typeof t.organica === 'string' ? t.organica + '_' : '';
+  const t = TEMATICAS[def.tema]; if (!t || (globalThis as any).__sinRelleno) return;
+  const cueva = !!(z.hueco && t.organica && def.tipo === 'mazmorra');
+  if (def.tipo === 'mazmorra' && !cueva && t.islas) return;
+  const { W, H, tw, th } = z;
+  const pre = cueva ? (typeof t.organica === 'string' ? t.organica + '_' : '') : def.tipo === 'mazmorra' ? (ESCOMBRO_TEMA[def.tema] ?? 'cementerio') + '_' : (ESTILO_BORDE[def.tema] ?? 'paramo') + '_';
   const pen = REGISTRO.find((d) => d.id === (pre ? 'bor_risco' : 'cue_penasco')); if (!pen) return;
   const hu = z.hueco, r = rng(z.semilla * 7919 + 4243);
-  const abre = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)] && !hu[y * W + x];
+  const abre = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)] && z.bloq[y * W + x] !== 2 && !(hu && hu[y * W + x]);
   // roca encerrada: desde la celda, en 6 o más de los 8 rumbos se llega a piso abierto antes de 14 celdas
   const R = 14, D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
-  const bolsa = new Uint8Array(W * H);
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    if (abre(x, y)) continue;
-    let n = 0;
-    for (const [dx, dy] of D8) for (let s = 1; s <= R; s++) { const X = x + dx * s, Y = y + dy * s; if (X < 0 || Y < 0 || X >= W || Y >= H) break; if (abre(X, Y)) { n++; break; } }
-    if (n >= 6) bolsa[y * W + x] = 1;
+  // (en tres vueltas: lo ya relleno cuenta como lleno, así un pozo ancho entre salas se cierra de afuera hacia adentro en vez
+  //  de quedar con el centro negro)
+  const bolsa = new Uint8Array(W * H), lleno = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) lleno[i] = abre(i % W, (i / W) | 0) ? 1 : 0;
+  for (let vuelta = 0; vuelta < 3; vuelta++) {
+    let nuevas = 0; const antes = lleno.slice();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (antes[y * W + x]) continue;
+      let n = 0;
+      for (const [dx, dy] of D8) for (let s = 1; s <= R; s++) { const X = x + dx * s, Y = y + dy * s; if (X < 0 || Y < 0 || X >= W || Y >= H) break; if (antes[Y * W + X]) { n++; break; } }
+      if (n >= 6) { bolsa[y * W + x] = 1; lleno[y * W + x] = 1; nuevas++; }
+    }
+    if (!nuevas) break;
   }
-  // bajo si hay piso abierto detrás (hacia -x, -y) a menos de 7 celdas: un peñasco alto ahí taparía al que camina atrás
-  const atras = (x: number, y: number) => { for (let s = 1; s <= 7; s++) if (abre(x - s, y) || abre(x, y - s) || abre(x - s, y - s)) return true; return false; };
+  // a cielo abierto: la orilla (lo que no es piso a tres celdas o menos del piso) también es roca
+  if (def.tipo !== 'mazmorra') {
+    const d = new Uint8Array(W * H).fill(9), cola: number[] = [];
+    for (let i = 0; i < W * H; i++) if (abre(i % W, (i / W) | 0)) { d[i] = 0; cola.push(i); }
+    for (let q = 0; q < cola.length; q++) { const i = cola[q], x = i % W, y = (i - x) / W; if (d[i] >= 3) continue; for (const [dx, dy] of D8) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (d[j] > d[i] + 1) { d[j] = d[i] + 1; cola.push(j); } } }
+    for (let i = 0; i < W * H; i++) if (d[i] >= 1 && d[i] <= 3) bolsa[i] = 1;
+  }
+  // bajo si hay piso abierto detrás (hacia -x, -y) a tres celdas o menos y mediano hasta siete: uno alto ahí taparía al que
+  // camina atrás. (Antes era bajo hasta siete y detrás del muro de una sala quedaba una franja negra entre las piedritas y el muro)
+  const atras = (x: number, y: number) => { for (let s = 1; s <= 7; s++) if (abre(x - s, y) || abre(x, y - s) || abre(x - s, y - s)) return s; return 99; };
   const de = (talla: string) => { const vs = pen.variantes.filter((v) => v.startsWith(pre + talla)); return vs[Math.floor(r() * vs.length)]; };
   // lo que ya tapan los peñascos del contorno no se repite; las franjas finas (una o dos celdas) también se llenan
   const puestos = new Uint8Array(W * H);
   for (const o of z.objetos) if (o.id === pen.id) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) puestos[y * W + x] = 1; }
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
     const i = y * W + x; if (!bolsa[i] || puestos[i]) continue;
-    const v = de(atras(x, y) ? 'baja' : r() < 0.8 ? 'alta' : 'media');
+    const tras = atras(x, y), v = de(tras <= 3 ? 'baja' : tras <= 7 ? 'media' : r() < 0.8 ? 'alta' : 'media');
     if (!v) continue;
     const [hw, hh] = huellaDe(pen, v), x0 = Math.round(x + (r() - 0.5) * 0.8), y0 = Math.round(y + (r() - 0.5) * 0.8);
     z.objetos.push({ id: pen.id, v, cx: x0, cy: y0, hw, hh, bloquea: false });
@@ -1565,6 +1594,8 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   // (en los pueblos y a cielo abierto el damero de catedral parecía un tablero de ajedrez: ahí van lajas, o arenisca en la Corona)
   const fort = def.tipo === 'mazmorra' ? 'baldosa_catedral' : def.tema === 'celestial' ? 'arenisca' : 'lajas';
   for (const t of z.pisos) if (t && (t.id === 'fortaleza' || t.id === 'arcano')) t.id = t.id === 'fortaleza' ? fort : 'arenisca';
+  // red de seguridad: ninguna baldosa con piso queda sin nombre (sin arte se pinta negra y parece un hoyo)
+  for (const t of z.pisos) if (t && !t.id) t.id = tematica(def.tema).piso;
   if (def.tipo !== 'pueblo') ambientarHorror(z, def);
   ambientarVida(z, def);
   conectar(z);

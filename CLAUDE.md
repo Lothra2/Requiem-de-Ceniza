@@ -131,10 +131,19 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   **filo**: los puntos del borde de la silueta que miran a la luz se encienden de su color (`reflejos`), más fuerte con
   la luz de costado y más suave en figuras flacas como los esqueletos. `__sinFilo` lo apaga para comparar.
 
-- **Roca encerrada de las cavernas** (`rellenarBolsas` en `zona.ts`): la roca que queda entre salas (6 de 8 rumbos dan con
-  piso a menos de 14 celdas) se llena de peñascos, bajos si hay piso detrás. Antes se veía como hoyo negro (Rick, 18 nov
-  2026). `z.roca` evita que la niebla las vuelva a tapar. `__sinRelleno` lo apaga para comparar. Ojo: las zonas visitadas
-  quedan en `zonasVivas`, para comparar hay que generar con `generarZona` directo o abrir otra página.
+- **Piso negro** (auditoría `t850_negro.cjs`, 18 nov 2026). Tres causas: (1) los temas de mazmorra con dos parches
+  (abadía, tumba, cueva, mina, catedral ahogada, interior celestial) pedían `parches[2]` y una de cada cinco baldosas
+  salía sin piso: se caminaba sobre negro. Ahora el tercer parche cae al primero y `generarZona` no deja baldosas sin
+  nombre. (2) Lo que no es piso y queda entre lo que se juega (`rellenarBolsas` en `zona.ts`, antes solo en cavernas): roca
+  del tema en las bolsas encerradas de cuevas, mazmorras de obra (escombro de `ESCOMBRO_TEMA`) y exteriores (macizos,
+  ensenadas angostas y una orilla de tres celdas por el filo, que tapa también las zonas donde la costa se deshace). En
+  tres vueltas, peñascos bajos si hay piso detrás a 3 celdas, medianos hasta 7. No bloquea, no toca lo caminable, azar
+  propio al final. Las islas del abismo y del cielo no se rellenan. (3) La niebla no tapa `z.roca` con piso visto a 3
+  baldosas (antes al lado: el centro de un macizo quedaba como un ojo negro). Además a cielo abierto se explora todo lo que
+  entra en pantalla (en pantallas grandes el círculo dejaba los costados negros). `__sinRelleno` apaga el relleno.
+  `CLARO=1 FOTOS=1 FOTO=1 node juego/herramientas/t850_negro.cjs 2` recorre las 96 zonas (unos 25 min) y guarda las
+  peores vistas en `/tmp/requiem-pruebas/negro`. Ojo: las zonas visitadas quedan en `zonasVivas`, para comparar hay que
+  generar con `generarZona` directo o abrir otra página.
 - **Sello de nivel** (`selloNivel` en `ui/juego_ui.ts`): latón con el número en la cumbre del orbe de vida (entre los
   orbes en el táctil), arde 3,5 s al subir de nivel.
 - **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos

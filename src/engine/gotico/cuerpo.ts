@@ -1694,7 +1694,9 @@ function faldon(e: Esqueleto, mat: string, largo: number, vuelo: number, acc: Ac
     // la tela baja por cada pierna hasta el largo y se abre en el ruedo
     const t = Math.min(1, (z0 - z1) / Math.max(1, z0 - p.tob[2]));
     const bajo = mez(p.cad, p.tob, Math.min(1, t));
-    let ruedo: V3 = [bajo[0], bajo[1], Math.max(z1, bajo[2])];
+    // (al caer, el largo de la tela se mide en el cuerpo que cae: con la altura del ruedo de pie, el muerto quedaba con la
+    // tela levantada en dos bultos sobre las piernas)
+    let ruedo: V3 = [bajo[0], bajo[1], Math.max(z1 * (1 - Math.min(1, (e.caida ?? 0) * 1.6)), bajo[2])];
     if (anda) {
       // la tela sigue a la pierna con retraso y cae por su peso: el ruedo va a mitad de camino entre la pierna y la
       // caída a plomo bajo la cadera, y nunca sube más que la rodilla (la pierna que patea atrás sale por debajo)
@@ -2405,6 +2407,12 @@ export function encantar(a: V3, b: V3, en: Encanto, f: number, S = 1, semilla = 
   return ps;
 }
 
+/** Una dirección girada como el cuerpo que cae al morir (el mismo giro de `esqueleto` alrededor de los pies). */
+function caer(e: Esqueleto, v: V3): V3 {
+  const cd = rad(e.pose?.caidaDir ?? 0), D: V3 = [e.F[0] * Math.cos(cd) + e.R[0] * Math.sin(cd), e.F[1] * Math.cos(cd) + e.R[1] * Math.sin(cd), 0], Q: V3 = [-D[1], D[0], 0];
+  const a = rad(82 * (e.caida ?? 0)), al = dot3(v, D), q = dot3(v, Q), z = v[2];
+  return nor(add(add(mulv(D, al * Math.cos(a) + z * Math.sin(a)), Q, q), [0, 0, 1], -al * Math.sin(a) + z * Math.cos(a)));
+}
 function manoIzq(e: Esqueleto, iz: NonNullable<Equipo['izq']>, derecha?: TipoArma): Pieza[] {
   const { S } = e;
   const b = e.brazos[1];
@@ -2425,11 +2433,13 @@ function manoIzq(e: Esqueleto, iz: NonNullable<Equipo['izq']>, derecha?: TipoArm
   // cadera; antes era un disco liso de un cuarto del cuerpo que no se parecía al que uno agarraba)
   // (la rodela también: quedaba afuera por el nombre y salía un platito de canto a la cadera, sin nada del ícono)
   if (iz.icono && (/^escudo/.test(iz.tipo) || iz.tipo === 'rodela')) {
-    const lado = nor(cruz([0, 0, 1], F)), alto = iz.tipo === 'escudo_torre' ? 1.5 : iz.tipo === 'rodela' ? 0.8 : 0.5;
-    if (iz.icono.pieza === 'talisman') { const pt = escudoPuesto(iz.icono, add(add(b.mano, F, 1.4 * S), [0, 0, -5.5 * S]), lado, F, 0.62 * S); if (pt.length) return pt; }
+    // al caer, el escudo gira con el cuerpo (antes quedaba parado junto al muerto, como clavado en el piso)
+    const Fe = e.caida ? caer(e, F) : F, up = e.caida ? caer(e, [0, 0, 1]) : ([0, 0, 1] as V3);
+    const lado = nor(cruz(up, Fe)), alto = iz.tipo === 'escudo_torre' ? 1.5 : iz.tipo === 'rodela' ? 0.8 : 0.5;
+    if (iz.icono.pieza === 'talisman') { const pt = escudoPuesto(iz.icono, add(add(b.mano, Fe, 1.4 * S), up, -5.5 * S), lado, Fe, 0.62 * S, up); if (pt.length) return pt; }
     // (si el ícono no es un escudo de los cuatro modelos, por ejemplo un talismán de hueso, sigue el escudo de siempre)
     // (la rodela se modela más chica en el ícono: puesta se agranda para que se lea igual que el ícono a tamaño de escudo)
-    const pz = escudoPuesto(iz.icono, add(add(b.mano, F, 1.6 * S), [0, 0, alto * S]), lado, F, (iz.tipo === 'rodela' ? 1.3 : 1.14) * S);
+    const pz = escudoPuesto(iz.icono, add(add(b.mano, Fe, 1.6 * S), up, alto * S), lado, Fe, (iz.tipo === 'rodela' ? 1.3 : 1.14) * S, up);
     if (pz.length) return pz;
   }
   const mat = iz.mat ?? 'madera', m2 = iz.mat2 ?? 'cu_placa';

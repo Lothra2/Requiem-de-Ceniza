@@ -56,10 +56,8 @@ export function equipoDeInventario(puesto: Partial<Record<string, Puesto | undef
     // la corona: el mismo modelo del ícono puesto sobre la frente (`cascoPuesto`)
     if (cab.pieza === 'corona') e.cabeza = { tipo: 'corona', mat: cab.metal && esHex(cab.metal) ? tinte(cab.metal, 'metal') : 'cu_oro', icono: cab };
     else if (epica(cab.linea)) e.cabeza = armaduraDeLinea(cab.linea, n).cabeza;
-    // la capucha la arma el cuerpo (cae sobre los hombros), con el ribete del ícono en el borde de la cara
-    else if (formaCasco(cab) === 'capucha') { const rb = ribeteCuerpo(cab); e.cabeza = { tipo: 'capucha', mat: m.mat, ...(rb ? { mat2: rb } : {}) }; }
     // los demás cascos se arman con el modelo de su ícono (cascoPuesto): cada forma con su vista, nervios y ribete
-    else if (formaCasco(cab)) e.cabeza = { tipo: formaCasco(cab) === 'turbante' ? 'turbante' : 'casco', mat: m.mat, icono: cab };
+    else if (formaCasco(cab)) e.cabeza = { tipo: formaCasco(cab) === 'turbante' ? 'turbante' : formaCasco(cab) === 'capucha' ? 'capucha' : 'casco', mat: m.mat, icono: cab };
     else if (cab.linea === 'hueso') e.cabeza = { tipo: 'calavera', mat: 'cu_hueso' };
     else if (cab.linea === 'cuero' || cab.linea === 'tachonado') e.cabeza = { tipo: 'casco', mat: m.mat };
     else if (cab.linea === 'malla') e.cabeza = { tipo: 'casco', mat: cab.metal ? metalTraje(cab.metal) : 'cu_placa', mat2: m.mat };
@@ -97,7 +95,7 @@ export function equipoDeInventario(puesto: Partial<Record<string, Puesto | undef
   const gu = puesto.guantes && descDe(puesto.guantes);
   if (gu && epica(gu.linea)) e.manos = armaduraDeLinea(gu.linea).manos;
   else if (gu) {
-    const m = matDe(gu.linea, gu), tipo = duro(gu.linea) || gu.linea === 'malla' ? 'guanteletes' : gu.linea === 'tela' ? 'vendas' : 'guantes', rb = tipo === 'vendas' ? undefined : ribeteCuerpo(gu);
+    const m = matDe(gu.linea, gu), tipo = duro(gu.linea) || gu.linea === 'malla' ? 'guanteletes' : gu.linea === 'tela' ? 'vendas' : 'guantes', rb = ribeteCuerpo(gu);
     e.manos = { tipo, mat: gu.linea === 'malla' ? (gu.metal ? metalTraje(gu.metal) : 'cu_placa') : m.mat, ...(rb ? { ribete: rb } : {}) };
   }
   const ci = puesto.cinturon && descDe(puesto.cinturon);

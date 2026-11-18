@@ -152,6 +152,13 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Lo botado no vuelve solo**: lo que el jugador suelta al piso lleva `botado` y `recogerSolo` lo salta (con clic sí).
   Prueba: `t820_botar.cjs`. `window.__ui` es el estado de la interfaz para las pruebas (importar el módulo da otra copia).
 
+- **Pantalla grande de PC** (`ajustar` en `nucleo/lienzo.ts`, 1080 o más puntos de alto, sin táctil): el lienzo va a la
+  resolución exacta de la pantalla y el mundo a 1, 2 o 3 puntos por punto (Lejos, Cerca, Muy cerca). Lejos es como se ve
+  en el Artifact (Rick, 18 nov 2026: a 1920 × 1080 salía duplicado y con Windows al 125 %, borroso). La barra y los menús
+  van a unos 720 de alto lógico. `__sinNativo` vuelve a lo de antes.
+- **Pistas y páginas**: `envolver(texto, ancho, tam, fuente)` mide con la letra con que se dibuja (medir Georgia y dibujar
+  Cinzel sacaba el texto del marco). Prueba: `t830_pista.cjs`.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

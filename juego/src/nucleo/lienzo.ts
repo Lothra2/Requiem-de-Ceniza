@@ -70,6 +70,21 @@ export function ajustar() {
       if (vista === 2) nivel(Math.max(T1 + 1, Math.round(ke * zq)));
     } else { ZM = zq; RES = 2 / zq; if (W * H * RES * RES > TOPE) RES = Math.sqrt(TOPE / (W * H)); }
   }
+  // PC con pantalla grande (1080 o más puntos de alto): el lienzo va a la resolución exacta de la pantalla y el mundo se
+  // dibuja a 1, 2 o 3 puntos de pantalla por punto (Lejos, Cerca, Muy cerca). Lejos es como se ve en el Artifact: nítido y
+  // con más mundo. Antes era 2 como mínimo: a 1920 × 1080 el mundo salía duplicado y con Windows al 125 %, borroso. La
+  // barra y los menús van a una escala que se lea (1,5 a 1080: unos 720 de alto lógico). Rick, 18 nov 2026.
+  if (!tactilL && ww >= wh && dh >= 900 && !(window as unknown as { __sinNativo?: boolean }).__sinNativo) {
+    const s = Math.max(1, Math.min(2.2, dh / 720)), T = [1, 2, 3][vista] ?? 1;
+    W = Math.min(1600, Math.round(dw / s)); H = Math.round(dh / s);
+    RES = dh / H; ZM = T / RES;
+    MW = Math.ceil(W / ZM); MH = Math.ceil(H / ZM);
+    lienzo.width = dw; lienzo.height = dh;
+    lienzo.style.width = `${ww}px`; lienzo.style.height = `${wh}px`; lienzo.style.imageRendering = 'pixelated';
+    ESCALA = ww / W;
+    ctx.imageSmoothingEnabled = false; ctx.setTransform(RES, 0, 0, RES, 0, 0);
+    return;
+  }
   MW = Math.ceil(W / ZM); MH = Math.ceil(H / ZM);
   lienzo.width = Math.round(W * RES); lienzo.height = Math.round(H * RES);
   lienzo.style.width = `${entero ? (W * ke) / dpr : Math.floor(W * ESCALA)}px`;

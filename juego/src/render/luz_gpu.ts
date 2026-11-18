@@ -6,6 +6,7 @@
 // relieve y la altura y, con las luces de la zona (las mismas fogatas y antorchas de luces.ts), aclara lo que mira a
 // cada fuego y oscurece lo que le da la espalda. Después suma un resplandor (bloom) de lo que brilla.
 import { relDe } from '../motor/assets';
+import { lienzoTrabajo } from '../motor/lienzos';
 import type { Cuadro } from '../motor/assets';
 
 export const lab = { on: true, fuerza: 1, bloom: 1.1, ms: 0, heroe: 0.7 };
@@ -27,6 +28,10 @@ export function empezarRelieve(c: CanvasRenderingContext2D) {
   principal = c; activo = true;
 }
 
+let esHeroe = false;
+/** Mientras se pinta el héroe: su silueta va en el azul del lienzo de altura (B no lo usa nada más) y el pase de luz no
+ * lo hunde con las luces de atrás (quedaba gris y se perdía, Rick quiere su héroe siempre legible). */
+export const marcarHeroe = (on: boolean) => { esHeroe = on; };
 /** Lo llama dibujar() después de pintar un sprite en el lienzo principal. */
 export function ganchoRelieve(c: CanvasRenderingContext2D, q: Cuadro, im: CanvasImageSource, x: number, y: number, escala: number) {
   if (!activo || c !== principal || !relC) return;
@@ -39,6 +44,7 @@ export function ganchoRelieve(c: CanvasRenderingContext2D, q: Cuadro, im: Canvas
     relC.drawImage(n, q.x, q.y, q.w, q.h, dx, dy, dw, dh);
     if (a) altC!.drawImage(a, q.x, q.y, q.w, q.h, dx, dy, dw, dh);
     else { altC!.globalCompositeOperation = 'destination-out'; altC!.drawImage(im, q.x, q.y, q.w, q.h, dx, dy, dw, dh); altC!.globalCompositeOperation = 'source-over'; }
+    if (esHeroe) { const t = lienzoTrabajo(q.w, q.h); t.c.globalCompositeOperation = 'copy'; t.c.drawImage(im, q.x, q.y, q.w, q.h, 0, 0, q.w, q.h); t.c.globalCompositeOperation = 'source-in'; t.c.fillStyle = '#0000ff'; t.c.fillRect(0, 0, q.w, q.h); t.c.globalCompositeOperation = 'source-over'; altC!.globalCompositeOperation = 'lighter'; altC!.drawImage(t.cv, 0, 0, q.w, q.h, dx, dy, dw, dh); altC!.globalCompositeOperation = 'source-over'; }
   } else {
     // sin relieve: lo que había debajo deja de valer (no se reilumina con la forma de otro)
     relC.globalCompositeOperation = altC!.globalCompositeOperation = 'destination-out';
@@ -87,7 +93,8 @@ void main() {
   acc *= mix(1.0, 0.5, nf.z * nf.z);
   // (varias velas juntas se sumaban hasta quemar: techo suave, como la exposición de una cámara)
   acc = acc / (1.0 + acc * 0.9);
-  vec3 lit = C.rgb * (1.0 + acc * 1.7 * fuerza) * (1.0 - min(0.62, sombra * 0.6 * fuerza)) + acc * C.rgb * 0.35 * fuerza;
+  float tope = A.b > 0.5 ? 0.12 : 0.62; // (el héroe: la luz de atrás casi no lo hunde)
+  vec3 lit = C.rgb * (1.0 + acc * 1.7 * fuerza) * (1.0 - min(tope, sombra * 0.6 * fuerza)) + acc * C.rgb * 0.35 * fuerza;
   o = vec4(lit, 1.0);
 }`;
 const FS_BRILLO = `#version 300 es

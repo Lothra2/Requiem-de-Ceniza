@@ -50,7 +50,7 @@ const nieblaCv = document.createElement('canvas');
 const congelados = new WeakSet<object>();
 const ES_FUEGO = /fogata|hoguera|brasero|pira|antorcha|fuego|caldero|hogar/;
 import { acc } from '../nucleo/accesible';
-import { empezarRelieve, aplicarLuzGPU, ganchoRelieve } from './luz_gpu';
+import { empezarRelieve, aplicarLuzGPU, ganchoRelieve, marcarHeroe } from './luz_gpu';
 import { fijarGanchoRelieve } from '../motor/assets';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
@@ -898,7 +898,9 @@ function sobrePuente(j: Juego, e: Ent): number {
   }
   return 0;
 }
-function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
+// (luz avanzada: lo que se pinta del héroe se marca para que la luz de atrás no lo hunda; ver luz_gpu.ts)
+function dibujarEnt(j: Juego, e: Ent, tiempo: number) { marcarHeroe(e.tipo === 'heroe'); try { dibujarEnt0(j, e, tiempo); } finally { marcarHeroe(false); } }
+function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   // reventado por exceso de daño: no queda cuerpo (los gibs de la Forja irán en su lugar)
   if (e.muerto && (e as any).reventado) return;
   let [px, py] = aPant(e.x, e.y);

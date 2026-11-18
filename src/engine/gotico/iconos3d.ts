@@ -792,7 +792,7 @@ function capucha(t: Taller, e: Estilo) {
     t.masa(capa, mat, 1.5);
     // la abertura: se cava honda. En la casilla, adentro el forro en penumbra (no un hoyo negro); puesta, ahí va la cara
     t.elip([0, 5.4, 1.4], [3.5, 3.4, 4.5], { mat: 'ic_hueco', resta: true });
-    if (!t.cuerpo) forroInterior(t, e, [0, 2.6, 1.2], [3.3, 1.6, 4.2], { banda: false, liso: true });
+    if (!t.cuerpo) forroInterior(t, e, [0, 2.6, 1.2], [3.3, 1.6, 4.2], { liso: true });
     // el borde del paño enrollado alrededor de la cara, en arco que termina en punta arriba
     const borde = e.forro ?? (e.ribete ? e.borde : L === 'tela' ? e.base2 : mat);
     const pts: V3[] = [];
@@ -811,31 +811,36 @@ function capucha(t: Taller, e: Estilo) {
   });
 }
 /**
- * El adentro de un casco o capucha abierto, en la casilla: un cuenco forrado y no una bola. Al fondo la pared oscura; el
- * acolchado en celdas que siguen la curva del cuenco (las del centro más hondas y oscuras, las de abajo con la luz que
- * entra por la boca y las de arriba en la sombra del ala); la banda de cuero arriba, adentro del canto y, en los
- * cascos, las dos correas del barboquejo que cuelgan con su hebilla.
+ * El adentro de un casco o capucha abierto, en la casilla: un cuenco oscuro y limpio. La pared del fondo casi negra; dos
+ * aros blandos escalonados hacia la boca, cada uno un poco más claro (la hondura se lee como un degradé, no como bolas);
+ * el canto acolchado justo adentro de la boca con su pespunte claro, y dos o tres costuras finas que bajan por la curva.
+ * La capucha (`liso`) lleva solo el paño con dos pliegues.
  */
-function forroInterior(t: Taller, e: Estilo, c: V3, r: V3, o: { correa?: boolean; banda?: boolean; liso?: boolean } = {}) {
-  const base = e.linea === 'tela' && e.base.startsWith('ic_tela_') ? '#' + e.base.slice(8) : '#5a4632';
-  const paño = tinte(aHex(mul(hex(base), 0.55) as V3), 'tela'), cuero = tinte('#3a2618', 'cuero');
-  // la pared del fondo: casi negra, chata, detrás de las celdas
-  t.elip(add(c, [0, -0.45 * r[1], 0]), [r[0] * 0.92, 0.3 * r[1], r[2] * 0.92], { mat: paño, tono: -0.5 });
-  // el acolchado: celdas en el cuenco, más atrás y más oscuras hacia el centro
-  // (la capucha: paño liso con dos pliegues hondos, sin acolchado)
-  if (o.liso) for (const s of [-1, 1]) t.elip(add(c, [s * r[0] * 0.45, -0.1 * r[1], -0.1 * r[2]]), [r[0] * 0.32, 0.4 * r[1], r[2] * 0.85], { mat: paño, tono: -0.28 });
-  if (!o.liso) for (let fi = -2; fi <= 2; fi++) for (let ci = -3; ci <= 3; ci++) {
-    const th = fi * 0.42, ph = ci * 0.38, hondo = Math.cos(ph) * Math.cos(th);
-    if (Math.abs(ph) + Math.abs(th) > 1.55) continue;
-    const p: V3 = add(c, [r[0] * 0.8 * Math.sin(ph) * Math.cos(th), -0.35 * r[1] + (1 - hondo) * 0.9 * r[1], r[2] * 0.8 * Math.sin(th)]);
-    t.elip(p, [0.62 * r[0] / 3.3, 0.32, 0.6 * r[2] / 3.3], { mat: paño, tono: -0.08 - 0.3 * hondo - 0.1 * Math.sin(th) + ((ci + fi) & 1 ? 0.03 : -0.03) });
+function forroInterior(t: Taller, e: Estilo, c: V3, r: V3, o: { liso?: boolean } = {}) {
+  const base = e.linea === 'tela' && e.base.startsWith('ic_tela_') ? '#' + e.base.slice(8) : '#4e3c2a';
+  const paño = tinte(aHex(mul(hex(base), 0.55) as V3), 'tela');
+  // un aro elíptico blando (x y z con sus radios, a la profundidad y) armado con huesos que se funden
+  const aro = (y: number, k: number, grueso: number, mat: string, tono: number, n = 16) => {
+    const pts: V3[] = Array.from({ length: n }, (_, i) => { const a = (i / n) * Math.PI * 2; return add(c, [Math.cos(a) * r[0] * k, y * r[1], Math.sin(a) * r[2] * k]); });
+    t.masa(pts.map((p, i) => t.hue(p, pts[(i + 1) % n], grueso, grueso, mat)), mat, grueso * 0.6, tono);
+    return pts;
+  };
+  // el fondo: chato y casi negro
+  t.elip(add(c, [0, -0.5 * r[1], 0]), [r[0] * 0.9, 0.25 * r[1], r[2] * 0.9], { mat: paño, tono: -0.62 });
+  if (o.liso) {
+    for (const s of [-1, 1]) t.elip(add(c, [s * r[0] * 0.45, -0.1 * r[1], -0.1 * r[2]]), [r[0] * 0.32, 0.4 * r[1], r[2] * 0.85], { mat: paño, tono: -0.3 });
+    return;
   }
-  // la banda de cuero del canto, con grosor, y las correas del barboquejo
-  // la banda de cuero que hace de canto: un aro apenas adentro de la boca, solo arriba (abajo va la cara)
-  if (o.banda !== false) t.aro(add(c, [0, 0.2 * r[1], 0.1 * r[2]]), Math.min(r[0], r[2]) * 0.96, 0.3, { mat: cuero, eje: 'y', n: 12, desde: 20, hasta: 160, tono: -0.05 });
-  if (o.correa) for (const s of [1, -1]) {
-    t.cil(add(c, [s * r[0] * 0.92, 0.45 * r[1], -0.35 * r[2]]), add(c, [s * r[0] * 0.62, 0.7 * r[1], -1.25 * r[2]]), 0.24, 0.22, { mat: cuero });
-    if (s > 0) t.caja(add(c, [r[0] * 0.62, 0.72 * r[1], -1.25 * r[2]]), [0.7, 0.3, 0.7], { mat: e.hebilla });
+  // la hondura: aros blandos que se acercan a la boca y se aclaran
+  aro(-0.3, 0.55, 0.55, paño, -0.5);
+  aro(-0.05, 0.75, 0.55, paño, -0.36);
+  // el canto acolchado adentro de la boca y su pespunte
+  const canto = aro(0.25, 0.92, 0.5, paño, -0.18, 20);
+  for (let i = 0; i < canto.length; i += 2) t.esf(add(canto[i], [0, 0.42, 0]), 0.09, { mat: tinte('#b8a888', 'tela'), tono: -0.1 });
+  // costuras del acolchado: líneas finas que bajan por la curva del cuenco
+  for (const s of [-1, 0, 1]) {
+    const q = (u: number): V3 => add(c, [s * r[0] * 0.55 * Math.cos(u * 1.2), (0.2 - 0.7 * Math.sin(u * 1.4)) * r[1], r[2] * (0.85 - 1.5 * u)]);
+    for (let i = 0; i < 4; i++) t.cil(q(i / 4), q((i + 1) / 4), 0.07, 0.07, { mat: paño, tono: -0.62 });
   }
 }
 /**
@@ -1058,9 +1063,9 @@ function adornosCasco(t: Taller, e: Estilo, cima: V3, frente: V3 | null, ancho: 
 function cascoForma(t: Taller, e: Estilo, forma: FormaCasco): boolean {
   const L = e.linea, { pl, cota, rib, rem, ojos } = matsCasco(e);
   // en la casilla, el hueco oscuro donde iría la cara (puesto, ahí está la cabeza)
-  if (!t.cuerpo && (forma === 'nasal' || forma === 'cofia' || forma === 'astado' || forma === 'abierto')) forroInterior(t, e, [0, 0.9, -0.5], [3.3, 3.0, 3.3], { correa: forma !== 'cofia', banda: forma !== 'cofia' });
+  if (!t.cuerpo && (forma === 'nasal' || forma === 'cofia' || forma === 'astado' || forma === 'abierto')) forroInterior(t, e, [0, 0.9, -0.5], [3.3, 3.0, 3.3]);
   // (gorro y turbante: el forro apenas asoma por la boca de abajo)
-  if (!t.cuerpo && (forma === 'gorro' || forma === 'turbante')) forroInterior(t, e, [0, -0.6, 1.5], [3.7, 3.9, 1.3], { banda: false });
+  if (!t.cuerpo && (forma === 'gorro' || forma === 'turbante')) forroInterior(t, e, [0, -0.6, 1.5], [3.7, 3.9, 1.3], { liso: true });
   switch (forma) {
     case 'celada': {
       // celada: calota redonda con la cresta baja, la vista en la frente bajo un labio que sobresale, la babera que

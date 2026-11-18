@@ -8,7 +8,7 @@
 import { ctx, W, H, E, ESCALA, SEGURO } from '../nucleo/lienzo';
 import { texto, T, TT, dentro, icono, envolver as envolverT, TITULO, cacheRaster } from './comun';
 import { botonForjado } from '../../../src/engine/gotico/hud';
-import { ui, alternar, discoHab, orbeHud, recursoClase, objetivoTxt, COLOR_POCION, cambiarAgresivo } from './juego_ui';
+import { ui, alternar, discoHab, orbeHud, selloNivel, recursoClase, objetivoTxt, COLOR_POCION, cambiarAgresivo } from './juego_ui';
 import { hud, type Rect } from './hud_rects';
 import { MISIONES } from '../mundo/actos';
 import { habilidadDe, costoMana, usarPocion, caminarA, type Juego } from '../juego/mundo';
@@ -212,6 +212,7 @@ export function dibujarHudTactil(j: Juego, t: number) {
     texto(`${Math.ceil(h.vida)}`, x + P.O / 2, y + P.O + L(12), { alin: 'center', tam: tn, color: '#ff9080' });
     texto(`${Math.floor(h.mana)}`, x + P.O * 1.5 + P.gap, y + P.O + L(12), { alin: 'center', tam: tn, color: '#90a8ff' });
     hud.orbes = P.orbes;
+    selloNivel(d.nivel, x + P.O + P.gap / 2, y + P.O * 0.86, Math.max(10, L(11)), j.t);
     recursoClase(j, x, P.orbes[1] + P.orbes[3] + L(4), P.orbes[2] + L(60));
     const m = MISIONES.find((q) => q.acto === d.acto && !q.lateral && (d.misiones[q.id] ?? 0) >= 1 && (d.misiones[q.id] ?? 0) < 3);
     if (m) {

@@ -1169,6 +1169,8 @@ function dibujarLuz(j: Juego, t: number) {
   for (let by = Math.floor(fy0 / 5) - 2; by <= Math.ceil(fy1 / 5) + 2; by++) for (let bx = Math.floor(fx0 / 5) - 2; bx <= Math.ceil(fx1 / 5) + 2; bx++) {
     const dentro = bx >= 0 && by >= 0 && bx < z.tw && by < z.th;
     if (dentro && z.explorado[by * z.tw + bx] && z.pisos[by * z.tw + bx]) continue;
+    // la roca encerrada de las cavernas (rellenarBolsas) no se tapa si ya se vio el piso de al lado
+    if (dentro && z.roca?.[by * z.tw + bx]) { const v = (x: number, y: number) => x >= 0 && y >= 0 && x < z.tw && y < z.th && !!z.pisos[y * z.tw + x] && !!z.explorado[y * z.tw + x]; if (v(bx - 1, by) || v(bx + 1, by) || v(bx, by - 1) || v(bx, by + 1)) continue; }
     // una baldosa vacía que queda justo DETRÁS de piso ya visto no se tapa: en pantalla cae sobre los muros, los árboles y
     // la cabeza del que está parado en ese borde
     if (!(dentro && z.pisos[by * z.tw + bx])) {

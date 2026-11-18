@@ -104,7 +104,8 @@ export async function pintarHeroe(clase: string, cuerpo: any, equipo: any, firma
     firmaFinos = firma;
     let sig2 = 0, hechos2 = 0;
     await new Promise<void>((fin) => {
-      for (let i = 0; i < Math.max(1, Math.min(2, (navigator.hardwareConcurrency || 4) - 2)); i++) {
+      // (con 2 obreros el paso fino tardaba lo mismo que todo el resto: el héroe caminaba en 8 rumbos casi un minuto más)
+      for (let i = 0; i < Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 2)); i++) {
         let w: Worker; try { w = new Obrero(); } catch { fin(); return; }
         obreros.push(w);
         const dar = () => { if (sig2 < tr.length) { const t = tr[sig2++]; w.postMessage({ id: yo, cuerpo, equipo, acc: t.acc, dir: 'r' + (t.k * 360) / FINO_RUMBOS, cuadros: base12[t.acc], base: base12[t.acc], desfase: t.medio ? 0.5 : 0, calidad: 1, clave: t.acc + '@' + t.k + (t.medio ? '~' : '') }); } else w.terminate(); };

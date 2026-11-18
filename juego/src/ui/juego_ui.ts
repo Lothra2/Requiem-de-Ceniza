@@ -77,6 +77,37 @@ export function iconoHab(hb: Habilidad, x: number, y: number, s: number, apagado
   ctx.drawImage(cv, x, y, s, s); ctx.imageSmoothingEnabled = su;
 }
 
+/**
+ * El nivel del héroe: un sello de latón con su número, montado en la cumbre del orbe de vida (y entre los orbes en el
+ * táctil). Al subir de nivel arde unos segundos. Rick pidió ver en qué nivel está sin abrir la ficha (18 nov 2026).
+ */
+let nivelVisto = -1, subioEn = -10;
+export function selloNivel(nivel: number, cx: number, cy: number, r: number, t: number) {
+  if (nivelVisto >= 0 && nivel > nivelVisto) subioEn = t;
+  nivelVisto = nivel;
+  const ard = Math.max(0, 1 - (t - subioEn) / 3.5);
+  ctx.save();
+  if (ard > 0) { // el resplandor de la subida
+    const g = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * (2.4 + 0.4 * Math.sin(t * 9)));
+    g.addColorStop(0, `rgba(255,214,120,${0.7 * ard})`); g.addColorStop(1, 'rgba(255,160,40,0)');
+    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r * 2.8, 0, Math.PI * 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over';
+  }
+  // sombra, aro de hierro, bisel de latón y la placa hundida
+  ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.beginPath(); ctx.arc(cx + 1, cy + 2, r + 1, 0, Math.PI * 2); ctx.fill();
+  let g = ctx.createLinearGradient(0, cy - r, 0, cy + r); g.addColorStop(0, '#6c6c70'); g.addColorStop(0.5, '#3a3a3e'); g.addColorStop(1, '#1c1c20');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.fill();
+  g = ctx.createLinearGradient(0, cy - r, 0, cy + r); g.addColorStop(0, '#f2d47a'); g.addColorStop(0.45, '#b08a32'); g.addColorStop(1, '#5a4214');
+  ctx.strokeStyle = g; ctx.lineWidth = Math.max(1.5, r * 0.16); ctx.beginPath(); ctx.arc(cx, cy, r * 0.8, 0, Math.PI * 2); ctx.stroke();
+  g = ctx.createRadialGradient(cx, cy - r * 0.3, r * 0.1, cx, cy, r * 0.72); g.addColorStop(0, '#2a1a10'); g.addColorStop(1, '#0c0806');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, r * 0.68, 0, Math.PI * 2); ctx.fill();
+  // cuatro remaches en el aro
+  ctx.fillStyle = '#d8b860'; for (let i = 0; i < 4; i++) { const a = Math.PI / 4 + (i * Math.PI) / 2; ctx.fillRect(Math.round(cx + Math.cos(a) * r * 0.8) - 1, Math.round(cy + Math.sin(a) * r * 0.8) - 1, 2, 2); }
+  ctx.restore();
+  // el número: oro grabado, más chico con tres cifras
+  const s = String(nivel), tam = Math.round(r * (s.length > 2 ? 0.78 : 0.98));
+  texto(s, cx, cy + tam * 0.36, { alin: 'center', tam, negrita: true, color: ard > 0 ? '#fff4c8' : '#f0d078' });
+}
+
 // ------------------------------------------------------------------ barra de abajo
 export function dibujarBarra(j: Juego, t: number) {
   // pantalla baja con un panel abierto: la barra no se dibuja (taparía el panel)
@@ -98,6 +129,9 @@ export function dibujarBarra(j: Juego, t: number) {
     ctx.save(); ctx.beginPath(); ctx.rect(ox, oy + corte, S, S - corte); ctx.clip(); ctx.drawImage(orbes![tipo + '1'][f], ox, oy); ctx.restore();
     if (dentro(bx + z.x, by + z.y, z.w, z.h)) { const v = id === 'orbe_vida' ? `${T('Vida', 'Life')}: ${Math.ceil(h.vida)} / ${h.vidaMax}` : `${T('Maná', 'Mana')}: ${Math.floor(h.mana)} / ${h.c.manaMax}`; texto(v, bx + z.x + z.w / 2, by + z.y - 6, { alin: 'center', color: '#fff' }); }
   }
+  // el nivel: sello de latón en la cumbre del orbe de vida
+  { const z = Z('orbe_vida'), cx = bx + z.x + z.w / 2, cy = by + z.y - 19; selloNivel(h.d.nivel, cx, cy, 12, j.t);
+    if (Math.hypot(E.x - cx, E.y - cy) < 13) texto(`${T('Nivel', 'Level')} ${h.d.nivel}  ·  ${T('faltan', 'next in')} ${Math.max(0, xpPara(h.d.nivel + 1) - h.d.xp).toLocaleString()} ${T('de experiencia', 'experience')}`, cx - 8, cy - 18, { color: '#f0d078' }); }
   // habilidades izq y der
   for (const [id, lado] of [['habilidad_izq', 'izq'], ['habilidad_der', 'der']] as const) {
     const z = Z(id); const hb = habilidadDe(h.d[lado]);

@@ -131,6 +131,15 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   **filo**: los puntos del borde de la silueta que miran a la luz se encienden de su color (`reflejos`), más fuerte con
   la luz de costado y más suave en figuras flacas como los esqueletos. `__sinFilo` lo apaga para comparar.
 
+- **Roca encerrada de las cavernas** (`rellenarBolsas` en `zona.ts`): la roca que queda entre salas (6 de 8 rumbos dan con
+  piso a menos de 14 celdas) se llena de peñascos, bajos si hay piso detrás. Antes se veía como hoyo negro (Rick, 18 nov
+  2026). `z.roca` evita que la niebla las vuelva a tapar. `__sinRelleno` lo apaga para comparar. Ojo: las zonas visitadas
+  quedan en `zonasVivas`, para comparar hay que generar con `generarZona` directo o abrir otra página.
+- **Sello de nivel** (`selloNivel` en `ui/juego_ui.ts`): latón con el número en la cumbre del orbe de vida (entre los
+  orbes en el táctil), arde 3,5 s al subir de nivel.
+- **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos
+  40 s los 8 rumbos y otros 25 s los 16, con 4 obreros). En ese rato camina en 8: no es que se pierdan.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz

@@ -34,6 +34,8 @@ export interface Zona {
   alturas?: Float32Array;
   /** Cavernas: celdas de roca maciza dentro de baldosas con piso (se pintan de negro; los peñascos del borde van encima). */
   hueco?: Uint8Array;
+  /** Cavernas: baldosas sin piso rellenas de roca encerrada (la niebla no las tapa una vez visto lo de al lado). */
+  roca?: Uint8Array;
   semilla: number;
   lluvia?: boolean; niebla?: number; ceniza?: boolean; nieve?: boolean;
   /** Puntos especiales: npc, cofre, santuario, piedra de viaje, baúl... */
@@ -1507,6 +1509,51 @@ function destapar(z: Zona) {
     if (!quito) return;
   }
 }
+/**
+ * Cavernas: la roca que queda encerrada entre salas (una isla en medio, una lengua entre dos cámaras, la franja entre dos
+ * cuartos pegados) se pintaba como un hoyo negro con peñascos solo en el contorno. Rick la vio como "espacios en negro"
+ * en las guaridas de los jefes. Ahí va roca maciza: peñascos que la llenan entera, altos donde nada queda detrás y bajos
+ * pegados al piso de atrás (para no tapar al que camina por ahí). Con su propio azar y al final de todo: no mueve nada de
+ * una partida guardada. `z.roca` marca las baldosas sin piso rellenas, para que la niebla no las vuelva a tapar.
+ */
+function rellenarBolsas(z: Zona, def: DefZona) {
+  const t = TEMATICAS[def.tema]; if (!z.hueco || !t?.organica || (globalThis as any).__sinRelleno) return;
+  const { W, H, tw, th } = z, pre = typeof t.organica === 'string' ? t.organica + '_' : '';
+  const pen = REGISTRO.find((d) => d.id === (pre ? 'bor_risco' : 'cue_penasco')); if (!pen) return;
+  const hu = z.hueco, r = rng(z.semilla * 7919 + 4243);
+  const abre = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)] && !hu[y * W + x];
+  // roca encerrada: desde la celda, en 6 o más de los 8 rumbos se llega a piso abierto antes de 14 celdas
+  const R = 14, D8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]];
+  const bolsa = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (abre(x, y)) continue;
+    let n = 0;
+    for (const [dx, dy] of D8) for (let s = 1; s <= R; s++) { const X = x + dx * s, Y = y + dy * s; if (X < 0 || Y < 0 || X >= W || Y >= H) break; if (abre(X, Y)) { n++; break; } }
+    if (n >= 6) bolsa[y * W + x] = 1;
+  }
+  // bajo si hay piso abierto detrás (hacia -x, -y) a menos de 7 celdas: un peñasco alto ahí taparía al que camina atrás
+  const atras = (x: number, y: number) => { for (let s = 1; s <= 7; s++) if (abre(x - s, y) || abre(x, y - s) || abre(x - s, y - s)) return true; return false; };
+  const de = (talla: string) => { const vs = pen.variantes.filter((v) => v.startsWith(pre + talla)); return vs[Math.floor(r() * vs.length)]; };
+  // lo que ya tapan los peñascos del contorno no se repite; las franjas finas (una o dos celdas) también se llenan
+  const puestos = new Uint8Array(W * H);
+  for (const o of z.objetos) if (o.id === pen.id) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) puestos[y * W + x] = 1; }
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    const i = y * W + x; if (!bolsa[i] || puestos[i]) continue;
+    const v = de(atras(x, y) ? 'baja' : r() < 0.8 ? 'alta' : 'media');
+    if (!v) continue;
+    const [hw, hh] = huellaDe(pen, v), x0 = Math.round(x + (r() - 0.5) * 0.8), y0 = Math.round(y + (r() - 0.5) * 0.8);
+    z.objetos.push({ id: pen.id, v, cx: x0, cy: y0, hw, hh, bloquea: false });
+    for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) if (x + dx < W && y + dy < H) puestos[(y + dy) * W + x + dx] = 1;
+  }
+  // las baldosas sin piso que quedaron rellenas (casi enteras de roca encerrada) no las tapa la niebla
+  const roca = new Uint8Array(tw * th);
+  for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
+    if (z.pisos[by * tw + bx]) continue;
+    let n = 0; for (let y = by * 5; y < by * 5 + 5; y++) for (let x = bx * 5; x < bx * 5 + 5; x++) n += bolsa[y * W + x];
+    if (n >= 10) roca[by * tw + bx] = 1;
+  }
+  z.roca = roca;
+}
 export function generarZona(def: DefZona, semilla: number): Zona {
   const z = def.tipo === 'pueblo' ? pueblo(def, semilla) : def.tipo === 'mazmorra' ? mazmorra(def, semilla) : exterior(def, semilla);
   for (const o of z.objetos) if (o.id === 'mis_libro_maldito') o.tag = 'libro';
@@ -1522,6 +1569,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   ambientarVida(z, def);
   conectar(z);
   destapar(z);
+  rellenarBolsas(z, def);
   // un grupo sembrado en un rincón que no se alcanza desde la entrada no sale (quedaba vivo e inalcanzable)
   const e0 = z.entradas.arriba ?? Object.values(z.entradas)[0];
   if (e0) {

@@ -1,5 +1,6 @@
 // Réquiem de Ceniza: arranque, estados (carga, intro, menú, elegir, crear, juego) y el control del héroe.
 import { partidaEnEnlace } from './ui/traslado';
+import { registrar as registrarInstalacion, abrirInstalar } from './nucleo/instalar';
 import { ctx, W, H, E, ZM, ajustar, instalarEntrada, finCuadro, pulso, alPrimerGesto, baseLienzo, enMundo } from './nucleo/lienzo';
 import { cargarManifiesto, asegurar, atlasDe, clavesCon, manifiesto, objetoMeta, liberarAtlas, precargar, marcarCuadro } from './motor/assets';
 import * as Assets from './motor/assets';
@@ -602,6 +603,7 @@ function buscarVersion() {
 }
 buscarVersion();
 setInterval(buscarVersion, 5 * 60 * 1000);
+registrarInstalacion();
 function paso(dt: number) {
   if (estado === 'juego' && j && performance.now() - tAutoguardado > 30000) { tAutoguardado = performance.now(); guardar(); }
   ctx.imageSmoothingEnabled = false;
@@ -684,6 +686,7 @@ function paso(dt: number) {
       if (r === 'jugar') { estado = heroes.length ? 'seleccion' : 'crear'; selClase = null; tEstado = 0; }
       if (r === 'intro') { estado = 'intro'; introT = 0; tEstado = 0; precargarCine('intro', 0); Sonido.musica('intro'); }
       if (r === 'opciones') { opcionesDesde = 'menu'; estado = 'opciones'; }
+      if (r === 'instalar') abrirInstalar(IDI === 1);
       if (r === 'idioma') { opciones.idioma = IDI ? 0 : 1; fijarIdioma(opciones.idioma); guardarOpciones(); }
       if (r) E.clicIzq = false;
       break;

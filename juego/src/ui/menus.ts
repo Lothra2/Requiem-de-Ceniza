@@ -2,6 +2,7 @@
 import { cuadrosDeFirma, retratoVivo, RETRATO_K } from '../motor/pintor';
 import { equipoVisual, firmaVisual, cuerpoDe } from '../juego/heroe';
 import { abrirExportar, abrirImportar } from './traslado';
+import { renglonMenu } from '../nucleo/instalar';
 import { ctx, W, H, E, RES, vistaActual, fijarVista } from '../nucleo/lienzo';
 import { texto, T, TT, IDI, boton, dentro, envolver, TITULO, fijarIdioma } from './comun';
 import { cuadrosHeroe, cuadrosPiso, variantePiso, cuadrosRetrato, RETRATO_ALTO, objetoMeta, dibujar, dibujarTenido, cuadrosMonstruo } from '../motor/assets';
@@ -295,6 +296,7 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
   filas.push({ id: 'jugar', s: hayPartidas ? T('Héroes', 'Heroes') : T('Nueva partida', 'New game') });
   filas.push({ id: 'intro', s: T('Ver la intro', 'Watch intro') });
   filas.push({ id: 'opciones', s: T('Opciones', 'Options') });
+  { const ins = renglonMenu(IDI === 1); if (ins) filas.push({ id: 'instalar', s: ins }); }
   filas.push({ id: 'idioma', s: IDI ? 'Español' : 'English' });
   const angosto = W < 760, tam = Math.max(17, Math.min(25, H * 0.034)), paso = Math.round(tam * 2.05), altoSub = ultimo ? Math.round(tam * 0.95) : 0;
   const alto = filas.length * paso + altoSub, ancho = Math.min(W - 40, Math.max(300, tam * 15));

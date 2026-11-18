@@ -37,8 +37,8 @@ function escribir(d: Record<string, string>) {
 
 let capa: HTMLDivElement | null = null;
 export const trasladoAbierto = () => !!capa;
-function cerrar() { capa?.remove(); capa = null; }
-function abrir(titulo: string): HTMLDivElement {
+export function cerrar() { capa?.remove(); capa = null; }
+export function abrir(titulo: string): HTMLDivElement {
   cerrar();
   capa = document.createElement('div');
   capa.style.cssText = 'position:fixed;inset:0;z-index:50;background:rgba(0,0,0,0.82);display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;padding:12px;box-sizing:border-box';
@@ -49,8 +49,8 @@ function abrir(titulo: string): HTMLDivElement {
   for (const ev of ['mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'keydown', 'keyup', 'wheel']) capa.addEventListener(ev, (e) => e.stopPropagation());
   return caja;
 }
-const parrafo = (c: HTMLElement, s: string, color = '#b8a888') => { const p = document.createElement('div'); p.textContent = s; p.style.cssText = `font-size:14px;line-height:1.35;margin:6px 0;color:${color}`; c.appendChild(p); return p; };
-const botonD = (c: HTMLElement, s: string, f: () => void, fuerte = false) => { const b = document.createElement('button'); b.textContent = s; b.style.cssText = `font:15px Georgia,serif;padding:9px 14px;margin:6px 6px 0 0;cursor:pointer;color:${fuerte ? '#fff0c0' : '#d8c8a0'};background:${fuerte ? '#5a2a10' : '#1e1812'};border:1px solid ${fuerte ? '#f0b858' : '#6e5a38'}`; b.onclick = f; c.appendChild(b); return b; };
+export const parrafo = (c: HTMLElement, s: string, color = '#b8a888') => { const p = document.createElement('div'); p.textContent = s; p.style.cssText = `font-size:14px;line-height:1.35;margin:6px 0;color:${color}`; c.appendChild(p); return p; };
+export const botonD = (c: HTMLElement, s: string, f: () => void, fuerte = false) => { const b = document.createElement('button'); b.textContent = s; b.style.cssText = `font:15px Georgia,serif;padding:9px 14px;margin:6px 6px 0 0;cursor:pointer;color:${fuerte ? '#fff0c0' : '#d8c8a0'};background:${fuerte ? '#5a2a10' : '#1e1812'};border:1px solid ${fuerte ? '#f0b858' : '#6e5a38'}`; b.onclick = f; c.appendChild(b); return b; };
 const cajaTexto = (c: HTMLElement, v: string, soloLeer: boolean) => { const t = document.createElement('textarea'); t.value = v; t.readOnly = soloLeer; t.spellcheck = false; t.style.cssText = 'width:100%;height:90px;box-sizing:border-box;background:#0b0907;color:#c8b890;border:1px solid #4e4028;font:12px monospace;padding:6px;margin-top:6px;word-break:break-all'; c.appendChild(t); return t; };
 
 export async function abrirExportar(en: boolean) {

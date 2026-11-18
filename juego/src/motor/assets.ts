@@ -170,14 +170,13 @@ export function dibujar(c: CanvasRenderingContext2D, q: Cuadro | undefined, x: n
 }
 
 // lienzo de trabajo para teñir sprites (golpe, hielo, veneno, campeones)
-const tmp = document.createElement('canvas');
-const tctx = tmp.getContext('2d')!;
+import { lienzoTrabajo } from './lienzos';
 export function dibujarTenido(c: CanvasRenderingContext2D, q: Cuadro | undefined, x: number, y: number, color: string, k: number, escala = 1): boolean {
   if (!q) return false;
   let im = q.img;
   if (!im) { im = imgs.get(q.atlas) ?? null; if (!im) { cargarAtlas(q.atlas); return false; } q.img = im; }
   usado.set(q.atlas, ahoraCuadro);
-  if (tmp.width < q.w || tmp.height < q.h) { tmp.width = Math.max(tmp.width, q.w); tmp.height = Math.max(tmp.height, q.h); }
+  const { cv: tmp, c: tctx } = lienzoTrabajo(q.w, q.h); // (uno distinto cada vez: ver motor/lienzos.ts)
   tctx.globalCompositeOperation = 'copy';
   tctx.drawImage(im, q.x, q.y, q.w, q.h, 0, 0, q.w, q.h);
   tctx.globalCompositeOperation = 'source-atop';

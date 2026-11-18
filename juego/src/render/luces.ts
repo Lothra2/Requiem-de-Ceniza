@@ -1,3 +1,4 @@
+import { lienzoTrabajo } from '../motor/lienzos';
 // Luces del mundo: cada fuego, proyectil, hechizo y la antorcha del héroe es una luz con color.
 // Sirve para tres cosas: sombras proyectadas de los personajes, reflejo de color en sus cuerpos y destellos.
 import { W, H } from '../nucleo/lienzo';
@@ -275,12 +276,13 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   sol = z.tipo === 'mazmorra' ? 0 : Math.max(0, 0.6 - z.oscuridad);
 }
 
-// lienzo de trabajo para siluetas
-const tmp = document.createElement('canvas');
-const tctx = tmp.getContext('2d')!;
+// lienzo de trabajo para siluetas: uno distinto en cada pedido (ver motor/lienzos.ts)
+let tmp: HTMLCanvasElement, tctx: CanvasRenderingContext2D;
+const gctx = document.createElement('canvas').getContext('2d')!; // (solo para crear degradados)
+const prep = (w: number, h: number) => { const t = lienzoTrabajo(w, h); tmp = t.cv; tctx = t.c; return tctx; };
 function silueta(q: Cuadro, relleno: string | CanvasGradient): boolean {
   const im = q.img; if (!im) return false;
-  if (tmp.width < q.w || tmp.height < q.h) { tmp.width = Math.max(tmp.width, q.w); tmp.height = Math.max(tmp.height, q.h); }
+  prep(q.w, q.h);
   tctx.globalCompositeOperation = 'copy';
   tctx.drawImage(im, q.x, q.y, q.w, q.h, 0, 0, q.w, q.h);
   tctx.globalCompositeOperation = 'source-in';
@@ -405,7 +407,7 @@ export function reflejos(ctx: CanvasRenderingContext2D, e: Ent, q: Cuadro, px: n
     const fuerza = Math.min(0.2, i.f * 0.24);
     if (fuerza >= 0.03) {
       const mx = q.ax, my = q.ay * 0.55, ext = Math.max(q.w, q.h) * 0.6;
-      const g = tctx.createLinearGradient(mx + ux * ext, my + uy * ext - (i.l.h > 30 ? ext * 0.3 : 0), mx - ux * ext, my - uy * ext);
+      const g = gctx.createLinearGradient(mx + ux * ext, my + uy * ext - (i.l.h > 30 ? ext * 0.3 : 0), mx - ux * ext, my - uy * ext);
       g.addColorStop(0, hex(i.l.c, 1)); g.addColorStop(0.3, hex(i.l.c, 0.25)); g.addColorStop(0.5, hex(i.l.c, 0));
       if (silueta(q, g)) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = fuerza; ctx.drawImage(tmp, 0, 0, q.w, q.h, px - q.ax * esc, py - q.ay * esc, q.w * esc, q.h * esc); ctx.restore(); }
     }

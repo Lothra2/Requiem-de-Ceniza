@@ -1,6 +1,6 @@
 // pixelfx en el mundo: el clima de cada zona (capa pantalla) y lo que vive en ella (murciélagos, fuegos fatuos, goteras,
 // burbujas, medusas...), sembrado en lugares fijos por zona. Se carga solo lo de la zona en la que estás.
-import { todosPfx, dibujarPfx, efectoPfx, precargarPfx, pfxListo } from './pfx';
+import { todosPfx, dibujarPfx, efectoPfx, precargarPfx, pfxListo, cajaPfx } from './pfx';
 import { E } from '../nucleo/lienzo';
 import { pasable } from '../mundo/zona';
 import type { Juego } from '../juego/mundo';
@@ -103,6 +103,15 @@ function hojasQueCaen(ctx: CanvasRenderingContext2D, j: Juego, W: number, H: num
   ctx.restore();
 }
 
+const FUNDE = 48, tesela = document.createElement('canvas'), mascaras = new Map<string, HTMLCanvasElement>();
+/** Alfa de una tesela: entera en el medio y apagándose en los FUNDE puntos de cada borde (dos vecinas suman uno). */
+function mascaraTesela(w: number, h: number): HTMLCanvasElement {
+  const k = w + 'x' + h; let m = mascaras.get(k); if (m) return m;
+  m = document.createElement('canvas'); m.width = w; m.height = h; const g = m.getContext('2d')!, im = g.createImageData(w, h);
+  const r = (d: number) => { const t = Math.min(1, Math.max(0, (d + 0.5) / FUNDE)); return t * t * (3 - 2 * t); };
+  for (let y = 0; y < h; y++) { const ay = Math.min(r(y), r(h - 1 - y)); for (let x = 0; x < w; x++) { const o = (y * w + x) * 4; im.data[o] = im.data[o + 1] = im.data[o + 2] = 255; im.data[o + 3] = Math.round(255 * ay * Math.min(r(x), r(w - 1 - x))); } }
+  g.putImageData(im, 0, 0); mascaras.set(k, m); return m;
+}
 /** El clima de la zona encima de todo (después de la luz). Devuelve qué tipo de clima ya dibuja, para no repetirlo. */
 export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: number, H: number, t: number): { lluvia: boolean; nieve: boolean; niebla: boolean } {
   const r = { lluvia: false, nieve: false, niebla: false };
@@ -114,14 +123,26 @@ export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: numb
     // las hojas que caen las pinta el juego: sueltas, del tamaño del pixel del mundo y ancladas al suelo que se ve
     if (id === 'fx_hojas_caen') { hojasQueCaen(ctx, j, W, H, t); continue; }
     const e = efectoPfx(id); if (!e) continue;
-    // en mosaico a escala 2, cada tesela con su propio tiempo para que no se note la repetición
-    const tw = 640, th = 360, alfa = ALFA[id] ?? 0.4;
+    // en mosaico a escala 2, cada tesela con su propio tiempo para que no se note la repetición. Las teselas se enciman
+    // FUNDE puntos y se funden en ese margen (cada una se apaga hacia su borde): antes iban a tope, cada una en otro
+    // momento del efecto y recortada, y la ventisca dejaba una raya oscura a lo ancho de la pantalla y un corte a lo alto
+    const alfa = ALFA[id] ?? 0.4, caja = cajaPfx(id);
     let dibujo = false;
-    for (let ty = 0, fy = 0; ty < H; ty += th, fy++) for (let tx = 0, fx = 0; tx < W; tx += tw, fx++) {
+    if (!caja) continue;
+    const cw = caja[2] * 2, ch = caja[3] * 2, px = cw - FUNDE, py = ch - FUNDE, mz = mascaraTesela(cw, ch);
+    if (tesela.width !== cw || tesela.height !== ch) { tesela.width = cw; tesela.height = ch; }
+    const tg = tesela.getContext('2d')!, aditivo = e.mezcla === 'aditiva' || e.mezcla === 'sumar';
+    for (let ty = -FUNDE, fy = 0; ty < H; ty += py, fy++) for (let tx = -FUNDE, fx = 0; tx < W; tx += px, fx++) {
       // las hojas, en damero: la mitad de densidad (sueltas, no se nota el corte)
       if (id === 'fx_hojas_caen' && (fx + fy) % 2) continue;
       const fase = id === 'fx_niebla' || id === 'fx_rayos_luz' ? 0 : (fx * 7 + fy * 3) * 0.37;
-      if (dibujarPfx(ctx, id, t + fase, tx, ty, { tesela: true, alfa })) dibujo = true;
+      tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, cw, ch);
+      if (!dibujarPfx(tg, id, t + fase, -caja[0] * 2, -caja[1] * 2, { tesela: true })) continue;
+      tg.globalCompositeOperation = 'destination-in'; tg.drawImage(mz, 0, 0);
+      ctx.save(); ctx.globalAlpha *= alfa;
+      ctx.globalCompositeOperation = aditivo ? 'lighter' : 'source-over'; ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(tesela, Math.round(tx), Math.round(ty)); ctx.restore();
+      dibujo = true;
     }
     if (dibujo) {
       if (id === 'fx_lluvia') r.lluvia = true;

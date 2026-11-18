@@ -128,8 +128,8 @@ export const cuadrosPiso = (id: string, v: number) => lista('p', `${id}|${v}`);
 const PISO_DOBLE = new Set(['pasto', 'pasto_seco', 'tierra', 'empedrado', 'lajas', 'lajas_musgo', 'baldosa_catedral', 'madera', 'cueva', 'arena', 'arenisca', 'ladrillo_cloaca', 'nieve', 'hielo', 'selva', 'hueso', 'tierra_infierno']);
 export const variantePiso = (id: string, v: number, bx: number, by: number) => (PISO_DOBLE.has(id) ? (bx & 1) + 2 * (by & 1) + 4 * (v & 1) : v);
 /** Retrato grande de la clase en su pose de presentación (nivel 0 novato, 2 leyenda). */
-/** Alto en pixeles del héroe de la presentación (horneado a 1,5 veces el del juego): se dibuja a puntos enteros. */
-export const RETRATO_ALTO = 150;
+/** Alto en pixeles del héroe de la presentación (horneado a 2,25 veces el del juego): se dibuja a puntos enteros. */
+export const RETRATO_ALTO = 225;
 export const cuadrosRetrato = (id: string, nivel: number) => lista('r', `${id}/${nivel}`);
 /** Presentación de la selección de personaje (grupo 'sel' de la Forja): 48 cuadros, los 12 primeros son la entrada. */
 export const cuadrosSel = (id: string, nivel: number) => lista('sel', `${id}/${nivel}`);

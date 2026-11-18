@@ -7,6 +7,7 @@ import { iconoHab } from './juego_ui';
 import { fuegoMundo, dibujarFuegosMundo } from '../render/fuego';
 import { fuegoSuelto, dibujarVivos } from '../render/fuego_vivo';
 import { R } from '../nucleo/azar';
+import { spriteConLuz } from '../render/luz_gpu';
 import { Sonido } from '../audio/sonido';
 
 type Rol = 'cuerpo' | 'distancia' | 'invocador' | 'apoyo';
@@ -61,6 +62,20 @@ function luzFogata(q: Cuadro, x: number, y: number, esc: number, lado: number, p
   capa((g) => { g.addColorStop(0, 'rgba(18,22,58,0.92)'); g.addColorStop(0.5, 'rgba(60,50,70,0.4)'); g.addColorStop(1, 'rgba(255,255,255,0)'); }, lejos, 0, cerca, h * 0.9, 'multiply', 0.85 * k);
   // fuego: del lado cercano y abajo, late con la llama
   capa((g) => { g.addColorStop(0, 'rgba(255,150,50,0.9)'); g.addColorStop(0.35, 'rgba(255,100,30,0.35)'); g.addColorStop(0.7, 'rgba(255,80,20,0)'); }, cerca, h, lejos, h * 0.15, 'lighter', (0.3 + 0.3 * pul) * k);
+}
+/**
+ * La fogata como luz del retrato, en puntos del cuadro desde los pies: `dx`, `dy` es dónde está en pantalla respecto del
+ * héroe y `esc` los puntos de pantalla por punto del cuadro. Late con la llama (`pul`) y se mece un poco: la lengua de
+ * fuego sube y baja y se corre de lado.
+ */
+function luzFogataSprite(dx: number, dy: number, esc: number, t: number, pul: number) {
+  const meceX = Math.sin(t * 5.3) * 1.2 + Math.sin(t * 11.7) * 0.6, meceZ = Math.sin(t * 7.9 + 1) * 1.5;
+  const a = (window as any).__luzRet ?? {}; // (las pruebas ajustan al vuelo)
+  return {
+    sx: dx / esc + meceX, sy: dy / esc, alto: (a.alto ?? 26) + meceZ, radio: a.radio ?? 150,
+    color: (a.color ?? [1.0, 0.62, 0.32]) as [number, number, number], fuerza: (a.fuerza ?? 0.28) * (0.75 + 0.35 * pul), sombra: a.sombra ?? 0.36, filo: (a.filo ?? 0.3) * pul, aire: a.aire ?? 0.1,
+    rim: { dir: [-0.2, -0.8, 0.6] as [number, number, number], color: [0.28, 0.36, 0.55] as [number, number, number], fuerza: a.rim ?? 0.12 },
+  };
 }
 const USAR_SEL = false; // (la pose 'sel' encorvaba al héroe con los brazos cruzados y tapaba la mano: va la de retrato)
 /** Las partículas del aura en dos pasadas: `atras` se dibuja antes del héroe y la de adelante después. */
@@ -151,8 +166,9 @@ export function dibujarCrear(t: number, sel: number | null): { accion: 'crear' |
   // piso de piedra con la fogata detrás
   const piso = cuadrosPiso('lajas', 0)[0] ?? cuadrosPiso('tierra', 1)[0];
   for (let i = -4; i <= 4; i++) for (let k = -4; k <= 4; k++) { const px = cx + (i - k) * 80, py = cy + (i + k) * 40; if (piso && px > -100 && px < W + 100) { ctx.globalAlpha = 0.6; dibujar(ctx, piso, px, py); ctx.globalAlpha = 1; } }
-  // la fogata delante a la derecha del héroe, en el hueco antes de la ficha: es la que explica la luz del sprite
-  const fx = angosto ? cx + 90 : cx + 110, fy = cy + 10;
+  // la fogata delante a la izquierda del héroe, frente a su cara (mira hacia abajo a la izquierda): es la que explica la
+  // luz del retrato (luz_retrato.mts). Antes iba a la derecha y la cara quedaba del lado de la sombra.
+  const fx = angosto ? cx - 96 : cx - 128, fy = cy + 22;
   // las lajas con la mitad del contraste y el piso a oscuras salvo el pozo del héroe y la fogata
   ctx.fillStyle = 'rgba(22,20,18,0.5)'; ctx.fillRect(0, 0, W, H);
   {
@@ -219,13 +235,18 @@ export function dibujarCrear(t: number, sel: number | null): { accion: 'crear' |
     const conSel = ret.length > 0 || (escQ === 1 && sl.length > 0 && !!ms && USAR_SEL); // la presentación de la Forja ya trae su contraluz y su luz de fogata
     if (!conSel) { ctx.globalAlpha = 0.22 * k; dibujarTenido(ctx, q, hx - 2, cy - 1, '#7f9fd8', 1, escQ); }
     if (!conSel) { ctx.globalAlpha = 0.18 * k; dibujarTenido(ctx, q, hx + 2, cy, '#ff9a48', 1, escQ); }
-    ctx.globalAlpha = k; dibujar(ctx, q, hx, cy, escQ);
+    // luz avanzada: la fogata alumbra el relieve del retrato punto por punto (luz_gpu.ts), con su latido; sin WebGL2,
+    // con la luz clásica o mientras baja el relieve, el retrato horneado tal cual
+    const vivo = conSel && ret.length ? spriteConLuz(q, luzFogataSprite(fx - hx, fy - cy, escQ, t, pulF)) : null;
+    ctx.globalAlpha = k;
+    if (vivo) ctx.drawImage(vivo, 0, 0, q.w, q.h, Math.round((hx - q.ax * escQ) * RES) / RES, Math.round((cy - q.ay * escQ) * RES) / RES, q.w * escQ, q.h * escQ);
+    else dibujar(ctx, q, hx, cy, escQ);
     void pul;
     // la luz de la fogata sobre el cuerpo: viene de abajo y del lado del fuego. El lado contrario se hunde en sombra azul
     // y el lado del fuego se enciende, con el pulso de la llama (una máscara del mismo cuadro, no un velo parejo)
     if (!conSel) luzFogata(q, hx, cy, escQ, fx > cx ? 1 : -1, pulF, k);
     // el retrato ya trae su luz de fogata: acá solo late con la llama, apenas
-    else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.07 * k * Math.max(0, pulF - 0.75) * 4; dibujar(ctx, q, hx, cy, escQ); ctx.restore(); }
+    else if (!vivo) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.07 * k * Math.max(0, pulF - 0.75) * 4; dibujar(ctx, q, hx, cy, escQ); ctx.restore(); }
   }
   ctx.imageSmoothingEnabled = suaveAntes;
   ctx.globalAlpha = 1;

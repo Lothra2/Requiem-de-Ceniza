@@ -244,9 +244,26 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 
 ## La presentación de las clases
 
-En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`, horneado a 1,5 veces el tamaño del juego con la luz
-de `retrato.ts`) y se dibuja a puntos enteros, igual que la fogata y el piso. No volver a presentarlo como render liso
-en grande: el modelo de cuerpo (manos, nariz, torso) no lo aguanta y Rick lo rechazó (16 nov 2026).
+En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`) y se dibuja a puntos enteros, igual que la fogata y
+el piso. No volver a presentarlo como render liso en grande: el modelo de cuerpo (manos, nariz, torso) no lo aguanta y
+Rick lo rechazó (16 nov 2026).
+
+- Desde el 18 nov 2026 se hornea a **2,25** veces el tamaño del juego (`K_RETRATO`, `RETRATO_ALTO = 225`): a ×2 en 720 y
+  ×3 en 1080 nativo. Con los rasgos grandes de la cara (`detalle: 2`) y el grano de los materiales 1,5 veces más grande
+  (`conGrano`: si no, la tela parecía arena). La luz y el grano están en `juego/hornear/luz_retrato.mts`, NO en el motor:
+  así no cambia `__PINTOR__` y nadie repinta su héroe. El color va sin pérdida (`atlas_webp.py`).
+- La fogata va a la **izquierda** del héroe, frente a su cara (mira a 'so'): con la fogata a la derecha la cara quedaba
+  en la sombra, gris como una calavera. Luz de frente apenas corrida, baja, relleno frío muy bajo y contraluz fría de
+  atrás a la derecha. La piel no se aclara (`piel.luz` 0) y el techo baja (antes la cara salía con bandas blancas).
+- **Luz avanzada** (Opciones, Luz, con WebGL2): `spriteConLuz` en `render/luz_gpu.ts` reilumina el cuadro con sus gemelos
+  `_n` y `_h` por **punto del dibujo** (un lienzo del tamaño del cuadro con su propio WebGL, después agrandado sin suavizar):
+  la fogata (`luzFogataSprite` en `seleccion.ts`, en puntos del cuadro desde los pies) calienta lo que la mira, hunde lo de
+  atrás, enciende el filo del lado del fuego y late y se mece con la llama. Sin WebGL2, en Clásica o mientras baja el
+  relieve, va el horneado tal cual. `window.__luzRet = { fuerza, sombra, filo, aire, rim, radio, alto }` ajusta al vuelo.
+- Hornear: `RELIEVE=1 GRUPOS=r npx tsx juego/hornear/hornear.mts` (5 min) y `python3 juego/hornear/atlas_webp.py`. Los
+  retratos sueltos para ajustar la luz se pintan sin hornear importando `luzRetrato`/`conGrano` (cada cuadro unos 3 s).
+- Lo que el motor no da todavía: la cara (unos 22 puntos de cabeza) y las manos (mitones sin dedos) siguen siendo las del
+  modelo de cuerpo. Mejorarlas es tocar `rostro.ts`/`cuerpo.ts` (cambia `__PINTOR__`).
 
 ## La portada
 

@@ -200,3 +200,111 @@ export function aplicarLuzGPU(c: CanvasRenderingContext2D, luces: LuzLab[], tr: 
 if (typeof addEventListener === 'function') addEventListener('keydown', (e: KeyboardEvent) => { if ((e.key === 'l' || e.key === 'L') && !(e.target instanceof HTMLInputElement)) lab.on = !lab.on; });
 /** ¿Este aparato puede con la luz avanzada? (WebGL2) */
 export const hayGPU = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
+
+// ------------------------------------------------------------------ un sprite suelto con su luz (la selección de clase)
+// El héroe de la presentación es pixel art a puntos enteros: la luz se calcula por PUNTO DEL DIBUJO (no de la pantalla)
+// en un lienzo del tamaño del cuadro, y después el juego lo agranda a ×2 o ×3 sin suavizar. Así cada pixel lleva una sola
+// luz y la fogata no pinta degradés lisos dentro de los pixeles. Con su propio contexto de WebGL, chiquito, para no tocar
+// el del mundo.
+let glS: WebGL2RenderingContext | null = null, glSCv: HTMLCanvasElement | null = null, pSprite: WebGLProgram | null = null, sinGLS = false;
+/** Texturas de atlas subidas (color, relieve, alto), las últimas usadas: cada clase tiene su atlas. */
+const texS = new Map<string, { t: WebGLTexture; usado: number }>();
+const FS_SPRITE = `#version 300 es
+precision highp float; out vec4 o;
+uniform sampler2D tC, tN, tA; uniform ivec4 rect; uniform vec2 ancla; uniform float kz;
+uniform vec4 fuego; uniform vec3 fCol; uniform float fK, sombraK, filoK, aire; uniform vec3 rimDir; uniform vec3 rimCol; uniform float rimK;
+void main() {
+  ivec2 q = ivec2(gl_FragCoord.xy); q.y = rect.w - 1 - q.y;
+  ivec2 t = rect.xy + q;
+  vec4 C = texelFetch(tC, t, 0), N = texelFetch(tN, t, 0), A = texelFetch(tA, t, 0);
+  if (C.a < 0.01) { o = vec4(0.0); return; }
+  // lo que brilla solo (gemas, fuego, ojos de brasa) y lo que no trae relieve queda como está
+  if (N.a < 0.3 || (N.a < 0.62 && N.a > 0.38)) { o = C; return; }
+  vec3 n = normalize(N.rgb * 2.0 - 1.0);
+  // el punto en el mundo del cuadro: x - y es la columna, x + y sale de la fila y del alto (la vista isométrica del motor)
+  float z = A.r * 255.0 + A.g;
+  float sx = float(q.x) - ancla.x, sy = float(q.y) - ancla.y;
+  float S = 2.0 * (sy + kz * z), D = sx;
+  vec3 P = vec3((S + D) * 0.5, (S - D) * 0.5, z);
+  vec3 L = fuego.xyz - P; float d = length(L); vec3 l = L / d;
+  float att = 1.0 / (1.0 + (d / fuego.w) * (d / fuego.w));
+  float dif = dot(n, l);
+  vec3 V = normalize(vec3(1.0, 1.0, 1.0 / kz)); // hacia la cámara
+  float canto = pow(1.0 - max(dot(n, V), 0.0), 2.0);
+  vec3 c = C.rgb;
+  // la cara que mira al fuego se calienta y aclara con su latido; la de atrás cae a la sombra (más lejos, más honda)
+  vec3 calor = fCol * fK * att * max(dif, 0.0);
+  float sombra = sombraK * (max(-dif, 0.0) * 0.8 + 0.25) * (1.0 - att * 0.6) + aire * (1.0 - att);
+  c = c * (1.0 - min(0.7, sombra)) + c * calor * 1.6 + calor * 0.04;
+  // el filo del lado del fuego: los bordes de la silueta que lo miran se encienden de su color
+  c += fCol * filoK * att * canto * max(dif, 0.0) * (0.25 + dot(C.rgb, vec3(0.3, 0.5, 0.2)));
+  // la contraluz fría de atrás, apenas
+  c += rimCol * rimK * canto * max(dot(n, rimDir), 0.0) * (0.3 + 0.7 * smoothstep(0.0, 120.0, z));
+  // sin quemar: lo que pasa de 0.86 se dobla suave hacia el blanco cálido
+  vec3 sobre = max(c - 0.86, 0.0); c = min(c, 0.86) + sobre / (1.0 + sobre * 3.0);
+  o = vec4(c, C.a);
+}`;
+function iniciarS(): boolean {
+  if (glS) return true; if (sinGLS) return false;
+  glSCv = document.createElement('canvas');
+  glS = glSCv.getContext('webgl2', { premultipliedAlpha: false, antialias: false, preserveDrawingBuffer: true, alpha: true });
+  if (!glS) { sinGLS = true; return false; }
+  try {
+    const g = glS, sh = (t: number, s: string) => { const x = g.createShader(t)!; g.shaderSource(x, s); g.compileShader(x); if (!g.getShaderParameter(x, g.COMPILE_STATUS)) throw new Error(g.getShaderInfoLog(x) ?? 'shader'); return x; };
+    const p = g.createProgram()!; g.attachShader(p, sh(g.VERTEX_SHADER, VS)); g.attachShader(p, sh(g.FRAGMENT_SHADER, FS_SPRITE)); g.bindAttribLocation(p, 0, 'p'); g.linkProgram(p);
+    if (!g.getProgramParameter(p, g.LINK_STATUS)) throw new Error(g.getProgramInfoLog(p) ?? 'link');
+    pSprite = p;
+    const b = g.createBuffer(); g.bindBuffer(g.ARRAY_BUFFER, b); g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), g.STATIC_DRAW);
+    g.enableVertexAttribArray(0); g.vertexAttribPointer(0, 2, g.FLOAT, false, 0, 0);
+  } catch (e) { console.warn('luz del sprite', e); glS = null; sinGLS = true; return false; }
+  return true;
+}
+function texAtlas(nombre: string, im: CanvasImageSource): WebGLTexture {
+  const g = glS!; let e = texS.get(nombre);
+  if (!e) {
+    const t = g.createTexture()!; g.bindTexture(g.TEXTURE_2D, t);
+    for (const [k, v] of [[g.TEXTURE_MIN_FILTER, g.NEAREST], [g.TEXTURE_MAG_FILTER, g.NEAREST], [g.TEXTURE_WRAP_S, g.CLAMP_TO_EDGE], [g.TEXTURE_WRAP_T, g.CLAMP_TO_EDGE]]) g.texParameteri(g.TEXTURE_2D, k, v);
+    // (sin premultiplicar ni corregir color: el relieve y el alto son datos, no colores)
+    g.pixelStorei(g.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); g.pixelStorei(g.UNPACK_COLORSPACE_CONVERSION_WEBGL, g.NONE);
+    g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, g.RGBA, g.UNSIGNED_BYTE, im as TexImageSource);
+    // las de hace rato se sueltan (cada atlas de retrato son unos MB en la tarjeta), antes de anotar la nueva: si no, la
+    // nueva era la de uso más viejo y se borraba al toque (se veía el atlas de otra clase)
+    if (texS.size >= 9) { const viejo = [...texS.entries()].sort((a, b) => a[1].usado - b[1].usado)[0]; g.deleteTexture(viejo[1].t); texS.delete(viejo[0]); }
+    e = { t, usado: 0 }; texS.set(nombre, e);
+  }
+  e.usado = performance.now();
+  return e.t;
+}
+export interface LuzSprite {
+  /** El fuego en unidades del cuadro, desde el ancla (los pies): x a la derecha, y hacia abajo en pantalla, alto sobre el piso. */
+  sx: number; sy: number; alto: number; radio: number;
+  color: [number, number, number]; fuerza: number; sombra: number; filo: number; aire?: number;
+  rim?: { dir: [number, number, number]; color: [number, number, number]; fuerza: number };
+}
+/**
+ * El cuadro `q` reiluminado por la fogata, en un lienzo de su mismo tamaño en puntos (para dibujar a escala entera sin
+ * suavizar). null si no hay WebGL2, la luz avanzada está apagada o el relieve todavía no bajó: entonces va el de siempre.
+ */
+export function spriteConLuz(q: Cuadro, luz: LuzSprite): HTMLCanvasElement | null {
+  if (!lab.on || !q.img) return null;
+  const n = relDe(q.atlas + '_n'), a = relDe(q.atlas + '_h');
+  if (!n || !a || !iniciarS()) return null;
+  const g = glS!, cv = glSCv!;
+  if (cv.width !== q.w || cv.height !== q.h) { cv.width = q.w; cv.height = q.h; }
+  g.viewport(0, 0, q.w, q.h);
+  g.useProgram(pSprite);
+  const texs: [string, WebGLTexture][] = [['tC', texAtlas(q.atlas, q.img)], ['tN', texAtlas(q.atlas + '_n', n)], ['tA', texAtlas(q.atlas + '_h', a)]];
+  texs.forEach(([nm, t], i) => { g.activeTexture(g.TEXTURE0 + i); g.bindTexture(g.TEXTURE_2D, t); g.uniform1i(g.getUniformLocation(pSprite!, nm), i); });
+  const u = (nm: string) => g.getUniformLocation(pSprite!, nm);
+  const KZ = Math.sqrt(1.5);
+  // el fuego al mundo del cuadro (la misma cuenta que el punto)
+  const S = 2 * (luz.sy + KZ * luz.alto), D = luz.sx;
+  g.uniform4i(u('rect'), q.x, q.y, q.w, q.h); g.uniform2f(u('ancla'), q.ax, q.ay); g.uniform1f(u('kz'), KZ);
+  g.uniform4f(u('fuego'), (S + D) / 2, (S - D) / 2, luz.alto, luz.radio);
+  g.uniform3f(u('fCol'), luz.color[0], luz.color[1], luz.color[2]); g.uniform1f(u('fK'), luz.fuerza); g.uniform1f(u('sombraK'), luz.sombra); g.uniform1f(u('filoK'), luz.filo); g.uniform1f(u('aire'), luz.aire ?? 0);
+  const r = luz.rim ?? { dir: [0, 0, 1], color: [0, 0, 0], fuerza: 0 }, rl = Math.hypot(...r.dir) || 1;
+  g.uniform3f(u('rimDir'), r.dir[0] / rl, r.dir[1] / rl, r.dir[2] / rl); g.uniform3f(u('rimCol'), r.color[0], r.color[1], r.color[2]); g.uniform1f(u('rimK'), r.fuerza);
+  g.bindFramebuffer(g.FRAMEBUFFER, null); g.disable(g.BLEND); g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT);
+  g.drawArrays(g.TRIANGLE_STRIP, 0, 4);
+  return cv;
+}

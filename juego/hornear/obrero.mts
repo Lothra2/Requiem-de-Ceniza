@@ -14,7 +14,7 @@ const { personajeEscena, esqueleto } = await import(join(raiz, 'cuerpo.ts'));
 const { pintarPoder } = await import(join(raiz, 'poderes.ts'));
 const extra = await import('../src/motor/hoja.ts');
 const { HEROES } = await import(join(raiz, 'catalogo/personajes.ts'));
-const { retrato } = await import(join(raiz, 'retrato.ts'));
+const { luzRetrato, conGrano, K_RETRATO } = await import('./luz_retrato.mts');
 
 type Cuadro = { w: number; h: number; ax: number; ay: number; data: Uint8ClampedArray; hoja?: number[]; rel?: Uint8ClampedArray; alt?: Uint8ClampedArray };
 
@@ -46,12 +46,13 @@ parentPort!.on('message', (job: any) => {
       // número entero de puntos por pixel, igual que la fogata y el piso de esa pantalla. (A 5,4 y lisa se veía el muñeco
       // de plastilina: manos, nariz y torso no aguantan un render grande.) Lleva la luz de retrato del motor: la fogata a
       // su derecha como principal, el otro lado en sombra con relleno frío y la contraluz que recorta cabeza y hombros.
-      const h = HEROES.find((x: any) => x.id === job.id), k = 1.5;
-      const LUZ_RETRATO = { ...retrato(k), relieve: 1, cavidad: 1, tonos: 2, amb: 0.07, cielo: 0.04, gamma: 1.18, expo: 1.22,
-        relleno: { dir: [-0.6, 0.6, 0.35], color: '#6f86b8', fuerza: 0.3, tinte: 0.6 }, sombra: { color: '#0a0c16', fuerza: 0.5, hasta: 0.3 } };
+      // (18 nov 2026) A 1,5 la cara y las manos eran cuatro manchas: va a 2,25 (el juego lo dibuja a ×2 en 720 y ×3 en
+      // 1080), con los rasgos grandes de la cara (`detalle: 2`), el grano de los materiales al tamaño del cuerpo y la luz de
+      // luz_retrato.mts: la fogata a la izquierda, delante de la cara.
+      const h = HEROES.find((x: any) => x.id === job.id), k = K_RETRATO, LUZ_RETRATO = luzRetrato(k);
       for (let f = 0; f < job.cuadros; f++) {
-        const e = personajeEscena({ ...h.cuerpo, alto: (h.cuerpo.alto ?? 1) * k }, h.niveles[job.nivel], 'so', 'presentar', f);
-        const r = pintarEscena({ ...e, luz: { ...(e.luz ?? {}), ...LUZ_RETRATO }, resplandor: undefined, ss: 2, sinSombra: true });
+        const e = personajeEscena({ ...h.cuerpo, alto: (h.cuerpo.alto ?? 1) * k }, h.niveles[job.nivel], 'so', 'presentar', f, { detalle: 2 });
+        const r = conGrano(1.5, () => pintarEscena({ ...e, luz: { ...(e.luz ?? {}), ...LUZ_RETRATO }, resplandor: undefined, ss: 2, sinSombra: true }));
         out.push(recortar(r, r.ancla[0], r.ancla[1]));
       }
     } else if (job.tipo === 'objeto') {

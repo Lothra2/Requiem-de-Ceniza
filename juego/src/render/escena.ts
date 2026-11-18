@@ -285,6 +285,28 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     }
     ctx.fill();
   }
+  // el hueco rellenado (rellenarBolsas): su suelo en penumbra, el piso del tema oscurecido y cortado celda por celda, para que
+  // entre las piezas del derrumbe se vea tierra y cascajo en sombra y no el negro de fuera del mapa
+  if (z.relleno && z.rellenoPiso && !(window as any).__sinRelleno) {
+    const re = z.relleno, cx0 = Math.max(0, bx0 * 5), cx1 = Math.min(z.W - 1, bx1 * 5 + 4), cy0 = Math.max(0, by0 * 5), cy1 = Math.min(z.H - 1, by1 * 5 + 4);
+    const tiles = new Set<number>(); ctx.save(); ctx.beginPath(); let hay = false;
+    for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++) {
+      if (!re[y * z.W + x]) continue;
+      let x2 = x; while (x2 < cx1 && re[y * z.W + x2 + 1]) x2++;
+      const a = aPant(x, y), b2 = aPant(x2 + 1, y), c = aPant(x2 + 1, y + 1), d = aPant(x, y + 1);
+      if (!(b2[0] < -40 || d[0] > W + 40 || c[1] < -20 || a[1] > H + 20)) { ctx.moveTo(a[0], a[1] - 1); ctx.lineTo(b2[0] + 1, b2[1]); ctx.lineTo(c[0], c[1] + 1); ctx.lineTo(d[0] - 1, d[1]); ctx.closePath(); hay = true; for (let q = x; q <= x2; q++) tiles.add(Math.floor(y / 5) * z.tw + Math.floor(q / 5)); }
+      x = x2;
+    }
+    if (hay) {
+      ctx.clip();
+      for (const ti of tiles) {
+        const bx = ti % z.tw, by = (ti - bx) / z.tw, fs = cuadrosPiso(z.rellenoPiso, variantePiso(z.rellenoPiso, (bx * 7 + by * 3) % 8, bx, by)); if (!fs.length) continue;
+        const [px, py] = aPant(bx * 5 + 2.5, by * 5 + 2.5); dibujar(ctx, fs[0], px, py);
+      }
+      ctx.fillStyle = 'rgba(8,6,5,0.62)'; ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
+  }
   if (z.lluvia && z.tipo !== 'mazmorra' && !(window as any).__sinLluvia) lluviaSuelo(j, dt, tiempo, aPant, aMundo);
   if (!(window as any).__sinAmbiente) ambienteSuelo(j, dt, tiempo, aPant, bx0, bx1, by0, by1);
   // manchas

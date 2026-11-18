@@ -25,9 +25,21 @@ export function tinte(color: string, tipo: 'tela' | 'cuero' | 'metal' | 'malla' 
   return id;
 }
 
+/**
+ * Los metales de las piezas que caen (trajes y cascos), con la saturación del ícono: el oro, el bronce y el acero del
+ * cuerpo de siempre, bajo la luz del juego, salían más naranjas y vivos que en la casilla. Los de siempre (`cu_oro`,
+ * `cu_bronce`, `cu_placa`) quedan para lo horneado (héroes de salida, monstruos, jefes).
+ */
+const METAL_PIEZA: Record<string, { rampa: string[]; brillo: number; trama: number }> = {
+  cu_oro_pieza: { rampa: ['#191007', '#302110', '#4c361a', '#6b4e26', '#8a6834', '#a88344', '#c29f5a', '#d8bd7a', '#ebdcab'], brillo: 0.75, trama: 0.35 },
+  cu_bronce_pieza: { rampa: ['#110a05', '#211409', '#352010', '#4b2f19', '#644022', '#7c532e', '#966a3c', '#af834c', '#c9a065', '#e0c390'], brillo: 0.65, trama: 0.6 },
+  cu_placa_pieza: { rampa: ['#0b0b0d', '#16171a', '#222529', '#2f3338', '#3f444a', '#535960', '#6b7179', '#888e96', '#acb2b9', '#d6dadf'], brillo: 0.8, trama: 0.6 },
+};
+for (const [k, v] of Object.entries(METAL_PIEZA)) M[k] = { rampa: v.rampa, ruido: k === 'cu_placa_pieza' ? 0.015 : 0.04, escala: 0.6, brillo: v.brillo, trama: v.trama, patron: superficie.metal, local: true };
+
 /** El color de cada metal de traje (los mismos del ícono: `HEX_METAL` en iconos3d.ts). */
 export const HEX_METAL_CU: Record<string, string> = { acero: '#6d737a', hierro: '#575a60', negro: '#3b4048', bronce: '#91592f', oro: '#b8862a', plata: '#9aa2aa', laton: '#8a7a50' };
-const METAL_CU: Record<string, string> = { acero: 'cu_placa', negro: 'cu_placa_oscura', bronce: 'cu_bronce', oro: 'cu_oro', plata: 'cu_plata_vieja', laton: 'cu_laton_viejo' };
+const METAL_CU: Record<string, string> = { acero: 'cu_placa_pieza', negro: 'cu_placa_oscura', bronce: 'cu_bronce_pieza', oro: 'cu_oro_pieza', plata: 'cu_plata_vieja', laton: 'cu_laton_viejo' };
 /** La placa de un metal de traje. */
 export function metalTraje(m: string): string { return METAL_CU[m] ?? tinte(m.startsWith('#') ? m : HEX_METAL_CU[m] ?? '#575a60', 'metal'); }
 /** La cota de anillas de un metal de traje. */

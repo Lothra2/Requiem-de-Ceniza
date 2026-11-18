@@ -980,7 +980,7 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
     }
   }
   // las vendas con ribete (el del ícono): una banda en la muñeca
-  if (eq.manos?.tipo === 'vendas' && eq.manos.ribete) for (const b of e.brazos) ps.push(banda(mez(b.codo, b.mun, 0.7), nor(sub(b.mun, b.codo)), 1.6 * A + 0.5, 0.42 * S, eq.manos.ribete));
+  if (eq.manos?.tipo === 'vendas' && eq.manos.ribete) for (const b of e.brazos) ps.push(banda(mez(b.codo, b.mun, 0.97), nor(sub(b.mun, b.codo)), 1.8 * A + 0.75, 0.55 * S, eq.manos.ribete));
   // el borde de cada prenda de mano: puño vuelto del guante, correas y canto acampanado del brazal, codal del guantelete
   // (sin esto el antebrazo es un tubo liso del color de la prenda)
   if (eq.manos && eq.manos.tipo !== 'vendas') for (const b of e.brazos) {
@@ -1119,7 +1119,8 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
     }
   }
   // ---- casco o tocado
-  if (eq.cabeza) ps.push(...tocado(e, cu, eq.cabeza));
+  // (lo que cava, como la abertura de la capucha, va al principio: así cava solo su pieza y no la cara)
+  if (eq.cabeza) { const tc = tocado(e, cu, eq.cabeza); if (tc.some((p) => p.resta)) ps.unshift(...tc); else ps.push(...tc); }
   // ---- cola y alas
   if (cu.cola) {
     const ondea = Math.sin((f8 / 8) * Math.PI * 2) * 2;

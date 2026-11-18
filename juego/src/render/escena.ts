@@ -1143,7 +1143,9 @@ function sprTinte(col: string): HTMLCanvasElement {
 function dibujarLuz(j: Juego, t: number) {
   const z = j.zona;
   if (luz.width !== W || luz.height !== H) { luz.width = W; luz.height = H; brillo.width = W; brillo.height = H; }
-  const oscuro = Math.min(0.97, z.oscuridad + (z.tipo === 'pueblo' ? -0.1 : 0.08)) * (1 - destello * 0.5);
+  // (tope 0,88: con 0,97 el piso lejos de toda luz quedaba negro puro y parecía que no había nada. Así se intuye siempre,
+  // como en el Diablo de Rick, y la clave baja se mantiene. `__topeOscuro` para comparar)
+  const oscuro = Math.min((window as any).__topeOscuro ?? 0.88, z.oscuridad + (z.tipo === 'pueblo' ? -0.1 : 0.08)) * (1 - destello * 0.5);
   lctx.globalCompositeOperation = 'source-over';
   lctx.clearRect(0, 0, W, H);
   lctx.fillStyle = `rgba(0,0,0,${oscuro})`; lctx.fillRect(0, 0, W, H);

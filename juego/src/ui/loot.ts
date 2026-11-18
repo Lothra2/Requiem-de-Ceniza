@@ -10,6 +10,7 @@ const GRADO = (id: string) => (/astillad/.test(id) ? 'chipped' : /agrietad/.test
 
 const COLOR_TELA: Record<string, string> = { cu_tela_azul: '#2f4f9a', cu_tela_roja: '#9a2626', cu_tela_verde: '#2f6a34', cu_tela_morada: '#5a2f7a', cu_tela_negra: '#1c1a20', cu_tela_blanca: '#d8d2c4', cu_tela_parda: '#6a5236' };
 import { ASPECTO_RELIQUIA } from '../datos/reliquias';
+import { trajeDe } from '../datos/trajes';
 const cache = new Map<string, LootItem>();
 export function aLoot(o: Objeto): LootItem {
   const k = o.uid + '|' + o.rareza;
@@ -77,6 +78,12 @@ export function aLoot(o: Objeto): LootItem {
       if (a.linea === 'metal' && o.lore) extra = { ...extra, flavor: { es: o.lore[0], en: o.lore[1] } };
     }
   } else if (rq?.cara && base.cat === 'offhand') { diseno = { ...(diseno ?? {}), face: rq.cara }; grado = 5; }
+  // el traje (datos/trajes.ts): línea, color, metal, ribete, tabardo y corte propios de esta pieza, para que cada
+  // armadura que cae se vea distinta. Lo que ya trae su aspecto (reliquia, conjunto, mítica, línea épica, corona) no.
+  if (o.tipo === 'equipo' && b && base.cat === 'armor' && !b.linea && !b.tinte && !asp && !rq?.armadura && (diseno as any)?.helm !== 'crown') {
+    const tj = trajeDe(o, b);
+    if (tj) diseno = { ...(diseno ?? {}), traje: tj };
+  }
   const it: LootItem = { id: String(o.uid), name: { es: o.nombre[0], en: o.nombre[1] }, rarity: RAREZA[o.rareza] ?? 'normal', base, level: o.nivel, stats: { mods: [] }, ...(diseno ? { design: diseno } : {}), ...(grado ? { grade: grado } : {}), ...extra } as LootItem;
   cache.set(k, it);
   if (cache.size > 2000) cache.clear();

@@ -209,10 +209,15 @@ export function dibujarHudTactil(j: Juego, t: number) {
     orbeHud(h.veneno > 0 ? 'veneno' : h.frio > 0 ? 'helado' : 'vida', h.vida / h.vidaMax, x, y, P.O, f);
     orbeHud('mana', h.mana / Math.max(1, h.c.manaMax), x + P.O + P.gap, y, P.O, f);
     const tn = Math.max(10, Math.round(L(12)));
-    texto(`${Math.ceil(h.vida)}`, x + P.O / 2, y + P.O + L(12), { alin: 'center', tam: tn, color: '#ff9080' });
-    texto(`${Math.floor(h.mana)}`, x + P.O * 1.5 + P.gap, y + P.O + L(12), { alin: 'center', tam: tn, color: '#90a8ff' });
+    texto(`${Math.ceil(h.vida)}`, x + P.O * 0.4, y + P.O + L(12), { alin: 'center', tam: tn, color: '#ff9080' });
+    texto(`${Math.floor(h.mana)}`, x + P.O * 1.6 + P.gap, y + P.O + L(12), { alin: 'center', tam: tn, color: '#90a8ff' });
     hud.orbes = P.orbes;
-    selloNivel(d.nivel, x + P.O + P.gap / 2, y + P.O * 0.86, Math.max(10, L(11)), j.t);
+    // el rosetón del nivel entre los dos orbes, abajo, donde no tapa el líquido: a punto entero o a medio punto,
+    // el tamaño más cerca de unos 36 pt (iPad 1, teléfono 1,5)
+    { const obj = L(36) / 27, esc = [1, 1.5, 2, 2.5, 3].reduce((m, e) => (Math.abs(e - obj) < Math.abs(m - obj) ? e : m), 1);
+      selloNivel(d, x + P.O + P.gap / 2, y + P.O * 0.93, esc, j.t);
+      // los nombres del mundo esquivan también los lóbulos de abajo del rosetón
+      const fondo = y + P.O * 0.93 + 19 * esc; if (fondo > P.orbes[1] + P.orbes[3]) hud.orbes = [P.orbes[0], P.orbes[1], P.orbes[2], fondo - P.orbes[1]]; }
     recursoClase(j, x, P.orbes[1] + P.orbes[3] + L(4), P.orbes[2] + L(60));
     const m = MISIONES.find((q) => q.acto === d.acto && !q.lateral && (d.misiones[q.id] ?? 0) >= 1 && (d.misiones[q.id] ?? 0) < 3);
     if (m) {

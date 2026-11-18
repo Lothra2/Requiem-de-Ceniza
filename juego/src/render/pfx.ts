@@ -117,8 +117,9 @@ export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: numbe
   if ((e.mezcla === 'aditiva' || e.mezcla === 'sumar') && e.capa !== 'pantalla') ctx.globalAlpha *= fuerzaAditiva;
   ctx.globalCompositeOperation = e.mezcla === 'aditiva' || e.mezcla === 'sumar' ? 'lighter' : 'source-over';
   if (e.capa === 'pantalla' && o.tesela) {
-    // clima en mosaico: el cuadro a escala 2 (el mismo pixel que el mundo) con la esquina en (x, y)
-    ctx.drawImage(bmp, c[1], c[2], c[3], c[4], Math.round(x), Math.round(y), c[3] * 2, c[4] * 2);
+    // clima en mosaico: el cuadro a escala 2 (el mismo pixel que el mundo) con la esquina del lienzo del efecto en (x, y).
+    // (el cuadro viene recortado: sin su corrimiento la tesela quedaba corta y corrida y abría una raya entre teselas)
+    ctx.drawImage(bmp, c[1], c[2], c[3], c[4], Math.round(x + (c[5] ?? 0) * 2), Math.round(y + (c[6] ?? 0) * 2), c[3] * 2, c[4] * 2);
   } else if (e.capa === 'pantalla' && o.W) {
     // a cubrir la pantalla manteniendo la proporción del cuadro
     const k = Math.max(o.W / c[3], (o.H ?? 0) / c[4]);
@@ -141,3 +142,14 @@ export function alfaCuerpo(id: string, seg: number) {
   const n = cuadroPfx(e, seg); return n < 0 ? a[a.length - 1] : a[Math.min(n, a.length - 1)];
 }
 (window as any).__pfx = { memoria: memoriaPfx, dibujarPfx, efectoPfx, todos: todosPfx };
+
+/** La caja que ocupan todos los cuadros de un efecto (en puntos del dibujo): [x, y, ancho, alto]. */
+const cajas = new Map<string, [number, number, number, number]>();
+export function cajaPfx(id: string): [number, number, number, number] | null {
+  const hay = cajas.get(id); if (hay) return hay;
+  const e = efectoPfx(id); if (!e) return null;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const d of e.direcciones) for (const c of d.cuadros ?? []) { if (!c || !c[3]) continue; x0 = Math.min(x0, c[5] ?? 0); y0 = Math.min(y0, c[6] ?? 0); x1 = Math.max(x1, (c[5] ?? 0) + c[3]); y1 = Math.max(y1, (c[6] ?? 0) + c[4]); }
+  if (!isFinite(x0)) return null;
+  const k: [number, number, number, number] = [x0, y0, x1 - x0, y1 - y0]; cajas.set(id, k); return k;
+}

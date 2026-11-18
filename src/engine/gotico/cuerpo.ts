@@ -1,4 +1,4 @@
-import { escudoPuesto } from './iconos3d';
+import { escudoPuesto, cascoPuesto, formaCasco, CASCO_CERRADO, type Icono3D } from './iconos3d';
 import { caja, cilindro, elipsoide, esfera, palo, poliedro, masa, hueso, bulto, distMasa, type Comp, type Pieza, type V3, type Iluminacion } from './render';
 import { claveBaja } from './clave_baja';
 import * as superficie from './superficie';
@@ -190,9 +190,9 @@ export const LINEAS_CUERPO: LineaCuerpo[] = ['escamas', 'draconica', 'elfica', '
 export interface Equipo {
   torso?: { tipo: 'camisa' | 'sin_mangas' | 'tunica' | 'cuero' | 'cuero_tachonado' | 'malla' | 'placas' | 'harapos' | 'vestido'; mat: string; mat2?: string; linea?: LineaCuerpo; /** metal de los ribetes y remaches de la coraza (leyenda) */ adorno?: string; /** ribete de la abertura, el cuello y el ruedo (túnicas) */ ribete?: string; /** 'corta': la túnica deja el antebrazo libre (vendas a la vista) */ manga?: 'corta' };
   piernas?: { tipo: 'pantalon' | 'calzas' | 'faldon' | 'tunica_larga' | 'grebas' | 'taparrabo'; mat: string; mat2?: string; linea?: LineaCuerpo };
-  pies?: { tipo: 'botas' | 'botas_altas' | 'sandalias' | 'sabatones' | 'vendas'; mat: string; linea?: LineaCuerpo };
-  manos?: { tipo: 'guantes' | 'guanteletes' | 'vendas' | 'brazales'; mat: string; linea?: LineaCuerpo };
-  cabeza?: { tipo: 'capucha' | 'gorro' | 'casco' | 'yelmo' | 'gran_yelmo' | 'cuernos' | 'corona' | 'diadema' | 'mascara' | 'calavera' | 'turbante' | 'aro'; mat: string; mat2?: string; linea?: LineaCuerpo };
+  pies?: { tipo: 'botas' | 'botas_altas' | 'sandalias' | 'sabatones' | 'vendas'; mat: string; linea?: LineaCuerpo; /** el canto de la caña (el del ícono) */ ribete?: string };
+  manos?: { tipo: 'guantes' | 'guanteletes' | 'vendas' | 'brazales'; mat: string; linea?: LineaCuerpo; /** el canto del puño (el del ícono) */ ribete?: string };
+  cabeza?: { tipo: 'capucha' | 'gorro' | 'casco' | 'yelmo' | 'gran_yelmo' | 'cuernos' | 'corona' | 'diadema' | 'mascara' | 'calavera' | 'turbante' | 'aro'; mat: string; mat2?: string; linea?: LineaCuerpo; /** el diseño del ícono: el casco se arma con ese mismo modelo (`cascoPuesto`) */ icono?: Icono3D };
   hombros?: { tipo: 'pieles' | 'cuero' | 'placas' | 'puas' | 'huesos'; mat: string; linea?: LineaCuerpo };
   cinturon?: { mat: string; hebilla?: string; linea?: LineaCuerpo };
   capa?: { mat: string; largo?: number; forro?: string };
@@ -862,10 +862,13 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
           for (let k = 0; k < 3; k++) ps.push(masa([bulto(add(mez(p.tob, p.punta, 0.3 + k * 0.26), ez, (1.0 - k * 0.3) * A), [1.0 * S, (2.1 - k * 0.15) * A + 1.0, (1.5 - k * 0.2) * A + 0.8], { ejes: [ex, ey, ez], mat: pi.mat, tono: k % 2 ? -0.12 : 0.08 })], { mat: pi.mat, suave: 0.12 * S, tono: k % 2 ? -0.12 : 0.08 }));
           ps.push(masa([hueso(add(p.punta, [0, 0, 0.3 * A]), add(add(p.punta, ex, 1.9 * S), [0, 0, -0.2 * A]), 1.3 * A + 0.6, 0.25 * S, { mat: pi.mat, tono: 0.05 })], { mat: pi.mat, tono: 0.05 }));
           ps.push(masa([hueso(add(p.tob, dc, -1.2 * S), add(p.tob, dc, -0.5 * S), 2.25 * A + 1.3, 2.2 * A + 1.3, { mat: pi.mat, tono: -0.16 })], { mat: pi.mat, tono: -0.16 }));
+          if (pi.ribete) ps.push(banda(add(p.tob, dc, -1.15 * S), dc, 2.25 * A + 1.4, 0.4 * S, pi.ribete));
         } else if (pi.tipo !== 'vendas') {
           // bota: el puño vuelto arriba de la caña, la correa del tobillo y la suela oscura con su taco
           const arriba = pi.tipo === 'botas_altas' ? 0.16 : 0.42;
           ps.push(masa([hueso(mez(p.rod, p.tob, arriba), mez(p.rod, p.tob, arriba + 0.1), 2.65 * A + 1.0, 2.5 * A + 0.95, { mat: pi.mat, tono: -0.15 })], { mat: pi.mat, tono: -0.15 }));
+          // el ribete del ícono en el canto de la caña
+          if (pi.ribete) ps.push(banda(mez(p.rod, p.tob, arriba), dc, 2.6 * A + 1.08, 0.42 * S, pi.ribete));
           ps.push(masa([hueso(add(p.tob, dc, -0.9 * S), add(p.tob, dc, -0.3 * S), 2.1 * A + 0.95, 2.1 * A + 0.95, { mat: pi.mat, tono: -0.2 })], { mat: pi.mat, tono: -0.2 }));
         }
       }
@@ -889,7 +892,7 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
     ps.push(masaTorso);
     if (to.tipo === 'tunica' || to.tipo === 'harapos') ps.push(...faldon(e, to.mat, to.tipo === 'harapos' ? 13 : 12, 1.2, acc, f, cu.presentacion && pz?.tipo !== 'tunica_larga' ? to.ribete : undefined, pz?.tipo !== 'tunica_larga'));
     if (to.tipo === 'vestido') { const fl = faldon(e, to.mat, 29, 1.7, acc, f); masaFalda = fl[0]; ps.push(...fl); }
-    if (to.tipo === 'cuero_tachonado') for (let i = 0; i < 4; i++) for (const s of [1, -1, 0]) ps.push(esfera(...T(3.9 * A + 0.6, s * 2.6 * A, e.zc + (5 + i * 3) * S), 0.5, { mat: 'cu_placa' }));
+    if (to.tipo === 'cuero_tachonado') for (let i = 0; i < 4; i++) for (const s of [1, -1, 0]) ps.push(esfera(...T(3.9 * A + 0.6, s * 2.6 * A, e.zc + (5 + i * 3) * S), 0.5, { mat: to.mat2 && /placa|oro|bronce|laton|plata|tinte_metal/.test(to.mat2) ? to.mat2 : 'cu_placa' }));
     if (to.tipo === 'malla' && !to.linea) ps.push(...mallaForjada(e, cu, to));
     // (la túnica cruzada lleva su solapa en el vestuario: sin la abertura recta ni los pliegues de la túnica oscura)
     if (to.tipo === 'tunica' && !eq.prendas?.some((p) => p.tipo === 'cruce')) ps.push(...tunicaForjada(e, cu, to));
@@ -971,16 +974,20 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
       // que hacía del antebrazo una salchicha)
       ps.push(masa([hueso(mez(b.codo, b.mun, 0.3), mez(b.codo, b.mun, 1.0), 1.5 * A, 2.05 * A, { mat: mn.mat, tono: 0.04 })], { mat: mn.mat }));
       ps.push(masa([hueso(mez(b.codo, b.mun, 0.26), mez(b.codo, b.mun, 0.34), 1.75 * A, 1.7 * A, { mat: mn.mat, tono: -0.16 })], { mat: mn.mat, tono: -0.16 }));
-      ps.push(cilindro(...add(b.mun, b.d2, -0.6 * S), 2.25 * A, 0.7 * S, { mat: mn.linea ? acentoDe(mn.linea) : mn.mat === 'cu_oro' ? 'cu_placa' : 'cu_oro', r1: 2.3 * A, eje: b.d2 }));
+      ps.push(cilindro(...add(b.mun, b.d2, -0.6 * S), 2.25 * A, 0.7 * S, { mat: mn.ribete ?? (mn.linea ? acentoDe(mn.linea) : mn.mat === 'cu_oro' ? 'cu_placa' : 'cu_oro'), r1: 2.3 * A, eje: b.d2 }));
+      // el canto de arriba del guantelete con el ribete del ícono
+      if (mn.ribete) ps.push(banda(mez(b.codo, b.mun, 0.27), nor(sub(b.mun, b.codo)), 1.8 * A + 0.15, 0.45 * S, mn.ribete));
     }
   }
+  // las vendas con ribete (el del ícono): una banda en la muñeca
+  if (eq.manos?.tipo === 'vendas' && eq.manos.ribete) for (const b of e.brazos) ps.push(banda(mez(b.codo, b.mun, 0.97), nor(sub(b.mun, b.codo)), 1.8 * A + 0.75, 0.55 * S, eq.manos.ribete));
   // el borde de cada prenda de mano: puño vuelto del guante, correas y canto acampanado del brazal, codal del guantelete
   // (sin esto el antebrazo es un tubo liso del color de la prenda)
   if (eq.manos && eq.manos.tipo !== 'vendas') for (const b of e.brazos) {
     const mn = eq.manos, m = mn.mat;
     const anillo = (t: number, r: number, an: number, tono: number, mat = m) => ps.push(masa([hueso(mez(b.codo, b.mun, t), mez(b.codo, b.mun, t + an), r, r * 0.97, { mat, tono })], { mat, tono }));
-    if (mn.tipo === 'guantes') anillo(0.5, 1.75 * A + 0.55, 0.12, -0.18);
-    else if (mn.tipo === 'brazales') { anillo(0.12, 2.0 * A + 0.6, 0.1, -0.16); anillo(0.45, 1.75 * A + 0.55, 0.07, -0.2, 'cu_cuero_negro'); anillo(0.75, 1.6 * A + 0.55, 0.07, -0.2, 'cu_cuero_negro'); }
+    if (mn.tipo === 'guantes') { anillo(0.5, 1.75 * A + 0.55, 0.12, -0.18); if (mn.ribete) ps.push(banda(mez(b.codo, b.mun, 0.5), nor(sub(b.mun, b.codo)), 1.75 * A + 0.62, 0.42 * S, mn.ribete)); }
+    else if (mn.tipo === 'brazales') { anillo(0.12, 2.0 * A + 0.6, 0.1, -0.16); if (mn.ribete) ps.push(banda(mez(b.codo, b.mun, 0.13), nor(sub(b.mun, b.codo)), 2.0 * A + 0.68, 0.45 * S, mn.ribete)); anillo(0.45, 1.75 * A + 0.55, 0.07, -0.2, 'cu_cuero_negro'); anillo(0.75, 1.6 * A + 0.55, 0.07, -0.2, 'cu_cuero_negro'); }
     else if (eq.torso?.tipo !== 'placas') {
       const lado = nor(cruz(b.d1, [0, 0, 1]));
       ps.push(masa([bulto(b.codo, [2.1 * A, 2.1 * A, 1.9 * S], { eje: b.d1, mat: m, tono: 0.06 }), bulto(add(add(b.codo, lado, b.s * 1.2 * A), b.d1, -0.4 * S), [0.7 * A, 1.9 * A, 1.6 * S], { eje: b.d1, mat: m, tono: 0.1 })], { mat: m, suave: 0.5 }));
@@ -1080,7 +1087,9 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
     if (pc.length) ps.push(masa(pc.map((c) => ({ ...c, mat: cu.pelo })), { mat: cu.pelo, suave: 1.4 }));
     if (cu.presentacion && !tapaPelo && cu.peinado !== 'rapado' && cu.peinado !== 'cresta') ps.push(...mechones({ cab, ejes: ejesCab, cz, H }, cu.pelo, cu.genero === 'm'));
   }
-  if (cu.barba) {
+  // (un yelmo cerrado tapa la barba: si no, asoma por la babera)
+  const fc = eq.cabeza?.icono ? formaCasco(eq.cabeza.icono) : null;
+  if (cu.barba && !(fc && CASCO_CERRADO.includes(fc))) {
     const bm = cu.pelo ?? 'cu_pelo_negro';
     const bc: Comp[] = [];
     const bC = (fw: number, rt: number, up: number, r: V3) => bulto(cab(fw * H, rt * H, cz + up * H), [r[0] * H, r[1] * H, r[2] * H], { ejes: ejesCab });
@@ -1110,7 +1119,8 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
     }
   }
   // ---- casco o tocado
-  if (eq.cabeza) ps.push(...tocado(e, cu, eq.cabeza));
+  // (lo que cava, como la abertura de la capucha, va al principio: así cava solo su pieza y no la cara)
+  if (eq.cabeza) { const tc = tocado(e, cu, eq.cabeza); if (tc.some((p) => p.resta)) ps.unshift(...tc); else ps.push(...tc); }
   // ---- cola y alas
   if (cu.cola) {
     const ondea = Math.sin((f8 / 8) * Math.PI * 2) * 2;
@@ -1829,6 +1839,16 @@ function alas(e: Esqueleto, mat: string, acc: Accion, f: number): Pieza[] {
   return ps;
 }
 
+/** Banda fina (un ribete) alrededor de un miembro: centro, eje, radio, alto y material. */
+function banda(c: V3, eje: V3, r: number, alto: number, mat: string): Pieza {
+  return cilindro(...add(c, eje, -alto / 2), r, alto, { mat, r1: r, eje, tono: 0.06 });
+}
+/** El casco del inventario armado con el modelo de su ícono sobre la cabeza (a la escala de la cabeza de este cuerpo). */
+function cascoDeIcono(e: Esqueleto, cu: Cuerpo, c: NonNullable<Equipo['cabeza']>): Pieza[] {
+  // (el cero del modelo va a la altura de los ojos: medio punto de cabeza bajo `cz`)
+  const H = escCab(cu) * e.S;
+  return c.icono ? cascoPuesto(c.icono, e.cab(0, 0, e.cz - 0.5 * H), e.ejesCab[1], e.ejesCab[0], e.ejesCab[2], H) : [];
+}
 /** Cascos y tocados. */
 function tocado(e: Esqueleto, cu: Cuerpo, c: NonNullable<Equipo['cabeza']>): Pieza[] {
   const { S, cab, ejesCab } = e;
@@ -1836,6 +1856,8 @@ function tocado(e: Esqueleto, cu: Cuerpo, c: NonNullable<Equipo['cabeza']>): Pie
   const ps: Pieza[] = [];
   const bC = (fw: number, rt: number, up: number, r: V3, mat = c.mat, k?: number) => bulto(cab(fw * H, rt * H, cz + up * H), [r[0] * H, r[1] * H, r[2] * H], { ejes: ejesCab, mat, k });
   const ga = angulo(ejesCab[0]);
+  // los cascos que se llevan puestos del inventario: el mismo modelo del ícono
+  if (c.icono) { const pz = cascoDeIcono(e, cu, c); if (pz.length) return pz; }
   // los héroes llevan los cascos y capuchas forjados (armadura.ts)
   // (las máscaras de los monstruos son su cara: el sin rostro, el carcelero; esas siguen como siempre)
   if (!c.linea && !(c.tipo === 'mascara' && !cu.presentacion)) { const nuevo = cascoForjado(e, cu, c); if (nuevo) return nuevo; }
@@ -2624,7 +2646,7 @@ export function geometriaQA(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: nu
     mango = [en(-cb), largoMango ? fa : en(1)];
     if (cb >= 3) cabo = en(-cb);
   }
-  const piezasCasco = eq.cabeza && !eq.cabeza.linea && !(eq.cabeza.tipo === 'mascara' && !cu.presentacion) ? cascoForjado(e, cu, eq.cabeza) : undefined;
+  const piezasCasco = eq.cabeza?.icono && cascoDeIcono(e, cu, eq.cabeza).length ? cascoDeIcono(e, cu, eq.cabeza) : eq.cabeza && !eq.cabeza.linea && !(eq.cabeza.tipo === 'mascara' && !cu.presentacion) ? cascoForjado(e, cu, eq.cabeza) : undefined;
   const casco = piezasCasco?.flatMap((p) => (p.k === 'conv' ? [p.planos] : []));
   return {
     e, arma, mango, cabo, casco,

@@ -251,6 +251,16 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   //  en medio de una pantalla negra. Bajo tierra se sigue descubriendo de a poco: 22 casillas)
   const rv = (window as any).__rv ?? (z.tipo === 'mazmorra' ? 20 : 38);
   for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const X = btx + dx, Y = bty + dy; if (X >= 0 && Y >= 0 && X < z.tw && Y < z.th && dx * dx + dy * dy <= rv) z.explorado[Y * z.tw + X] = 1; }
+  // a cielo abierto se ve lo que entra en pantalla, sea del tamaño que sea: en una pantalla grande (1920 de ancho en Lejos)
+  // el círculo de seis baldosas dejaba los costados negros, como piso que no existía, hasta caminar hasta allá
+  if (z.tipo !== 'mazmorra' && rv >= 38) {
+    const A = Math.ceil(W / 2 / 80) + 1, B = Math.ceil(H / 2 / 40) + 1;
+    for (let u = -A; u <= A; u++) for (let v = -B; v <= B; v++) {
+      if ((u + v) & 1) continue;
+      const dx = (u + v) / 2, dy = (v - u) / 2, X = btx + dx, Y = bty + dy;
+      if (X >= 0 && Y >= 0 && X < z.tw && Y < z.th) z.explorado[Y * z.tw + X] = 1;
+    }
+  }
   // pisos visibles
   const f25 = Math.floor(tiempo * 25);
   const [wx0] = aMundo(0, 0), [, wy0] = aMundo(W, 0), [wx1] = aMundo(W, H), [, wy1] = aMundo(0, H);
@@ -278,6 +288,28 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       x = x2;
     }
     ctx.fill();
+  }
+  // el hueco rellenado (rellenarBolsas): su suelo en penumbra, el piso del tema oscurecido y cortado celda por celda, para que
+  // entre las piezas del derrumbe se vea tierra y cascajo en sombra y no el negro de fuera del mapa
+  if (z.relleno && z.rellenoPiso && !(window as any).__sinRelleno) {
+    const re = z.relleno, cx0 = Math.max(0, bx0 * 5), cx1 = Math.min(z.W - 1, bx1 * 5 + 4), cy0 = Math.max(0, by0 * 5), cy1 = Math.min(z.H - 1, by1 * 5 + 4);
+    const tiles = new Set<number>(); ctx.save(); ctx.beginPath(); let hay = false;
+    for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++) {
+      if (!re[y * z.W + x]) continue;
+      let x2 = x; while (x2 < cx1 && re[y * z.W + x2 + 1]) x2++;
+      const a = aPant(x, y), b2 = aPant(x2 + 1, y), c = aPant(x2 + 1, y + 1), d = aPant(x, y + 1);
+      if (!(b2[0] < -40 || d[0] > W + 40 || c[1] < -20 || a[1] > H + 20)) { ctx.moveTo(a[0], a[1] - 1); ctx.lineTo(b2[0] + 1, b2[1]); ctx.lineTo(c[0], c[1] + 1); ctx.lineTo(d[0] - 1, d[1]); ctx.closePath(); hay = true; for (let q = x; q <= x2; q++) tiles.add(Math.floor(y / 5) * z.tw + Math.floor(q / 5)); }
+      x = x2;
+    }
+    if (hay) {
+      ctx.clip();
+      for (const ti of tiles) {
+        const bx = ti % z.tw, by = (ti - bx) / z.tw, fs = cuadrosPiso(z.rellenoPiso, variantePiso(z.rellenoPiso, (bx * 7 + by * 3) % 8, bx, by)); if (!fs.length) continue;
+        const [px, py] = aPant(bx * 5 + 2.5, by * 5 + 2.5); dibujar(ctx, fs[0], px, py);
+      }
+      ctx.fillStyle = 'rgba(8,6,5,0.62)'; ctx.fillRect(0, 0, W, H);
+    }
+    ctx.restore();
   }
   if (z.lluvia && z.tipo !== 'mazmorra' && !(window as any).__sinLluvia) lluviaSuelo(j, dt, tiempo, aPant, aMundo);
   if (!(window as any).__sinAmbiente) ambienteSuelo(j, dt, tiempo, aPant, bx0, bx1, by0, by1);
@@ -1138,7 +1170,9 @@ function sprTinte(col: string): HTMLCanvasElement {
 function dibujarLuz(j: Juego, t: number) {
   const z = j.zona;
   if (luz.width !== W || luz.height !== H) { luz.width = W; luz.height = H; brillo.width = W; brillo.height = H; }
-  const oscuro = Math.min(0.97, z.oscuridad + (z.tipo === 'pueblo' ? -0.1 : 0.08)) * (1 - destello * 0.5);
+  // (tope 0,88: con 0,97 el piso lejos de toda luz quedaba negro puro y parecía que no había nada. Así se intuye siempre,
+  // como en el Diablo de Rick, y la clave baja se mantiene. `__topeOscuro` para comparar)
+  const oscuro = Math.min((window as any).__topeOscuro ?? 0.88, z.oscuridad + (z.tipo === 'pueblo' ? -0.1 : 0.08)) * (1 - destello * 0.5);
   lctx.globalCompositeOperation = 'source-over';
   lctx.clearRect(0, 0, W, H);
   lctx.fillStyle = `rgba(0,0,0,${oscuro})`; lctx.fillRect(0, 0, W, H);
@@ -1175,8 +1209,9 @@ function dibujarLuz(j: Juego, t: number) {
   for (let by = Math.floor(fy0 / 5) - 2; by <= Math.ceil(fy1 / 5) + 2; by++) for (let bx = Math.floor(fx0 / 5) - 2; bx <= Math.ceil(fx1 / 5) + 2; bx++) {
     const dentro = bx >= 0 && by >= 0 && bx < z.tw && by < z.th;
     if (dentro && z.explorado[by * z.tw + bx] && z.pisos[by * z.tw + bx]) continue;
-    // la roca encerrada de las cavernas (rellenarBolsas) no se tapa si ya se vio el piso de al lado
-    if (dentro && z.roca?.[by * z.tw + bx]) { const v = (x: number, y: number) => x >= 0 && y >= 0 && x < z.tw && y < z.th && !!z.pisos[y * z.tw + x] && !!z.explorado[y * z.tw + x]; if (v(bx - 1, by) || v(bx + 1, by) || v(bx, by - 1) || v(bx, by + 1)) continue; }
+    // la roca encerrada (rellenarBolsas) no se tapa si ya se vio piso cerca: a tres baldosas o menos, porque el centro de un
+    // macizo ancho no tiene piso al lado y la niebla le dejaba un ojo negro en medio de la roca
+    if (dentro && z.roca?.[by * z.tw + bx]) { let visto = false; for (let dy = -3; dy <= 3 && !visto; dy++) for (let dx = -3; dx <= 3; dx++) { const x = bx + dx, y = by + dy; if (x >= 0 && y >= 0 && x < z.tw && y < z.th && z.pisos[y * z.tw + x] && z.explorado[y * z.tw + x]) { visto = true; break; } } if (visto) continue; }
     // una baldosa vacía que queda justo DETRÁS de piso ya visto no se tapa: en pantalla cae sobre los muros, los árboles y
     // la cabeza del que está parado en ese borde
     if (!(dentro && z.pisos[by * z.tw + bx])) {

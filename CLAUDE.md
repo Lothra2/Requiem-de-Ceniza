@@ -271,7 +271,7 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   2026: se trancaba con muchos monstruos y bolas de fuego). No volver a un lienzo único. En la nube no se nota porque
   Chromium pinta sin tarjeta. Prueba de fluidez: `t860_fps.cjs [n] [zona]` (sirve para comparar y ver el perfil).
 
-## Luz avanzada (rama `luz-gpu`, publicada en /luz/)
+## Luz avanzada (la versión única desde el 18 nov 2026)
 
 - Cada atlas trae sus gemelos `_n` (normales) y `_h` (altura) en `manifiesto.json` (`rel`). Se hornea con `RELIEVE=1`
   (todo el juego unas 2 h 15 min a 4 núcleos) y `atlas_webp.py` los pasa a WebP SIN pérdida (Rick, 18 nov 2026: no se

@@ -2,7 +2,7 @@
 name: Publicar el juego
 on:
   push:
-    branches: [main, luz-gpu]
+    branches: [main]
   workflow_dispatch:
 permissions:
   contents: write
@@ -13,7 +13,8 @@ jobs:
   sitio:
     runs-on: ubuntu-latest
     steps:
-      # el juego de siempre (main) va en la raíz del sitio
+      # una sola versión: la de luz avanzada (relieve sin pérdida). Pesa ~1,25 GB: si GitHub Pages la rechaza por el
+      # tope de 1 GB, el sitio anterior sigue en línea
       - uses: actions/checkout@v4
         with:
           ref: main
@@ -24,20 +25,6 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: mv juego/dist /tmp/sitio
-      # la versión con luz avanzada (rama luz-gpu) va en /luz/, para tener las dos y compararlas
-      - uses: actions/checkout@v4
-        continue-on-error: true
-        id: luz
-        with:
-          ref: luz-gpu
-          path: luz
-      - name: Armar la versión con luz avanzada
-        if: steps.luz.outcome == 'success'
-        run: |
-          cd luz
-          npm ci
-          npm run build
-          mv juego/dist /tmp/sitio/luz
       - name: Subir a gh-pages
         run: |
           cd /tmp/sitio

@@ -263,7 +263,7 @@ export function dibujarIntro(t: number): boolean {
     const linea = INTRO[ls[parte]];
     if (linea) {
       ctx.globalAlpha = k;
-      envolver(maquina(TT(linea), tl - d0 - 0.7), Math.min(760, W - 80), 20).forEach((l, n) => texto(l, W / 2, H - fr - 52 + n * 26, { alin: 'center', tam: 20, color: '#e8dcc0', fuente: TITULO }));
+      envolver(maquina(TT(linea), tl - d0 - 0.7), Math.min(760, W - 80), 20, TITULO).forEach((l, n) => texto(l, W / 2, H - fr - 52 + n * 26, { alin: 'center', tam: 20, color: '#e8dcc0', fuente: TITULO }));
       ctx.globalAlpha = 1;
     }
   }
@@ -617,7 +617,7 @@ function marcoCine(linea: string | null, tl: number, dur: number) {
   const fr = Math.round(H * 0.07); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, fr); ctx.fillRect(0, H - fr, W, fr);
   const f = Math.min(1, tl / 1.2, (dur - tl) / 1.2);
   ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, f)})`; ctx.fillRect(0, 0, W, H);
-  if (linea) envolver(maquina(linea, tl - 0.7), Math.min(760, W - 80), 20).forEach((l, n) => texto(l, W / 2, H - fr - 52 + n * 26, { alin: 'center', tam: 20, color: '#e8dcc0', fuente: TITULO }));
+  if (linea) envolver(maquina(linea, tl - 0.7), Math.min(760, W - 80), 20, TITULO).forEach((l, n) => texto(l, W / 2, H - fr - 52 + n * 26, { alin: 'center', tam: 20, color: '#e8dcc0', fuente: TITULO }));
   texto(T('Clic o Esc para saltar', 'Click or Esc to skip'), W - 16, H - 14, { alin: 'right', tam: 11, color: '#5a5040' });
 }
 /** Cinemática al cerrar un acto. Devuelve true cuando terminó. */

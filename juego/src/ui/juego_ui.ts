@@ -5,7 +5,7 @@ import { ctx, W, H, E, RES, pulso, ESCALA } from '../nucleo/lienzo';
 import { marcaNpc } from '../juego/historia';
 import { marcoForjado, botonForjado, barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
 import { aLoot, arma3dDe } from './loot';
-import { texto, T, TT, IDI, marco, titulo, boton, dentro, icono, iconoThor, lineasObjeto, tooltip, cacheRaster, rasterACanvas, envolver, ancho, TITULO } from './comun';
+import { texto, T, TT, IDI, marco, titulo, boton, dentro, icono, iconoThor, lineasObjeto, tooltip, cacheRaster, rasterACanvas, envolver, ancho, TITULO, FUENTE } from './comun';
 import { CLASES, HABILIDADES, habilidadesDe, ATAQUE, TIERS, ESCALA_HECHIZOS, type Habilidad } from '../datos/clases';
 import { NPCS } from '../datos/npcs';
 import { MISIONES, ZONAS, PUEBLO_DE, type Mision, type Premio } from '../mundo/actos';
@@ -509,7 +509,21 @@ function dibujarPanel(j: Juego, p: PanelId, x: number, t: number, y = panelY()) 
     case 'misiones': return panelMisiones(j, x, y);
     case 'codice': return panelCodice(j, x, y);
     case 'menu': return panelMenu(j, x, y);
-    case 'pagina' as any: { marco(x, y, 320, 432); titulo((ui as any).paginaPanel ?? T('Página arrancada', 'Torn page'), x, y, 320); texto((ui as any).paginaTitulo ?? '', x + 160, y + 52, { alin: 'center', tam: 12, color: '#c0a070' }); texto(`${(ui as any).paginaN} / ${(ui as any).paginaTotal ?? 9}`, x + 160, y + 68, { alin: 'center', tam: 11, color: '#806a50' }); envolver(ui.dialogoTexto ?? '', 270, 15).forEach((l, i) => texto(l, x + 25, y + 90 + i * 22, { tam: 15, color: '#d8c49a', fuente: TITULO })); if (boton(T('Cerrar', 'Close'), x + 120, y + 380, 80, 28, { tam: 13 })) { ui.izq = null; E.clicIzq = false; } return; }
+    case 'pagina' as any: {
+      // La pista o la página arrancada: el título de la serie en latón, cuál es de cuántas, una raya, y el texto en letra
+      // de libro (sentencia normal, no versalitas), centrado en una columna. El panel mide lo que mide el texto.
+      // (Antes el texto se cortaba midiendo Georgia y se dibujaba en Cinzel: se salía del marco y quedaba en mayúsculas.)
+      const PW = 320, tam = 15, alto = 22, cuerpo = envolver(ui.dialogoTexto ?? '', PW - 64, tam, FUENTE);
+      const PH = Math.min(H - y - 8, Math.max(220, 118 + cuerpo.length * alto + 64));
+      marco(x, y, PW, PH); titulo((ui as any).paginaPanel ?? T('Página arrancada', 'Torn page'), x, y, PW);
+      const cx = x + PW / 2;
+      texto((ui as any).paginaTitulo ?? '', cx, y + 58, { alin: 'center', tam: 16, color: '#e0b860', fuente: TITULO });
+      texto(`${(ui as any).paginaN} ${T('de', 'of')} ${(ui as any).paginaTotal ?? 9}`, cx, y + 76, { alin: 'center', tam: 11, color: '#8a7456' });
+      ctx.fillStyle = 'rgba(200,160,80,0.45)'; ctx.fillRect(cx - 60, y + 86, 120, 1); ctx.fillStyle = '#c8a050'; ctx.fillRect(cx - 2, y + 84, 4, 4);
+      cuerpo.forEach((l, i) => texto(l, cx, y + 116 + i * alto, { alin: 'center', tam, color: '#e2d2b0', fuente: FUENTE }));
+      if (boton(T('Cerrar', 'Close'), cx - 45, y + PH - 46, 90, 30, { tam: 13 })) { ui.izq = null; E.clicIzq = false; }
+      return;
+    }
   }
 }
 

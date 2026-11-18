@@ -27,9 +27,10 @@ export function texto(s: string, x: number, y: number, o: { color?: string; tam?
   ctx.textAlign = 'left';
 }
 export const ancho = (s: string, tam = 13, fuente = FUENTE) => { ctx.font = `${tam}px ${fuente}`; return ctx.measureText(s).width; };
-export function envolver(s: string, max: number, tam = 13): string[] {
+/** Corta en renglones midiendo con la misma letra con que se va a dibujar (con otra, el renglón se salía del marco). */
+export function envolver(s: string, max: number, tam = 13, fuente = FUENTE): string[] {
   const out: string[] = []; let linea = '';
-  for (const p of s.split(' ')) { const t = linea ? linea + ' ' + p : p; if (ancho(t, tam) > max && linea) { out.push(linea); linea = p; } else linea = t; }
+  for (const p of s.split(' ')) { const t = linea ? linea + ' ' + p : p; if (ancho(t, tam, fuente) > max && linea) { out.push(linea); linea = p; } else linea = t; }
   if (linea) out.push(linea);
   return out;
 }

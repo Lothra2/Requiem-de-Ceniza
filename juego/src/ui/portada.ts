@@ -271,7 +271,7 @@ export function dibujarCarta(acto: number, t: number, narracion: string, dur: nu
     const [nx, ny] = P(z.narracion.x + z.narracion.w / 2, z.narracion.y);
     const tn = Math.max(16, Math.round(23 * esc));
     ctx.globalAlpha = k * Math.min(1, Math.max(0, (t - 1.2) / 1));
-    envolver(narracion, z.narracion.w * esc * 0.92, tn).slice(0, 4).forEach((l, i) => texto(l, nx, ny + tn * 1.3 + i * tn * 1.35, { alin: 'center', tam: tn, color: '#e8dcc0', fuente: TITULO }));
+    envolver(narracion, z.narracion.w * esc * 0.92, tn, TITULO).slice(0, 4).forEach((l, i) => texto(l, nx, ny + tn * 1.3 + i * tn * 1.35, { alin: 'center', tam: tn, color: '#e8dcc0', fuente: TITULO }));
   }
   ctx.restore();
   return true;

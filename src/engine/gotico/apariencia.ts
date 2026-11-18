@@ -1,8 +1,8 @@
-import { MATERIALES } from './materiales';
 import { armaduraDeLinea, LINEAS_CUERPO, MAT_LINEA, type Equipo, type LineaCuerpo } from './cuerpo';
-import { iconoDeLoot, arma3dDeLoot, type Icono3D, type Linea } from './iconos3d';
+import { iconoDeLoot, arma3dDeLoot, formaCasco, ribeteCuerpo, type Icono3D, type Linea } from './iconos3d';
 import type { LootItem } from '../loot/catalog';
-import * as superficie from './superficie';
+import { tinte, metalTraje, mallaTraje } from './tintes';
+export { tinte, metalTraje, mallaTraje };
 
 /**
  * Lo que el jugador lleva puesto en el inventario es lo que se ve en su cuerpo: cada objeto equipado se traduce
@@ -15,34 +15,9 @@ import * as superficie from './superficie';
 
 export interface Puesto { it: LootItem; arma3d?: NonNullable<Equipo['arma']>; icono3d?: Icono3D }
 
-const M = MATERIALES;
-const hex = (h: string): [number, number, number] => { const s = h.replace('#', ''); const n = parseInt(s.length === 3 ? s.split('').map((c) => c + c).join('') : s, 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
-const aHex = (c: number[]) => '#' + c.map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
 const esHex = (v: unknown): v is string => typeof v === 'string' && /^#[0-9a-f]{3,6}$/i.test(v);
 
-/** Registra (una vez) un material teñido con el color exacto del diseño: tela, cuero, metal o cota de anillas. */
-export function tinte(color: string, tipo: 'tela' | 'cuero' | 'metal' | 'malla' = 'tela'): string {
-  const id = `cu_tinte_${tipo}_${color.replace('#', '').toLowerCase()}`;
-  if (M[id]) return id;
-  const c = hex(color), duro = tipo === 'metal' || tipo === 'malla', pasos = duro ? 8 : 7;
-  // rampa de la sombra casi negra (teñida) al color y un poco más claro en las crestas
-  const rampa = Array.from({ length: pasos }, (_, i) => { const t = i / (pasos - 1); const k = 0.1 + t * (duro ? 1.25 : 1.05); return aHex(c.map((v) => v * k + (duro ? t * t * 40 : 0))); });
-  // con la superficie de su material (golpes del metal, grano del cuero, hilos de la tela, anillas) y pegada a la pieza,
-  // como los materiales de siempre del cuerpo: sin esto lo teñido se veía liso y la textura se deslizaba al caminar
-  M[id] = tipo === 'metal' ? { rampa, ruido: 0.04, escala: 0.6, brillo: 0.6, trama: 0.45, patron: superficie.metal, local: true }
-    : tipo === 'malla' ? { rampa, ruido: 0.06, escala: 1.3, brillo: 0.25, patron: superficie.malla, local: true }
-    : tipo === 'cuero' ? { rampa, ruido: 0.16, escala: 0.8, brillo: 0.08, patron: superficie.cuero, local: true } : { rampa, ruido: 0.12, escala: 1.2, patron: superficie.tela, local: true };
-  return id;
-}
-
 // ------------------------------------------------------------------ trajes (las armaduras que caen: datos/trajes.ts del juego)
-/** El color de cada metal de traje (los mismos del ícono: `HEX_METAL` en iconos3d.ts). */
-const HEX_METAL: Record<string, string> = { acero: '#6d737a', hierro: '#575a60', negro: '#3b4048', bronce: '#91592f', oro: '#b8862a', plata: '#9aa2aa', laton: '#8a7a50' };
-const METAL_CU: Record<string, string> = { acero: 'cu_placa', negro: 'cu_placa_oscura', bronce: 'cu_bronce', oro: 'cu_oro', plata: 'cu_plata_vieja', laton: 'cu_laton_viejo' };
-/** La placa de un metal de traje. */
-export function metalTraje(m: string): string { return METAL_CU[m] ?? tinte(m.startsWith('#') ? m : HEX_METAL[m] ?? '#575a60', 'metal'); }
-/** La cota de anillas de un metal de traje. */
-export function mallaTraje(m: string): string { return m === 'acero' ? 'cu_malla' : tinte(m.startsWith('#') ? m : HEX_METAL[m] ?? '#6d737a', 'malla'); }
 /** Un ribete: metal por nombre o paño #rrggbb. */
 const ribeteDe = (r: string | undefined, tela = true) => (!r ? undefined : r.startsWith('#') ? tinte(r, tela ? 'tela' : 'cuero') : metalTraje(r));
 const peloDe = (d: Icono3D) => (d.pelo === 'gris' ? 'cu_pelaje_gris' : 'cu_pelaje');
@@ -78,9 +53,13 @@ export function equipoDeInventario(puesto: Partial<Record<string, Puesto | undef
   const cab = puesto.casco && descDe(puesto.casco);
   if (cab) {
     const m = matDe(cab.linea, cab), n = cab.nivel ?? 2;
-    if (cab.pieza === 'corona') e.cabeza = { tipo: 'corona', mat: cab.metal && esHex(cab.metal) ? tinte(cab.metal, 'metal') : 'cu_oro', mat2: cab.gema && esHex(cab.gema) ? tinte(cab.gema, 'metal') : undefined };
+    // la corona: el mismo modelo del ícono puesto sobre la frente (`cascoPuesto`)
+    if (cab.pieza === 'corona') e.cabeza = { tipo: 'corona', mat: cab.metal && esHex(cab.metal) ? tinte(cab.metal, 'metal') : 'cu_oro', icono: cab };
     else if (epica(cab.linea)) e.cabeza = armaduraDeLinea(cab.linea, n).cabeza;
-    else if (cab.pieza === 'capucha' || cab.linea === 'tela') e.cabeza = { tipo: 'capucha', mat: m.mat };
+    // la capucha la arma el cuerpo (cae sobre los hombros), con el ribete del ícono en el borde de la cara
+    else if (formaCasco(cab) === 'capucha') { const rb = ribeteCuerpo(cab); e.cabeza = { tipo: 'capucha', mat: m.mat, ...(rb ? { mat2: rb } : {}) }; }
+    // los demás cascos se arman con el modelo de su ícono (cascoPuesto): cada forma con su vista, nervios y ribete
+    else if (formaCasco(cab)) e.cabeza = { tipo: formaCasco(cab) === 'turbante' ? 'turbante' : 'casco', mat: m.mat, icono: cab };
     else if (cab.linea === 'hueso') e.cabeza = { tipo: 'calavera', mat: 'cu_hueso' };
     else if (cab.linea === 'cuero' || cab.linea === 'tachonado') e.cabeza = { tipo: 'casco', mat: m.mat };
     else if (cab.linea === 'malla') e.cabeza = { tipo: 'casco', mat: cab.metal ? metalTraje(cab.metal) : 'cu_placa', mat2: m.mat };
@@ -117,14 +96,17 @@ export function equipoDeInventario(puesto: Partial<Record<string, Puesto | undef
   // ---- manos, cintura y pies
   const gu = puesto.guantes && descDe(puesto.guantes);
   if (gu && epica(gu.linea)) e.manos = armaduraDeLinea(gu.linea).manos;
-  else if (gu) { const m = matDe(gu.linea, gu); e.manos = { tipo: duro(gu.linea) || gu.linea === 'malla' ? 'guanteletes' : gu.linea === 'tela' ? 'vendas' : 'guantes', mat: gu.linea === 'malla' ? (gu.metal ? metalTraje(gu.metal) : 'cu_placa') : m.mat }; }
+  else if (gu) {
+    const m = matDe(gu.linea, gu), tipo = duro(gu.linea) || gu.linea === 'malla' ? 'guanteletes' : gu.linea === 'tela' ? 'vendas' : 'guantes', rb = tipo === 'vendas' ? undefined : ribeteCuerpo(gu);
+    e.manos = { tipo, mat: gu.linea === 'malla' ? (gu.metal ? metalTraje(gu.metal) : 'cu_placa') : m.mat, ...(rb ? { ribete: rb } : {}) };
+  }
   const ci = puesto.cinturon && descDe(puesto.cinturon);
   if (ci && epica(ci.linea)) e.cinturon = armaduraDeLinea(ci.linea).cinturon;
   else if (ci && conTraje(ci)) { const m = matDe(ci.linea, ci, 'cuero'); e.cinturon = { mat: duro(ci.linea) || ci.linea === 'malla' ? 'cu_cuero_negro' : m.mat, hebilla: (ci.ribete && !ci.ribete.startsWith('#') ? metalTraje(ci.ribete) : undefined) ?? (ci.metal ? metalTraje(ci.metal) : (ci.nivel ?? 2) >= 4 ? 'cu_oro' : 'cu_placa') }; }
   else if (ci) { const m = matDe(ci.linea, ci, 'cuero'); e.cinturon = { mat: duro(ci.linea) ? 'cu_cuero_negro' : m.mat, hebilla: (ci.nivel ?? 2) >= 4 || duro(ci.linea) ? 'cu_oro' : 'cu_placa' }; }
   const bo = puesto.botas && descDe(puesto.botas);
   if (bo && epica(bo.linea)) e.pies = armaduraDeLinea(bo.linea).pies;
-  else if (bo) { const m = matDe(bo.linea, bo); e.pies = { tipo: duro(bo.linea) ? 'sabatones' : bo.linea === 'tela' ? 'botas' : (bo.nivel ?? 2) >= 3 ? 'botas_altas' : 'botas', mat: duro(bo.linea) ? m.mat : m.mat }; }
+  else if (bo) { const m = matDe(bo.linea, bo), rb = ribeteCuerpo(bo); e.pies = { tipo: duro(bo.linea) ? 'sabatones' : bo.linea === 'tela' ? 'botas' : (bo.nivel ?? 2) >= 3 ? 'botas_altas' : 'botas', mat: m.mat, ...(rb ? { ribete: rb } : {}) }; }
   // ---- armas: la de la mano es la misma que pinta el ícono
   const ar = puesto.arma;
   // (sin arma3d explícita, la base del botín dice qué arma del motor es: así toda arma nueva sale en la mano)

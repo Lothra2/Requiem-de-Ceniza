@@ -80,7 +80,8 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Las coronas y la capucha también usan su ícono puesto. La capucha cava su abertura con `resta`: por eso `personaje`
   pone al principio lo de la cabeza que cava (así no cava la cara). Los yelmos cerrados tapan la barba. Guantes, vendas
   y botas llevan `ribete` (`ribeteCuerpo`): una banda en el puño y la caña. En la casilla, la cara abierta muestra el
-  forro acolchado en penumbra (`forroInterior`), no un hoyo negro.
+  cuenco forrado oscuro con degradé hacia el fondo, canto acolchado con pespunte y costuras finas
+  (`forroInterior`), no un hoyo negro ni bolas.
 - **Metales de las piezas que caen** (`tintes.ts`): oro, bronce y acero de trajes y cascos usan `cu_oro_pieza`,
   `cu_bronce_pieza` y `cu_placa_pieza`, con la saturación del ícono (los de siempre salían más naranjas y vivos puestos).
   Los `cu_oro`, `cu_bronce` y `cu_placa` de siempre quedan para lo horneado: no tocarlos sin volver a hornear.

@@ -77,6 +77,7 @@ self.addEventListener('fetch', (e) => {
   if (req.headers.get('x-requiem')) return; // la descarga de la página va directo a la red
   const rel = decodeURIComponent(url.pathname.slice(new URL(raiz()).pathname.length));
   if (rel === 'version.json' || rel === 'lista.json' || rel === 'sw.js') return;
+  if (rel.startsWith('luz/')) return; // (la versión con luz avanzada tiene su propio service worker en /luz/)
   if (req.mode === 'navigate' || rel === '' || rel === 'index.html') { e.respondWith(pagina(req)); return; }
   e.respondWith(archivo(rel, req));
 });

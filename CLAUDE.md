@@ -138,7 +138,7 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Sello de nivel** (`selloNivel` en `ui/juego_ui.ts`): latón con el número en la cumbre del orbe de vida (entre los
   orbes en el táctil), arde 3,5 s al subir de nivel.
 - **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos
-  40 s los 8 rumbos y otros 25 s los 16, con 4 obreros). En ese rato camina en 8: no es que se pierdan.
+  40 s los 8 rumbos y otros 45 s los 16 con 2 obreros, ahora van 4). En ese rato camina en 8: no es que se pierdan.
 
 ## La presentación de las clases
 

@@ -439,7 +439,7 @@ export interface Iluminacion {
   /** La piel (materiales cu_piel*): su sombra tira a este color (sangre bajo la piel) y su color se satura `satura`. */
   piel?: { sombra: string; satura: number; /** luz de más para la piel (la cara se lee aunque mire hacia abajo) */ luz?: number; /** cuánta oclusión recibe la piel (1 = como todo; 0,5 en el retrato: el pelo y la capucha no ennegrecen la cara) */ ao?: number };
 }
-export interface Render { img: Raster; ancla: [number, number] }
+export interface Render { img: Raster; ancla: [number, number]; /** Laboratorio: normal de cada punto (RGB) y alto (R) en el mismo encuadre. */ rel?: Raster; alt?: Raster }
 export interface Ambiente { tinte?: [number, number, number]; luz?: number }
 
 const rgb = (h: string): [number, number, number] => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -640,6 +640,8 @@ export function pintarEscena(esc: Escena, amb: Ambiente = {}, fijo?: { w: number
   const W = fijo?.w ?? Math.ceil(X1 - X0) + 4, H = fijo?.h ?? Math.ceil(Y1 - Y0) + 4;
   const ax = fijo?.ax ?? Math.floor(-X0) + 2, ay = fijo?.ay ?? Math.floor(-Y0) + 2;
   const img = createRaster(W, H);
+  // laboratorio de luz: además de la imagen, la normal (con el relieve del material) y el alto de cada punto
+  const REL = (globalThis as any).__relieve ? createRaster(W, H) : null, ALT = REL ? createRaster(W, H) : null;
   // rejilla de 16 px con las piezas que la tocan
   const G = 16, gw = Math.ceil(W / G), gh = Math.ceil(H / G);
   const grilla: Pieza[][] = Array.from({ length: gw * gh }, () => []);
@@ -676,7 +678,7 @@ export function pintarEscena(esc: Escena, amb: Ambiente = {}, fijo?: { w: number
   const rell = L?.relleno ? { ...L.relleno, d: norm(L.relleno.dir), rgb: rgb(L.relleno.color), k: L.relleno.tinte ?? 0.8 } : null;
   // por sub-muestra: material, brillo, punto, cuánto la toca la luz de borde y qué parte del brillo es de la principal
   // y del relleno (para teñir con sus colores)
-  const sm: { mat: string; s: number; p: V3; b: number; cp: number; cr: number; n: V3; t: number }[] = [];
+  const sm: { mat: string; s: number; p: V3; b: number; cp: number; cr: number; n: V3; t: number; np?: V3; em?: boolean }[] = [];
   const luzPropia = borde?.contorno || L?.metal || L?.linea || L?.satura !== undefined ? new Uint8Array(W * H) : null;
   const pielPx = L?.piel?.ao !== undefined && L.ao ? new Uint8Array(W * H) : null;
   const lRel = L?.relieve ?? 0;
@@ -780,7 +782,7 @@ export function pintarEscena(esc: Escena, amb: Ambiente = {}, fijo?: { w: number
         // (retrato: el resplandor del encantamiento casi no aclara el metal: la placa del arma sigue siendo hierro oscuro)
         if (resp) { const dd = Math.hypot(p[0] - resp.c[0], p[1] - resp.c[1], p[2] - resp.c[2]); s += Math.max(0, 1 - dd / resp.r) * (prin && esMetalBajo ? 0.06 : 0.25); }
       }
-      sm.push({ mat: matId, s, p, b: bb, cp, cr, n: hit.n, t: hit.t });
+      sm.push({ mat: matId, s, p, b: bb, cp, cr, n: hit.n, t: hit.t, np: n, em: !!m.emite });
     }
     if (sm.length * 2 < n2 || (n2 === 1 && !sm.length)) {
       if (pisos) { const a = Math.round((sombraPiso / n2) * 255); if (a > 6) { img.data[i] = 8; img.data[i + 1] = 6; img.data[i + 2] = 12; img.data[i + 3] = Math.min(200, a); } }
@@ -833,6 +835,13 @@ export function pintarEscena(esc: Escena, amb: Ambiente = {}, fijo?: { w: number
     if (!m.emite) { r *= tin[0]; g *= tin[1]; b *= tin[2]; } else if (luzPropia) luzPropia[py * W + px] = 1;
     if (pielPx && matId.startsWith('cu_piel')) pielPx[py * W + px] = 1;
     img.data[i] = r; img.data[i + 1] = g; img.data[i + 2] = b; img.data[i + 3] = 255;
+    if (REL) {
+      let nx = 0, ny = 0, nz = 0, zz = 0, c = 0, em = false;
+      for (const q of sm) if (q.mat === matId) { const v = q.np ?? q.n; nx += v[0]; ny += v[1]; nz += v[2]; zz += q.p[2]; c++; em = em || !!q.em; }
+      const l = Math.hypot(nx, ny, nz) || 1;
+      REL.data[i] = (nx / l * 0.5 + 0.5) * 255; REL.data[i + 1] = (ny / l * 0.5 + 0.5) * 255; REL.data[i + 2] = (nz / l * 0.5 + 0.5) * 255; REL.data[i + 3] = em ? 128 : 255;
+      const z = Math.max(0, Math.min(255.99, zz / c)); ALT!.data[i] = Math.floor(z); ALT!.data[i + 1] = Math.floor((z % 1) * 255); ALT!.data[i + 3] = 255;
+    }
   }
   if (L?.cavidad && prof) cavidad(img, prof, nrm!, luzPropia, W, H, L.cavidad);
   if (ao && prof) oclusionPantalla(img, prof, nrm!, pun!, luzPropia, W, H, ax, ay, z0, ao, pielPx, L?.piel?.ao ?? 1);
@@ -840,7 +849,7 @@ export function pintarEscena(esc: Escena, amb: Ambiente = {}, fijo?: { w: number
   if (lMetal && luzPropia) sinSal(img, luzPropia);
   if (L?.satura !== undefined && L.satura !== 1) for (let q = 0; q < W * H; q++) { const o = q * 4; if (img.data[o + 3] !== 255 || luzPropia?.[q]) continue; const y = 0.2126 * img.data[o] + 0.7152 * img.data[o + 1] + 0.0722 * img.data[o + 2]; for (let t = 0; t < 3; t++) img.data[o + t] = Math.max(0, Math.min(255, y + (img.data[o + t] - y) * L.satura)); }
   if (L?.linea) lineaSilueta(img, luzPropia, prof, L.linea);
-  return { img, ancla: [ax, ay] };
+  return REL ? { img, ancla: [ax, ay], rel: REL, alt: ALT! } : { img, ancla: [ax, ay] };
 }
 
 /** Relieve de cada material: [fuerza, escala del grano, tipo (0 grano, 1 tela, 2 cuero, 3 placa)]. */

@@ -50,6 +50,8 @@ const nieblaCv = document.createElement('canvas');
 const congelados = new WeakSet<object>();
 const ES_FUEGO = /fogata|hoguera|brasero|pira|antorcha|fuego|caldero|hogar/;
 import { acc } from '../nucleo/accesible';
+import { empezarRelieve, aplicarLuzGPU, ganchoRelieve } from './luz_gpu';
+import { fijarGanchoRelieve } from '../motor/assets';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
 export const cam = { x: 0, y: 0 };
@@ -193,7 +195,9 @@ function puertaCatedral(j: Juego, dt: number, t: number) {
     }
   }
 }
+fijarGanchoRelieve(ganchoRelieve);
 export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
+  empezarRelieve(ctx);
   const z = j.zona, h = j.heroe;
   nuevoCuadroSombras();
   const sx = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 12 * acc.temblor : 0, sy = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 8 * acc.temblor : 0;
@@ -533,6 +537,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // bruma baja al pie de la catedral, y después la luz
   brumaAncla(j);
   dibujarLuz(j, tiempo);
+  aplicarLuzGPU(ctx, luces as any, ctx.getTransform()); // (laboratorio: reiluminar con la tarjeta gráfica)
   puertaCatedral(j, dt, tiempo);
   // arcos de rayo: después de la luz (dibujados antes, la noche los apagaba y el rayo no se veía salir de la mano)
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1;

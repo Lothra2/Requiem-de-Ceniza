@@ -227,6 +227,7 @@ export function pintarPiso(id: string, v = 0, f = 0): Raster {
   if (!d) throw new Error(`No hay piso "${id}"`);
   if (d.pintar) { const r = d.pintar(v, f); cache.set(k, r); return r; }
   const W = 160, H = 80, img = createRaster(W, H);
+  const REL = (globalThis as any).__relieve ? createRaster(W, H) : null; if (REL) (img as any).rel = REL;
   PER = pisoDoble(d) ? 2 : 1;
   const PP = P * PER, ox = PER === 2 ? (v & 1) * P : 0, oy = PER === 2 ? ((v >> 1) & 1) * P : 0, vd = PER === 2 ? v >> 2 : v;
   const alto = (x: number, y: number) => d.punto(((x % PP) + PP) % PP, ((y % PP) + PP) % PP, vd, f)[1];
@@ -246,7 +247,9 @@ export function pintarPiso(id: string, v = 0, f = 0): Raster {
       const n = [-gx * 0.5, -gy * 0.5, 1], l = Math.hypot(n[0], n[1], n[2]);
       const dif = Math.max(0, (n[0] * LUZ[0] + n[1] * LUZ[1] + n[2] * LUZ[2]) / l);
       s = 0.05 + 0.55 * dif + tono + h * 0.02;
+      if (REL) { const o = (py * W + px) * 4; REL.data[o] = (n[0] / l * 0.5 + 0.5) * 255; REL.data[o + 1] = (n[1] / l * 0.5 + 0.5) * 255; REL.data[o + 2] = (n[2] / l * 0.5 + 0.5) * 255; REL.data[o + 3] = 255; }
     }
+    if (REL && m.emite) { const o = (py * W + px) * 4; REL.data[o] = 128; REL.data[o + 1] = 128; REL.data[o + 2] = 255; REL.data[o + 3] = 128; }
     const R = rampaDe(mat);
     const k2 = Math.max(0, Math.min(R.length - 1, Math.floor(Math.max(0, Math.min(0.999, s)) * R.length + trama(px, py) - 0.5)));
     const o = (py * W + px) * 4;

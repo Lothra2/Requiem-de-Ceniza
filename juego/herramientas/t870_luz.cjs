@@ -1,5 +1,5 @@
 // Luz avanzada: fotos con la luz prendida y apagada en varias zonas, costo del pase por cuadro y cuadros por segundo.
-// Uso: URL=http://127.0.0.1:5191/ node juego/herramientas/t840_luz.cjs [clase]  (capturas en /tmp/requiem-pruebas/luz)
+// Uso: URL=http://127.0.0.1:5191/ node juego/herramientas/t870_luz.cjs [clase]  (capturas en /tmp/requiem-pruebas/luz)
 const { entrar } = require('./comun_pruebas.cjs');
 const fs = require('fs'); const D = '/tmp/requiem-pruebas/luz'; fs.mkdirSync(D, { recursive: true });
 (async () => {

@@ -204,5 +204,5 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   baja calidad en nada). La lámpara del héroe también alumbra el relieve (solo suma luz, no hunde) y entran las 48 luces
   en pantalla más cercanas al centro.
 - `render/luz_gpu.ts`: el pase de WebGL. Opciones, Luz (Clásica o Avanzada), tecla L para comparar, `__lab` en las pruebas.
-- Prueba: `URL=http://127.0.0.1:5191/ node juego/herramientas/t840_luz.cjs` (fotos en `/tmp/requiem-pruebas/luz`). En la
+- Prueba: `URL=http://127.0.0.1:5191/ node juego/herramientas/t870_luz.cjs` (fotos en `/tmp/requiem-pruebas/luz`). En la
   nube Chromium pinta WebGL por software: los cuadros por segundo de ahí no dicen nada del PC de Rick.

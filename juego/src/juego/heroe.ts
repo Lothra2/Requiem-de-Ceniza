@@ -259,7 +259,8 @@ export function calcular(h: DatosHeroe, buffs: Record<string, number> = {}): Cal
   const bonoAtr = distancia || fam === 'daga' || fam === 'garras' ? des * 1 + fue * 0.25 : fue * 1 + (fam === 'lanza' ? des * 0.5 : 0);
   const base: [number, number] = arma?.dano && !(arma.durabMax > 0 && arma.durab <= 0) ? [arma.dano[0], arma.dano[1]] : [1, 3];
   // dano_pct de objetos ya está en el arma; dano_pct de otras cosas (buffs, pasivas, auras) suma aquí
-  let pctExtra = 0; for (const c of Object.keys(h.equipo) as Casilla[]) if (c !== 'arma') for (const [k, v] of h.equipo[c]!.stats) if (k === 'dano_pct') pctExtra += v;
+  // (lo roto no cuenta, igual que arriba: un guante roto seguía sumando su daño)
+  let pctExtra = 0; for (const c of Object.keys(h.equipo) as Casilla[]) { const o = h.equipo[c]; if (c === 'arma' || !o || (o.durabMax > 0 && o.durab <= 0)) continue; for (const [k, v] of o.stats) if (k === 'dano_pct') pctExtra += v; }
   pctExtra += (buffs.dano_pct ?? 0) + pctSet;
   // afinidad de la clase con la familia del arma: afín pega más y más rápido, torpe pega menos
   const afin = BONO_AFINIDAD[afinidadDe(ba, h.clase)];
@@ -282,8 +283,11 @@ export function calcular(h: DatosHeroe, buffs: Record<string, number> = {}): Cal
   const def = Math.round((defItems + Math.floor(des / 4)) * (1 + defPct / 100));
   return {
     vidaMax: Math.round(vidaMax), manaMax: Math.round(manaMax), fue, des, vit, ene, dano, elem,
-    precision: Math.round(des * 5 - 35 + h.nivel * 6 + (st.precision ?? 0)), def, bloqueo, critico: st.critico ?? 0, esquiva: st.esquiva ?? 0,
-    res, robo_vida: st.robo_vida ?? 0, robo_mana: st.robo_mana ?? 0,
+    precision: Math.round(des * 5 - 35 + h.nivel * 6 + (st.precision ?? 0)), def, bloqueo,
+    // topes (auditoría del 18 nov 2026): sin techo, 100 de esquiva era inmune a lo físico y el robo de vida de cuatro
+    // piezas de la Lamprea y un único pasaba de 50 % (casi inmortal). Una partida normal no llega a ninguno
+    critico: Math.min(75, st.critico ?? 0), esquiva: Math.min(60, st.esquiva ?? 0),
+    res, robo_vida: Math.min(30, st.robo_vida ?? 0), robo_mana: Math.min(30, st.robo_mana ?? 0),
     vel_ataque: (st.vel_ataque ?? 0) - (ba?.vel ?? 0) + afin.vel, vel_lanzar: st.vel_lanzar ?? 0, vel_mover: st.vel_mover ?? 0, vel_recuperar: st.vel_recuperar ?? 0,
     regen_vida: st.regen_vida ?? 0, regen_mana: st.regen_mana ?? 0, hallazgo: (st.hallazgo ?? 0) + 25 * (h.ciclo ?? 0), oro_extra: st.oro_extra ?? 0, radio_luz: st.radio_luz ?? 0,
     espinas: st.espinas ?? 0, reduc_dano: Math.min(50, st.reduc_dano ?? 0), mas_habilidades: mas,

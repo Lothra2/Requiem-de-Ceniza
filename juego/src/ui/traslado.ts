@@ -28,6 +28,7 @@ export async function leerCodigo(cod: string): Promise<Record<string, string> | 
 const heroesDe = (s: string | null | undefined): { nombre?: string; clase?: string; nivel?: number }[] => { try { const h = JSON.parse(s ?? '[]'); return Array.isArray(h) ? h : []; } catch { return []; } };
 const resumen = (s: string | null | undefined) => heroesDe(s).map((h) => `${h.nombre ?? '?'} (${h.clase ?? '?'} ${h.nivel ?? 1})`).join(', ');
 function escribir(d: Record<string, string>) {
+  (window as any).__sinGuardar = true; // (que el autoguardado no pise lo que se trae mientras la página se recarga)
   const antes: Record<string, string> = {}; for (const k of CLAVES) { const v = localStorage.getItem(k); if (v !== null) antes[k] = v; }
   if (antes['marca.heroes']) localStorage.setItem('marca.respaldo', JSON.stringify({ t: Date.now(), d: antes }));
   for (const k of CLAVES) if (k in d && k !== 'marca.opciones' && k !== 'marca.intro') localStorage.setItem(k, d[k]);
@@ -100,4 +101,24 @@ export async function partidaEnEnlace(en: boolean) {
   if (!heroesDe(localStorage.getItem('marca.heroes')).length) { escribir(d); history.replaceState(null, '', location.pathname + location.search); location.reload(); return; }
   if (localStorage.getItem('marca.heroes') === d['marca.heroes']) { history.replaceState(null, '', location.pathname + location.search); return; }
   abrirImportar(en, m[1]);
+}
+
+/** Las copias automáticas de la partida (main.ts, copiaRotativa): ver cuándo son y volver a una. */
+export function abrirCopias(en: boolean) {
+  const T = (a: string, b: string) => (en ? b : a);
+  const c = abrir(T('Copias de la partida', 'Save backups'));
+  parrafo(c, T('El juego guarda solo una copia de tu partida de hace un rato y otra del día anterior. Si algo salió mal, vuelve a una de ellas. La partida de ahora queda de respaldo por si acaso.', 'The game keeps a copy of your save from a while ago and another from the day before. If something went wrong, go back to one. The current save is kept as a backup just in case.'));
+  parrafo(c, T('Ahora: ', 'Now: ') + (resumen(localStorage.getItem('marca.heroes')) || '-'), '#e8d8b0');
+  let hay = false;
+  for (const [k, nom] of [['marca.copia1', T('Copia reciente', 'Recent copy')], ['marca.copia2', T('Copia del día anterior', 'Previous day copy')], ['marca.respaldo', T('Antes de traer otra partida', 'Before importing a save')]] as const) {
+    let cp: any = null; try { cp = JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { /* nada */ }
+    const h = cp?.h ?? cp?.d?.['marca.heroes'], cofre = cp?.c ?? cp?.d?.['marca.cofre'];
+    if (!h || !heroesDe(h).length) continue;
+    hay = true;
+    const fecha = new Date(cp.t).toLocaleString(en ? 'en' : 'es', { dateStyle: 'medium', timeStyle: 'short' });
+    parrafo(c, `${nom} (${fecha}): ${resumen(h)}`, '#d8c8a0');
+    botonD(c, T('Volver a esta copia', 'Restore this copy'), () => { const d: Record<string, string> = { 'marca.heroes': h }; if (cofre) d['marca.cofre'] = cofre; escribir(d); location.reload(); });
+  }
+  if (!hay) parrafo(c, T('Todavía no hay copias: se hacen solas mientras juegas.', 'No copies yet: they are made automatically while you play.'));
+  botonD(c, T('Cerrar', 'Close'), cerrar);
 }

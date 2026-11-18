@@ -16,6 +16,7 @@
 //   Plano.sonidos = [{ t, efecto, vol? }]: efectos a su tiempo dentro del plano
 //   camara = { desde: {x, y, zoom}, hasta: {x, y, zoom}, curva?: 'suave'|'lineal', sacudida?: {t, dur, fuerza} }
 //           x e y en píxeles de capa (con paralaje 1 se mueven 1 a 1), zoom 1 es la pantalla base.
+import { acc } from '../nucleo/accesible';
 import { ctx, W, H, E } from '../nucleo/lienzo';
 import { IDI, TITULO, texto, envolver, T } from './comun';
 import { BASE } from '../motor/assets';
@@ -167,7 +168,7 @@ export function dibujarCine(clave: string, acto: number, t: number): boolean {
   const cx = mezclar(de.x ?? 0, a.x ?? 0, k), cy = mezclar(de.y ?? 0, a.y ?? 0, k), zoom = mezclar(de.zoom ?? 1, a.zoom ?? 1, k);
   let sx = 0, sy = 0;
   const sac = cam.sacudida;
-  if (sac && tl >= sac.t && tl < sac.t + sac.dur) { const f = sac.fuerza * (1 - (tl - sac.t) / sac.dur); sx = (Math.random() - 0.5) * f * 2; sy = (Math.random() - 0.5) * f * 2; }
+  if (sac && tl >= sac.t && tl < sac.t + sac.dur) { const f = sac.fuerza * (1 - (tl - sac.t) / sac.dur) * acc.temblor; sx = (Math.random() - 0.5) * f * 2; sy = (Math.random() - 0.5) * f * 2; }
   if (sac && !p.sonidos && Math.abs(tl - sac.t) < dt * 1.5) Sonido.efecto('trueno' as any, { vol: 0.5 });
   const esc = Math.max(W / base.w, H / base.h) * zoom;
   const ox = W / 2 - (base.w * esc) / 2 + sx, oy = H / 2 - (base.h * esc) / 2 + sy;

@@ -6,6 +6,7 @@
 //   - cada impacto y cada estallido revienta en chispas que saltan en arco y rebotan, una onda de choque en el piso, un
 //     destello, y si es grande, un segundo anillo, un resplandor de pantalla entera y el temblor;
 //   - el que muere sale despedido hacia donde iba el golpe y se arrastra un trecho antes de quedar quieto.
+import { acc } from '../nucleo/accesible';
 import type { Juego, Efecto, Proyectil, Monstruo } from '../juego/mundo';
 import { COLOR_ELEM } from './luces';
 import { rgbLuz, LUZ_EFECTO } from '../../../src/engine/gotico/luz_efectos';
@@ -186,6 +187,6 @@ export function energiaAire(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: num
   // las motas del conjuro: giran y caen hacia las manos
   const [hx, hy] = aP(h.x, h.y);
   for (const q of motas) { const u = q.t / q.d, r = q.r * (1 - u) ** 1.4 * 22.6, a = q.ang + q.giro * u, x = hx + Math.cos(a) * r, y = hy + Math.sin(a) * r * 0.5 - (q.z + (32 - q.z) * u); ctx.fillStyle = `rgba(${Math.min(255, q.c[0] + 70)},${Math.min(255, q.c[1] + 70)},${Math.min(255, q.c[2] + 70)},${Math.min(1, u * 3)})`; ctx.fillRect(Math.round(x), Math.round(y), 2, 2); if (u > 0.5) { ctx.globalAlpha = (u - 0.5) * 0.5; ctx.drawImage(luzSpr(q.c), x - 6, y - 6, 12, 12); ctx.globalAlpha = 1; } }
-  if (pantalla > 0.004) { ctx.fillStyle = `rgba(${pantallaC[0]},${pantallaC[1]},${pantallaC[2]},${pantalla})`; ctx.fillRect(0, 0, W, H); }
+  if (pantalla > 0.004) { ctx.fillStyle = `rgba(${pantallaC[0]},${pantallaC[1]},${pantallaC[2]},${pantalla * acc.destellos})`; ctx.fillRect(0, 0, W, H); }
   ctx.restore();
 }

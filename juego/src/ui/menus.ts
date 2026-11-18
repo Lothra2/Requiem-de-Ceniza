@@ -1,8 +1,9 @@
 // Fuera del juego: intro, menú principal, elegir y crear héroe, opciones y pantalla de carga.
 import { cuadrosDeFirma, retratoVivo, RETRATO_K } from '../motor/pintor';
 import { equipoVisual, firmaVisual, cuerpoDe } from '../juego/heroe';
-import { abrirExportar, abrirImportar } from './traslado';
+import { abrirExportar, abrirImportar, abrirCopias } from './traslado';
 import { renglonMenu } from '../nucleo/instalar';
+import { acc } from '../nucleo/accesible';
 import { ctx, W, H, E, RES, vistaActual, fijarVista } from '../nucleo/lienzo';
 import { texto, T, TT, IDI, boton, dentro, envolver, TITULO, fijarIdioma } from './comun';
 import { cuadrosHeroe, cuadrosPiso, variantePiso, cuadrosRetrato, RETRATO_ALTO, objetoMeta, dibujar, dibujarTenido, cuadrosMonstruo } from '../motor/assets';
@@ -15,10 +16,11 @@ import { R, rng } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
 import { dibujarPortada, tituloFijo, dibujarCarta, prepararCarta } from './portada';
 
-export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number }
-export const opciones: Opciones = { general: 0.8, musica: 0.6, efectos: 0.8, horror: 0.8, idioma: 0, brillo: 1 };
-export function cargarOpciones() { try { Object.assign(opciones, JSON.parse(localStorage.getItem('marca.opciones') ?? '{}')); } catch { /* nada */ } fijarIdioma(opciones.idioma); aplicarVolumen(); }
-export function guardarOpciones() { try { localStorage.setItem('marca.opciones', JSON.stringify(opciones)); } catch { /* nada */ } }
+export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number; temblor?: number; destellos?: 0 | 1 }
+export const opciones: Opciones = { general: 0.8, musica: 0.6, efectos: 0.8, horror: 0.8, idioma: 0, brillo: 1, temblor: 1, destellos: 0 };
+const fijarAcc = () => { acc.temblor = Math.max(0, Math.min(1, opciones.temblor ?? 1)); acc.destellos = opciones.destellos ? 0.3 : 1; };
+export function cargarOpciones() { try { Object.assign(opciones, JSON.parse(localStorage.getItem('marca.opciones') ?? '{}')); } catch { /* nada */ } fijarIdioma(opciones.idioma); aplicarVolumen(); fijarAcc(); }
+export function guardarOpciones() { fijarAcc(); try { localStorage.setItem('marca.opciones', JSON.stringify(opciones)); } catch { /* nada */ } }
 export const aplicarVolumen = () => Sonido.volumen(opciones.general, opciones.musica, opciones.efectos, opciones.horror ?? 0.8);
 
 // ------------------------------------------------------------------ escenas pintadas con los assets (para intro y menú)
@@ -91,7 +93,7 @@ function lluviaCeniza(t: number, k = 1, brasa = 0.25) {
 }
 function camara(f: () => void, zoom: number, cx = W / 2, cy = H / 2) {
   ctx.save();
-  if (sacudir > 0) ctx.translate((R() - 0.5) * sacudir * 14, (R() - 0.5) * sacudir * 10);
+  if (sacudir > 0) ctx.translate((R() - 0.5) * sacudir * 14 * acc.temblor, (R() - 0.5) * sacudir * 10 * acc.temblor);
   ctx.translate(cx, cy); ctx.scale(zoom, zoom); ctx.translate(-cx, -cy);
   f(); ctx.restore();
 }
@@ -508,7 +510,7 @@ const opcP = { agarra: '' };
 export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   const chico = H < 520;
   if (fondo) { fondoVigilia(t, W / 2, H * 0.62, 320); brasas(t, 22); } else { ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.fillRect(0, 0, W, H); }
-  const fh = chico ? 30 : 44, w = Math.min(W - 24, chico ? 560 : 600), cab = chico ? 44 : 74, pie = chico ? 46 : 70, h = Math.min(H - 12, cab + fh * 9 + (chico ? 10 : 34) + pie), x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
+  const fh = chico ? (H < 420 ? 25 : 28) : H < 760 ? 38 : 44, w = Math.min(W - 24, chico ? 560 : 600), cab = chico ? 44 : 74, pie = chico ? 46 : 70, h = Math.min(H - 12, cab + fh * 11 + (chico ? 10 : 34) + pie), x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
   const pant: Record<string, [number, number]> = ((window as any).__pantalla = {});
   // la losa: esquinas cortadas, hierro oscuro, doble filo de oro y rombos en los cuatro costados
   const c = 14, losa = (m: number) => { ctx.beginPath(); ctx.moveTo(x + c + m, y + m); ctx.lineTo(x + w - c - m, y + m); ctx.lineTo(x + w - m, y + c + m); ctx.lineTo(x + w - m, y + h - c - m); ctx.lineTo(x + w - c - m, y + h - m); ctx.lineTo(x + c + m, y + h - m); ctx.lineTo(x + m, y + h - c - m); ctx.lineTo(x + m, y + c + m); ctx.closePath(); };
@@ -541,6 +543,7 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   vara(T('Efectos', 'Effects'), 'efectos');
   vara(T('Horror', 'Horror'), 'horror');
   vara(T('Brillo', 'Brightness'), 'brillo');
+  vara(T('Temblor', 'Shake'), 'temblor');
   yy += chico ? 4 : 12; rayaOro(x + 40, yy - (chico ? 2 : 6), w - 80, 0.5); yy += chico ? 2 : 6;
   // llave de dos posiciones: la elegida al rojo, la otra apagada
   const llave = (nom: string, ops: string[], cual: number, id: string): number | null => {
@@ -559,12 +562,14 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   // la vista: cuánto se acerca la cámara (el héroe y el mundo más grandes; se ve menos alrededor)
   const lv = llave(T('Vista', 'View'), [T('Lejos', 'Far'), T('Cerca', 'Near'), T('Muy cerca', 'Closest')], vistaActual(), 'vista');
   if (lv !== null) { opciones.vista = lv; guardarOpciones(); fijarVista(lv); E.clicIzq = false; }
+  const ld = llave(T('Destellos', 'Flashes'), [T('Normales', 'Normal'), T('Suaves', 'Soft')], opciones.destellos ? 1 : 0, 'destellos');
+  if (ld !== null) { opciones.destellos = ld as 0 | 1; guardarOpciones(); E.clicIzq = false; }
   const completa = typeof document !== 'undefined' && !!document.fullscreenElement;
   const lp = llave(T('Pantalla', 'Screen'), [T('Ventana', 'Window'), T('Completa', 'Full')], completa ? 1 : 0, 'pantalla');
   if (lp !== null) { E.clicIzq = false; try { if (lp === 0) document.exitFullscreen(); else document.documentElement.requestFullscreen(); } catch { /* nada */ } }
   // la partida: sacarla como código o traerla de otro sitio (el guardado es de cada dirección web)
-  const lt = llave(T('Partida', 'Save'), [T('Sacar', 'Export'), T('Traer', 'Import')], -1, 'partida');
-  if (lt !== null) { E.clicIzq = false; E.izq = false; if (lt === 0) void abrirExportar(IDI === 1); else abrirImportar(IDI === 1); }
+  const lt = llave(T('Partida', 'Save'), [T('Sacar', 'Export'), T('Traer', 'Import'), T('Copias', 'Backups')], -1, 'partida');
+  if (lt !== null) { E.clicIzq = false; E.izq = false; if (lt === 0) void abrirExportar(IDI === 1); else if (lt === 1) abrirImportar(IDI === 1); else abrirCopias(IDI === 1); }
   const bw = chico ? 150 : 200, bh = chico ? 30 : 40;
   pant.volver = [W / 2, y + h - pie / 2 - (chico ? 0 : 4)];
   if (boton(T('Volver', 'Back'), W / 2 - bw / 2, y + h - pie / 2 - bh / 2 - (chico ? 0 : 4), bw, bh, { tam: chico ? 14 : 16 })) { E.clicIzq = false; return 'volver'; }

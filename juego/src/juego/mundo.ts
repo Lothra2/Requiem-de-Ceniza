@@ -107,7 +107,7 @@ export interface Proyectil {
   fuente?: Ent;
 }
 export interface Area { /** Lo que se dibuja al caer (por omisión explosion_fuego; '' nada, el efecto ya trae su impacto). */ fxCaida?: string; escCaida?: number; x: number; y: number; radio: number; dano: [number, number]; elem: Elemento; t: number; dur: number; tick: number; prox: number; deHeroe: boolean; efecto: string; retraso: number; caida?: boolean }
-export interface Suelo { o: Objeto | null; oro: number; x: number; y: number; t: number; id: number }
+export interface Suelo { o: Objeto | null; oro: number; x: number; y: number; t: number; id: number; /** Lo botó el jugador: no se recoge solo (sí con clic). */ botado?: boolean }
 export interface Numero { x: number; y: number; z: number; txt: string; color: string; t: number; grande?: boolean; chico?: boolean; /** Golpe menor de un combo: número un poco más chico. */ menor?: boolean }
 export interface Efecto { id: string; x: number; y: number; t: number; dir: number; escala: number; z?: number; seguir?: Ent; dur?: number }
 export interface Particula { x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; dur: number; color: string; tam: number; tipo: 'chispa' | 'humo' | 'sangre' | 'brasa' | 'nieve' | 'hoja' | 'pluma' | 'ceniza'; grav: number }
@@ -2532,7 +2532,7 @@ function recogerSolo(j: Juego) {
     const consumible = !!s.o && s.o.tipo !== 'equipo';
     const radio = s.oro ? 2.6 : consumible ? 2.0 : s.o && s.o.rareza !== 'normal' ? 1.15 : 0;
     if (!radio || dist(s.x, s.y, h.x, h.y) > radio) continue;
-    if (s.o && !s.oro && (s as any).sinLugar) continue;
+    if (s.o && !s.oro && ((s as any).sinLugar || s.botado)) continue; // (lo que el jugador botó no vuelve solo a la bolsa)
     if (!recogerSuelo(j, s, true)) (s as any).sinLugar = true;
   }
 }

@@ -49,6 +49,7 @@ function conBruma(q: Cuadro, c: string): HTMLCanvasElement | null {
 const nieblaCv = document.createElement('canvas');
 const congelados = new WeakSet<object>();
 const ES_FUEGO = /fogata|hoguera|brasero|pira|antorcha|fuego|caldero|hogar/;
+import { acc } from '../nucleo/accesible';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
 export const cam = { x: 0, y: 0 };
@@ -195,7 +196,7 @@ function puertaCatedral(j: Juego, dt: number, t: number) {
 export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   const z = j.zona, h = j.heroe;
   nuevoCuadroSombras();
-  const sx = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 12 : 0, sy = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 8 : 0;
+  const sx = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 12 * acc.temblor : 0, sy = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 8 * acc.temblor : 0;
   // frente a la pieza ancla (la catedral), la cámara sube suave para que se vean las torres
   let alzar = 0;
   for (const sa of z.salidas) if (sa.piezas?.length) {
@@ -215,7 +216,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     camS.x += (hx + camS.mx - camS.x) * ks; camS.y += (hy + camS.my - camS.y) * ks;
     cam.x = camS.x + sx; cam.y = camS.y + sy - camAlzada;
     // el empujón del golpe: la cámara cede un instante hacia donde pegó el héroe
-    const pt = j.patada; if (pt) { const ed = (performance.now() - pt.t) / 140; if (ed >= 0 && ed < 1) { const q = (1 - ed) ** 2 * pt.k; cam.x += pt.dx * q; cam.y += pt.dy * q; } }
+    const pt = j.patada; if (pt) { const ed = (performance.now() - pt.t) / 140; if (ed >= 0 && ed < 1) { const q = (1 - ed) ** 2 * pt.k * acc.temblor; cam.x += pt.dx * q; cam.y += pt.dy * q; } }
   }
   // plano de llegada a la catedral: la primera vez que el héroe entra al camposanto o se acerca a la puerta, 3.5 s con la
   // fachada entera (el foco de siempre, sin zoom); se suelta antes si el héroe camina más de 2 casillas
@@ -1152,7 +1153,7 @@ function dibujarLuz(j: Juego, t: number) {
   ctx.drawImage(luz, 0, 0);
   // (de día el piso ya es claro: el tinte de las luces sumado entero lo quemaba a blanco, así que baja con la claridad)
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (window as any).__sinBrillo ? 0 : 0.45 + 0.55 * Math.min(1, z.oscuridad / 0.6); ctx.drawImage(brillo, 0, 0); ctx.globalAlpha = 1;
-  if (destello > 0.02) { ctx.globalAlpha = destello * 0.16; ctx.fillStyle = `rgb(${destelloColor[0]},${destelloColor[1]},${destelloColor[2]})`; ctx.fillRect(0, 0, W, H); }
+  if (destello > 0.02) { ctx.globalAlpha = destello * 0.16 * acc.destellos; ctx.fillStyle = `rgb(${destelloColor[0]},${destelloColor[1]},${destelloColor[2]})`; ctx.fillRect(0, 0, W, H); }
   ctx.restore();
   // niebla de guerra: lo no explorado se ve negro del todo (salvo las piezas ancla: la catedral no se recorta)
   const conAncla = anclasCuadro.length > 0;
@@ -1431,7 +1432,7 @@ function lluviaAire(dt: number, t: number) {
   if (proxRayo <= 0) { proxRayo = 14 + Math.random() * 22; relampago = 0.5; setTimeout(() => Sonido.efecto('trueno', { vol: 0.35 + Math.random() * 0.2 }), 350 + Math.random() * 900); }
   if (relampago > 0) {
     relampago -= dt; const k = relampago > 0.42 ? 1 : relampago > 0.34 ? 0.15 : relampago > 0.26 ? 0.8 : Math.max(0, relampago / 0.26) * 0.5;
-    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(190,205,255,${0.32 * k})`; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(190,205,255,${0.32 * k * acc.destellos})`; ctx.fillRect(0, 0, W, H);
   }
   ctx.restore();
 }

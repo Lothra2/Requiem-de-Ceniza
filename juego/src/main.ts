@@ -69,7 +69,26 @@ function cargarPartidas() { try { heroes = JSON.parse(localStorage.getItem('marc
 /** Cuándo se guardó por última vez (para el aviso «Partida guardada»). */
 let guardadoEn = -1e9, avisoGuardado = -1e9;
 function guardarPartidas() {
-  try { localStorage.setItem('marca.heroes', JSON.stringify(heroes)); } catch { /* sin espacio */ }
+  if ((window as any).__sinGuardar) return; // (se acaba de traer o recuperar una partida y la página se recarga)
+  const nueva = JSON.stringify(heroes);
+  copiaRotativa(nueva);
+  try { localStorage.setItem('marca.heroes', nueva); } catch { /* sin espacio */ }
+}
+/**
+ * El seguro de la partida: antes de escribir, la partida que había pasa a 'marca.copia1' (como mucho una vez cada
+ * 10 minutos, así la copia es de un rato antes y no del cuadro anterior) y la copia1 vieja pasa a 'marca.copia2' una vez
+ * por día. Si algún día un error guarda algo malo, en Opciones, Partida, Copias se vuelve a una de las dos.
+ * Son claves nuevas y aparte: la partida de siempre no cambia de forma.
+ */
+function copiaRotativa(nueva: string) {
+  try {
+    const antes = localStorage.getItem('marca.heroes'); if (!antes || antes === nueva || antes === '[]') return;
+    const leer = (k: string) => { try { return JSON.parse(localStorage.getItem(k) ?? 'null'); } catch { return null; } };
+    const ahora = Date.now(), c1 = leer('marca.copia1'), c2 = leer('marca.copia2');
+    if (c1 && ahora - c1.t < 10 * 60 * 1000) return;
+    if (c1 && (!c2 || ahora - c2.t > 20 * 3600 * 1000)) localStorage.setItem('marca.copia2', JSON.stringify(c1));
+    localStorage.setItem('marca.copia1', JSON.stringify({ t: ahora, h: antes, c: localStorage.getItem('marca.cofre') }));
+  } catch { try { localStorage.removeItem('marca.copia2'); } catch { /* nada */ } } // (sin espacio: la partida manda)
 }
 function cargarCofre(): EnBolsa[] { try { return JSON.parse(localStorage.getItem('marca.cofre') ?? '[]'); } catch { return []; } }
 function guardarCofre() { try { localStorage.setItem('marca.cofre', JSON.stringify(ui.cofre)); } catch { /* nada */ } }
@@ -268,7 +287,7 @@ function controlar(jj: Juego, dt: number) {
   // soltar lo que tengo en la mano al piso
   // soltar un arrastre fuera de los paneles no hace nada (ni camina ni tira el objeto al piso)
   if ((ui as any).clicSoltar && E.clicIzq) E.clicIzq = false;
-  if (E.clicIzq && ui.mano && !ui.sobreUI) { jj.suelo.push({ o: ui.mano, oro: 0, x: h.x + 0.6, y: h.y + 0.6, t: 0, id: Date.now() }); ui.mano = null; E.clicIzq = false; return; }
+  if (E.clicIzq && ui.mano && !ui.sobreUI) { jj.suelo.push({ o: ui.mano, oro: 0, x: h.x + 0.6, y: h.y + 0.6, t: 0, id: Date.now(), botado: true }); ui.mano = null; E.clicIzq = false; return; }
   // el colchón: lo que se pidió durante la animación sale apenas termina (y espera un poquito más por si acaso)
   if (colchon && !h.muerto) {
     if (!ocupado(jj)) {
@@ -583,7 +602,7 @@ function cuadro(ahora: number) {
 }
 // autoguardado: cada 30 s en partida y al ocultar o cerrar la pestaña (antes solo al cambiar de zona)
 let tAutoguardado = performance.now();
-const guardarYa = () => { if (estado === 'juego' && j) guardar(); };
+const guardarYa = () => { if (estado === 'juego' && j && !(window as any).__sinGuardar) guardar(); };
 addEventListener('pagehide', guardarYa);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') guardarYa(); else buscarVersion(); });
 /**
@@ -830,6 +849,7 @@ async function arrancar() {
   // ganchos para las pruebas del build de producción
   Promise.all([import('./juego/heroe'), import('./juego/objetos'), import('./datos/objetos_datos'), import('./motor/pintor')]).then(([H, O, D, P]) => { (window as any).__T = { H, O, D, P }; });
   (window as any).__ir = (id: string, e: string) => irAZona(id, e);
+  (window as any).__ui = ui;
   (window as any).__historia = { entreacto: (n: number) => empezarEntreacto(n), revelacion: (luegoFinal = false) => empezarRevelacion(luegoFinal), final: () => { estado = 'final'; finalT = 0; }, t: (s: number) => { entreT = s; revT = s; finalT = s; } };
   (window as any).__vista = () => { const c = document.getElementById('juego') as HTMLCanvasElement; return { W, H, ZM, cw: c.width, ch: c.height }; };
   (window as any).__aPant = (x: number, y: number) => { const [a, b] = aPantUI(x, y); const r = (document.getElementById('juego') as HTMLCanvasElement).getBoundingClientRect(); return [r.left + a * r.width / W, r.top + b * r.height / H]; };

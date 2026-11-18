@@ -179,3 +179,22 @@ export function aplicarLuzGPU(c: CanvasRenderingContext2D, luces: LuzLab[], tr: 
   lab.ms = lab.ms * 0.9 + (performance.now() - t0) * 0.1;
   return true;
 }
+
+// ------------------------------------------------------------------ el tablero del laboratorio (arriba a la izquierda)
+// Prender y apagar la luz nueva (o la tecla L), ir directo a las dos zonas con relieve horneado y ver los cuadros por
+// segundo. Es de toque grande para el iPad y no deja pasar el clic al juego.
+if (typeof document !== 'undefined') {
+  const caja = document.createElement('div');
+  caja.style.cssText = 'position:fixed;left:8px;top:8px;z-index:60;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font:13px Georgia,serif;color:#f0d8a0;background:rgba(10,7,5,0.82);border:1px solid #b08a4a;padding:6px 8px;border-radius:4px;user-select:none;-webkit-user-select:none';
+  const boton = (txt: string, f: () => void) => { const b = document.createElement('button'); b.textContent = txt; b.style.cssText = 'font:13px Georgia,serif;padding:7px 10px;color:#fff0c0;background:#3a1c0c;border:1px solid #f0b858;cursor:pointer'; b.onclick = (e) => { e.stopPropagation(); f(); pintar(); }; caja.appendChild(b); return b; };
+  const luz = boton('', () => { lab.on = !lab.on; });
+  boton('Refugio', () => (window as any).__ir?.('a1_refugio'));
+  boton('Cripta', () => (window as any).__ir?.('a1_cripta'));
+  const fps = document.createElement('span'); fps.style.cssText = 'min-width:120px;padding-left:4px'; caja.appendChild(fps);
+  for (const ev of ['mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'pointerdown', 'pointerup']) caja.addEventListener(ev, (e) => e.stopPropagation());
+  const pintar = () => { luz.textContent = lab.on ? 'Luz GPU: SÍ (L)' : 'Luz GPU: NO (L)'; luz.style.background = lab.on ? '#6a3010' : '#1e1812'; };
+  addEventListener('keydown', (e: KeyboardEvent) => { if (e.key === 'l' || e.key === 'L') { lab.on = !lab.on; pintar(); } });
+  let ult = performance.now(), media = 16.7;
+  const tic = () => { const t = performance.now(); media = media * 0.95 + (t - ult) * 0.05; ult = t; fps.textContent = `${Math.round(1000 / media)} cuadros/s${lab.on ? ` · pase ${lab.ms.toFixed(1)} ms` : ''}`; requestAnimationFrame(tic); };
+  addEventListener('load', () => { document.body.appendChild(caja); pintar(); requestAnimationFrame(tic); });
+}

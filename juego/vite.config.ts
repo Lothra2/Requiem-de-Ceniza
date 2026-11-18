@@ -14,7 +14,7 @@ const VERSION = (() => { let c = 'local'; try { c = execSync('git rev-parse --sh
 // mano, y no se hizo: Rick siguió viendo el escudo viejo en su héroe guardado aunque el arreglo ya estaba publicado.
 const PINTOR = (() => { const h = createHash('sha1'), d = fileURLToPath(new URL('../src/engine/gotico/', import.meta.url));
   for (const f of readdirSync(d).filter((f) => f.endsWith('.ts')).sort()) h.update(readFileSync(d + f));
-  for (const f of ['./src/juego/visual.ts', './src/motor/pintor.ts']) { try { h.update(readFileSync(fileURLToPath(new URL(f, import.meta.url)))); } catch { /* nada */ } }
+  for (const f of ['./src/juego/visual.ts', './src/motor/pintor.ts', './src/motor/hoja.ts']) { try { h.update(readFileSync(fileURLToPath(new URL(f, import.meta.url)))); } catch { /* nada */ } }
   return h.digest('hex').slice(0, 10); })();
 
 export default defineConfig({

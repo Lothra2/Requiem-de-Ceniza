@@ -92,29 +92,46 @@ export function cuerpoArde(ctx: CanvasRenderingContext2D, j: Juego, e: Ent, q: C
   return D.pulsoLuz(c.s.f, esp.luz.mueve).k;
 }
 
-// ------------------------------------------------------------------ arma encantada
-const ELEM_ARMA = ESPECIALES.arma_encantada.paleta as Record<string, D.NombrePaleta>;
-const armas = new Map<string, Suelto>();
+// ------------------------------------------------------------------ arma viva que arde
+// Una grilla de fuego por quien lleva el arma, fija alrededor de su ancla (152 x 152 px), que no se rehace nunca: en cada
+// cuadro solo cambia dónde nace el calor (la hoja de ese cuadro, sin los tramos tapados por el cuerpo). Antes había una
+// grilla por posición de la hoja y cada cuadro del golpe arrancaba en frío: el fuego se apagaba justo al pegar. Así la
+// llama que ya subió sigue viva donde estaba la hoja y el vuelo deja su cola de fuego sola.
+const GC = 2, GW = 76, GH = 76, GX = -76, GY = -128;
+const hogueras = new WeakMap<object, Suelto>();
+/** El pulso de la última hoguera dibujada (para la luz). */
 export let pulsoArma = 1;
-/** La tira de llama a lo largo de la hoja del arma (reemplaza el trazo de armaViva). Una grilla por hoja, guardadas. */
-export function armaArde(ctx: CanvasRenderingContext2D, q: Cuadro, x: number, y: number, elem: string, dt: number): boolean {
-  if (!q.hoja) return false;
-  const esp = ESPECIALES.arma_encantada, c = esp.celda, mg = nVal(esp.margen_celdas, 3);
-  const [x0, y0, x1, y1] = q.hoja, pal = ELEM_ARMA[elem] ?? 'infierno';
-  const gx = Math.floor(Math.min(x0, x1) / c - mg) * c, gy = Math.floor(Math.min(y0, y1) / c - mg - 12) * c;
-  const k = `${pal}:${x0},${y0},${x1},${y1}`;
-  let s = armas.get(k);
+/**
+ * Prende la hoja (coordenadas relativas al ancla `px, py`): `ve` es la máscara de tramos que se ven, `antes` la hoja del
+ * cuadro anterior (para llenar lo barrido), `cabeza` un radio de fuente extra en la punta (el orbe), `act` 0..1 la fuerza.
+ */
+export function armaArdeViva(ctx: CanvasRenderingContext2D, e: object, pal: D.NombrePaleta, h: [number, number, number, number], antes: [number, number, number, number] | null, ve: number, px: number, py: number, act: number, dt: number, cabeza = 0, alfa = 1) {
+  let s = hogueras.get(e);
+  // (cambió de arma o de elemento: grilla nueva con su paleta)
+  if (s && (s as any).pal !== pal) s = undefined;
   if (!s) {
-    if (armas.size > 80) armas.clear();
-    const w = Math.ceil((Math.max(x0, x1) - gx) / c + mg), h = Math.ceil((Math.max(y0, y1) - gy) / c + mg);
-    const forma: D.Forma = { tipo: 'tira', desde: [(x0 - gx) / c, (y0 - gy) / c], hasta: [(x1 - gx) / c, (y1 - gy) / c], grosor: 0.9 };
-    s = suelto({ ancho: w, alto: h, forma, paleta: pal, decay: D.decayPara(esp.altura, h), humo: esp.humo, turbulencia: esp.turbulencia, ruido: esp.ruido, hueco: pal === 'animas' ? nVal(esp.hueco_frio, 0.4) : 0, brillo: nVal(esp.brillo, 1.7), pegada: nVal(esp.pegada, 0.7), semilla: 11, margen: 0 }, c);
-    armas.set(k, s);
+    s = suelto({ ancho: GW, alto: GH, forma: { tipo: 'mapa', fuente: new Float32Array(GW * GH) }, paleta: pal, decay: D.decayPara(1, 8), humo: pal === 'sombra' ? 0.5 : 0.12, turbulencia: 0.5, ruido: 0.18, hueco: 0, brillo: 1.7, pegada: 0.88, semilla: 11, margen: 2 }, GC);
+    (s as any).pal = pal; hogueras.set(e, s);
   }
+  const f = s.f, fu = f.fuente; fu.fill(0);
+  // más alta pegando
+  f.decay = D.decayPara(1, 7 + 5 * act);
+  const marca = (hx0: number, hy0: number, hx1: number, hy1: number, v: number) => {
+    const L = Math.max(Math.abs(hx1 - hx0), Math.abs(hy1 - hy0)) / GC, n = Math.max(2, Math.ceil(L * 1.5));
+    for (let i = 0; i <= n; i++) {
+      const u = i / n; if (u < 0.12 || !((ve >> Math.min(5, Math.floor(u * 6))) & 1)) continue;
+      const cx = Math.round((hx0 + (hx1 - hx0) * u - GX) / GC), cy = Math.round((hy0 + (hy1 - hy0) * u - GY) / GC);
+      if (cx < 3 || cx >= GW - 3 || cy < 3 || cy >= GH - 1) continue;
+      const k = cy * GW + cx; if (v > fu[k]) fu[k] = v;
+    }
+  };
+  marca(h[0], h[1], h[2], h[3], 1);
+  // lo barrido entre el cuadro anterior y este también prende (el arco del golpe queda en llamas)
+  if (antes && Math.hypot(antes[2] - h[2], antes[3] - h[3]) > 3) for (const b of [0.5]) marca(antes[0] + (h[0] - antes[0]) * b, antes[1] + (h[1] - antes[1]) * b, antes[2] + (h[2] - antes[2]) * b, antes[3] + (h[3] - antes[3]) * b, 0.75);
+  if (cabeza > 0 && ((ve >> 5) & 1)) { const cx = Math.round((h[2] - GX) / GC), cy = Math.round((h[3] - GY) / GC); for (let y = -cabeza; y <= cabeza; y++) for (let x = -cabeza; x <= cabeza; x++) { const X = cx + x, Y = cy + y; if (x * x + y * y <= cabeza * cabeza && X > 2 && X < GW - 3 && Y > 2 && Y < GH - 1) fu[Y * GW + X] = 1; } }
   avanzar(s, dt);
-  pintarEn(ctx, s, x + gx, y + gy);
-  pulsoArma = D.pulsoLuz(s.f, esp.luz.mueve).k;
-  return true;
+  pintarEn(ctx, s, px + GX, py + GY, 1, alfa);
+  pulsoArma = D.pulsoLuz(f, 0.3).k;
 }
 
 // ------------------------------------------------------------------ suelo que sigue ardiendo

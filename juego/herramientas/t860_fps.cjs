@@ -12,6 +12,12 @@ const fs = require('fs');
     const D = await import('/src/datos/monstruos.ts'); const ids = ['zombi', 'esqueleto', 'necrofago', 'bandido', 'cultista', 'chacal'].filter((i) => D.MONSTRUOS[i]);
     for (let i = 0; i < N; i++) { const a = (i / N) * 6.28, r = 3 + (i % 3) * 1.4, m = M.crearMonstruo(D.MONSTRUOS[ids[i % ids.length]], 10, h.x + Math.cos(a) * r, h.y + Math.sin(a) * r, 0, 0); m.vida = m.vidaMax = 1e6; m.estado = 'perseguir'; m.objetivo = h; j.monstruos.push(m); }
   }, N);
+  // VIVO=<elemento>: el héroe con un arma de ese elemento y un tercio de los monstruos campeones encantados (armas vivas)
+  if (process.env.VIVO) { await p.evaluate(async (el) => { const T = window.__T, j = window.__juego(), d = j.heroe.d; const b = T.O.BASE_POR_ID.get('ars_baculo_1'); d.equipo.arma = T.O.crearBase(b, 20); d.equipo.arma.vivo = el; window.__mundo.recalc(j);
+    const MOD = { fuego: 'ardiente', frio: 'helado', rayo: 'electrico', sangre: 'vampiro', sombra: 'maldito' }; j.monstruos.forEach((m, i) => { if (i % 3 === 0) { m.calidad = 1; m.mods = [MOD[el] ?? 'ardiente']; } }); }, process.env.VIVO);
+    for (let i = 0; i < 120; i++) { await p.waitForTimeout(1000); if (i > 5 && (await p.evaluate(() => window.__T.P.progresoPintura)) >= 1) break; } }
+  if (process.env.ESPERA) await p.waitForTimeout(+process.env.ESPERA * 1000);
+  if (process.env.SINVIVAM) await p.evaluate(() => { window.__sinVivaMonstruos = true; });
   await p.waitForTimeout(1500);
   const medir = async (seg, conFuego) => p.evaluate(([seg, conFuego]) => new Promise((ok) => {
     const t = []; let ult = performance.now(); const t0 = ult; let tl = 0;

@@ -6,7 +6,8 @@ export interface Cuadro {
   /** Ancla: el pixel que va sobre el punto del piso. */
   ax: number; ay: number;
   /** Hoja del arma (de la mano a la punta) relativa al ancla, si es personaje. */
-  hoja?: [number, number, number, number];
+  /** de la mano a la punta, y (si lo pintó el aparato) la máscara de tramos que se ven (ver motor/hoja.ts) */
+  hoja?: [number, number, number, number] | number[];
 }
 export interface ObjMeta { f: Cuadro[]; t: number; hu: [number, number]; b: number; tema: string; luz: [number, string, number] | 0; plano: number }
 interface Manifiesto { atlas: Record<string, [string, number, number]>; h: Record<string, any[]>; m: Record<string, any[]>; o: Record<string, any>; p: Record<string, any[]>; i?: Record<string, any[]>; w?: Record<string, any[]>; wm?: Record<string, any>; r?: Record<string, any[]>; za?: Record<string, number> }
@@ -18,7 +19,7 @@ const cuadros = new Map<string, Cuadro[]>();
 const objetos = new Map<string, ObjMeta>();
 export const BASE = './assets/';
 
-const aCuadro = (e: any[]): Cuadro => ({ img: null, atlas: e[0], x: e[1], y: e[2], w: e[3], h: e[4], ax: e[5], ay: e[6], hoja: e.length >= 11 ? [e[7], e[8], e[9], e[10]] : undefined });
+const aCuadro = (e: any[]): Cuadro => ({ img: null, atlas: e[0], x: e[1], y: e[2], w: e[3], h: e[4], ax: e[5], ay: e[6], hoja: e.length >= 12 ? e.slice(7) : e.length >= 11 ? [e[7], e[8], e[9], e[10]] : undefined });
 
 export async function cargarManifiesto(): Promise<void> {
   const r = await fetch(BASE + 'manifiesto.json');

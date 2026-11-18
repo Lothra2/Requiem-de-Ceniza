@@ -200,8 +200,9 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
 ## Luz avanzada (rama `luz-gpu`, publicada en /luz/)
 
 - Cada atlas trae sus gemelos `_n` (normales) y `_h` (altura) en `manifiesto.json` (`rel`). Se hornea con `RELIEVE=1`
-  (todo el juego unas 2 h 15 min a 4 núcleos) y `atlas_webp.py` los pasa a WebP: normales con pérdida a 90 y de la
-  altura solo el byte alto (R), así el relieve pesa ~370 MB y el sitio con las dos versiones queda bajo el tope de 1 GB.
+  (todo el juego unas 2 h 15 min a 4 núcleos) y `atlas_webp.py` los pasa a WebP SIN pérdida (Rick, 18 nov 2026: no se
+  baja calidad en nada). La lámpara del héroe también alumbra el relieve (solo suma luz, no hunde) y entran las 48 luces
+  en pantalla más cercanas al centro.
 - `render/luz_gpu.ts`: el pase de WebGL. Opciones, Luz (Clásica o Avanzada), tecla L para comparar, `__lab` en las pruebas.
 - Prueba: `URL=http://127.0.0.1:5191/ node juego/herramientas/t840_luz.cjs` (fotos en `/tmp/requiem-pruebas/luz`). En la
   nube Chromium pinta WebGL por software: los cuadros por segundo de ahí no dicen nada del PC de Rick.

@@ -13,12 +13,12 @@ def convertir(archivo):
     src = os.path.join(D, archivo); dst = src[:-4] + '.webp'
     im = Image.open(src)
     # (los f_, el andar de los monstruos en los rumbos intermedios, iban sin pérdida por descuido: 34 MB que son 12)
-    # (el relieve, normales y altura, va con pérdida a 90: es liso y así pesa un tercio que sin pérdida)
-    # (de la altura el shader solo lee el byte alto en R: el fino en G y lo de B se aplanan y pesa un tercio)
+    # (el relieve, normales y altura, va SIN pérdida: Rick no quiere bajar nada. De la altura el shader lee R, G y A;
+    # B no lo usa nadie y se pone en cero, que no cambia nada en pantalla y pesa menos)
     if archivo[:-4].endswith('_h'):
         r, g, b, a = im.convert('RGBA').split()
-        Image.merge('RGBA', (r, g.point(lambda v: 128), b.point(lambda v: 0), a)).save(dst, 'WEBP', quality=80, alpha_quality=100, method=5)
-    elif archivo[:-4].endswith('_n'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
+        Image.merge('RGBA', (r, g, b.point(lambda v: 0), a)).save(dst, 'WEBP', lossless=True, method=6)
+    elif archivo[:-4].endswith('_n'): im.save(dst, 'WEBP', lossless=True, method=6)
     elif os.path.basename(archivo)[:2] in ('h_', 'm_', 'b_', 'j_', 'n_', 'r_', 'f_', 'g_'): im.save(dst, 'WEBP', quality=90, alpha_quality=100, method=5)
     else: im.save(dst, 'WEBP', lossless=True, method=4)
     a, b = os.path.getsize(src), os.path.getsize(dst)

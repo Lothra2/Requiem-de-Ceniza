@@ -11,7 +11,7 @@ const MISION = process.env.MISION ?? 'm1_abadesa';
 const dir = '/tmp/requiem-pruebas/mapa'; fs.mkdirSync(dir, { recursive: true });
 (async () => {
   const mis = `d.misiones = { m1_hambre: 3, m1_campanas: 3${MISION ? `, ${MISION}: 1` : ''} }; d.vida = 99999;`;
-  const { b, p, errs } = await entrar(process.env.VISTA || 'pc', 'templario', 40, process.env.URL || 'http://127.0.0.1:5197/', mis);
+  const { b, p, errs } = await entrar(process.env.VISTA || 'pc', 'templario', 40, process.env.URL || 'http://127.0.0.1:5190/', mis);
   for (const zid of zonas) {
     await p.evaluate((z) => window.__ir(z), zid); await p.waitForTimeout(5000);
     const sal = await p.evaluate((todo) => { const j = window.__juego(), z = j.zona; if (todo) z.explorado.fill(1);

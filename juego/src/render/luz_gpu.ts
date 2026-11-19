@@ -158,6 +158,7 @@ export interface LuzLab { x: number; y: number; h: number; r: number; c: [number
 export function aplicarLuzGPU(c: CanvasRenderingContext2D, luces: LuzLab[], tr: DOMMatrix): boolean {
   activo = false;
   if (!lab.on || !relCv) return false;
+  vigilar(); if (!lab.on) return false;
   const t0 = performance.now();
   if (!iniciar()) return false;
   const g = gl!, w = c.canvas.width, h = c.canvas.height;
@@ -199,7 +200,24 @@ export function aplicarLuzGPU(c: CanvasRenderingContext2D, luces: LuzLab[], tr: 
 // En PC la tecla L prende y apaga la luz avanzada al vuelo (para comparar). Lo de siempre se elige en Opciones, Luz.
 if (typeof addEventListener === 'function') addEventListener('keydown', (e: KeyboardEvent) => { if ((e.key === 'l' || e.key === 'L') && !(e.target instanceof HTMLInputElement)) lab.on = !lab.on; });
 /** ¿Este aparato puede con la luz avanzada? (WebGL2) */
-export const hayGPU = (() => { try { return !!document.createElement('canvas').getContext('webgl2'); } catch { return false; } })();
+// Solo con tarjeta gráfica de verdad. Si Chrome da un WebGL por software (sin aceleración, tarjeta en lista negra:
+// SwiftShader, llvmpipe), el pase corre a un cuadro cada dos o tres segundos (Rick, 19 nov 2026): ahí no se enciende.
+export const infoGPU = (() => { try { const g = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true }); if (!g) return { ok: false, que: 'sin webgl2 acelerado' }; const ext = g.getExtension('WEBGL_debug_renderer_info'); const que = String(ext ? g.getParameter(ext.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)); g.getExtension('WEBGL_lose_context')?.loseContext(); return { ok: !/swiftshader|llvmpipe|software|softpipe|basic render|microsoft basic/i.test(que), que }; } catch { return { ok: false, que: 'error' }; } })();
+(window as any).__gpu = infoGPU;
+export const hayGPU = infoGPU.ok;
+
+// Guardia: si con la luz avanzada el juego va lento de verdad (más de 70 ms por cuadro sostenido 2 s), se apaga sola, se
+// guarda en Opciones y se avisa. Así nunca queda injugable en un equipo que no la aguanta.
+let ultimoT = 0, media = 16, lentoDesde = 0, desde = 0;
+let alApagar: (() => void) | null = null;
+export const fijarAvisoLuz = (f: () => void) => { alApagar = f; };
+function vigilar() {
+  const ahora = performance.now();
+  if (!ultimoT || ahora - ultimoT > 1500) { ultimoT = ahora; desde = ahora; lentoDesde = 0; media = 16; return; } // (pestaña dormida o recién prendida)
+  const dt = ahora - ultimoT; ultimoT = ahora; media = media * 0.85 + dt * 0.15;
+  if (ahora - desde < 4000) return; // (al entrar a la zona se bajan atlas: no contar eso)
+  if (media > 70) { if (!lentoDesde) lentoDesde = ahora; else if (ahora - lentoDesde > 2000) { lab.on = false; lentoDesde = 0; alApagar?.(); } } else lentoDesde = 0;
+}
 
 // ------------------------------------------------------------------ un sprite suelto con su luz (la selección de clase)
 // El héroe de la presentación es pixel art a puntos enteros: la luz se calcula por PUNTO DEL DIBUJO (no de la pantalla)

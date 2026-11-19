@@ -330,6 +330,9 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   (todo el juego unas 2 h 15 min a 4 núcleos) y `atlas_webp.py` los pasa a WebP SIN pérdida (Rick, 18 nov 2026: no se
   baja calidad en nada). La lámpara del héroe también alumbra el relieve (solo suma luz, no hunde) y entran las 48 luces
   en pantalla más cercanas al centro.
+- **Solo con tarjeta de verdad** (`infoGPU` en `luz_gpu.ts`, `window.__gpu`): WebGL por software (SwiftShader, llvmpipe,
+  `failIfMajorPerformanceCaveat`) no la enciende: ahí corría a un cuadro cada 2 o 3 s (Rick, 19 nov 2026). Y una guardia
+  (`vigilar`): más de 70 ms por cuadro sostenido 2 s con la luz encendida la apaga, guarda Clásica y avisa.
 - `render/luz_gpu.ts`: el pase de WebGL. Opciones, Luz (Clásica o Avanzada), tecla L para comparar, `__lab` en las pruebas.
 - Prueba: `URL=http://127.0.0.1:5191/ node juego/herramientas/t870_luz.cjs` (fotos en `/tmp/requiem-pruebas/luz`). En la
   nube Chromium pinta WebGL por software: los cuadros por segundo de ahí no dicen nada del PC de Rick.

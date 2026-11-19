@@ -13,6 +13,7 @@ import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe } from './juego/historia';
 import { dibujarHistoria } from './ui/historia_ui';
 import { FANTASMAS, HERALDO, type FinalElegido } from './mundo/actos';
+import { fijarAvisoLuz } from './render/luz_gpu';
 import { cargarOpciones, opciones, guardarOpciones, dibujarIntro, menuPrincipal, dibujarSeleccion, dibujarCrear, dibujarOpciones, pantallaCarga } from './ui/menus';
 import { hud, etiquetasMundo } from './ui/hud_rects';
 import { abrirTienda, cerrarPaneles, cambiarAgresivo, rectPanel, compacto } from './ui/juego_ui';
@@ -181,6 +182,12 @@ async function irAZona(id: string, entrada: string) {
   if (z.tipo !== 'pueblo') pista('fuera', E.tactil ? ['Mueve al héroe con el pulgar izquierdo o tocando el suelo. Golpe pega al más cercano, el arco lanza tus poderes y abajo están tus pociones.', 'Move with your left thumb or by tapping the ground. Hit strikes the nearest foe, the arc casts your powers and your potions are below.'] : ['Clic izquierdo sobre un monstruo para pegarle. Clic derecho lanza tu poder. 1 a 4 toma pociones.', 'Left click a monster to strike it. Right click casts your power. 1 to 4 drinks potions.']);
   if (z.tipo === 'mazmorra') pista('mazmorra', E.tactil ? ['Está oscuro aquí abajo. Si te ves mal, el menú tiene un portal al campamento.', 'It is dark down here. If things go badly, the menu has a portal to camp.'] : ['Está oscuro aquí abajo. Si te ves mal, B abre un portal al campamento.', 'It is dark down here. If things go badly, B opens a portal to camp.']);
 }
+// la luz avanzada se apagó sola porque el equipo no la aguanta: queda Clásica guardada y se avisa
+fijarAvisoLuz(() => {
+  opciones.luz = 0; guardarOpciones();
+  const t: [string, string] = ['La luz avanzada iba lenta en este equipo y pasó a Clásica (Opciones, Luz).', 'Advanced light was slow on this device and switched to Classic (Options, Light).'];
+  if (j) { if (E.tactil) consejoTactil(t); else msg(j, t, '#ffb060'); }
+});
 function pista(id: string, txt: [string, string]) {
   if (!j) return;
   const d = j.heroe.d as any; d.pistas ??= {};

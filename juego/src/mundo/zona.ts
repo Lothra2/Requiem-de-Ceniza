@@ -2011,9 +2011,11 @@ function curarAdornos(z: Zona, def: DefZona) {
   if (def.tipo !== 'pueblo') {
     const lista = HORROR_ACTO[def.acto] ?? HORROR_ACTO[1];
     // (una cada 3500 celdas más o menos, de 2 a 5: primero junto a los de élite, después junto a un grupo cualquiera)
-    let hechas = 0; const tope = Math.max(2, Math.min(5, Math.round((W * H) / 3500)));
+    // (en las mazmorras más seguidas: es donde pasa lo peor, y el gore suelto que no cabe se perdía. Rick: mucho gore)
+    const obra = def.tipo === 'mazmorra';
+    let hechas = 0; const tope = obra ? Math.max(4, Math.min(9, Math.round((W * H) / 1700))) : Math.max(2, Math.min(5, Math.round((W * H) / 3500)));
     for (const s of [...elites, ...grupos.filter((q) => q.tipo === 'grupo')]) {
-      if (hechas >= tope || anclas.some((a) => d(a, s) < 14)) continue;
+      if (hechas >= tope || anclas.some((a) => d(a, s) < (obra ? 10 : 14))) continue;
       const [id, vs] = lista[Math.floor(r() * lista.length)], dd = REGISTRO.find((q) => q.id === id); if (!dd) continue;
       const v = vs[Math.floor(r() * vs.length)], [hw, hh] = huellaDe(dd, v), bl = !!dd.bloquea && !dd.plano;
       const p = lugar(s.cx, s.cy, 3, 7, hw, hh, !!dd.plano, (x, y) => quedan.every((c) => Math.hypot(c.cx - x, c.cy - y) >= 4)); if (!p) continue;
@@ -2045,7 +2047,7 @@ function curarAdornos(z: Zona, def: DefZona) {
     if (quitar.has(o)) continue;
     if (CU_TELA.test(o.id)) { if (!muroAl(o)) sacar(o); }
     else if (CU_VELA.test(o.id)) juntar(o, ritos, 4, 4, 1.5, 3.2);
-    else if (CU_GORE.test(o.id) && !o.bloquea) juntar(o, anclas, 8, 10, 1.8, 7);
+    else if (CU_GORE.test(o.id) && !o.bloquea) juntar(o, anclas, 8, 12, 1.8, 8);
   }
 
   // 5. lo mismo repetido al lado, y el tope de adornos sueltos por cuadro de 8 x 8 celdas

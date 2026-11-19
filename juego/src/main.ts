@@ -130,7 +130,9 @@ function atlasZona(zid: string): Set<string> {
   const z = j!.zona && j!.zona.id === zid ? j!.zona : null;
   const s = new Set<string>();
   const ids = new Set<string>();
-  if (z) for (const o of z.objetos) { ids.add(`${o.id}|${o.v}`); if (o.dato?.mision) for (const k of Object.keys(m.o)) if (k.startsWith(o.id + '|')) ids.add(k); }
+  // (en el teléfono y el iPad solo lo que está cerca de donde se entra: lo demás baja al verse)
+  const hh = j!.heroe, lejos = (o: { cx: number; cy: number; hw?: number; hh?: number }) => E.tactil && (o.hw ?? 1) * (o.hh ?? 1) < 30 && Math.abs(o.cx - hh.x) + Math.abs(o.cy - hh.y) > 40; // (las piezas grandes, como la catedral, siempre: se ven de lejos)
+  if (z) for (const o of z.objetos) { if (lejos(o)) continue; ids.add(`${o.id}|${o.v}`); if (o.dato?.mision) for (const k of Object.keys(m.o)) if (k.startsWith(o.id + '|')) ids.add(k); }
   // piezas que cambian de variante con la historia (la catedral): todas sus variantes
   if (z) for (const sa of z.salidas) for (const o of sa.piezas ?? []) for (const k of Object.keys(m.o)) if (k.startsWith(o.id + '|')) ids.add(k);
   // por tema si todavía no hay zona
@@ -144,7 +146,11 @@ function atlasZona(zid: string): Set<string> {
   if (Object.values(HERALDO.zonas).includes(zid)) mons.add(MONSTRUOS[HERALDO.id]?.sprite);
   for (const f of FANTASMAS) if (f.zona === zid) mons.add(f.sprite);
   for (const p of pool) { const inv = MONSTRUOS[p]?.invoca; if (inv) mons.add(MONSTRUOS[inv]?.sprite); }
-  for (const id of mons) for (const a of atlasDe('m', clavesCon('m', `${id}/`))) s.add(a);
+  // (en el teléfono y el iPad los monstruos no se cargan de entrada: cada atlas baja la primera vez que se dibuja y se
+  // suelta cuando lleva un rato sin verse, ver `cuidarMemoria`. Con todos de una, una zona pasaba los 600 MB y Safari
+  // del iPhone mataba la página)
+  if (!E.tactil) for (const id of mons) for (const a of atlasDe('m', clavesCon('m', `${id}/`))) s.add(a);
+  else if (def.jefe) for (const a of atlasDe('m', clavesCon('m', `${MONSTRUOS[def.jefe]?.sprite}/`))) s.add(a);
   if (def.tipo === 'pueblo') for (const n of GENTE[def.acto] ?? []) for (const a of atlasDe('m', clavesCon('m', `${NPCS[n]?.sprite ?? n}/`))) s.add(a);
   for (const a of atlasDe('w', Object.keys(m.w ?? {}))) s.add(a);
   // kit de gore (sangre, pedazos, reventón) y los sustos: siempre, son livianos
@@ -168,13 +174,16 @@ async function irAZona(id: string, entrada: string) {
   if (ZONAS[id].tipo === 'mazmorra' && !ZONAS[id].jefe) setTimeout(() => Sonido.efecto('presagio' as any, { vol: (ZONAS[id] as any).casa ? 0.7 : 0.9 }), 900);
   const atl = atlasZona(id);
   // primero soltar lo viejo que no hace falta (partidas largas: sin esto el navegador se queda sin recursos)
-  liberarAtlas(atl);
+  // En el teléfono y el iPad se suelta TODO lo que la zona nueva no usa, aunque se haya visto recién: Safari del iPhone
+  // mata la página pasados los 600 a 700 MB de imágenes ("A problem repeatedly occurred", Rick, 19 nov 2026), y una zona
+  // con lo de la anterior encima llegaba a 720. Volver atrás recarga del caché del navegador (rápido).
+  liberarAtlas(atl, E.tactil ? 0 : 500, E.tactil ? 0 : 5000);
   await asegurar(atl, (h, t) => { cargaK = t ? h / t : 1; });
   const z = ZONAS[id];
   // el jefe de las zonas vecinas se baja en segundo plano, para que nunca aparezca sin cuerpo
   const vecinos = new Set<string>();
   for (const sa of z.salidas) { const dj = ZONAS[sa.destino]?.jefe; if (!dj) continue; for (const sp of [MONSTRUOS[dj]?.sprite, MONSTRUOS[MONSTRUOS[dj]?.invoca ?? '']?.sprite]) if (sp) for (const a of atlasDe('m', clavesCon('m', `${sp}/`))) vecinos.add(a); }
-  precargar(vecinos);
+  if (!E.tactil) precargar(vecinos);
   Sonido.musica(MUSICA_ACTO(z.acto, z.tipo) as any);
   Sonido.ambiente(z.tipo === 'mazmorra' ? 'cueva' : z.lluvia ? 'lluvia' : z.acto === 3 ? 'selva' : z.acto === 5 ? 'infierno' : z.tipo === 'pueblo' ? 'fuego' : 'viento');
   guardar();
@@ -607,8 +616,18 @@ function cartelComenzar(t: number) {
 (window as any).__cineT = (s: number) => { if (cine) cine.t = s; };
 (window as any).__carga = (k: number, m: string) => { estado = 'carga'; cargaK = k; cargaMsg = m; };
 (window as any).__usar = (o: ObjZ) => { if (j) usarObjeto(j, o); };
+// Memoria de imágenes en el teléfono y el iPad: lo que no se dibujó en los últimos 4 s se suelta cuando el total pasa
+// el tope (vuelve del caché del navegador si se necesita). En PC no hace falta.
+const TOPE_TACTIL_MB = 380;
+let ultimaPoda = 0;
+function cuidarMemoria(ahora: number) {
+  if (!E.tactil || ahora - ultimaPoda < 1500) return;
+  ultimaPoda = ahora;
+  liberarAtlas(new Set(), (window as any).__topeTactil ?? TOPE_TACTIL_MB, 4000);
+}
 function cuadro(ahora: number) {
   marcarCuadro(ahora); empezarCuadro(ahora);
+  cuidarMemoria(ahora);
   // (nunca hacia atrás: si el reloj del sistema retrocede, un paso negativo dejaba el tiempo del juego en negativo)
   const dt = Math.max(0, Math.min(0.05, (ahora - ultimo) / 1000)); ultimo = ahora;
   tiempo += dt; tEstado += dt;

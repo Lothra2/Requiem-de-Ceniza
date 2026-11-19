@@ -121,12 +121,12 @@ const bytesAtlas = (n: string) => { const a = man?.atlas[n]; return a ? a[1] * a
 export const memoriaAtlas = () => { let t = 0; for (const n of imgs.keys()) t += bytesAtlas(n); return t / 1e6; };
 /** Libera atlas que no están en `mantener`, del menos usado al más reciente, hasta quedar bajo el tope (MB).
  *  Lo de la zona anterior suele sobrevivir si cabe, así volver atrás no recarga nada. */
-export function liberarAtlas(mantener: Set<string>, topeMB = 500): string[] {
+export function liberarAtlas(mantener: Set<string>, topeMB = 500, edadMs = 5000): string[] {
   let total = memoriaAtlas() * 1e6;
   const tope = topeMB * 1e6;
   if (total <= tope) return [];
   const ahora = performance.now();
-  const cand = [...imgs.keys()].filter((n) => !mantener.has(n) && ahora - (usado.get(n) ?? 0) > 5000).sort((a, b) => (usado.get(a) ?? 0) - (usado.get(b) ?? 0));
+  const cand = [...imgs.keys()].filter((n) => !mantener.has(n) && ahora - (usado.get(n) ?? 0) > edadMs).sort((a, b) => (usado.get(a) ?? 0) - (usado.get(b) ?? 0));
   const fuera = new Set<string>();
   for (const n of cand) { if (total <= tope) break; total -= bytesAtlas(n); fuera.add(n); }
   if (!fuera.size) return [];

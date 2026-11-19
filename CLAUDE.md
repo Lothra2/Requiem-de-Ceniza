@@ -605,6 +605,14 @@ Dónde vive cada hilo nuevo (nada de esto toca la partida salvo `restos`, campo 
     SwiftShader en el proceso de la GPU: el JS por cuadro se parece mucho al del PC de Rick; `CARAS=1` imprime el F3,
     `PELEA=24`, `ATLAS_LIENZO=1`) y `SOLO=1 node juego/herramientas/t891_igual.cjs [zonas] [luz]` (el mismo cuadro con lo
     de antes y lo nuevo, diferencia punto por punto; `FOTO=1` guarda el mapa de diferencias).
+- **Memoria en el teléfono y el iPad** (Rick, 19 nov 2026: Safari del iPhone "A problem repeatedly occurred", la página
+  muerta por memoria). Una zona cargaba de entrada todos los atlas de sus monstruos (con todas las acciones) y de todos sus
+  objetos: 600 a 720 MB de imágenes decodificadas (las muertes nuevas sumaron 57 a 84). En táctil (`E.tactil`) ahora:
+  `atlasZona` no carga los monstruos (salvo el jefe) ni los objetos a más de 40 casillas de la entrada (las piezas grandes,
+  como la catedral, sí), al entrar se suelta todo lo que la zona nueva no usa (`liberarAtlas(atl, 0, 0)`) y `cuidarMemoria`
+  (main.ts) suelta cada 1,5 s lo que no se dibujó en 4 s cuando se pasa de `TOPE_TACTIL_MB` (380, `__topeTactil`). Lo
+  soltado vuelve del caché del navegador al dibujarse. Queda en unos 375 MB jugando y el pico al cambiar de zona en unos
+  490 (antes 720). En PC nada cambia. Medir: `memoriaAtlas()` de `motor/assets.ts`.
 - **Lienzos de trabajo en rueda** (`motor/lienzos.ts`): sombras, filos y destellos de golpe se arman cada uno en un lienzo
   distinto de una rueda de 160. Reusar un solo lienzo ya pegado en el mismo cuadro frena la tarjeta gráfica (Rick, 18 nov
   2026: se trancaba con muchos monstruos y bolas de fuego). No volver a un lienzo único. En la nube no se nota porque

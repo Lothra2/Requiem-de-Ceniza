@@ -1,4 +1,4 @@
-import { registrar, type Arma, type Pieza, type V3 } from '../objeto';
+import { registrar, REGISTRO, huellaDe, type Arma, type Pieza, type V3 } from '../objeto';
 import { girarPiezas } from '../render';
 
 // Muros de obra nuevos para las mazmorras: sillería a la vista, hilada por hilada, con zócalo y cornisa, en los ocho
@@ -62,5 +62,94 @@ registrar({
     acento(a, ps, e, alto, roto);
     ps.push(a.caja(0, 0, -80, 900, 900, 80, { mat: 'roca', resta: true }));
     return enY ? girarPiezas(ps, 90) : ps;
+  },
+});
+
+// ------------------------------------------------------------------ esquinas
+// Donde dos muros de una mazmorra se juntan en V (la baldosa de atrás vacía y las tres de alrededor con piso), el muro
+// en x termina en la esquina y el muro en y también: quedaba un hueco de un grueso de muro por lado entre las dos
+// puntas, plano contra plano, con el negro de atrás asomando por la rendija y las dos cornisas cortadas cada una por su
+// lado (Rick, 19 nov 2026). La esquina es el muro que sigue en cada eje (el mismo paño liso, corrido un largo), cortado
+// a inglete por la diagonal que pasa por el cruce de los dos ejes: las hiladas, el zócalo, la imposta y la cornisa
+// doblan la esquina como en una obra de verdad. Va en la celda del vértice (`esquinasMuro` en zona.ts); su origen es el
+// centro de esa celda (o del bloque de 2 x 2 en los muros de dos celdas de grueso).
+
+/** Variante de la esquina -> el muro, su paño en x y su paño en y (los lisos, sin arcos ni nichos que corten el inglete). */
+export const ESQUINAS_MURO: Record<string, [string, string, string]> = {
+  ...Object.fromEntries(ESTILOS.map((e) => [`obra_${e}`, ['muro_obra', `${e}_liso`, `${e}_liso_y`] as [string, string, string]])),
+  mon_muro: ['mon_muro', 'izq', 'der'], mon_muro_vitral: ['mon_muro_vitral', 'izq', 'der'],
+  cat_nichos: ['cat_nichos', 'izq', 'der'], cat2_loculos: ['cat2_loculos', 'sellados', 'sellados_der'],
+  cat2_pasillo_osario: ['cat2_pasillo_osario', 'femures', 'femures_der'], cat2_pared_toba: ['cat2_pared_toba', 'lisa', 'lisa_der'],
+  tum_muro: ['tum_muro', 'liso', 'liso_y'], tem_muro_glifos: ['tem_muro_glifos', 'entero', 'entero_y'],
+  hie_muro: ['hie_muro', 'x', 'y'], cue_muro: ['cue_muro', 'x', 'y'], min_pared_veta: ['min_pared_veta', 'hierro', 'hierro_y'],
+  inf_muro_carne: ['inf_muro_carne', 'liso', 'liso_y'], for_muro_runas: ['for_muro_runas', 'recto', 'recto_y'],
+  cri_muro: ['cri_muro', 'liso', 'liso_der'], cri_muro_nichos: ['cri_muro_nichos', 'huesos', 'huesos_der'], cri_osario_pared: ['cri_osario_pared', 'calaveras', 'calaveras_der'],
+  for2_muralla: ['for2_muralla', 'recta', 'recta_y'], for2_almena: ['for2_almena', 'recta', 'recta_y'],
+};
+
+const restaV = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const cruzV = (a: V3, b: V3): V3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const puntoV = (a: V3, b: V3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+/** Corre una pieza sobre el piso (dx, dy). */
+function correr(p: Pieza, dx: number, dy: number): Pieza {
+  const m = (v: V3): V3 => [v[0] + dx, v[1] + dy, v[2]];
+  if (p.k === 'conv') return { ...p, planos: p.planos.map(([n, d]) => [n, d + n[0] * dx + n[1] * dy] as [V3, number]), pts: p.pts.map(m) };
+  if (p.k === 'cono') return { ...p, o: m(p.o) };
+  if (p.k === 'elip') return { ...p, c: m(p.c) };
+  return { ...p, comps: p.comps.map((q) => (q.f === 'hueso' ? { ...q, a: m(q.a), b: m(q.b), sc: m(q.sc) } : { ...q, c: m(q.c), sc: m(q.sc) })), esf: [p.esf[0] + dx, p.esf[1] + dy, p.esf[2], p.esf[3]] };
+}
+/** Centro aproximado de una pieza (para decidir de qué lado del corte queda lo que no es un poliedro). */
+function centroDe(p: Pieza): V3 {
+  if (p.k === 'conv') { const c: V3 = [0, 0, 0]; for (const q of p.pts) { c[0] += q[0] / p.pts.length; c[1] += q[1] / p.pts.length; c[2] += q[2] / p.pts.length; } return c; }
+  if (p.k === 'cono') return p.o;
+  if (p.k === 'elip') return p.c;
+  return [p.esf[0], p.esf[1], p.esf[2]];
+}
+/**
+ * Deja de cada pieza lo que cumple n·p <= d. Los poliedros se cortan de verdad (un plano más y sus vértices de nuevo);
+ * lo redondo (musgo, nieve, lianas, percebes) queda entero si su centro cae del lado bueno. Los huecos (`resta`) quedan
+ * todos: solo cavan.
+ */
+function cortar(ps: Pieza[], n: V3, d: number): Pieza[] {
+  const out: Pieza[] = [];
+  for (const p of ps) {
+    if (p.resta) { out.push(p); continue; }
+    if (p.k !== 'conv') { if (puntoV(n, centroDe(p)) <= d) out.push(p); continue; }
+    if (p.pts.every((q) => puntoV(n, q) <= d + 1e-6)) { out.push(p); continue; }
+    if (p.pts.every((q) => puntoV(n, q) >= d - 1e-6)) continue;
+    const planos: [V3, number][] = [...p.planos, [n, d]], pts: V3[] = [];
+    for (let i = 0; i < planos.length; i++) for (let j = i + 1; j < planos.length; j++) for (let k = j + 1; k < planos.length; k++) {
+      const [a, da] = planos[i], [b, db] = planos[j], [c, dc] = planos[k];
+      const bc = cruzV(b, c), det = puntoV(a, bc); if (Math.abs(det) < 1e-9) continue;
+      const ca = cruzV(c, a), ab = cruzV(a, b);
+      const x: V3 = [(da * bc[0] + db * ca[0] + dc * ab[0]) / det, (da * bc[1] + db * ca[1] + dc * ab[1]) / det, (da * bc[2] + db * ca[2] + dc * ab[2]) / det];
+      if (planos.every(([m, e]) => puntoV(m, x) <= e + 1e-5) && !pts.some((q) => Math.hypot(...restaV(q, x)) < 1e-4)) pts.push(x);
+    }
+    if (pts.length >= 4) out.push({ ...p, planos, pts });
+  }
+  return out;
+}
+const piezasDe = (r: Pieza[] | { piezas: Pieza[] }) => (Array.isArray(r) ? r : r.piezas);
+
+registrar({
+  id: 'muro_esquina', nombre: ['Esquina de muro', 'Wall corner'], tema: 'comun', variantes: Object.keys(ESQUINAS_MURO), huella: [1, 1], bloquea: false,
+  armar: (v, _f, a) => {
+    const [id, vx, vy] = ESQUINAS_MURO[v] ?? ESQUINAS_MURO.obra_cementerio, d = REGISTRO.find((x) => x.id === id);
+    if (!d) return [];
+    const [hwx, hhx] = huellaDe(d, vx), [hwy, hhy] = huellaDe(d, vy), g = Math.max(hhx, hwy);
+    // dónde pone el juego cada muro (el centro de la celda de su `cx, cy` redondeado), en celdas desde la esquina de la
+    // baldosa; la esquina va en la celda del vértice, o en el centro del bloque de 2 x 2 si el muro es de dos de grueso
+    const oX: [number, number] = [-5 + Math.round((hwx - 1) / 2) + 0.5, Math.round((hhx - 1) / 2) + 0.5];
+    const oY: [number, number] = [Math.round((hwy - 1) / 2) + 0.5, -5 + Math.round((hhy - 1) / 2) + 0.5];
+    const oE = g > 1 ? 1.5 : 0.5, U = 16;
+    // el muro que sigue a cada uno (corrido un largo, 5 celdas), en unidades desde el origen de la esquina
+    let px = piezasDe(d.armar(vx, 0, a)).map((p) => correr(p, (oX[0] + 5 - oE) * U, (oX[1] - oE) * U));
+    let py = piezasDe(d.armar(vy, 0, a)).map((p) => correr(p, (oY[0] - oE) * U, (oY[1] + 5 - oE) * U));
+    // cada uno arranca donde termina el de verdad (el borde de la baldosa) y se corta a inglete por la diagonal que pasa
+    // por el cruce de los dos ejes
+    const borde = -oE * U, ex = (oY[0] - oE) * U, ey = (oX[1] - oE) * U, s = Math.SQRT1_2;
+    px = cortar(cortar(px, [-1, 0, 0], -borde), [s, -s, 0], s * (ex - ey));
+    py = cortar(cortar(py, [0, -1, 0], -borde), [-s, s, 0], -s * (ex - ey));
+    return [...px, ...py];
   },
 });

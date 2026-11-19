@@ -305,9 +305,11 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Al subir arde 3,5 s (esmalte al rojo, anillo y chispas, con `acc.destellos`). No va en `src/engine/gotico` para no
   cambiar `__PINTOR__`. El de antes Rick lo vio "como un parche" (18 nov 2026). Prueba: `t840_nivel.cjs [etiqueta] [vistas]`
   (pc, pc1080, ipad, movil; capturas en `/tmp/requiem-pruebas/nivel`).
-- **HUD forjado (prototipo, NO es el de por omisión)** (Rick, 19 nov 2026: "un HUD que cubra todo el borde de abajo como
-  Diablo 2, encima del juego y no en una franja negra"). Se prende con `window.__hudNuevo = true` o con el campo opcional
-  `opciones.hud = 'forja'` (`hudForja()` en `nucleo/lienzo.ts`). Hasta que Rick lo apruebe sale la barra de siempre.
+- **HUD forjado (el de por omisión desde el 19 nov 2026)** (Rick: "un HUD que cubra todo el borde de abajo como
+  Diablo 2, encima del juego y no en una franja negra", y lo aprobó el mismo día). Sale en PC, iPad y teléfono. Opciones,
+  HUD (Forjado o Clásico) guarda el campo opcional `opciones.hud = 'clasico'` para volver a la barra de siempre (sin el
+  campo es el forjado, `hudForja()` y `fijarHud` en `nucleo/lienzo.ts`). `window.__hudNuevo` (true o false) manda por
+  encima, para las pruebas. La red de seguridad sigue: si la pantalla de PC no tiene ancho para el panel va la barra.
   - PC (`ui/hud_forja.ts`): un panel de piedra de borde a borde, bajo en el medio (88 puntos a 720) y alto en las casas de
     los orbes (arco apuntado con filete de latón, crestería, florón, radios tallados y un óculo de tres lóbulos). Junto a la
     vida una gárgola agazapada con brasas en los ojos (laten con la vida baja) y junto al maná una doliente con su vela que
@@ -337,15 +339,40 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     La zona del pulgar izquierdo queda libre. Manda el aparato: un PC con pantalla táctil (puntero fino) lleva el panel
     de PC, que también se toca (`aparatoTactil` en `main.ts`).
   - Con el HUD forjado en 2560 × 1080 el lienzo ya no se corta en 1600 de ancho (quedaba una franja negra a la derecha).
-  - Prueba: `HUD=1 node juego/herramientas/t950_hud.cjs <etiqueta> [vistas]` (pc, pc1080, ultra, ipad, movil, pctactil;
-    sin `HUD=1` saca el de antes): vida baja con latido, un poder en recarga, el destello de listo, clics de verdad
+  - **Orbes** (`ui/forja_orbe.ts`, Rick: lleno "se lee como una bola de billar"): el orbe es propio del HUD (no el del
+    motor, que queda para la barra de siempre y no se toca por `__PINTOR__`). El líquido llega a la vista hasta 0,8 del
+    alto (`nivelVisto`): lleno queda la cúpula de vidrio y siempre se ve la lámina, con su canto de adelante claro, la
+    cara de arriba vista de canto con destellos que corren, el canto de atrás que cierra la elipse, el menisco que trepa
+    por el vidrio y olas que no se quedan quietas ni llenas. Adentro volutas de ruido torcido que dan la vuelta en 16
+    cuadros a 10 por segundo (`CUADROS_LIQ`, `cuadroLiq`), hilos de luz, más claro al frente y hundido hacia el borde y
+    el fondo. Lab sin servidor: `npx tsx juego/herramientas/t953_orbes.mts` (el del motor y tres cuadros del nuevo al
+    100, 50 y 15 %, en `/tmp/requiem-pruebas/hud/orbes_lab.png`).
+  - **Atajos vacíos** (Rick: "llenan el panel de cajas vacías"): el marco de todos los cuadros lleva cada atajo como un
+    rebaje apenas tallado en la piedra y la tecla apenas marcada en una plaquita de piedra. El marco con los atajos llenos
+    (`tallarMarco(g, true)`: bisel de hierro, hueco, remaches y la tecla de latón) se hornea solo en el pedazo de los
+    atajos (`cajaAtajos`, `Taller.recorte`) y se pega encima de cada atajo con poder (`rectAtajo`: los vecinos se reparten
+    el hueco). Vacío se asoma a medias con el ratón encima (y una luz tibia) o latiendo mientras se elige un poder
+    (`ui.der === 'elegirHab'`). Los clics siguen iguales.
+  - **Letra de pixel** (`ui/letra_pixel.ts`): 5 x 7 con minúsculas, cifras, signos y los acentos (á é í ó ú ü ñ y
+    mayúsculas), a puntos enteros del aparato, en relieve (luz arriba, sombra abajo, canto que cae) o grabada (hundida
+    con su labio de luz). `textoPixel`, `anchoPixel`. La usan la placa del correr (latón tallado con remaches y la letra
+    grabada, o hierro con la letra de latón: `placa` en hud_forja.ts), el recurso de la clase (`recursoClase(..., true)`
+    elige el rótulo que entra: la cazadora y el templario tienen versiones cortas), los letreros al pasar por las placas,
+    la experiencia y los orbes (`letrero`) y los números de los orbes del táctil. Las fichas de los poderes y las pistas de
+    los objetos siguen con la letra de siempre (son párrafos).
+  - **Esculturas**: van del tamaño que Rick quiere. A 1080 la gárgola y la doliente quedan en las puntas, lejos del
+    héroe (que va en el medio de lo que se ve arriba del panel).
+  - Opciones: con la fila del HUD son 14 filas y el alto de la fila baja lo que haga falta para que la losa entre.
+    `t954_hud_opcion.cjs [pc|movil]` elige Clásico, recarga y vuelve a Forjado (`__hudVisto` dice cuál se dibujó).
+  - Prueba: `node juego/herramientas/t950_hud.cjs <etiqueta> [vistas]` (pc, pc1080, ultra, ipad, movil, pctactil;
+    `HUD=0` saca la barra de siempre). Los recortes de cerca: `t953_hud_detalle.cjs <etiqueta> [pc,pc1080,ipad]` y
+    `python3 juego/herramientas/t953_lamina.py <etiqueta>` (`/tmp/requiem-pruebas/hud/detalle/lamina_detalle.png`): vida baja con latido, un poder en recarga, el destello de listo, clics de verdad
     (cinturón, tecla 2, bolsa, personaje, poder derecho, el mundo encima del panel), toques de 44 pt sin cruces y el costo
     de la interfaz. `python3 juego/herramientas/t950_lamina.py antes <etiqueta>` arma `lamina_hud.png` en
     `/tmp/requiem-pruebas/hud`. Sin servidor: `npx tsx juego/herramientas/t951_esculturas.mts [ampliación]` (las esculturas
-    y el marco entero a 1280 x 720, 960 x 540 y 1707 x 540). `HUD=1` también prende el forjado en `comun_pruebas.cjs`,
-    `t650_zoom` y `t651_zoom_pick`.
-  - Falta para después de que Rick lo apruebe: prenderlo por omisión (y una opción en Opciones), y las filas del cinturón
-    según el cinto puesto (hoy toda columna apila 4).
+    y el marco entero a 1280 x 720, 960 x 540 y 1707 x 540). `HUD=0` también saca la barra de siempre en
+    `comun_pruebas.cjs`, `t650_zoom` y `t651_zoom_pick`.
+  - Falta: las filas del cinturón según el cinto puesto (hoy toda columna apila 4).
 - **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos
   40 s los 8 rumbos y otros 45 s los 16 con 2 obreros, ahora van 4). En ese rato camina en 8: no es que se pierdan.
 

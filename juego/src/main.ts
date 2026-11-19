@@ -891,10 +891,11 @@ function dibujarHud(jj: Juego, tiempo: number) {
   delete hud.forjaMsg;
   if (hudForja()) {
     // (pantalla baja con un panel abierto: dibujarBarra borra sus rectángulos y no dibuja nada, como siempre)
-    if (!aparatoTactil()) { if (compacto() && (ui.izq || ui.der)) dibujarBarra(jj, tiempo); else if (!dibujarHudForja(jj, tiempo)) { fijarAltoHud(96); dibujarBarra(jj, tiempo); } return; }
-    fijarAltoHud(96); dibujarHudTactil(jj, tiempo); return;
+    // (__hudVisto: el que se dibujó en este cuadro, para las pruebas)
+    if (!aparatoTactil()) { if (compacto() && (ui.izq || ui.der)) dibujarBarra(jj, tiempo); else if (!dibujarHudForja(jj, tiempo)) { fijarAltoHud(96); dibujarBarra(jj, tiempo); (window as any).__hudVisto = 'clasico'; } else (window as any).__hudVisto = 'forjado'; return; }
+    fijarAltoHud(96); dibujarHudTactil(jj, tiempo); (window as any).__hudVisto = 'forjado'; return;
   }
-  fijarAltoHud(96);
+  fijarAltoHud(96); (window as any).__hudVisto = 'clasico';
   if (E.tactil) dibujarHudTactil(jj, tiempo); else dibujarBarra(jj, tiempo);
 }
 /** ¿El aparato es de dedo (teléfono, tableta)? Un PC con pantalla táctil tiene puntero fino y no cuenta. */

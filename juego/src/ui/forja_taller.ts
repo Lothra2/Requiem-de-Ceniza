@@ -124,6 +124,12 @@ export class Taller {
   pegar(t: Taller, ox: number, oy: number, base: number) {
     for (let y = 0; y < t.h; y++) for (let x = 0; x < t.w; x++) { const i = y * t.w + x; if (t.mat[i]) this.pon(ox + x, oy + y, t.alt[i] + base, t.mat[i], 'set'); }
   }
+  /** Un pedazo del taller (para hornear solo esa parte: lo de afuera cuenta como aire). */
+  recorte(x0: number, y0: number, w: number, h: number): Taller {
+    const t = new Taller(w, h);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const sx = x + x0, sy = y + y0; if (!this.den(sx, sy)) continue; const i = sy * this.w + sx, o = y * w + x; t.alt[o] = this.alt[i]; t.mat[o] = this.mat[i]; }
+    return t;
+  }
   /** Juntas de sillería: hiladas cada `alto` puntos y llagas trabadas, cavadas un punto donde hay piedra plana. */
   sillares(x0: number, y0: number, w: number, h: number, alto: number, largo: number, semilla: number, prof = 1.4) {
     const pts: [number, number][] = [];

@@ -5,7 +5,7 @@ async function entrar(vista, clase, nivel, URL = process.env.URL || 'http://127.
   const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const c = await b.newContext({ ...VISTAS[vista], deviceScaleFactor: +(process.env.DPR || 1) });
   const p = await c.newPage(); const errs = []; c.on('response', (r) => { if (r.status() >= 400) errs.push('HTTP ' + r.status() + ' ' + r.url()); }); p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
   await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); });
-  if (process.env.HUD === '1') await p.addInitScript(() => { window.__hudNuevo = true; }); // el HUD forjado (t950_hud.cjs)
+  if (process.env.HUD === '0') await p.addInitScript(() => { window.__hudNuevo = false; }); // HUD=0: la barra de siempre (el forjado es el de por omisión)
   const aMenu = async () => { for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
   await p.goto(URL); await aMenu();
   await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });

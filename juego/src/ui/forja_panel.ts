@@ -57,7 +57,24 @@ export function geometria(Wa: number, Ha: number): Geo | null {
 }
 
 // ------------------------------------------------------------------ el marco, horneado una vez por tamaño
-export function tallarMarco(g: Geo): Taller {
+/** El pedazo del marco que lleva los atajos (con margen para la luz y la sombra): x, y, ancho y alto en puntos de dibujo. */
+export function cajaAtajos(g: Geo): [number, number, number, number] { const x0 = g.rapI - 16, y0 = g.yT - 12; return [x0, y0, g.rapD + g.t.RAP + 16 - x0, g.B - y0]; }
+/** El rectángulo de cada atajo en el pedazo: se reparten el hueco de en medio, así no se pisan. */
+export function rectAtajo(g: Geo, i: number): [number, number, number, number] {
+  const t = g.t, [x, y] = g.rapidos[i], k = i % 5, x0 = k === 0 ? x - 6 : x - 1, x1 = k === 4 ? x + t.rap + 6 : x + t.rap + 2;
+  return [x0, y - 5, x1 - x0, g.yT + t.filaTec + 9 - (y - 5)];
+}
+/** Las teclas de latón de los atajos llenos, en el pedazo (ox, oy: su esquina en el marco). */
+export function grabarAtajos(l: Lienzo, g: Geo, ox: number, oy: number) {
+  const t = g.t;
+  g.rapidos.forEach(([x], i) => { const s = teclaAtajo(i), w = [...s].length * 4 - 1; textoMicro(l, Math.round(x + t.rap / 2 - w / 2) - ox, g.yT + t.filaTec - oy, s, [24, 14, 6], null); });
+}
+/**
+ * `llenos`: los atajos con su bisel entero (hierro, hueco y la plaquita de latón de la tecla). Sin eso (el marco de
+ * todos los cuadros) cada atajo es apenas un rebaje en la piedra con la plaquita apagada: hud_forja.ts pega encima el
+ * pedazo del marco lleno de cada atajo que tiene poder (atajosLlenos), o a medias si está vacío y se le apunta.
+ */
+export function tallarMarco(g: Geo, llenos = false): Taller {
   const { t, Wa, HF, B, yT } = g, tl = new Taller(Wa, HF);
   // 1. el muro de los extremos (pantallas anchas): sillería con arquería ciega y una albardilla arriba
   const hMuro = t.hC - 8;
@@ -139,16 +156,18 @@ export function tallarMarco(g: Geo): Taller {
     tl.caja(x, y, t.hab, t.hab, M.HUECO, 7, 1, { hundido: true, alto: 3 });
     for (const [qx, qy] of [[x - 3, y - 3], [x + t.hab + 2, y - 3], [x - 3, y + t.hab + 2], [x + t.hab + 2, y + t.hab + 2]]) tl.elipsoide(qx + 0.5, qy + 0.5, 1.6, 1.6, 2, M.LATON, 9, 0);
   }
-  // 6. el riel de los atajos: hierro hundido con sus casillas
-  for (const gx of [g.rapI, g.rapD]) {
-    const r0 = g.rapidos[gx === g.rapI ? 0 : 5], ancho = 5 * t.rap + 4 * t.rapG;
-    tl.caja(r0[0] - 4, r0[1] - 4, ancho + 8, t.rap + 8, M.HIERRO, 2, 2, { alto: 2.5 });
+  // 6. los atajos: lleno, un bisel de hierro con el hueco y remaches de latón; vacío, un rebaje apenas tallado
+  for (const [x, y] of g.rapidos) {
+    if (llenos) {
+      tl.caja(x - 1, y - 1, t.rap + 2, t.rap + 2, M.HIERRO, 4, 1.6, { alto: 2.5 });
+      tl.caja(x + 1, y + 1, t.rap - 2, t.rap - 2, M.HUECO, 6, 1, { hundido: true, alto: 3.5 });
+      for (const [qx, qy] of [[x, y], [x + t.rap - 1, y], [x, y + t.rap - 1], [x + t.rap - 1, y + t.rap - 1]]) tl.elipsoide(qx + 0.5, qy + 0.5, 1.2, 1.2, 1.5, M.LATON, 6.5, 0);
+    } else tl.caja(x + 2, y + 2, t.rap - 4, t.rap - 4, M.PIEDRA, 3, 2, { hundido: true, alto: 1.2, modo: 'set' });
   }
-  for (const [x, y] of g.rapidos) { tl.caja(x - 1, y - 1, t.rap + 2, t.rap + 2, M.HIERRO, 4, 1, { alto: 1 }); tl.caja(x, y, t.rap, t.rap, M.HUECO, 4, 1, { hundido: true, alto: 3 }); }
   // 7. el recurso de la clase y el correr: ranuras con filete de latón
   for (const [x, y, w, h] of [g.rec, g.correr]) { tl.caja(x - 2, y - 2, w + 4, h + 4, M.LATON, 4, 1.5, { alto: 2 }); tl.caja(x, y, w, h, M.HUECO, 5, 1, { hundido: true, alto: 3 }); }
   // 7b. las plaquitas de latón de las teclas (se graban después de hornear)
-  for (const [x] of g.rapidos) tl.caja(x + Math.floor(t.rap / 2) - 7, yT + t.filaTec - 2, 14, 9, M.LATON, 4, 1.5, { alto: 2 });
+  for (const [x] of g.rapidos) { if (llenos) tl.caja(x + Math.floor(t.rap / 2) - 7, yT + t.filaTec - 2, 14, 9, M.LATON, 4, 1.5, { alto: 2 }); else tl.caja(x + Math.floor(t.rap / 2) - 7, yT + t.filaTec - 2, 14, 9, M.PIEDRA, 3, 1.5, { alto: 0.8 }); }
   // 8. los zócalos de las placas del menú
   for (const p of g.placas) tl.caja(p.x - 2, p.y - 2, t.plW + 4, t.plH + 4, M.HIERRO, 2, 1.5, { hundido: true, alto: 2 });
   // 9. la bandeja del cinturón: borde de latón, fondo hundido, divisiones de hierro y los alvéolos de las cuentas
@@ -174,15 +193,14 @@ export function tallarMarco(g: Geo): Taller {
     tl.pegar(dl.t, Math.round(g.x0 + nucleo(t) - t.PED / 2 - dl.pie[0]), Math.round(yT - 6 * t.f - dl.pie[1]), 8); }
   return tl;
 }
-/** Las teclas grabadas con incrustación de latón (después de hornear: cifras de pixel 3x5). */
+/**
+ * Las teclas grabadas con incrustación de latón (después de hornear: cifras de pixel 3x5). En el marco de todos los
+ * cuadros la tecla de cada atajo va apenas marcada en la piedra; las de latón van en el pedazo lleno (grabarAtajos).
+ */
 export function grabarTeclas(l: Lienzo, g: Geo) {
   const t = g.t, inc: C3 = [24, 14, 6], som: C3 | null = null, incM: C3 = P.laton[6];
-  const centrado = (s: string, cx: number, y: number) => { const w = [...s].reduce((a, ch) => a + (ch === '1' ? 3 : 3) + 1, 0) - 1; textoMicro(l, Math.round(cx - w / 2), y, s, inc, som); };
-  g.rapidos.forEach(([x], i) => centrado(teclaAtajo(i), x + t.rap / 2, g.yT + t.filaTec));
-  // la casilla vacía de un atajo lleva grabado un rombo con un punto (se tapa cuando hay poder)
-  for (const [x, y] of g.rapidos) { const c = Math.floor(x + t.rap / 2), cy = Math.floor(y + t.rap / 2);
-    for (let q = -4; q <= 4; q++) { const r = 4 - Math.abs(q); l.px(c + q, cy - r, P.hierro[3]); l.px(c + q, cy + r, P.hierro[2]); }
-    l.px(c, cy, P.laton[3]); }
+  const centrado = (s: string, cx: number, y: number, c: C3 = inc) => { const w = [...s].length * 4 - 1; textoMicro(l, Math.round(cx - w / 2), y, s, c, som); };
+  g.rapidos.forEach(([x], i) => centrado(teclaAtajo(i), x + t.rap / 2, g.yT + t.filaTec, [26, 21, 17]));
   g.poc.forEach(([x], i) => centrado(String(i + 1), x + t.poc / 2, g.yT + t.tecPocY));
   // los botones del ratón grabados bajo cada pozo: el izquierdo o el derecho encendido
   for (const [lado, [x, y]] of [[0, g.pozoI], [1, g.pozoD]] as [number, [number, number]][]) {

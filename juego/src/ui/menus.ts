@@ -6,7 +6,7 @@ import { renglonMenu } from '../nucleo/instalar';
 import { acc } from '../nucleo/accesible';
 import { lab, hayGPU } from '../render/luz_gpu';
 import { prefsRecoger } from '../juego/mundo';
-import { ctx, W, H, E, RES, vistaActual, fijarVista } from '../nucleo/lienzo';
+import { ctx, W, H, E, RES, vistaActual, fijarVista, hudForja, fijarHud, ajustar } from '../nucleo/lienzo';
 import { texto, T, TT, IDI, boton, dentro, envolver, TITULO, fijarIdioma } from './comun';
 import { cuadrosHeroe, cuadrosPiso, variantePiso, cuadrosRetrato, RETRATO_ALTO, objetoMeta, dibujar, dibujarTenido, cuadrosMonstruo } from '../motor/assets';
 import { generarPaisaje, type MapaGotico } from '../../../src/engine/gotico/index';
@@ -18,7 +18,7 @@ import { R, rng } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
 import { dibujarPortada, tituloFijo, dibujarCarta, prepararCarta } from './portada';
 
-export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number; temblor?: number; destellos?: 0 | 1; luz?: 0 | 1; recogerEquipo?: 0 | 1 }
+export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number; temblor?: number; destellos?: 0 | 1; luz?: 0 | 1; recogerEquipo?: 0 | 1; /** el HUD: 'forja' (por omisión) o 'clasico' (la barra de siempre) */ hud?: 'forja' | 'clasico' }
 export const opciones: Opciones = { general: 0.8, musica: 0.6, efectos: 0.8, horror: 0.8, idioma: 0, brillo: 1, temblor: 1, destellos: 0 };
 const fijarAcc = () => { acc.temblor = Math.max(0, Math.min(1, opciones.temblor ?? 1)); acc.destellos = opciones.destellos ? 0.3 : 1; lab.on = hayGPU && (opciones.luz ?? 1) === 1; prefsRecoger.equipo = opciones.recogerEquipo === 1; };
 export function cargarOpciones() { try { Object.assign(opciones, JSON.parse(localStorage.getItem('marca.opciones') ?? '{}')); } catch { /* nada */ } fijarIdioma(opciones.idioma); aplicarVolumen(); fijarAcc(); }
@@ -536,7 +536,10 @@ const opcP = { agarra: '' };
 export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   const chico = H < 520;
   if (fondo) { fondoVigilia(t, W / 2, H * 0.62, 320); brasas(t, 22); } else { ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.fillRect(0, 0, W, H); }
-  const fh = chico ? (H < 420 ? 21 : 26) : H < 800 ? 35 : 43, w = Math.min(W - 24, chico ? 560 : 600), cab = chico ? 44 : 74, pie = chico ? 46 : 70, h = Math.min(H - 12, cab + fh * 13 + (chico ? 10 : 34) + pie), x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
+  // 14 filas (6 varas y 8 llaves): el alto de la fila baja lo que haga falta para que la losa entre en la pantalla
+  const FILAS = 14, cab = chico ? 44 : 74, pie = chico ? 46 : 70, sep = chico ? 10 : 34;
+  const fh = Math.max(18, Math.min(chico ? (H < 420 ? 21 : 26) : H < 800 ? 35 : 43, Math.floor((H - 12 - cab - sep - pie) / FILAS)));
+  const w = Math.min(W - 24, chico ? 560 : 600), h = Math.min(H - 12, cab + fh * FILAS + sep + pie), x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
   const pant: Record<string, [number, number]> = ((window as any).__pantalla = {});
   // la losa: esquinas cortadas, hierro oscuro, doble filo de oro y rombos en los cuatro costados
   const c = 14, losa = (m: number) => { ctx.beginPath(); ctx.moveTo(x + c + m, y + m); ctx.lineTo(x + w - c - m, y + m); ctx.lineTo(x + w - m, y + c + m); ctx.lineTo(x + w - m, y + h - c - m); ctx.lineTo(x + w - c - m, y + h - m); ctx.lineTo(x + c + m, y + h - m); ctx.lineTo(x + m, y + h - c - m); ctx.lineTo(x + m, y + c + m); ctx.closePath(); };
@@ -594,6 +597,9 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   const ld = llave(T('Destellos', 'Flashes'), [T('Normales', 'Normal'), T('Suaves', 'Soft')], opciones.destellos ? 1 : 0, 'destellos');
   if (ld !== null) { opciones.destellos = ld as 0 | 1; guardarOpciones(); E.clicIzq = false; }
   // el equipo del piso: solo con clic (como en Diablo) o también al pasarle por encima, el mágico o mejor
+  // el HUD: el forjado (por omisión) o la barra de siempre
+  const lh = llave('HUD', [T('Forjado', 'Forged'), T('Clásico', 'Classic')], hudForja() ? 0 : 1, 'hud');
+  if (lh !== null) { opciones.hud = lh === 0 ? 'forja' : 'clasico'; fijarHud(opciones.hud); ajustar(); guardarOpciones(); E.clicIzq = false; }
   const lr = llave(T('Recoger equipo', 'Pick up gear'), [T('Con clic', 'On click'), T('Al pasar', 'Walk over')], opciones.recogerEquipo === 1 ? 1 : 0, 'recoger');
   if (lr !== null) { opciones.recogerEquipo = lr as 0 | 1; guardarOpciones(); E.clicIzq = false; }
   const completa = typeof document !== 'undefined' && !!document.fullscreenElement;

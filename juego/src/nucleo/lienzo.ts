@@ -10,9 +10,13 @@ export let ZM = 1, MW = 960, MH = 540, RES = 1;
  */
 export let ALTO_HUD = 96;
 export function fijarAltoHud(a: number) { ALTO_HUD = a; }
-/** El HUD forjado (prototipo): window.__hudNuevo = true o el campo opcional opciones.hud = 'forja'. Por omisión, el de siempre. */
-let hudOpcion = false;
-try { hudOpcion = JSON.parse(localStorage.getItem('marca.opciones') ?? '{}').hud === 'forja'; } catch { /* nada */ }
+/**
+ * El HUD forjado (ui/hud_forja.ts), el de por omisión desde el 19 nov 2026. El campo opcional opciones.hud = 'clasico'
+ * vuelve a la barra de siempre (Opciones, HUD). window.__hudNuevo (true o false) manda por encima, para las pruebas.
+ */
+let hudOpcion = true;
+try { hudOpcion = JSON.parse(localStorage.getItem('marca.opciones') ?? '{}').hud !== 'clasico'; } catch { /* nada */ }
+export function fijarHud(v: string | undefined) { hudOpcion = v !== 'clasico'; }
 export const hudForja = () => { const w = (window as unknown as { __hudNuevo?: boolean }).__hudNuevo; return w ?? hudOpcion; };
 
 /** Área segura del teléfono (notch, isla, barra de inicio) en puntos de pantalla, leída de env(safe-area-inset-*). */

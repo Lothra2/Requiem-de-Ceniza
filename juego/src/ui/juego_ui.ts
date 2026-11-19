@@ -26,6 +26,7 @@ import { Sonido } from '../audio/sonido';
 import { R, entero } from '../nucleo/azar';
 import { dibujarRoseton } from './sello_nivel';
 import { munecoInventario } from './muneco';
+import { textoPixel, anchoPixel } from './letra_pixel';
 
 export type PanelId = 'inv' | 'pers' | 'habs' | 'cofre' | 'tienda' | 'dialogo' | 'viaje' | 'misiones' | 'codice' | 'menu' | 'elegirHab' | null;
 export const ui = {
@@ -295,19 +296,25 @@ function cinturonABolsa(j: Juego, i: number) {
   Sonido.efecto('click');
 }
 /** Indicador chico de la mecánica de clase, arriba de los atajos. */
-export function recursoClase(j: Juego, x: number, y: number, w: number) {
+/** El recurso de la clase. `pix`: con la letra de pixel del HUD forjado (letra_pixel.ts) en vez de la del navegador. */
+export function recursoClase(j: Juego, x: number, y: number, w: number, pix = false) {
   const h = j.heroe, d = h.d, hh = 13, t = j.t;
   let ayuda: [string, string] = ['', ''];
   // (el recurso de la clase va en una ranura de hierro hundida, con canto negro y filete de latón, como el resto de la barra)
   const fondo = () => { const g = ctx.createLinearGradient(0, y, 0, y + hh); g.addColorStop(0, '#0a0807'); g.addColorStop(1, '#1a1612'); ctx.fillStyle = g; ctx.fillRect(x, y, w, hh);
     ctx.lineWidth = 1; ctx.strokeStyle = '#000'; ctx.strokeRect(x - 0.5, y - 0.5, w + 1, hh + 1); ctx.strokeStyle = '#3a3630'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, hh - 1);
     ctx.fillStyle = '#7a6236'; ctx.fillRect(x + 1, y + hh - 1, w - 2, 1); ctx.fillStyle = '#c8a860'; ctx.fillRect(x + 1, y + 1, 1, 1); ctx.fillRect(x + w - 2, y + 1, 1, 1); };
-  const etiqueta = (s: string, col = '#c8b890') => texto(s, x + 5, y + 10, { tam: 10, color: col, sombra: false });
+  // con la letra de pixel se elige el primer rótulo que entra (de largo a corto)
+  const etiqueta = (s: string | string[], col = '#c8b890', hasta = x + w - 5) => { const ls = typeof s === 'string' ? [s] : s;
+    if (!pix) { texto(ls[0], x + 5, y + 10, { tam: 10, color: col, sombra: false }); return; }
+    const q = ls.find((l) => x + 5 + anchoPixel(l) <= hasta) ?? ls[ls.length - 1]; textoPixel(q, x + 5, y + 10, { color: col }); };
+  const derecha = (s: string, col: string, tam: number, desde: number) => { if (!pix) { texto(s, x + w - 5, y + 10, { tam, alin: 'right', color: col, sombra: false }); return; }
+    if (x + w - 5 - anchoPixel(s) >= desde) textoPixel(s, x + w - 5, y + 10, { color: col, alin: 'right' }); };
   const pips = (n: number, max: number, x0: number, col: (i: number) => string, vacio = '#2a2420') => { for (let i = 0; i < max; i++) { ctx.fillStyle = i < n ? col(i) : vacio; ctx.fillRect(x0 + i * 13, y + 3, 10, hh - 6); ctx.fillStyle = i < n ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.06)'; ctx.fillRect(x0 + i * 13, y + 3, 10, 1); ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.fillRect(x0 + i * 13, y + hh - 4, 10, 1); } };
   const barra = (k: number, x0: number, col: string) => { const bw = x + w - 5 - x0; ctx.fillStyle = '#2a2420'; ctx.fillRect(x0, y + 3, bw, hh - 6); ctx.fillStyle = col; ctx.fillRect(x0, y + 3, bw * Math.max(0, Math.min(1, k)), hh - 6); };
   switch (d.clase) {
     case 'berserker': {
-      fondo(); etiqueta(`${T('Furia', 'Fury')} ${Math.round(h.furia)}`, h.furia >= 100 ? '#ffb070' : '#c8b890');
+      fondo(); etiqueta(`${T('Furia', 'Fury')} ${Math.round(h.furia)}`, h.furia >= 100 ? '#ffb070' : '#c8b890', x + 58);
       barra(h.furia / 100, x + 62, h.furiaFija > 0 ? (Math.floor(t * 6) % 2 ? '#ff6020' : '#ffa040') : '#c02810');
       ayuda = [T('Furia: sube al pegar y al recibir golpes, se apaga fuera de combate. Más furia, más daño.', 'Fury: rises when you hit and get hit, fades out of combat. More fury, more damage.'), ''];
       break;
@@ -315,8 +322,9 @@ export function recursoClase(j: Juego, x: number, y: number, w: number) {
     case 'templario': {
       fondo();
       const a = d.aura && h.buffs[d.aura] ? habilidadDe(d.aura) : null;
-      etiqueta(a ? `${T('Aura', 'Aura')}: ${TT(a.nombre)}` : T('Sin aura activa', 'No active aura'), a ? '#ffe0a0' : '#807060');
-      if (a && h.auraPot > 0) texto(`+${Math.round(h.auraPot)}%`, x + w - 5, y + 10, { tam: 10, alin: 'right', color: '#ffd060', sombra: false });
+      const pot = a && h.auraPot > 0 ? `+${Math.round(h.auraPot)}%` : '';
+      etiqueta(a ? [`${T('Aura', 'Aura')}: ${TT(a.nombre)}`, TT(a.nombre)] : T('Sin aura activa', 'No active aura'), a ? '#ffe0a0' : '#807060', pot && pix ? x + w - 9 - anchoPixel(pot) : x + w - 5);
+      if (pot) derecha(pot, '#ffd060', 10, x);
       ayuda = [T('Solo un aura activa a la vez. Ponla en el botón derecho para encenderla.', 'Only one aura active at a time. Set it on the right button to light it.'), ''];
       break;
     }
@@ -330,7 +338,8 @@ export function recursoClase(j: Juego, x: number, y: number, w: number) {
       fondo();
       const hal = j.monstruos.some((m) => m.dueno && !m.muerto && m.invocaId === 'halcon');
       const marcados = j.monstruos.filter((m) => !m.muerto && !m.dueno && (m.marca ?? 0) > 0).length;
-      etiqueta(`${hal ? T('Halcón', 'Hawk') : T('Sin halcón', 'No hawk')} · ${T('Marcados', 'Marked')} ${marcados} · ${T('Trampas', 'Traps')} ${j.torretas.length}`, hal ? '#ffd080' : '#a09070');
+      const hn = hal ? T('Halcón', 'Hawk') : T('Sin halcón', 'No hawk');
+      etiqueta([`${hn} · ${T('Marcados', 'Marked')} ${marcados} · ${T('Trampas', 'Traps')} ${j.torretas.length}`, `${hn} · ${T('Marcas', 'Marks')} ${marcados} · ${T('Trampas', 'Traps')} ${j.torretas.length}`, `${hn} · ${T('Marcas', 'Marks')} ${marcados} · ${T('Tr.', 'Tr.')} ${j.torretas.length}`], hal ? '#ffd080' : '#a09070');
       ayuda = [T('Tu halcón y algunas flechas marcan presas: las marcadas reciben más daño.', 'Your hawk and some arrows mark prey: marked prey takes more damage.'), ''];
       break;
     }
@@ -347,7 +356,7 @@ export function recursoClase(j: Juego, x: number, y: number, w: number) {
       const vivo = h.combo.paso > 0 && (j.t - h.combo.t <= ventanaCombo(h) || !!h.buffs.loto_dorado);
       pips(vivo ? h.combo.paso : 0, 3, x + 48, (i) => (i === 2 ? '#ffd060' : '#e0c080'));
       if (vivo && !h.buffs.loto_dorado) { const k = 1 - (j.t - h.combo.t) / ventanaCombo(h); ctx.fillStyle = '#806030'; ctx.fillRect(x + 90, y + hh - 3, (w - 95) * k, 2); }
-      texto(T('el tercero remata', 'third one finishes'), x + w - 5, y + 10, { tam: 9, alin: 'right', color: '#807060', sombra: false });
+      derecha(T('el tercero remata', 'third one finishes'), '#807060', 9, x + 92);
       ayuda = [T('Tres golpes cuerpo a cuerpo seguidos: el tercero es un remate con una onda.', 'Three melee blows in a row: the third is a finisher with a shockwave.'), ''];
       break;
     }

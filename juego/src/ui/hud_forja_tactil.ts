@@ -7,13 +7,14 @@
 //   La zona del pulgar izquierdo (el joystick) queda libre entre la casa de la vida y el cinturón.
 // En el teléfono todo es más chico (orbes de 66 pt, rueda de 114) y el marco más magro; los toques siguen de 44 pt o más.
 import { ctx, W, H, E, RES, SEGURO, ESCALA } from '../nucleo/lienzo';
-import { rasterACanvas, texto, icono } from './comun';
+import { rasterACanvas, icono } from './comun';
 import { ui, recursoClase, COLOR_POCION } from './juego_ui';
+import { textoPixel } from './letra_pixel';
 import { hud, type Rect } from './hud_rects';
 import { type Juego } from '../juego/mundo';
 import { cant, tiposCinturon, xpPara, NIVEL_MAX } from '../juego/heroe';
 import { dibujarRoseton } from './sello_nivel';
-import { espacio, aumentar, cuadroOrbe, nuevoCuadroOrbes, latido, frascoVacio, perla, filasCinturon } from './hud_forja';
+import { espacio, aumentar, cuadroOrbe, cuadroLiq, nuevoCuadroOrbes, latido, frascoVacio, perla, filasCinturon } from './hud_forja';
 import { Taller, M, enOjiva, altoOjiva, bordeOjiva, cl } from './forja_taller';
 
 const L = (pt: number) => pt / Math.max(0.1, ESCALA);
@@ -99,7 +100,7 @@ export function dibujarBaseForja(j: Juego, P: DispForja, t: number) {
   nuevoCuadroOrbes();
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
   ctx.drawImage(mc.cv, e.ox, e.oy + mc.y0 * e.D);
-  const h = j.heroe, kV = h.vida / Math.max(1, h.vidaMax), kM = h.mana / Math.max(1, h.c.manaMax), lat = latido(kV, t), f8 = Math.floor(t * 8) % 8;
+  const h = j.heroe, kV = h.vida / Math.max(1, h.vidaMax), kM = h.mana / Math.max(1, h.c.manaMax), lat = latido(kV, t), f8 = cuadroLiq(t);
   const R = Math.round((P.O / 2) * (RES / e.D)) - 6;
   for (const [tipo, k, [cx, cy], id] of [[h.veneno > 0 ? 'veneno' : h.frio > 0 ? 'helado' : 'vida', kV, P.orbV, 'v'], ['mana', kM, P.orbM, 'm']] as [string, number, [number, number], string][]) {
     const c = cuadroOrbe(tipo, k, f8, R, ultimo[id]); if (!c) continue; ultimo[id] = c;
@@ -117,14 +118,16 @@ export function dibujarBaseForja(j: Juego, P: DispForja, t: number) {
   ctx.restore();
   // los números de cada orbe, siempre a la vista (en el táctil no hay ratón encima)
   const tn = Math.max(10, Math.round(L(P.tel ? 11 : 12)));
-  texto(`${Math.ceil(h.vida)}`, P.orbV[0], P.orbV[1] + P.O * 0.36, { alin: 'center', tam: tn, color: '#ffd0c0' });
-  texto(`${Math.floor(h.mana)}`, P.orbM[0], P.orbM[1] + P.O * 0.36, { alin: 'center', tam: tn, color: '#d0dcff' });
+  // (con la letra de pixel, a puntos enteros: el grado sale del tamaño que tenía la letra del navegador)
+  const gr = { alin: 'center' as const, escala: tn / 10 };
+  textoPixel(`${Math.ceil(h.vida)}`, P.orbV[0], P.orbV[1] + P.O * 0.36, { ...gr, color: '#ffd0c0' });
+  textoPixel(`${Math.floor(h.mana)}`, P.orbM[0], P.orbM[1] + P.O * 0.36, { ...gr, color: '#d0dcff' });
   // el rosetón en la punta de la casa de la vida
   { const obj = L(34) / 27, esc0 = [1, 1.5, 2, 2.5, 3].reduce((m, q) => (Math.abs(q - obj) < Math.abs(m - obj) ? q : m), 1), esc = Math.max(1, Math.round(esc0 * RES)) / RES;
     const d = h.d, a = xpPara(d.nivel), b = xpPara(d.nivel + 1);
     dibujarRoseton(d.nivel, d.nivel >= NIVEL_MAX ? 1 : (d.xp - a) / Math.max(1, b - a), P.orbV[0], P.orbV[1] - P.O / 2 - L(22), esc, j.t, true); }
   // el recurso de la clase encima del cinturón
-  recursoClase(j, Math.round(P.cinturon[0]), Math.round(P.cinturon[1] - L(14) - 13), Math.round(P.cinturon[2]));
+  recursoClase(j, Math.round(P.cinturon[0]), Math.round(P.cinturon[1] - L(14) - 13), Math.round(P.cinturon[2]), true);
   hud.orbes = P.orbes; hud.casaVida = P.casaV; hud.casaMana = P.casaM;
   // las casas no son del mundo: un toque ahí no camina
   if (dentroR(P.casaV) || dentroR(P.casaM)) ui.sobreUI = true;

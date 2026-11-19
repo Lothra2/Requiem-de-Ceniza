@@ -1,4 +1,4 @@
-// El HUD forjado (prototipo detrás de window.__hudNuevo o opciones.hud = 'forja'; por omisión sigue la barra de siempre).
+// El HUD forjado, el de por omisión (Opciones, HUD: Clásico vuelve a la barra de siempre con opciones.hud = 'clasico').
 // PC: un solo panel de piedra tallada de borde a borde sobre el mundo, bajo en el medio y alto en las esquinas, donde
 // van los orbes en sus casas de arco apuntado, con una gárgola agazapada junto a la vida y una doliente con su vela
 // junto al maná. En el medio el cinturón de cuatro en su bandeja hundida (con las cuentas de lo apilado en cada columna),
@@ -9,8 +9,9 @@
 // (1 a 720, 2 a 1080 y 1440, 3 a 2160) y lo fijo se hornea una vez por tamaño (forja_taller.ts). Por cuadro solo
 // cambian los orbes, las recargas, los íconos, las cuentas y los números.
 import { ctx, E, RES, fijarAltoHud } from '../nucleo/lienzo';
-import { orbe, botonForjado } from '../../../src/engine/gotico/hud';
-import { texto, T, TT, dentro, icono, rasterACanvas, cacheRaster, tooltip } from './comun';
+import { botonForjado } from '../../../src/engine/gotico/hud';
+import { orbeVivo, nivelVisto, CUADROS_LIQ } from './forja_orbe';
+import { T, TT, dentro, icono, rasterACanvas, cacheRaster } from './comun';
 import { ui, alternar, casillaPoder, casillaAtajo, casillaCinturon, fichasBarra, pistaRoseton, recursoClase, botonesTactilesBarra, cambiarAgresivo, COLOR_POCION, type PanelId } from './juego_ui';
 import { hud } from './hud_rects';
 import { habilidadDe, costoMana, usarPocion, type Juego } from '../juego/mundo';
@@ -19,7 +20,9 @@ import { dibujarRoseton } from './sello_nivel';
 import { casillaPoderForjada, type EstadoCasilla } from './forja_habilidad';
 import type { Habilidad } from '../datos/clases';
 import { hash, cl } from './forja_taller';
-import { geometria, tallarMarco, grabarTeclas, type Geo } from './forja_panel';
+import { geometria, tallarMarco, grabarTeclas, cajaAtajos, rectAtajo, grabarAtajos, type Geo } from './forja_panel';
+import { Taller, M } from './forja_taller';
+import { textoPixel, anchoPixel } from './letra_pixel';
 
 /** El espacio del dibujo: D puntos del lienzo por punto, el ancho y alto en puntos y dónde cae el origen. */
 export interface Esp { D: number; Wa: number; Ha: number; ox: number; oy: number }
@@ -29,7 +32,7 @@ export function espacio(): Esp {
   return { D, Wa, Ha, ox: Math.floor((cw - Wa * D) / 2), oy: ch - Ha * D };
 }
 
-let marco: { clave: string; cv: HTMLCanvasElement; w: number; h: number; mascara: Uint8Array; g: Geo } | null = null;
+let marco: { clave: string; cv: HTMLCanvasElement; llenos: HTMLCanvasElement; cajaL: [number, number, number, number]; w: number; h: number; mascara: Uint8Array; g: Geo } | null = null;
 function marcoDe(e: Esp): typeof marco {
   const clave = `${e.Wa}x${e.Ha}x${e.D}`;
   if (marco && marco.clave === clave) return marco;
@@ -38,13 +41,17 @@ function marcoDe(e: Esp): typeof marco {
   const tl = tallarMarco(g), l = tl.hornear({ sombraMundo: 7 });
   grabarTeclas(l, g);
   const mascara = new Uint8Array(tl.w * tl.h); for (let i = 0; i < mascara.length; i++) mascara[i] = tl.mat[i] ? 1 : 0;
-  marco = { clave, cv: aumentar(rasterACanvas(l.r), e.D), w: tl.w, h: tl.h, mascara, g };
+  // el pedazo de los atajos llenos (bisel entero y tecla de latón): se pega encima de cada atajo con poder
+  const cajaL = cajaAtajos(g), ll = tallarMarco(g, true).recorte(...cajaL).hornear({ sombraMundo: 0 });
+  grabarAtajos(ll, g, cajaL[0], cajaL[1]);
+  marco = { clave, cv: aumentar(rasterACanvas(l.r), e.D), llenos: aumentar(rasterACanvas(ll.r), e.D), cajaL, w: tl.w, h: tl.h, mascara, g };
   (window as any).__hudForjaMs = Math.round(performance.now() - t0);
   return marco;
 }
 
 // ------------------------------------------------------------------ orbes
-/** Los cuadros del orbe por nivel (a punto entero del líquido) y cuadro, guardados los últimos 160. */
+/** Los cuadros del orbe (forja_orbe.ts) por nivel (a punto entero del líquido) y cuadro, guardados los últimos 160. */
+export const cuadroLiq = (t: number) => Math.floor(t * 10) % CUADROS_LIQ;
 const orbes = new Map<string, HTMLCanvasElement>();
 let hechosCuadro = 0;
 /** Al empezar el cuadro: cuántos cuadros de orbe nuevos se pueden pintar (dos). */
@@ -55,7 +62,7 @@ export function cuadroOrbe(tipo: string, k: number, f: number, R: number, ultimo
   if (c) { orbes.delete(clave); orbes.set(clave, c); return c; }
   if (hechosCuadro >= 2 && ultimo) return ultimo;
   hechosCuadro++;
-  c = rasterACanvas(orbe(tipo as 'vida', q / (2 * R), f, R));
+  c = rasterACanvas(orbeVivo(tipo as 'vida', q / (2 * R), f, R));
   orbes.set(clave, c); if (orbes.size > 160) orbes.delete(orbes.keys().next().value!);
   return c;
 }
@@ -96,7 +103,7 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
   // con un panel abierto en una pantalla baja la barra no va (taparía el panel), igual que la de siempre
   const h = j.heroe, d = h.d;
   hechosCuadro = 0;
-  const f8 = Math.floor(t * 8) % 8;
+  const f8 = cuadroLiq(t);
   const enDev = (fn: () => void) => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; try { fn(); } finally { ctx.restore(); } };
   const pegar = (cv: CanvasImageSource, x: number, y: number, w: number, hh: number) => ctx.drawImage(cv, dx(x), dy(y), w * D, hh * D);
 
@@ -108,7 +115,7 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
       const c = cuadroOrbe(tipo, k, f8, tt.R, ultimoOrbe[id]); if (!c) continue; ultimoOrbe[id] = c;
       const S = c.width; pegar(c, Math.round(cx - S / 2), Math.round(cy - S / 2), S, S);
       // el brillo de adentro: el líquido alumbra el vidrio desde el fondo
-      const rr = tt.R * D, gx = dx(cx), gy = dy(cy) + rr * (1 - 2 * cl(k)) * 0.5 + rr * 0.3;
+      const rr = tt.R * D, gx = dx(cx), gy = dy(cy) + rr * (1 - 2 * nivelVisto(k)) * 0.5 + rr * 0.3;
       const col = id === 'v' ? '255,70,40' : '80,120,255';
       const gl = ctx.createRadialGradient(gx, gy, 0, gx, gy, rr * 0.9);
       gl.addColorStop(0, `rgba(${col},${0.1 + (id === 'v' ? lat * 0.35 : 0)})`); gl.addColorStop(1, `rgba(${col},0)`);
@@ -137,7 +144,7 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
     const r = rect(cx - tt.R, cy - tt.R, tt.R * 2, tt.R * 2); rectos[id === 'vida' ? 'orbeVida' : 'orbeMana'] = r;
     if (!ui.mano && Math.hypot(E.x - (r[0] + r[2] / 2), E.y - (r[1] + r[3] / 2)) < r[2] / 2) {
       const v = id === 'vida' ? `${T('Vida', 'Life')}: ${Math.ceil(h.vida)} / ${h.vidaMax}` : `${T('Maná', 'Mana')}: ${Math.floor(h.mana)} / ${h.c.manaMax}`;
-      tooltip([[v, id === 'vida' ? '#ff9a80' : '#a0b4ff']], r[0] + r[2] / 2, r[1] - 6);
+      letrero(v, r[0] + r[2] / 2, r[1] - 8, D, id === 'vida' ? '#ffb0a0' : '#b8c8ff');
     }
   }
   hud.casaVida = rect(g.casaV, g.apex, tt.CASA, g.B - g.apex); hud.casaMana = rect(g.casaM, g.apex, tt.CASA, g.B - g.apex);
@@ -155,7 +162,7 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
       ctx.fillStyle = 'rgba(0,0,0,0.6)'; for (let i = 1; i < 10; i++) ctx.fillRect(dx(ex + Math.round((ew * i) / 10)), dy(ey), D, eh * D);
     });
     const r = rect(ex, ey - 2, ew, eh + 4); rectos.xp = r;
-    if (dentro(r[0], r[1], r[2], r[3]) && Math.abs(E.x - lx(g.roseton[0])) > 22) texto(`${T('Experiencia', 'Experience')}: ${d.xp.toLocaleString()} / ${x1.toLocaleString()}`, E.x, r[1] - 8, { alin: 'center', color: '#fff' }); }
+    if (dentro(r[0], r[1], r[2], r[3]) && Math.abs(E.x - lx(g.roseton[0])) > 22) letrero(`${T('Experiencia', 'Experience')}: ${d.xp.toLocaleString('es')} / ${x1.toLocaleString('es')}`, E.x, r[1] - 8, D); }
   // ---- el rosetón del nivel en su frontón
   { const [cx, cy] = g.roseton, a = xpPara(d.nivel), b = xpPara(d.nivel + 1), esc = D / RES;
     dibujarRoseton(d.nivel, d.nivel >= NIVEL_MAX ? 1 : (d.xp - a) / Math.max(1, b - a), lx(cx), ly(cy), esc, j.t, true);
@@ -173,21 +180,28 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
     casillaPoder(j, lado, r[0], r[1], r[2], r[3]);
   }
   while (d.atajos.length < 10) d.atajos.push(null);
+  // el atajo vacío es un rebaje apenas tallado; el que tiene poder lleva su bisel entero (el pedazo del marco lleno), y
+  // el vacío se asoma a medias al pasarle por encima o mientras se elige un poder para ponerle
+  const eligiendo = ui.der === 'elegirHab';
   for (let i = 0; i < 10; i++) {
-    const [x, y] = g.rapidos[i], id = d.atajos[i], r = rect(x, y, tt.rap, tt.rap);
+    const [x, y] = g.rapidos[i], id = d.atajos[i], r = rect(x, y, tt.rap, tt.rap), enc = !ui.mano && dentro(r[0], r[1], r[2], r[3]);
+    const a = id ? 1 : enc ? 0.75 : eligiendo ? 0.4 + 0.2 * Math.sin(t * 5) : 0;
+    if (a > 0) { const [qx, qy, qw, qh] = rectAtajo(g, i), [cx0, cy0] = mc.cajaL;
+      enDev(() => { ctx.globalAlpha = a; ctx.drawImage(mc.llenos, (qx - cx0) * D, (qy - cy0) * D, qw * D, qh * D, dx(qx), dy(qy), qw * D, qh * D); ctx.globalAlpha = 1;
+        if (!id) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,190,90,${enc ? 0.14 : 0.07 + 0.05 * Math.sin(t * 5)})`; ctx.fillRect(dx(x + 1), dy(y + 1), (tt.rap - 2) * D, (tt.rap - 2) * D); ctx.globalCompositeOperation = 'source-over'; } }); }
     if (id) casilla(habilidadDe(id), x, y, tt.rap, r, { marcado: id === d.der, chico: true });
-    else if (dentro(r[0], r[1], r[2], r[3]) && !ui.mano) enDev(() => { ctx.fillStyle = 'rgba(255,230,170,0.08)'; ctx.fillRect(dx(x), dy(y), tt.rap * D, tt.rap * D); });
     rectos['rap' + i] = r;
     casillaAtajo(j, i, r[0], r[1], r[2], r[3]);
   }
   // ---- el recurso de la clase en su ranura
-  { const [x, y, w, hh] = g.rec, r = rect(x, y, w, hh); recursoClase(j, Math.round(r[0]), Math.round(r[1] + (r[3] - 13) / 2), Math.round(r[2])); rectos.recurso = r; }
+  { const [x, y, w, hh] = g.rec, r = rect(x, y, w, hh); recursoClase(j, Math.round(r[0]), Math.round(r[1] + (r[3] - 13) / 2), Math.round(r[2]), true); rectos.recurso = r; }
   // ---- correr o caminar: una placa de latón (corriendo) o de hierro (caminando), con su tecla
   { const [x, y, w, hh] = g.correr, r = rect(x, y, w, hh);
-    enDev(() => { const c0 = h.correr ? ['#d8b450', '#a8862e', '#6a5018'] : ['#6e6e6c', '#4c4c50', '#2c2c30'];
-      ctx.fillStyle = c0[1]; ctx.fillRect(dx(x + 1), dy(y + 1), (w - 2) * D, (hh - 2) * D); ctx.fillStyle = c0[0]; ctx.fillRect(dx(x + 1), dy(y + 1), (w - 2) * D, D); ctx.fillStyle = c0[2]; ctx.fillRect(dx(x + 1), dy(y + hh - 2), (w - 2) * D, D); });
+    const pl = placa(w - 2, hh - 2, h.correr);
+    enDev(() => ctx.drawImage(pl, dx(x + 1), dy(y + 1), (w - 2) * D, (hh - 2) * D));
     const s = h.correr ? T('Corriendo (R)', 'Running (R)') : T('Caminando (R)', 'Walking (R)');
-    texto(s, r[0] + r[2] / 2, r[1] + r[3] / 2 + 4, { alin: 'center', tam: 10, color: h.correr ? '#1a0e00' : '#0a0a0c', sombra: false });
+    // grabada en el latón, o incrustada de latón en el hierro (la letra va a D puntos, como el marco)
+    textoPixel(s, lx(x + w / 2), ly(y + Math.round((hh - 7) / 2) + 7), h.correr ? { alin: 'center', D, estilo: 'grabado', color: '#2a1706', labio: '#f0d898' } : { alin: 'center', D, color: '#c8a35a' });
     rectos.correr = r;
     if (dentro(r[0], r[1], r[2], r[3])) { ui.sobreUI = true; if (E.clicIzq) { E.clicIzq = false; h.correr = !h.correr; } } }
   // ---- el cinturón: cada columna con su poción y las cuentas de lo que hay apilado detrás
@@ -220,7 +234,7 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
     if (enc) {
       ui.sobreUI = true;
       const txt = p.id === 'agresivo' ? (ag ? T('Agresivo (Z): ataca solo lo que entra en su alcance', 'Aggressive (Z): attacks whatever comes in reach') : T('Pasivo (Z): no ataca sin tu orden', 'Passive (Z): does not attack without your order')) : `${TT([def.es, def.en])} (${def.tecla})`;
-      texto(txt, r[0] + r[2] / 2, r[1] - 6, { alin: 'center', color: '#fff', tam: 12 });
+      letrero(txt, r[0] + r[2] / 2, r[1] - 6, D);
       if (E.clicIzq) { E.clicIzq = false; if (p.id === 'agresivo') cambiarAgresivo(j); else if (def.panel === 'mapa') ui.mapa = !ui.mapa; else alternar(def.panel as PanelId, def.lado!); }
     }
   }
@@ -234,6 +248,21 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
   return true;
 }
 
+/** Un letrero de pixel sobre el mundo (al pasar el ratón): letra en relieve con una franja oscura detrás, sin salirse. */
+export function letrero(s: string, x: number, y: number, D: number, color = '#f0e4c8') {
+  const w = anchoPixel(s, { D }), m = ctx.getTransform().a, p = (2 * D) / m, x0 = Math.max(4 + w / 2, Math.min(ctx.canvas.width / m - 4 - w / 2, x));
+  ctx.fillStyle = 'rgba(6,4,3,0.72)'; ctx.fillRect(x0 - w / 2 - p * 2, y - (9 * D) / m - p, w + p * 4, (11 * D) / m + p * 2);
+  textoPixel(s, x0, y, { alin: 'center', D, color });
+}
+/** La placa del correr: latón (corriendo) o hierro (caminando), tallada con su bisel y un remache en cada punta. */
+const placas = new Map<string, HTMLCanvasElement>();
+export function placa(w: number, h: number, laton: boolean): HTMLCanvasElement {
+  const k = `${w}x${h}${laton ? 'l' : 'h'}`; let c = placas.get(k); if (c) return c;
+  const tl = new Taller(w, h), m = laton ? M.LATON : M.HIERRO;
+  tl.caja(0, 0, w, h, m, 0, 2, { alto: 2.6 });
+  for (const qx of [3, w - 4]) tl.elipsoide(qx + 0.5, h / 2, 1.5, 1.5, 2, laton ? M.HIERRO : M.LATON, 2.6, 0);
+  c = rasterACanvas(tl.hornear({ sombraMundo: 0 }).r); placas.set(k, c); return c;
+}
 /**
  * El marco ya agrandado a puntos del lienzo (D veces, sin suavizar), una vez: pegarlo agrandado en cada cuadro costaba
  * unos 8 ms a 1080 con el lienzo por software, y así es una copia 1:1.

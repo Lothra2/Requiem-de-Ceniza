@@ -1,5 +1,5 @@
 // El HUD forjado (ui/hud_forja.ts) en escenas del juego, en cada aparato, con el de antes al lado.
-// Uso: node juego/herramientas/t950_hud.cjs <etiqueta> [vistas]   (HUD=1 enciende el HUD nuevo con window.__hudNuevo)
+// Uso: node juego/herramientas/t950_hud.cjs <etiqueta> [vistas]   (el forjado es el de por omisión; HUD=0 saca la barra de siempre con window.__hudNuevo = false)
 //   vistas: pc (1280x720), pc1080 (1920x1080 nativo), ultra (2560x1080), ipad (1024x768 táctil), movil (844x390),
 //   pctactil (1280x720 con pantalla táctil y ratón: el panel de PC que también se toca).
 // Por vista: _normal (vida llena, ratón en el mundo), _baja (vida al 12 %, latido, un poder en recarga y el ratón sobre
@@ -9,7 +9,7 @@ const { chromium, devices } = require('playwright');
 const fs = require('fs');
 const URL = process.env.URL || 'http://127.0.0.1:5190/';
 const ET = process.argv[2] || 'x', VS = (process.argv[3] || 'pc,pc1080,ultra,ipad,movil,pctactil').split(',');
-const NUEVO = process.env.HUD === '1';
+const NUEVO = process.env.HUD !== '0';
 const OUT = '/tmp/requiem-pruebas/hud'; fs.mkdirSync(OUT, { recursive: true });
 const VISTAS = {
   pc: { viewport: { width: 1280, height: 720 } }, pc1080: { viewport: { width: 1920, height: 1080 } }, ultra: { viewport: { width: 2560, height: 1080 } },
@@ -24,7 +24,7 @@ const TACTIL = { ipad: 1, movil: 1, pctactil: 1 };
     const c = await b.newContext({ ...VISTAS[v], deviceScaleFactor: VISTAS[v].deviceScaleFactor ?? 1 }); const p = await c.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
     await p.addInitScript(([nuevo, pcTactil]) => {
-      localStorage.setItem('marca.intro', '1'); if (nuevo) window.__hudNuevo = true;
+      localStorage.setItem('marca.intro', '1'); if (!nuevo) window.__hudNuevo = false;
       // un portátil con pantalla táctil: el puntero principal es el ratón (fino) y además se puede tocar
       if (pcTactil) { const mm = window.matchMedia.bind(window); window.matchMedia = (q) => (/pointer:\s*coarse/.test(q) ? { ...mm(q), matches: false, media: q } : /any-pointer:\s*fine/.test(q) ? { ...mm(q), matches: true, media: q } : mm(q)); }
     }, [NUEVO, v === 'pctactil']);

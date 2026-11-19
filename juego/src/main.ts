@@ -10,7 +10,8 @@ import { T, TT, texto, IDI, fijarIdioma, tooltip, TITULO } from './ui/comun';
 import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from './ui/menus';
 import { dibujarCine, precargarCine, claveCine, claveFinal, marcasCine, hayCine, soltarCine } from './ui/cine';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
-import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe } from './juego/historia';
+import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe, eleccionDe, vozMarca, leerRestos } from './juego/historia';
+import { ECOS_FINAL } from './mundo/decisiones';
 import { dibujarHistoria } from './ui/historia_ui';
 import { FANTASMAS, HERALDO, type FinalElegido } from './mundo/actos';
 import { fijarAvisoLuz } from './render/luz_gpu';
@@ -43,7 +44,7 @@ import { crearJuego, entrarZona, actualizar, usarHabilidad, habilidadDe, costoMa
 import { nuevoHeroe, nivelHab, firmaVisual, equipoVisual, cuerpoDe, type DatosHeroe, type EnBolsa, nivelEnDificultad, volverAEmpezar } from './juego/heroe';
 import { botin, colorObj, crearObjeto } from './juego/objetos';
 import { libreCerca } from './mundo/zona';
-import { ZONAS, PUEBLO_DE, MUSICA_ACTO, ENTRADA_ZONA, MISIONES, POBL_ZONA } from './mundo/actos';
+import { ZONAS, PUEBLO_DE, MUSICA_ACTO, ENTRADA_ZONA, MISIONES, POBL_ZONA, VOZ_MARCA } from './mundo/actos';
 import { POBLACION, MONSTRUOS } from './datos/monstruos';
 import { GENTE } from './datos/npcs';
 import { CLASES } from './datos/clases';
@@ -178,7 +179,10 @@ async function irAZona(id: string, entrada: string) {
   guardar();
   estado = 'juego'; tEstado = 0;
   const frase = ENTRADA_ZONA[id];
-  if (frase && !(j as any).vistas?.has(id)) { ((j as any).vistas ??= new Set()).add(id); msg(j, frase, '#c0a0a0'); }
+  const nueva = !(j as any).vistas?.has(id);
+  if (frase && nueva) msg(j, frase, '#c0a0a0');
+  const voz = VOZ_MARCA[id]; if (voz && nueva) vozMarca(j, voz);
+  ((j as any).vistas ??= new Set()).add(id);
   msg(j, ZONAS[id].nombre, '#e0c890');
   if (z.tipo !== 'pueblo') pista('fuera', E.tactil ? ['Mueve al héroe con el pulgar izquierdo o tocando el suelo. Golpe pega al más cercano, el arco lanza tus poderes y abajo están tus pociones.', 'Move with your left thumb or by tapping the ground. Hit strikes the nearest foe, the arc casts your powers and your potions are below.'] : ['Clic izquierdo sobre un monstruo para pegarle. Clic derecho lanza tu poder. 1 a 4 toma pociones.', 'Left click a monster to strike it. Right click casts your power. 1 to 4 drinks potions.']);
   if (z.tipo === 'mazmorra') pista('mazmorra', E.tactil ? ['Está oscuro aquí abajo. Si te ves mal, el menú tiene un portal al campamento.', 'It is dark down here. If things go badly, the menu has a portal to camp.'] : ['Está oscuro aquí abajo. Si te ves mal, B abre un portal al campamento.', 'It is dark down here. If things go badly, B opens a portal to camp.']);
@@ -507,9 +511,15 @@ function usarObjeto(jj: Juego, o: ObjZ) {
     else { const s = elegir(tipos); h.buffs['santuario'] = { t: 90, bonos: s.b as any, hab: 'santuario' }; recalc(jj); msg(jj, s.m as [string, string], '#a0c0ff'); }
   } else if (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar') {
     const r = usarObjetoMision(jj, o);
-    if (r && typeof r === 'object') { ui.dialogoTexto = TT(r.texto); ui.izq = 'pagina' as any; Object.assign(ui as any, { paginaN: r.n, paginaTotal: r.total, paginaTitulo: TT(r.titulo), paginaPanel: T('Pista', 'Clue') }); }
+    if (r && typeof r === 'object') { ui.dialogoTexto = TT(r.texto); ui.izq = 'pagina' as any; Object.assign(ui as any, { paginaN: r.n, paginaTotal: r.total, paginaTitulo: TT(r.titulo), paginaPanel: T('Pista', 'Clue'), paginaSub: undefined }); }
+  } else if (o.tag === 'restos') {
+    // los restos de una matanza: se leen en la misma página que las pistas, con el lugar donde pasó en vez del número
+    const r = leerRestos(h.d, o);
+    ui.dialogoTexto = TT(r.texto); ui.izq = 'pagina' as any;
+    Object.assign(ui as any, { paginaPanel: T('Restos', 'Remains'), paginaTitulo: TT(r.titulo), paginaSub: TT(jj.zona.nombre) });
+    Sonido.susurro();
   } else if (o.tag === 'libro') {
-    (ui as any).paginaPanel = undefined;
+    Object.assign(ui as any, { paginaPanel: undefined, paginaSub: undefined });
     const p = leerLibro(h.d, jj.zona.acto);
     ui.dialogoTexto = TT(p.texto); ui.izq = 'pagina' as any; Object.assign(ui as any, { paginaN: p.n, paginaTotal: p.total, paginaTitulo: TT(p.titulo) });
     Sonido.efecto('abrir'); Sonido.susurro(); o.tag = undefined;
@@ -673,7 +683,7 @@ function paso(dt: number) {
     }
     case 'final': {
       finalT += dt;
-      if (dibujarFinal(finalT, j ? finalCompleto(j.heroe.d) : 'vigilia', j ? decisionDe(j.heroe.d, 'vigdis') : undefined) || (finalT > 3 && (pulso('Escape') || E.clicIzq))) { E.clicIzq = false; if (j && j.heroe.d.actosHechos.includes(7) && !repeticion) { estado = 'ciclo'; finalT = 0; } else { estado = 'juego'; if (j) Sonido.musica(MUSICA_ACTO(j.zona.acto, j.zona.tipo) as any); } repeticion = false; }
+      if (dibujarFinal(finalT, j ? finalCompleto(j.heroe.d) : 'vigilia', j ? decisionDe(j.heroe.d, 'vigdis') : undefined, j ? ECOS_FINAL.filter((e) => eleccionDe(j!.heroe.d, e.mision) === e.opcion).map((e) => e.texto) : []) || (finalT > 3 && (pulso('Escape') || E.clicIzq))) { E.clicIzq = false; if (j && j.heroe.d.actosHechos.includes(7) && !repeticion) { estado = 'ciclo'; finalT = 0; } else { estado = 'juego'; if (j) Sonido.musica(MUSICA_ACTO(j.zona.acto, j.zona.tipo) as any); } repeticion = false; }
       break;
     }
     case 'ciclo': {
@@ -826,7 +836,7 @@ function paso(dt: number) {
 function etiquetaPick(jj: Juego, p: Pick) {
   if (p.tipo === 'npc') { const n = (p.ref as Npc); import('./datos/npcs').then(() => { }); texto(TT(npcsNombre(n.npc)), (p.x0 + p.x1) / 2, p.y0 - 6, { alin: 'center', color: '#e0e0ff' }); }
   else if (p.tipo === 'salida') tooltip([[TT((p.ref as Salida).nombre), '#ffd060']], (p.x0 + p.x1) / 2, p.y0 + 20);
-  else if (p.tipo === 'objeto') { const o = p.ref as ObjZ; const n = o.id === 'com_piedra_viaje' ? T('Piedra de viaje', 'Travel stone') : o.tag === 'baul' ? T('Baúl compartido', 'Shared chest') : o.tag === 'pista' ? T('Pista', 'Clue') : o.tag === 'reliquia' ? T('Reliquia', 'Relic') : o.tag === 'altar' ? T('Altar', 'Altar') : o.tag === 'cofre' ? T('Cofre', 'Chest') : o.tag === 'santuario' ? T('Santuario', 'Shrine') : o.tag === 'pozo' ? T('Pozo', 'Well') : o.tag === 'romper' ? T('Urna', 'Urn') : o.tag === 'libro' ? T('Libro maldito', 'Cursed book') : ''; if (n) texto(n, (p.x0 + p.x1) / 2, p.y0 - 4, { alin: 'center', color: '#c0c0ff' }); }
+  else if (p.tipo === 'objeto') { const o = p.ref as ObjZ; const n = o.id === 'com_piedra_viaje' ? T('Piedra de viaje', 'Travel stone') : o.tag === 'baul' ? T('Baúl compartido', 'Shared chest') : o.tag === 'pista' ? T('Pista', 'Clue') : o.tag === 'reliquia' ? T('Reliquia', 'Relic') : o.tag === 'altar' ? T('Altar', 'Altar') : o.tag === 'cofre' ? T('Cofre', 'Chest') : o.tag === 'santuario' ? T('Santuario', 'Shrine') : o.tag === 'pozo' ? T('Pozo', 'Well') : o.tag === 'romper' ? T('Urna', 'Urn') : o.tag === 'libro' ? T('Libro maldito', 'Cursed book') : o.tag === 'restos' ? T('Restos', 'Remains') : ''; if (n) texto(n, (p.x0 + p.x1) / 2, p.y0 - 4, { alin: 'center', color: '#c0c0ff' }); }
   else if (p.tipo === 'portal') texto(T('Portal', 'Portal'), (p.x0 + p.x1) / 2, p.y0 - 4, { alin: 'center', color: '#80b0ff' });
   void jj;
 }

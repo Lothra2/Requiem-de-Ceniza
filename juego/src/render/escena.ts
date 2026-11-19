@@ -15,7 +15,7 @@ import { sensacionDe, cuadroAtaque } from '../juego/sensacion';
 import { animClase, zancadaClase, zancadaCorrerMonstruo } from '../juego/anim';
 import ZANCADA_MONSTRUO from '../../../src/engine/gotico/datos/zancada_monstruos.json';
 import { baseDe } from '../juego/objetos';
-import { icono, TITULO } from '../ui/comun';
+import { icono, TITULO, envolver } from '../ui/comun';
 import { dibujarNumeros } from './numeros';
 import { cuadrosVivos, cuadrosFinos, cambioVisible, FINO_RUMBOS } from '../motor/pintor';
 import { energiaSuelo, energiaAire, itemsEnergia } from './energia';
@@ -406,6 +406,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     } });
     if (o.dato?.mision && (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'destino')) items.push({ prof: prof - 0.01, draw: () => haloMision(px, py, tiempo, o.tag === 'destino') });
     if (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'libro' || o.tag === 'cofre' || o.tag === 'santuario' || o.tag === 'pozo' || o.tag === 'baul' || o.tag === 'romper' || o.id === 'com_piedra_viaje') picks.push({ tipo: 'objeto', ref: o, x0: px - q.ax, y0: py - q.ay, x1: px - q.ax + q.w, y1: py - q.ay + q.h, prof });
+    // los restos de una matanza se leen, pero solo desde el bulto del medio: la pieza entera es grande y se robaba los clics para caminar
+    else if (o.tag === 'restos') { const w = Math.max(24, q.w * 0.5), hh = Math.max(20, q.h * 0.55), x0 = px - q.ax + (q.w - w) / 2, y0 = py - q.ay + q.h - hh - q.h * 0.1; picks.push({ tipo: 'objeto', ref: o, x0, y0, x1: x0 + w, y1: y0 + hh, prof }); }
   }
   (window as any).__viento = { mecen: nMecen, doblan: nDoblan, cerca: nCerca };
   // salidas (las puertas/escaleras ya están como objetos; aquí solo la zona de clic)
@@ -725,12 +727,16 @@ let heroeDibujo: { x: number; y: number } | null = null;
 /** Lo que dice un jefe o un campeón al verte: encima de todo, en una placa oscura que se lee, dentro de la pantalla. */
 const frasesPendientes: { txt: string; x: number; y: number; a: number }[] = [];
 function frasesMonstruos() {
-  ctx.save(); ctx.font = `italic 14px ${TITULO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  // (las frases de los jefes de zona son de dos o tres renglones: se cortan a lo ancho de la placa, como mucho 3)
+  ctx.save();
   for (const f of frasesPendientes) {
-    const w = ctx.measureText(f.txt).width + 22, h = 22, x = Math.round(Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, f.x))), y = Math.round(Math.max(h + 6, f.y));
+    const lin = envolver(f.txt, Math.min(W - 40, 400), 14, TITULO).slice(0, 3);
+    ctx.font = `italic 14px ${TITULO}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const lh = 18, w = Math.max(...lin.map((l) => ctx.measureText(l).width)) + 22, h = lin.length * lh + 4;
+    const x = Math.round(Math.max(w / 2 + 6, Math.min(W - w / 2 - 6, f.x))), y = Math.round(Math.max(h / 2 + 6, f.y - (lin.length - 1) * lh / 2));
     ctx.globalAlpha = f.a * 0.86; ctx.fillStyle = '#0a0706'; ctx.fillRect(x - w / 2, y - h / 2, w, h);
-    ctx.globalAlpha = f.a; ctx.strokeStyle = '#6a2a1a'; ctx.lineWidth = 1; ctx.strokeRect(x - w / 2 + 0.5, y - h / 2 + 0.5, w - 1, h - 1);
-    ctx.fillStyle = '#000'; ctx.fillText(f.txt, x + 1, y + 1); ctx.fillStyle = '#ffb080'; ctx.fillText(f.txt, x, y);
+    ctx.globalAlpha = f.a; ctx.strokeStyle = '#6a2a1a'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(x - w / 2) + 0.5, Math.round(y - h / 2) + 0.5, Math.round(w) - 1, h - 1);
+    lin.forEach((l, i) => { const yy = y - (lin.length - 1) * lh / 2 + i * lh; ctx.fillStyle = '#000'; ctx.fillText(l, x + 1, yy + 1); ctx.fillStyle = '#ffb080'; ctx.fillText(l, x, yy); });
   }
   ctx.restore(); frasesPendientes.length = 0;
 }

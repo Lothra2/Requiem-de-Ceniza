@@ -59,7 +59,7 @@ export const EPILOGOS: Record<Final, Epilogo> = {
       ['No le das la Corona a nadie. Te la pones. La Brasa que llevas adentro la reconoce como una boca reconoce el agua.', 'You give the Crown to no one. You put it on. The Ember inside you knows it the way a mouth knows water.'],
       ['Te sientas en el Trono Sediento. La sed ya no tiene otro nombre que el tuyo. Tienes sed de todo, y todo viene a ti.', 'You sit upon the Thirsting Throne. The thirst has no name but yours now. You thirst for everything, and everything comes to you.'],
       ['Velmora no vuelve a arder. Arde por dentro. De noche nadie se acerca al fuego, y cuando el viento sopla desde el norte, las campanas contestan solas.', 'Velmora never burns again. It burns inside. At night no one goes near the fire, and when the wind blows from the north, the bells answer on their own.'],
-      ['Muy lejos, en otro cielo, una segunda brasa cambia de rumbo. Ahora sabe adónde ir. Ahora tiene a quién servir.', 'Far away, in another sky, a second ember changes course. Now it knows where to go. Now it has someone to serve.'],
+      ['Muy lejos, en otro cielo, una tercera brasa cambia de rumbo. Ahora sabe adónde ir. Ahora tiene a quién servir.', 'Far away, in another sky, a third ember changes course. Now it knows where to go. Now it has someone to serve.'],
     ],
     vigdis: {
       salvar: ['Vigdis es la única que sube a verte. Trae un caldo caliente, como hacía con Eirik, y lo deja en el primer escalón. No sube más. Dice que no tiene miedo. Dice que no quiere que la beban.', 'Vigdis is the only one who climbs to see you. She brings hot broth, as she did for Eirik, and leaves it on the first step. She climbs no further. She says she is not afraid. She says she does not want to be drunk.'],
@@ -97,4 +97,14 @@ export const TEXTO_DECISION: Record<string, Record<string, [string, string]>> = 
     quedarse: ['Te quedaste con la Corona.', 'You kept the Crown.'],
   },
 };
+
+/** Ecos del viaje en el epílogo: lo que hiciste en los encargos vuelve en una línea (como mucho dos, antes de la última). */
+export const ECOS_FINAL: { mision: string; opcion: number; texto: [string, string] }[] = [
+  { mision: 'm5t_juicio', opcion: 1, texto: ['En el libro de Odrán el nombre de Auren está escrito dos veces: una entre los que cantaron, otra entre los que mintieron.', 'In Odran\'s book Auren\'s name is written twice: once among those who sang, once among those who lied.'] },
+  { mision: 'm1_reliquia', opcion: 0, texto: ['En el Refugio, Tomás le cuenta a los niños cómo volvió a hablar. Nunca dice tu nombre. Dice «la Marca», y los niños entienden.', 'At the Refuge, Tomas tells the children how he spoke again. He never says your name. He says "the Mark", and the children understand.'] },
+  { mision: 'm1_reliquia', opcion: 1, texto: ['Tomás no volvió a hablar. Todavía dibuja, y en todos sus dibujos hay alguien con un bolsillo que brilla.', 'Tomas never spoke again. He still draws, and in every drawing there is someone with a pocket that glows.'] },
+  { mision: 'm2_nombres', opcion: 1, texto: ['En el Pozo de los Nombres tu nombre sigue grabado sobre el de Samira. Nahla ya no baja a rezar. Dice que no le reza a gente viva.', 'In the Well of Names your name is still carved over Samira\'s. Nahla no longer goes down to pray. She says she does not pray to the living.'] },
+  { mision: 'm3_tunde', opcion: 0, texto: ['Tunde timonea el barco de Oyá. De noche todavía mira hacia la selva, y a veces algo le contesta.', 'Tunde steers Oya\'s ship. At night he still looks toward the jungle, and sometimes something answers.'] },
+  { mision: 'm7_boveda', opcion: 1, texto: ['La estrella que guardaste se apagó la noche en que todo terminó. Mira dice que se cansó de esperar a que la soltaras.', 'The star you kept went out the night it all ended. Mira says it grew tired of waiting for you to let it go.'] },
+];
 export const NOMBRE_DECISION: Record<string, [string, string]> = { vigdis: ['Acto 4: la sangre tibia', 'Act 4: the warm blood'], brasa: ['Acto 5: la Brasa', 'Act 5: the Ember'], corona: ['Acto 7: la Corona', 'Act 7: the Crown'] };

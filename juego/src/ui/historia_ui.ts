@@ -23,7 +23,8 @@ export function dibujarHistoria(j: Juego, tiempo: number) {
   }
   // voces que flotan
   for (const e of ecos(j)) {
-    const [px, py] = aPant(e.x, e.y);
+    if (e.t <= 0) continue;
+    const [px, py] = e.sigue ? aPant(j.heroe.x, j.heroe.y) : aPant(e.x, e.y);
     const a = Math.min(1, e.t / 0.4, (e.dur - e.t) / 1.2);
     ctx.globalAlpha = Math.max(0, a);
     envolver(TT(e.txt), 300, 13).forEach((l, i, ls) => texto(l, px, py - 118 - e.t * 6 - (ls.length - 1 - i) * 16, { alin: 'center', tam: 13, color: e.color }));

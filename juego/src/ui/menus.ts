@@ -649,7 +649,10 @@ function marcoCine(linea: string | null, tl: number, dur: number) {
   const fr = Math.round(H * 0.07); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, fr); ctx.fillRect(0, H - fr, W, fr);
   const f = Math.min(1, tl / 1.2, (dur - tl) / 1.2);
   ctx.fillStyle = `rgba(0,0,0,${1 - Math.max(0, f)})`; ctx.fillRect(0, 0, W, H);
-  if (linea) envolver(maquina(linea, tl - 0.7), Math.min(760, W - 80), 20, TITULO).forEach((l, n) => texto(l, W / 2, H - fr - 52 + n * 26, { alin: 'center', tam: 20, color: '#e8dcc0', fuente: TITULO }));
+  // (el renglón de abajo queda siempre a la misma altura y los largos crecen hacia arriba: con 3 o 4 renglones el texto
+  // se metía en la franja negra. Cuántos son sale de la línea entera, no de lo ya escrito, para que no salte al tipear)
+  if (linea) { const ancho = Math.min(760, W - 80), n = envolver(linea, ancho, 20, TITULO).length, y0 = H - fr - 26 - Math.max(1, n - 1) * 26;
+    envolver(maquina(linea, tl - 0.7), ancho, 20, TITULO).forEach((l, k) => texto(l, W / 2, y0 + k * 26, { alin: 'center', tam: 20, color: '#e8dcc0', fuente: TITULO })); }
   texto(T('Clic o Esc para saltar', 'Click or Esc to skip'), W - 16, H - 14, { alin: 'right', tam: 11, color: '#5a5040' });
 }
 /** Cinemática al cerrar un acto. Devuelve true cuando terminó. */
@@ -717,9 +720,10 @@ export function dibujarRevelacion(t: number, eleccion: FinalElegido | null): Fin
   return r;
 }
 /** Al entregar la Corona: el epílogo del final que te tocó, con el párrafo de Vigdis antes de la última línea. Devuelve true cuando terminó. */
-export function dibujarFinal(t: number, final: Final = 'vigilia', vigdis?: string): boolean {
+export function dibujarFinal(t: number, final: Final = 'vigilia', vigdis?: string, ecos: [string, string][] = []): boolean {
   const ep = EPILOGOS[final];
   const lineas = [...ep.lineas]; if (vigdis === 'salvar' || vigdis === 'sacrificar') lineas.splice(lineas.length - 1, 0, ep.vigdis[vigdis]);
+  if (ecos.length) lineas.splice(lineas.length - 1, 0, ...ecos.slice(0, 2));
   const dur = 7.5, i = Math.floor(t / dur);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   if (i >= lineas.length) {

@@ -2,10 +2,10 @@
 // las decisiones que tomaste y las cinemáticas para volver a ver.
 import { ctx, E } from '../nucleo/lienzo';
 import { texto, T, TT, marco, titulo, boton, envolver, dentro } from './comun';
-import { MISIONES, DIARIOS, PAGINAS, ZONAS } from '../mundo/actos';
+import { MISIONES, DIARIOS, PAGINAS, ZONAS, RESTOS_ACTO } from '../mundo/actos';
 import { MONSTRUOS } from '../datos/monstruos';
 import { TEXTO_DECISION, NOMBRE_DECISION, EPILOGOS } from '../mundo/decisiones';
-import { hist, decisionesDe, eleccionDe, finalCompleto, prog } from '../juego/historia';
+import { hist, decisionesDe, eleccionDe, finalCompleto, prog, tituloRestos } from '../juego/historia';
 import { cuadrosMonstruo, dibujar as dibujarCuadro } from '../motor/assets';
 import type { Juego } from '../juego/mundo';
 import type { DatosHeroe } from '../juego/heroe';
@@ -28,6 +28,11 @@ function notas(d: DatosHeroe): Entrada[] {
     const o = m.objetivo; if (o.tipo !== 'pistas') continue;
     const bits = (d.misiones[m.id] ?? 0) >= 2 ? (1 << o.pistas.length) - 1 : (p[m.id] ?? 0);
     o.pistas.forEach((pi, i) => { if (bits & (1 << i)) out.push({ titulo: TT(m.nombre), sub: TT(ZONAS[o.zona]?.nombre ?? ['', '']), texto: TT(pi.texto) }); });
+  }
+  // los restos leídos en las matanzas, por acto
+  for (const k of [...(h.restos ?? [])].sort()) {
+    const [a, i] = k.split(':').map(Number), t = RESTOS_ACTO[a]?.[i]; if (!t) continue;
+    out.push({ titulo: TT(tituloRestos(a, i)), sub: `${T('Restos', 'Remains')} · ${T('Acto', 'Act')} ${a}`, texto: TT(t) });
   }
   return out;
 }
@@ -72,7 +77,7 @@ export function panelCodice(j: Juego, x: number, y: number) {
   marco(x, y, 320, 432); titulo(T('Códice', 'Codex'), x, y, 320);
   const pes: [Pestana, string][] = [['notas', T('Notas', 'Notes')], ['bestiario', T('Jefes', 'Bosses')], ['decisiones', T('Decisiones', 'Choices')], ['cine', T('Cine', 'Films')]];
   pes.forEach(([id, s], i) => { if (boton(s, x + 14 + i * 74, y + 44, 70, 24, { tam: 12, color: est.pestana === id ? '#ffd080' : undefined })) { est.pestana = id; est.sel = 0; est.desde = 0; E.clicIzq = false; } });
-  if (est.pestana === 'notas') return lista(notas(d), x, y, T('Todavía no leíste nada. Los libros malditos, los diarios y las pistas de las misiones quedan anotados aquí.', 'You have not read anything yet. Cursed books, diaries and quest clues are recorded here.'));
+  if (est.pestana === 'notas') return lista(notas(d), x, y, T('Todavía no leíste nada. Los libros malditos, los diarios, las pistas de las misiones y los restos quedan anotados aquí.', 'You have not read anything yet. Cursed books, diaries, quest clues and remains are recorded here.'));
   if (est.pestana === 'bestiario') return lista(bestiario(d), x, y, T('Todavía no viste a ningún jefe cara a cara.', 'You have not yet seen any boss face to face.'), (e, cx, cy) => {
     const m = MONSTRUOS[(e as any).id]; if (!m) return;
     const fs = cuadrosMonstruo(m.sprite, 'quieto', 's'); const q = fs[Math.floor(performance.now() / 160) % Math.max(1, fs.length)];

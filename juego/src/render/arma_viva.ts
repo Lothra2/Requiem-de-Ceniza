@@ -245,8 +245,11 @@ export function armaViva(ctx: CanvasRenderingContext2D, e: { acc: string; t: num
     case 'sangre': {
       // la gota se junta en lo más bajo de la hoja, se estira y cae; en el golpe salen despedidas
       const ven = el === 'veneno', uBajo = y1 > y0 ? 0.97 : 0.3;
-      if (st.gotaU !== uBajo) { st.gotaU = uBajo; st.gota = 0; }
-      st.gota += d / (ven ? 0.75 : 1.1);
+      // (corriendo, la hoja se mece y lo más bajo cambia de punta a cada rato: antes eso volvía a cero la gota y nunca
+      // caía nada. Ahora la gota sigue juntándose donde quede lo más bajo, y en marcha se junta más rápido)
+      const anda = !pega && (e.acc === 'caminar' || e.acc === 'correr'), corre = e.acc === 'correr';
+      st.gotaU = uBajo;
+      st.gota += (d / (ven ? 0.75 : 1.1)) * (anda ? (corre ? 2.6 : 1.8) : 1);
       if (ve_(uBajo)) {
         const [gx, gy] = en(uBajo), g = Math.min(1, st.gota);
         ctx.globalCompositeOperation = 'source-over';
@@ -261,6 +264,12 @@ export function armaViva(ctx: CanvasRenderingContext2D, e: { acc: string; t: num
         for (let i = cuota(sg + 'v2', 7 + 8 * act, d); i > 0; i--) nace('miasma', uAzar(0.15), (A() - 0.5) * 5, -4 - A() * 6, 1 + A() * 0.6, 1);
       }
       for (let i = enVuelo(ven ? 0.35 : 0.45); i > 0; i--) nace('gota', uAzar(0.4), ivx * 1.6 + (A() - 0.5) * 20, ivy * 1.6 - 10 - A() * 20, 2, 1, A());
+      // en marcha el arma chorrea: gotas que se sueltan de la hoja por donde pasa (con la inercia del paso, quedan atrás) y
+      // dejan su rastro en el piso; el veneno además deja una estela de miasma
+      if (anda && barrido > 0.5) {
+        for (let i = cuota(sg + 'mg', barrido * (corre ? 0.11 : 0.08) * (0.5 + act), 1); i > 0; i--) nace('gota', uAzar(0.45), -ivx * 0.6 + (A() - 0.5) * 8, 4 + A() * 10, 2, 1 + (A() < 0.3 ? 1 : 0), A());
+        if (ven) for (let i = cuota(sg + 'mm', barrido * 0.09, 1); i > 0; i--) nace('miasma', uAzar(0.2), -ivx * 0.4 + (A() - 0.5) * 4, -3 - A() * 4, 1.2 + A() * 0.8, 1, A());
+      }
       break;
     }
     case 'sombra': {
@@ -423,7 +432,7 @@ export function dibujarDerrames(ctx: CanvasRenderingContext2D, ox: number, oy: n
         p.vy += 260 * d; p.x += p.vx * d; p.y += p.vy * d;
         if (p.y >= p.piso && p.vy > 0) {
           if (p.k === 'esquirla') { p.dur = p.t + 0.25; p.vx = p.vy = 0; p.y = p.piso; break; }
-          p.k = 'mancha'; p.y = p.piso; p.t = 0; p.dur = p.el === 'sangre' ? 1.6 : 1.1;
+          p.k = 'mancha'; p.y = p.piso; p.t = 0; p.dur = p.el === 'sangre' ? 3.4 : 2.8; // (el rastro dura lo que se ve al correr)
           for (let q = 0; q < 3 && ps.length < MAX; q++) ps.push({ x: p.x, y: p.y, vx: (A() - 0.5) * 30, vy: -12 - A() * 18, t: 0, dur: 0.18 + A() * 0.1, k: 'chispa', el: p.el, piso: p.piso, tam: 1, s: 0 });
         }
         break;

@@ -124,6 +124,13 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Prueba: `t870_armas_vivas.cjs <clase> <fam,...> [etiqueta]` (`ELEMS`, `DIRS`, `BLANCO=1` pega a un zombi) y las láminas
   con `t870_lamina.py` en `/tmp/requiem-pruebas/armas`. `__sinDerrame`, `__sinLlamaArma` y `__sinVivaMonstruos` apagan
   partes para comparar.
+- **En marcha** (Rick, 19 nov 2026: el veneno no dejaba nada al correr): veneno y sangre chorrean por lo barrido mientras
+  se camina o corre (gotas con la inercia del paso que caen y dejan mancha de 2,8 a 3,4 s, y el veneno su estela de
+  miasma); la gota de la punta sigue juntándose aunque la hoja se mezca. Probar con `recalc(j)` tras poner `arma.vivo`.
+- **Huellas del héroe** (`pisadaNueva` en `ambiente.ts`): del mismo esqueleto con que se pinta (`esqueleto` del motor), el
+  pie que apoya en el cuadro que se ve (`pisadaHeroe`, lo deja escena.ts con el rumbo real y el pie clavado): una huella
+  por paso, en el talón y la punta de ese pie. Antes salían cada 0,46 casillas (tres veces más seguidas que los pasos) a
+  un costado fijo. `__huellaVieja` vuelve a lo de antes, `__huellasArr` para las pruebas.
 - **Cofres**: se abren con sus propios cuadros (`abriendo`), nunca con un efecto que traiga otro cofre. La luz
   (`luzCofre` en `escena.ts`) se dibuja con el cofre en el orden de fondo: el héroe parado delante la tapa.
 - **Grano de los efectos**: `dibujarPfx` no agranda un efecto a más de 2 puntos de pantalla por punto del dibujo. No

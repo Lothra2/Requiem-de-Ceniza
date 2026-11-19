@@ -27,6 +27,7 @@ import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_v
 import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
+import { pisadaHeroe } from './ambiente';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
 import { cuerpoArde, seguirSuelo, itemsSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
 let dtCuadro = 1 / 60;
@@ -930,6 +931,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   else if ((e as any).estado === 'surgir') return;
   else i = fr(acc, e.muerto && (e as any).mElem === 'frio' ? Math.max(0, e.t - 0.45) : e.muerto && (e as any).mElem === 'rayo' ? Math.max(0, e.t - 0.55) : e.t, e.dur, e, acc === 'correr' && e.tipo !== 'heroe' && !cuadrosMonstruo(m.def.sprite, 'correr', e.dir).length ? 'caminar' : acc, fs.length);
   if (e.tipo === 'monstruo' && m.estado === 'surgir') return;
+  if (e.tipo === 'heroe') { const P = pisadaHeroe; P.acc = acc; P.dir = e.dir; P.i = i; P.n = fs.length; P.resto = 0; P.esc = e.escala ?? 1; const ru = (e as any).rumbo as number | undefined, [ux, uy] = ru !== undefined ? [Math.cos(ru), Math.sin(ru)] : DIR_VEC[e.dir] ?? [0, 0], ul = Math.hypot(ux, uy) || 1; P.vx = ux / ul; P.vy = uy / ul; P.listo = true; }
   // los pies clavados: un cuadro de paso vale para un punto exacto del recorrido, pero se muestra mientras el cuerpo sigue
   // avanzando (hasta 6 píxeles) y el pie apoyado se corría con él, para volver de un salto en el cuadro siguiente. El
   // cuerpo se dibuja donde corresponde al cuadro que se ve (a lo sumo media zancada de cuadro atrás o adelante de donde
@@ -940,6 +942,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
       const resto = ((e.recorrido ?? 0) % zp) - zp / 2, ru = (e as any).rumbo as number | undefined, [vx, vy] = ru !== undefined ? [Math.cos(ru), Math.sin(ru)] : DIR_VEC[e.dir] ?? [0, 0];
       // (los monstruos tienen 8 cuadros por ciclo: clavados del todo avanzaban a tirones; van a medias)
       const kc = esH ? 1 : 0.5; px -= (vx - vy) * 16 * resto * kc; py -= (vx + vy) * 8 * resto * kc;
+      if (esH) pisadaHeroe.resto = resto;
     }
   }
   const q = fs[Math.min(fs.length - 1, i)];

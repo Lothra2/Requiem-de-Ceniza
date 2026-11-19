@@ -353,7 +353,7 @@ export function catedralHeroica(o: OpcCatedral): { capa: Lamina; luz: Lamina; pu
   }
   // resplandor de vidrios y puerta: el halo que late
   const v2 = lamina(o.w, o.h); v2.d.set(luz.d); desenfocar(v2.d, o.w, o.h, 7, 4);
-  const v3 = lamina(o.w, o.h); v3.d.set(luz.d); desenfocar(v3.d, o.w, o.h, 26, 3);
+  const v3 = lamina(o.w, o.h); v3.d.set(luz.d); desenfocar(v3.d, o.w, o.h, 26, 4); // (4 canales: con 3 la lámina RGBA se leía corrida y dejaba copias fantasma de los vitrales en el cielo)
   for (let i = 0; i < v2.d.length; i++) luz.d[i] += v2.d[i] * 1.5 + v3.d[i] * 1.7;
   const puerta = enPant([0, 0.5, zf]).map((q) => q / SS) as P2;
   halo(luz, puerta[0], puerta[1] - 26, 95, [1, 0.36, 0.12], 0.9, 1, true);

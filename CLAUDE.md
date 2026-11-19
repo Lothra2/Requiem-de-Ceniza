@@ -124,6 +124,13 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Prueba: `t870_armas_vivas.cjs <clase> <fam,...> [etiqueta]` (`ELEMS`, `DIRS`, `BLANCO=1` pega a un zombi) y las láminas
   con `t870_lamina.py` en `/tmp/requiem-pruebas/armas`. `__sinDerrame`, `__sinLlamaArma` y `__sinVivaMonstruos` apagan
   partes para comparar.
+- **En marcha** (Rick, 19 nov 2026: el veneno no dejaba nada al correr): veneno y sangre chorrean por lo barrido mientras
+  se camina o corre (gotas con la inercia del paso que caen y dejan mancha de 2,8 a 3,4 s, y el veneno su estela de
+  miasma); la gota de la punta sigue juntándose aunque la hoja se mezca. Probar con `recalc(j)` tras poner `arma.vivo`.
+- **Huellas del héroe** (`pisadaNueva` en `ambiente.ts`): del mismo esqueleto con que se pinta (`esqueleto` del motor), el
+  pie que apoya en el cuadro que se ve (`pisadaHeroe`, lo deja escena.ts con el rumbo real y el pie clavado): una huella
+  por paso, en el talón y la punta de ese pie. Antes salían cada 0,46 casillas (tres veces más seguidas que los pasos) a
+  un costado fijo. `__huellaVieja` vuelve a lo de antes, `__huellasArr` para las pruebas.
 - **Cofres**: se abren con sus propios cuadros (`abriendo`), nunca con un efecto que traiga otro cofre. La luz
   (`luzCofre` en `escena.ts`) se dibuja con el cofre en el orden de fondo: el héroe parado delante la tapa.
 - **Grano de los efectos**: `dibujarPfx` no agranda un efecto a más de 2 puntos de pantalla por punto del dibujo. No
@@ -331,7 +338,25 @@ después de tocar esto se hornea `h,g,r` (con `RELIEVE=1`) y nada más.
 La catedral de la portada es una toma 3D en perspectiva (`src/engine/gotico/catedral_portada.ts`), no el sprite del
 juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebla, camposanto):
 `npx tsx juego/hornear/portada_catedral.mts && python3 juego/hornear/portada_webp.py` (10 s). Encuadre con `X`, `Y`,
-`ALTO` (coordenadas de la capa de 1536x800). Se revisa con `juego/herramientas/t680_portada.cjs`.
+`ALTO` (coordenadas de la capa de 1536x800). Se revisa con `juego/herramientas/t680_portada.cjs` (`URL=` para otro puerto).
+
+- **La luna de sangre** (19 nov 2026, Rick la vio como un disco rojo plano con manchas grises): es una esfera horneada
+  por `python3 juego/hornear/portada_luna.py` (8 s, `QUE=luna` o `QUE=nubes`) en `fondo/luna.webp` (768, 92 KB): mares con
+  la cara de la luna de verdad y bordes torcidos con ruido, unos 12 000 cráteres con cuenco, borde, eyecta y pico central,
+  rayos de Tycho y Copérnico, relieve por normales, luz Lommel-Seeliger corrida arriba a la izquierda, limbo y el cobre
+  del eclipse. `luna()` en `ui/portada.ts` la achica una vez al tamaño de pantalla (`lunaA`, escalones de 3 %) y le pone
+  un solo resplandor sumado y un velo chico. Los jirones de delante (`fondo/luna_nubes.webp`, R el cuerpo y G el filo)
+  se tiñen una vez (`nubesDeLuna`) y se arman cada cuadro en dos lienzos propios a media resolución: el cuerpo recortado
+  a un óvalo ancho (no raya el título) y el filo a contraluz pegado al disco.
+- La noche de arriba (`grado_cielo`) se oscurece sobre el cielo antes de la luna: el grado de antes iba encima de todo y
+  apagaba la luna. Al final queda solo el oscuro del piso.
+- Humo de la torre rota y la nave (`humoCatedral`, bocanadas hechas una vez), cuervos en silueta llena (antes heredaban
+  el 'lighter' del fuego y no se veían), brasas que nacen en la puerta de ahora (el `nacen_en` del manifiesto era de la
+  catedral vieja), el fuego del título más parejo y con resplandor barato (achicado a un cuarto), el paño y la franja del
+  menú difuminados en los cuatro lados, y el relámpago respeta `acc.destellos`.
+- `catedral_luz.png` traía copias fantasma de los vitrales en el cielo (columnas claras a la izquierda de la catedral):
+  `desenfocar(..., 26, 3)` en `catedral_portada.ts` leía la lámina RGBA como de 3 canales. Ya va con 4.
+- `__pOff` para comparar: `luna`, `jirones`, `humo`, `niebla`, `cat`, o `-<capa>,` para quitar una capa.
 
 ## Publicar
 

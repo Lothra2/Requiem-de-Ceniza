@@ -5,9 +5,9 @@ import * as D from '../../../src/engine/gotico/fuego_doom';
 import { ctx } from '../nucleo/lienzo';
 import { E } from '../nucleo/lienzo';
 
-const CELDAS = 150; // ancho de la grilla en celdas (el alto sale de la proporción del título)
+const CELDAS = 176; // ancho de la grilla en celdas (el alto sale de la proporción del título)
 const AIRE = 0.3; // cuánto aire de más hay arriba del título para que las llamas suban, en fracción del alto
-interface Estado { im: HTMLImageElement; f: D.Fuego; ch: number; aire: number; llama: HTMLCanvasElement; gl: CanvasRenderingContext2D; il: ImageData; humo: HTMLCanvasElement; gh: CanvasRenderingContext2D; ih: ImageData }
+interface Estado { im: HTMLImageElement; f: D.Fuego; ch: number; aire: number; llama: HTMLCanvasElement; gl: CanvasRenderingContext2D; il: ImageData; humo: HTMLCanvasElement; gh: CanvasRenderingContext2D; ih: ImageData; brillo: HTMLCanvasElement; gb: CanvasRenderingContext2D }
 let est: Estado | null = null, ult = -1;
 const chispas: { x: number; y: number; vx: number; vy: number; t: number; d: number }[] = [];
 
@@ -26,10 +26,12 @@ function armar(im: HTMLImageElement): Estado | null {
     if (a(x, y - 1) < 0.3 && a(x, y - 3) < 0.3 && r < 0.7) { fuente[i] = 0.55 + 0.45 * r; n++; }
   }
   if (!n) return null;
-  const f = D.crearFuego({ ancho: w, alto: h, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente, forma }, altura: 0.11, viento: 0.1, rafagas: 0.3, turbulencia: 0.55, ruido: 0.75, tramo: 5, velocidadTramo: 1.6, humo: 0.45, margen: 2, brillo: 1.15, pegada: 0.5 });
+  const f = D.crearFuego({ ancho: w, alto: h, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente, forma }, altura: 0.12, viento: 0.1, rafagas: 0.3, turbulencia: 0.4, ruido: 0.6, tramo: 6, velocidadTramo: 1.6, humo: 0.45, margen: 2, brillo: 1.15, pegada: 0.5 });
   const capa = () => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d')!; return [c, x, x.createImageData(w, h)] as const; };
   const [llama, gl, il] = capa(), [humo, gh, ih] = capa();
-  return { im, f, ch, aire, llama, gl, il, humo, gh, ih };
+  // el resplandor: la llama achicada a un cuarto y vuelta a agrandar (un desenfoque barato, sin filtros por cuadro)
+  const brillo = document.createElement('canvas'); brillo.width = Math.ceil(w / 4); brillo.height = Math.ceil(h / 4);
+  return { im, f, ch, aire, llama, gl, il, humo, gh, ih, brillo, gb: brillo.getContext('2d')! };
 }
 
 /**
@@ -43,14 +45,16 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
   if (pasada === 'atras') {
     const dt = ult < 0 ? 1 / 30 : Math.min(0.1, Math.max(0, t - ult)); ult = t;
     D.paso(s.f, dt);
-    D.pintar(s.f, s.il.data, s.f.w, s.f.h, 1, { capa: 'llama', filtro: 0.45 }); s.gl.putImageData(s.il, 0, 0);
+    D.pintar(s.f, s.il.data, s.f.w, s.f.h, 1, { capa: 'llama', filtro: 0.8 }); s.gl.putImageData(s.il, 0, 0);
     D.pintar(s.f, s.ih.data, s.f.w, s.f.h, 1, { capa: 'humo' }); s.gh.putImageData(s.ih, 0, 0);
     // brasas que se escapan de las puntas calientes
     if (chispas.length < (E.tactil ? 40 : 70)) for (const b of D.brasas(s.f, 2, 0.45)) if (Math.random() < 0.5) chispas.push({ x: x + b.x * cel, y: oy + b.y * cel, vx: (Math.random() - 0.5) * 18, vy: -30 - Math.random() * 40, t: 0, d: 1 + Math.random() * 1.4 });
     for (let i = chispas.length - 1; i >= 0; i--) { const c = chispas[i]; c.t += dt; if (c.t > c.d) { chispas.splice(i, 1); continue; } c.vx += Math.sin(t * 3 + c.y * 0.05) * 30 * dt; c.x += c.vx * dt; c.y += c.vy * dt; }
     ctx.save(); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.globalAlpha = alfa * 0.8; ctx.drawImage(s.humo, x, oy, w, s.f.h * cel);
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alfa * 0.9; ctx.drawImage(s.llama, x, oy, w, s.f.h * cel);
+    s.gb.clearRect(0, 0, s.brillo.width, s.brillo.height); s.gb.imageSmoothingEnabled = true; s.gb.drawImage(s.llama, 0, 0, s.brillo.width, s.brillo.height);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = alfa * 0.32; ctx.drawImage(s.brillo, x - cel * 3, oy - cel * 4, w + cel * 6, s.f.h * cel + cel * 6);
+    ctx.globalAlpha = alfa * 0.78; ctx.drawImage(s.llama, x, oy, w, s.f.h * cel);
     for (const c of chispas) { const k = Math.sin((c.t / c.d) * Math.PI); ctx.globalAlpha = alfa * k; ctx.fillStyle = c.t / c.d < 0.4 ? '#ffd27a' : '#ff6a24'; ctx.fillRect(c.x, c.y, 2, 2); }
     ctx.restore();
   } else {

@@ -7,6 +7,56 @@ import { ZONAS } from '../mundo/actos';
 import type { Juego, Ent } from '../juego/mundo';
 import { objetoMeta } from '../motor/assets';
 import { mapita, escalaEntera } from './mapitas';
+import { esqueleto } from '../../../src/engine/gotico/cuerpo';
+import { cuerpoDe, equipoVisual } from '../juego/heroe';
+import { CUADROS } from '../juego/mundo';
+
+/**
+ * Dónde pisa el héroe de verdad: lo deja escena.ts en cada cuadro (la acción, el rumbo, el cuadro que se ve, el rumbo
+ * real y el corrimiento del pie clavado). Con eso se arma su esqueleto (el mismo con que se pinta) y la huella cae donde
+ * apoya cada pie, en el cuadro en que apoya (antes salía cada 0,46 casillas a un costado de la marcha y no coincidía con
+ * la pisada: Rick, 19 nov 2026).
+ */
+export const pisadaHeroe = { acc: '', dir: '', i: 0, n: 0, resto: 0, vx: 0, vy: 0, esc: 1, listo: false };
+type Pie = { x: number; y: number; ang: number };
+const cachePies = new Map<string, { lado: number; pie: [number, number, number, number] } | null>();
+/** El pie que apoya en este cuadro: lado (0 der, 1 izq) y talón/punta en el piso, en el marco del cuerpo (adelante, derecha). */
+function pieApoyado(clase: string, arma: string, izq: string | undefined, dir: string, acc: string, f: number) {
+  const k = `${clase}|${arma}|${izq}|${dir}|${acc}|${f.toFixed(2)}`;
+  let v = cachePies.get(k);
+  if (v !== undefined) return v;
+  try {
+    const e: any = esqueleto(cuerpoDe(clase as any) as any, dir as any, acc as any, f, arma as any, izq as any);
+    const F = e.F, R = e.R, ps = e.piernas as { s: number; talon: number[]; punta: number[] }[];
+    let mejor = -1, zMin = 1e9;
+    ps.forEach((p, i) => { const z = Math.min(p.talon[2], p.punta[2]); if (z < zMin) { zMin = z; mejor = i; } });
+    if (mejor < 0) v = null;
+    else {
+      const p = ps[mejor], ad = (q: number[]) => q[0] * F[0] + q[1] * F[1], de = (q: number[]) => q[0] * R[0] + q[1] * R[1];
+      v = { lado: p.s > 0 ? 0 : 1, pie: [ad(p.talon), de(p.talon), ad(p.punta), de(p.punta)] };
+    }
+  } catch { v = null; }
+  if (cachePies.size > 4000) cachePies.clear();
+  cachePies.set(k, v);
+  return v;
+}
+let ladoAnt = -1;
+/** Si en este cuadro el héroe apoya un pie nuevo, dónde queda la huella (casillas del mundo) y hacia dónde apunta. */
+function pisadaNueva(h: any): Pie | null {
+  const P = pisadaHeroe;
+  if (!P.listo || (P.acc !== 'caminar' && P.acc !== 'correr') || !P.n) { ladoAnt = -1; return null; }
+  const eq = equipoVisual(h.d) as any, f = P.i * ((CUADROS as any)[P.acc] ?? 8) / P.n;
+  const a = pieApoyado(h.d.clase, eq.arma?.tipo ?? 'nada', eq.izq?.tipo, P.dir.startsWith('r') ? 'se' : P.dir, P.acc, f);
+  if (!a) return null;
+  if (a.lado === ladoAnt) return null;
+  ladoAnt = a.lado;
+  // del marco del cuerpo al mundo con el rumbo real (16 rumbos): adelante = (vx, vy), derecha = la perpendicular
+  const vx = P.vx, vy = P.vy, rx = -vy, ry = vx, k = P.esc / 16;
+  const [ta, td, pa, pd] = a.pie, mA = (ta + pa) / 2, mD = (td + pd) / 2;
+  const x = h.x - vx * P.resto + (vx * mA + rx * mD) * k, y = h.y - vy * P.resto + (vy * mA + ry * mD) * k;
+  const dx = vx * (pa - ta) + rx * (pd - td), dy = vy * (pa - ta) + ry * (pd - td);
+  return { x, y, ang: Math.atan2((dx + dy) / 2, dx - dy) };
+}
 
 type AP = (x: number, y: number) => [number, number];
 const hc = (x: number, y: number) => { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); };
@@ -184,7 +234,17 @@ export function ambienteSuelo(j: Juego, dt: number, t: number, aP: AP, bx0: numb
     const esH = e === (h as Ent), bl = BLANDO.find((b) => b[0].test(p.id));
     const sangre = esH && pasosSangre > 0, mojado = !bl && z.lluvia && z.tipo !== 'mazmorra', barro = esH && !bl && pasosBarro > 0;
     if (esH && bl) { pasosBarro = 12; barroRgb = bl[1]; barroClaro = /nieve|hielo/.test(p.id); }
-    if (!bl && !sangre && !mojado && !barro) { ultPaso.delete(e.id); return; }
+    if (!bl && !sangre && !mojado && !barro) { ultPaso.delete(e.id); if (esH) ladoAnt = -1; return; }
+    // el héroe: donde apoya el pie de verdad, en el cuadro en que apoya
+    if (esH && !(window as any).__huellaVieja) {
+      const pn = pisadaNueva(h); if (!pn) return;
+      const tam = 1, k0 = sangre ? (pasosSangre / 14) : bl ? bl[2] : barro ? 0.35 + 0.65 * pasosBarro / 12 : 0.6;
+      const rgb = sangre ? '120,8,6' : bl ? bl[1] : barro ? (barroClaro ? '200,214,230' : barroRgb) : '8,10,14';
+      huellas.push({ x: pn.x, y: pn.y, t: 0, ang: pn.ang, lado: 0, clara: !!bl && /nieve|hielo/.test(p.id), rgb, vida: sangre ? 26 : bl ? 22 : barro ? 16 : 5, k: k0 * tam, f: forma });
+      if (sangre) pasosSangre--; else if (barro && !bl) pasosBarro--;
+      if (huellas.length > (E.tactil ? 130 : 240)) huellas.splice(0, huellas.length - (E.tactil ? 130 : 240));
+      return;
+    }
     const u = ultPaso.get(e.id);
     if (!u) { ultPaso.set(e.id, [e.x, e.y, 1]); return; }
     const d = Math.hypot(e.x - u[0], e.y - u[1]); if (d < (esH ? 0.46 : forma === 'pata' ? 0.3 : 0.55)) return;
@@ -201,7 +261,7 @@ export function ambienteSuelo(j: Juego, dt: number, t: number, aP: AP, bx0: numb
   };
   if (!h.muerto) marca(h);
   for (const m of j.monstruos) if (!m.muerto && Math.abs(m.x - h.x) + Math.abs(m.y - h.y) < 16) marca(m);
-  (window as any).__huellas = huellas.length;
+  (window as any).__huellas = huellas.length; (window as any).__huellasArr = huellas;
   ((window as any).__amb ??= {}).ratas = ratas.length; (window as any).__amb.chapoteos = chapoteos.length;
   for (let i = huellas.length - 1; i >= 0; i--) {
     const q = huellas[i], vida = q.vida ?? 16; q.t += dt; if (q.t > vida) { huellas.splice(i, 1); continue; }

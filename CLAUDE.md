@@ -202,6 +202,10 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   cuadro). Lo que va sobre la cabeza (aturdido, confundido, maldito, la marca) se sube a la cabeza real (`cabeza` en
   `dibujarPfx`): con el tope de grano no crecía con el cuerpo. Prueba: `t900_electro.cjs <ids> <etiqueta>` (`ESTADO=frio`,
   `veneno`, `aturdido+marca`...). `__sinElectro` y `__estadosViejos` para comparar.
+- **El rayo no cruza muros** (Rick, 19 nov 2026): la cadena le pegaba al enemigo apuntado aunque hubiera un muro en
+  medio (el primer salto no miraba la línea de vista desde el héroe). Ahora el primero tiene que verse desde la mano y
+  `lineaLibre` mira a cuartos de celda (a media celda una diagonal saltaba la esquina). Prueba: `t940_rayo_muro.cjs [zona]`
+  (héroe y zombi con un muro en medio: 0 golpes; sin muro: todos).
 - **Números de daño** (`render/numeros.ts`): cifras de pixel con canto negro, brinco y apertura lateral, sin encimarse.
 
 - **Ríos**: el camino cruza el agua siempre por un puente, nunca por vado (se veía igual que lo hondo y Rick creyó que

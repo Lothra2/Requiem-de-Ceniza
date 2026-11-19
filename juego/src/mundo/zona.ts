@@ -1758,7 +1758,8 @@ export function libreCerca(z: Zona, x: number, y: number): [number, number] {
 }
 /** ¿Se ve (y pasa un proyectil) en línea recta de a a b? */
 export function lineaLibre(z: Zona, ax: number, ay: number, bx: number, by: number): boolean {
-  const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d * 2);
+  // (a un cuarto de celda: a media celda una diagonal saltaba la esquina de un muro de una celda)
+  const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d * 4);
   for (let i = 1; i < n; i++) { const t = i / n; const x = ax + (bx - ax) * t, y = ay + (by - ay) * t; const b = z.bloq[Math.floor(y) * z.W + Math.floor(x)]; if (b === 1 || b === 2) return false; }
   return true;
 }

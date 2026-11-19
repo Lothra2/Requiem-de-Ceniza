@@ -590,6 +590,8 @@ function falla(j: Juego, v: Ent) {
   j.numeros.push({ x: v.x, y: v.y, z: 52 * (v.escala ?? 1), txt: j.idi ? 'miss' : 'falla', color: '#8a8a8a', t: 0, chico: true });
 }
 export function danar(j: Juego, v: Ent, g: Golpe): number {
+  // (pruebas: t940_rayo_muro guarda quién le pegó al blanco marcado en __z)
+  if ((window as any).__traza && v === (window as any).__z) ((window as any).__trazas ??= []).push(new Error().stack?.split('\n').slice(1, 9).join(' | '));
   if (v.muerto) return 0;
   // nada del héroe ni de sus aliados le pega a un aliado (Thor, invocados, escoltas)
   if (g.deHeroe && (v as Monstruo).dueno) return 0;
@@ -1580,7 +1582,9 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
     case 'cadena': {
       let desde: Ent = h, golpeados = new Set<number>(), rebotes = (hb.rebota ?? 3) + Math.floor(n / 4);
       efecto(j, 'pfx:fx_carga_rayo', h.x, h.y, 0, 0.8, 0, 0.35); particulas(j, h.x, h.y, 8, 'chispa', '#fff6a0', 1.2, 40);
-      let blanco: Ent | null = obj && !obj.muerto ? obj : masCercano(j, tx, ty, 8, golpeados);
+      // el primer salto sale de la mano: el blanco tiene que verse desde el héroe (Rick, 19 nov 2026: el rayo cruzaba
+      // muros). Si apuntó a uno tapado, va al más cercano al clic que sí se ve
+      let blanco: Ent | null = obj && !obj.muerto && lineaLibre(j.zona, h.x, h.y, obj.x, obj.y) ? obj : masCercano(j, tx, ty, 8, golpeados, h);
       while (blanco && rebotes-- >= 0) {
         // (sin `seguir`: el arco seguía al blanco y quedaba de largo cero, o sea que el rayo no se veía salir de la mano)
         j.efectos.push({ id: 'arco_cadena', x: desde.x, y: desde.y, t: 0, dir: 0, escala: 1, z: 0, dur: 0.42 } as Efecto);
@@ -1772,9 +1776,10 @@ export function efectoDe(e: string, elem: Elemento, hb?: Habilidad, proyectil = 
   if (e === 'flecha' && elem === 'frio') return 'flecha_hielo';
   return EFECTOS[e] ?? e;
 }
-function masCercano(j: Juego, x: number, y: number, r: number, salvo: Set<number>): Ent | null {
-  let best: Ent | null = null, bd = r;
-  for (const m of enemigosDe(j, true)) { if (salvo.has(m.id)) continue; const d = dist(m.x, m.y, x, y); if (d < bd && lineaLibre(j.zona, x, y, m.x, m.y)) { bd = d; best = m; } }
+/** El enemigo más cercano a (x, y) que se ve desde ahí (o desde `desde`, si el tiro sale de otro lado). */
+function masCercano(j: Juego, x: number, y: number, r: number, salvo: Set<number>, desde?: { x: number; y: number }): Ent | null {
+  let best: Ent | null = null, bd = r; const ox = desde?.x ?? x, oy = desde?.y ?? y;
+  for (const m of enemigosDe(j, true)) { if (salvo.has(m.id)) continue; const d = dist(m.x, m.y, x, y); if (d < bd && lineaLibre(j.zona, ox, oy, m.x, m.y)) { bd = d; best = m; } }
   return best;
 }
 

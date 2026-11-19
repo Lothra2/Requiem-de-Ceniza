@@ -55,7 +55,7 @@ const PREMIOS = [
   // acto 7
   leg('copa_de_eskel', 'Copa de Eskel', 'Eskel\'s Cup', 'martillo_forja', 6, 'luz',
     [r('vida', 50, 65), r('fue', 16, 22), r('res_todo', 12, 16)],
-    'Eskel bebió de esta copa en el trono, antes de esconderse. Martilló la copa hasta que dejó de tener forma de copa.', 'Eskel drank from this cup at the throne, before he hid. He hammered the cup until it was no longer the shape of a cup.'),
+    'Se la ofrecieron a Eskel en el Relicario y no la bebió. Cuarenta años después la martilló hasta que dejó de tener forma de copa.', 'It was offered to Eskel in the Reliquary and he did not drink. Forty years later he hammered it until it was no longer the shape of a cup.'),
   leg('ala_del_angel_sediento', 'Ala del Ángel Sediento', 'Wing of the Thirsting Angel', 'arco_cuerno', 6, 'luz',
     [r('critico', 12, 16), r('des', 16, 22), r('vel_ataque', 12, 18)],
     'Pedía agua con la voz de un niño. Cuando se la diste, se acordó de lo que era.', 'It begged for water in a child\'s voice. When you gave it some, it remembered what it was.'),
@@ -87,11 +87,11 @@ const SANGRE = M({ id: 'm4_sangre', acto: 4, nombre: ['La sangre tibia', 'The Wa
   ] },
   premio: { atributos: 3 },
   eleccion: { pregunta: ['Le cuentas a Sigrun lo que leíste. Antes de que conteste, Vigdis se levanta junto al fuego. «Yo voy. Eirik está allá abajo hace veinte inviernos, y yo estoy tibia de esperarlo. Si me dejas ir, Hjaldur pierde el calor que le queda.» Sigrun te mira a ti. Sin Vigdis el fortín se queda sin curandera.', 'You tell Sigrun what you read. Before she can answer, Vigdis stands by the fire. "I will go. Eirik has been down there twenty winters, and I am warm from waiting for him. If you let me go, Hjaldur loses what warmth he has left." Sigrun looks at you. Without Vigdis the fort will have no healer.'], opciones: [
-    { texto: ['Detener a Vigdis. Enfrentarás a Hjaldur entero.', 'Stop Vigdis. You will face Hjaldur at full strength.'], decision: ['vigdis', 'salvar'],
+    { texto: ['Detener a Vigdis. Que el rey te espere entero.', 'Stop Vigdis. Let the king await you whole.'], decision: ['vigdis', 'salvar'],
       hecho: ['Le agarras la muñeca. Vigdis forcejea, después llora de rabia, y la lágrima se congela antes de tocar el suelo. «Entonces vas a pelear con un rey entero. Toma. Para que te acuerdes de que me debes una.» Sigrun asiente despacio. Hay respeto en la cara de la jarla, y también miedo.', 'You grab her wrist. Vigdis struggles, then weeps with rage, and the tear freezes before it touches the ground. "Then you will fight a whole king. Take this. So you remember you owe me one." Sigrun nods slowly. There is respect in the jarl\'s face, and fear too.'],
       premio: { unico: 'lagrima_de_vigdis', vida: 15 } },
-    { texto: ['Dejarla ir. Hjaldur perderá un cuarto de su fuerza.', 'Let her go. Hjaldur will lose a quarter of his strength.'], decision: ['vigdis', 'sacrificar'],
-      hecho: ['Vigdis te besa la frente, como a un hijo, y sale sin abrigo. Esa noche la montaña deja de cantar. A la mañana encuentran un hacha tibia clavada en la puerta del fortín y nada más. Sigrun manda cavar una tumba vacía junto al fuego. «Para que tenga dónde volver», dice.', 'Vigdis kisses your forehead, like a son, and walks out without a coat. That night the mountain stops singing. In the morning they find a warm axe driven into the fort\'s gate, and nothing else. Sigrun has an empty grave dug by the fire. "So she has somewhere to come back to," she says.'],
+    { texto: ['Dejarla ir. Que su calor le robe fuerzas al rey.', 'Let her go. Let her warmth rob the king of his strength.'], decision: ['vigdis', 'sacrificar'],
+      hecho: ['Vigdis te besa la frente, como a alguien de su sangre, y sale sin abrigo. Esa noche la montaña deja de cantar. A la mañana encuentran un hacha tibia clavada en la puerta del fortín y nada más. Sigrun manda cavar una tumba vacía junto al fuego. «Para que tenga dónde volver», dice.', 'Vigdis kisses your forehead, like one of her own blood, and walks out without a coat. That night the mountain stops singing. In the morning they find a warm axe driven into the fort\'s gate, and nothing else. Sigrun has an empty grave dug by the fire. "So she has somewhere to come back to," she says.'],
       premio: { unico: 'corazon_tibio', atributos: 3 } },
   ] },
 });
@@ -173,7 +173,7 @@ const NUEVAS: Mision[] = [
     ] },
     comentarios: [
       { npc: 'odran', eleccion: 0, texto: ['Auren te contó algo, ¿no? Se le nota. Camina más derecho, como el que dejó una carga en el suelo. No me lo cuentes. Ya estoy viejo para cargas ajenas.', 'Auren told you something, did he not? It shows. He walks straighter, like someone who set a burden down. Do not tell me. I am too old for other people\'s burdens.'] },
-      { npc: 'odran', eleccion: 1, texto: ['Treinta años cantando a su lado. Treinta años. Y lo supo siempre.', 'Thirty years singing at his side. Thirty years. And he knew all along.'] },
+      { npc: 'odran', eleccion: 1, texto: ['Treinta años escribiendo sus cantos en mi libro. Treinta años. Y lo supo siempre.', 'Thirty years writing his songs into my book. Thirty years. And he knew all along.'] },
     ] }),
   // ============================================================== ACTO 6
   M({ id: 'm6t_bitacora', acto: 6, lateral: true, da: 'tarn', nombre: ['La bitácora de la capitana', 'The Captain\'s Logbook'],
@@ -201,7 +201,7 @@ const NUEVAS: Mision[] = [
     pedido: ['En la Plaza de las Ánimas predica un sacerdote que dice que el mar es misericordioso. Los ahogados lo escuchan y se quedan quietos. Quiere venir al barco y bendecirnos. Dice que así la marea no nos va a tocar. Tráelo. Yo también quiero creerle.', 'In the Square of Souls a priest preaches that the sea is merciful. The drowned listen to him and keep still. He wants to come to the ship and bless us. He says that way the tide will never touch us. Bring him. I want to believe him too.'],
     hecho: ['Sor Salitre reza toda la noche. A la mañana te da el báculo del sacerdote, todavía mojado. «Predicaba la paz. Y tenía razón en una cosa: los ahogados sí lo escuchaban. Era su pastor.»', 'Sister Brine prays all night. In the morning she gives you the priest\'s staff, still wet. "He preached peace. And he was right about one thing: the drowned did listen to him. He was their shepherd."'],
     objetivo: { tipo: 'escoltar', zona: 'a6_barrio2', sprite: 'aparecida', nombre: ['El sacerdote de la marea', 'The tide priest'],
-      inicio: ['«El mar no odia a nadie, hijo. Solo tiene sed, como todos. Vamos al barco. Les voy a enseñar a no tenerle miedo.»', '"The sea hates no one, child. It is only thirsty, like everyone. Let us go to the ship. I will teach them not to fear it."'],
+      inicio: ['«El mar no odia a nadie, criatura. Solo tiene sed, como todos. Vamos al barco. Les voy a enseñar a no tenerle miedo.»', '"The sea hates no one, child. It is only thirsty, like everyone. Let us go to the ship. I will teach them not to fear it."'],
       llegada: ['«El barco. Qué bonito. Qué lleno de gente.»', '"The ship. How beautiful. How full of people."'],
       muerte: ['El sacerdote cae al agua y se deja llevar sin luchar. Los ahogados de la plaza se dan vuelta para mirarte.', 'The priest falls into the water and lets himself be carried away without a struggle. The drowned in the square turn to look at you.'],
       traicion: { monstruo: 'sacerdote_marea', nombre: ['El Pastor de los Ahogados', 'The Shepherd of the Drowned'], en: 0.55,
@@ -210,7 +210,7 @@ const NUEVAS: Mision[] = [
     comentarios: [{ npc: 'tarn', texto: ['Sor Salitre ya no reza en voz alta. Dice que no sabe quién más escucha.', 'Sister Brine no longer prays aloud. She says she does not know who else is listening.'] }] }),
   // ============================================================== ACTO 7
   M({ id: 'm7t_copa', acto: 7, lateral: true, da: 'eskel', requiere: ['m7_puente'], nombre: ['La copa que Eskel no bebió', 'The Cup Eskel Did Not Drink'],
-    pedido: ['Yo subí antes que tú. Hace cuarenta años. Llegué al trono y Aun-Saar me ofreció su copa. No la bebí. Me escondí, y por eso estoy vivo, y por eso no soy nadie. En las Islas Altas hay tres copas como esa. Si las vacías en las fuentes secas, el dios pierde lo que guardó para el próximo que suba. Hazlo por mí.', 'I climbed before you. Forty years ago. I reached the throne and Aun-Saar offered me his cup. I did not drink. I hid, and that is why I am alive, and that is why I am no one. In the High Isles there are three cups like that one. If you empty them into the dry fountains, the god loses what he saved for the next one to climb. Do it for me.'],
+    pedido: ['Yo subí antes que tú. Hace cuarenta años. Llegué hasta el Relicario y el copero me ofreció la copa del dios. No la bebí. Me escondí, y por eso estoy vivo, y por eso no soy nadie. En las Islas Altas hay tres copas como esa. Si las vacías en las fuentes secas, el dios pierde lo que guardó para el próximo que suba. Hazlo por mí.', 'I climbed before you. Forty years ago. I reached the Reliquary and the cupbearer offered me the god\'s cup. I did not drink. I hid, and that is why I am alive, and that is why I am no one. In the High Isles there are three cups like that one. If you empty them into the dry fountains, the god loses what he saved for the next one to climb. Do it for me.'],
     hecho: ['Eskel martilla la última copa hasta que deja de ser una copa. Te la da. «Ahora el que sube no tiene nada que rechazar. Tiene que pelear. Es más justo.»', 'Eskel hammers the last cup until it is no longer a cup. He gives it to you. "Now whoever climbs has nothing to refuse. They have to fight. It is fairer."'],
     objetivo: { tipo: 'ritual', zona: 'a7_islas2', n: 3, reliquia: ['cel_trono_copa', 'entera'], altar: ['cel_fuente_seca', 'rota', 'con_estatua'], guardian: 'guardian_halo' },
     premio: { unico: 'copa_de_eskel', atributos: 2 },

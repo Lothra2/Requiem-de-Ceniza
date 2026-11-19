@@ -389,7 +389,7 @@ export function dibujarArriba(j: Juego, encima: Monstruo | null) {
     // lo que dice el jefe: debajo de su barra, con fondo oscuro (encima del cuerpo no se leía)
     const habla = (j.jefe as any).habla as string | undefined;
     if (habla) {
-      const [bx, by, bw, bh] = hud.jefe!, tam = E.tactil ? 13 : 14, lin = envolver(habla, Math.min(W - 40, Math.max(bw, 420)), tam).slice(0, 2);
+      const [bx, by, bw, bh] = hud.jefe!, tam = E.tactil ? 13 : 14, lin = envolver(habla, Math.min(W - 40, Math.max(bw, 420)), tam).slice(0, 3);
       const anchoC = Math.max(...lin.map((l) => ancho(l, tam))) + 28, alto = lin.length * tam * 1.35 + 12, x0 = bx + bw / 2 - anchoC / 2, y0 = by + bh + 6;
       ctx.save(); ctx.fillStyle = 'rgba(8,5,4,0.78)'; ctx.fillRect(x0, y0, anchoC, alto); ctx.strokeStyle = 'rgba(160,90,50,0.6)'; ctx.strokeRect(x0 + 0.5, y0 + 0.5, anchoC - 1, alto - 1); ctx.restore();
       lin.forEach((l, i) => texto(l, bx + bw / 2, y0 + 6 + tam + i * tam * 1.35 - 3, { alin: 'center', tam, color: '#ffb080' }));
@@ -470,7 +470,7 @@ export function rectPanel(lado: 'izq' | 'der'): [number, number, number, number]
 /** Cierre común de todo lo que abre un NPC o un objeto: tienda, diálogo, baúl, piedra de viaje, página, misiones, menú. */
 export function cerrarPaneles() {
   ui.izq = ui.der = null; ui.mapa = false; ui.npc = null; ui.dialogoTexto = null;
-  const u = ui as any; u.oferta = null; u.eleccion = null; u.origen = null; u.paginaPanel = undefined;
+  const u = ui as any; u.oferta = null; u.eleccion = null; u.origen = null; u.paginaPanel = undefined; u.paginaSub = undefined;
 }
 export function dibujarPaneles(j: Juego, t: number) {
   ui.encima = null;
@@ -534,7 +534,8 @@ function dibujarPanel(j: Juego, p: PanelId, x: number, t: number, y = panelY()) 
       marco(x, y, PW, PH); titulo((ui as any).paginaPanel ?? T('Página arrancada', 'Torn page'), x, y, PW);
       const cx = x + PW / 2;
       texto((ui as any).paginaTitulo ?? '', cx, y + 58, { alin: 'center', tam: 16, color: '#e0b860', fuente: TITULO });
-      texto(`${(ui as any).paginaN} ${T('de', 'of')} ${(ui as any).paginaTotal ?? 9}`, cx, y + 76, { alin: 'center', tam: 11, color: '#8a7456' });
+      // (los restos no son de una serie: en vez de «1 de 1», el lugar donde pasó)
+      texto((ui as any).paginaSub ?? `${(ui as any).paginaN} ${T('de', 'of')} ${(ui as any).paginaTotal ?? 9}`, cx, y + 76, { alin: 'center', tam: 11, color: '#8a7456' });
       ctx.fillStyle = 'rgba(200,160,80,0.45)'; ctx.fillRect(cx - 60, y + 86, 120, 1); ctx.fillStyle = '#c8a050'; ctx.fillRect(cx - 2, y + 84, 4, 4);
       cuerpo.forEach((l, i) => texto(l, cx, y + 116 + i * alto, { alin: 'center', tam, color: '#e2d2b0', fuente: FUENTE }));
       if (boton(T('Cerrar', 'Close'), cx - 45, y + PH - 46, 90, 30, { tam: 13 })) { ui.izq = null; E.clicIzq = false; }

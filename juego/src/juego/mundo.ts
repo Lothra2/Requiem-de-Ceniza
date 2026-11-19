@@ -1,7 +1,7 @@
 // La simulación: héroe, monstruos, invocados, proyectiles, áreas, botín y efectos de una zona.
 import { npcVivo } from './historia';
 import { generarZona, pasable, buscarCamino, lineaLibre, libreCerca, type Zona, type ObjZ } from '../mundo/zona';
-import { ZONAS, POBL_ZONA, MISIONES, FRASE_JEFE } from '../mundo/actos';
+import { ZONAS, POBL_ZONA, MISIONES, FRASE_JEFE, FRASE_JEFE_ZONA } from '../mundo/actos';
 import { MONSTRUOS, POBLACION, MODS, NOMBRES_UNICOS, type DefMonstruo } from '../datos/monstruos';
 import { HABILIDADES, INVOCADOS, ATAQUE, ESCALA_HECHIZOS, poderNivel, danoInvocadoNivel, type Habilidad } from '../datos/clases';
 import { GENTE, NPCS } from '../datos/npcs';
@@ -89,6 +89,8 @@ export interface Monstruo extends Ent {
   cd: number; pensar: number; camino: [number, number][] | null; ox: number; oy: number;
   xp: number; lider?: Monstruo; invocaCd: number; fase: number;
   misionUnico?: string;
+  /** El jefe de la zona (no el de acto): dice su frase de `FRASE_JEFE_ZONA` al verte. No se guarda. */
+  jefeZona?: boolean;
   dueno?: boolean; invocaId?: string; tVida?: number;
   habla?: string;
   /** Presa marcada (cazadora): segundos que le quedan, recibe más daño del héroe y los suyos. */
@@ -431,6 +433,15 @@ export function crearMonstruo(def: DefMonstruo, nivel: number, x: number, y: num
   m.dir = elegir(DIRS);
   return m;
 }
+/**
+ * Lo que dice un jefe al verte: el de la zona su frase propia (`FRASE_JEFE_ZONA`, ata su encargo con la trama), si no la
+ * de su cuerpo (`FRASE_JEFE`). Va al registro y a la placa (sobre su cabeza o bajo la barra del jefe), con tiempo de
+ * lectura según el largo (unas 15 letras por segundo, de 4 a 9 s).
+ */
+function hablarJefe(j: Juego, m: Monstruo) {
+  const fr = (m.jefeZona && FRASE_JEFE_ZONA[j.zona.id]) || FRASE_JEFE[m.def.id]; if (!fr) return;
+  msg(j, fr, '#ff6040'); m.habla = fr[j.idi]; (m as any).hablaT = Math.max(4, Math.min(9, fr[j.idi].length / 15));
+}
 function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
   const out: Monstruo[] = [];
   const pool = POBLACION[POBL_ZONA[z.id] ?? ''] ?? [];
@@ -457,6 +468,7 @@ function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
         m.escala = (dm.escala ?? 1) * 1.15;
       }
       m.misionUnico = mis?.id;
+      if (!esActo) m.jefeZona = true;
       m.estado = 'dormido';
       out.push(m);
       // escolta
@@ -2155,7 +2167,9 @@ function actualizarMonstruo2(j: Juego, m: Monstruo, dt: number) {
       if (m.calidad >= 3 || m.def.jefe || m.def.ia === 'jefe') { j.jefe = m; (m as any).alerta = 0;
         // la primera vez que ves a un jefe de verdad: su presentación con el nombre grande y cámara lenta
         presentarJefe(j, m);
-        if (!(m as any).hablo) { (m as any).hablo = true; const fr = FRASE_JEFE[m.def.id]; if (fr) { msg(j, fr, '#ff6040'); m.habla = fr[j.idi]; (m as any).hablaT = 4; } sonar(j, 'rugido_jefe'); Sonido.musica('jefe'); } }
+        if (!(m as any).hablo) { (m as any).hablo = true; hablarJefe(j, m); sonar(j, 'rugido_jefe'); Sonido.musica('jefe'); } }
+      // el jefe de la zona (un único con nombre e historia) dice lo suyo al despertar, sobre su cabeza: antes entraba mudo
+      else if (m.jefeZona && !(m as any).hablo) { (m as any).hablo = true; hablarJefe(j, m); }
       else if (R() < 0.3) sonar(j, m.def.sonido === 'hueso' ? 'golpe_hueso' : 'grunido', m.x, m.y, 0.6);
       // el grupo despierta junto
       // el grupo despierta junto, pero no entero: los más cercanos sí, los demás a veces (llegan después cuando te vean)

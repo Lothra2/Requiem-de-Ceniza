@@ -1,10 +1,10 @@
 // La historia en juego: estado de las misiones, lo que dice cada uno según lo que pasó, los diarios de los sellos,
 // los fantasmas que repiten su última escena y Vesperio, el heraldo que huye en cada acto hasta la Fragua.
-import { MISIONES, DIARIOS, PAGINAS, FANTASMAS, HERALDO, ZONAS, MUSICA_ACTO, POBL_ZONA, DA_MISIONES, daMision, type Mision, type FinalElegido } from '../mundo/actos';
+import { MISIONES, DIARIOS, PAGINAS, FANTASMAS, HERALDO, RESTOS_ACTO, ZONAS, MUSICA_ACTO, POBL_ZONA, DA_MISIONES, daMision, type Mision, type FinalElegido } from '../mundo/actos';
 import { finalPor, type Decisiones, type Final } from '../mundo/decisiones';
 import { DIALOGOS, NPCS, type Linea } from '../datos/npcs';
 import { MONSTRUOS, POBLACION } from '../datos/monstruos';
-import { pasable, libreCerca, type ObjZ } from '../mundo/zona';
+import { pasable, libreCerca, type ObjZ, type Zona } from '../mundo/zona';
 import { crearMonstruo, msg, efecto, particulas, soltar, dirDe, type Juego, type Monstruo, type Dir } from './mundo';
 import { nivelEnDificultad, type DatosHeroe } from './heroe';
 import { Sonido } from '../audio/sonido';
@@ -26,6 +26,8 @@ export interface Historia {
   misionProg?: Record<string, number>;
   /** Decisiones de la cadena principal (Vigdis, Corona); la Brasa sigue en finalElegido. */
   decisiones?: Record<string, string>;
+  /** Restos leídos en las matanzas ('acto:i' de `RESTOS_ACTO`), para el Códice. Campo nuevo y opcional. */
+  restos?: string[];
 }
 export const hist = (d: DatosHeroe) => d as DatosHeroe & Historia;
 export const estadoMision = (d: DatosHeroe, id: string) => d.misiones[id] ?? 0;
@@ -117,17 +119,56 @@ export function leerLibro(d: DatosHeroe, acto: number): { titulo: [string, strin
   const i = Math.floor(R() * PAGINAS.length); return { titulo: abad, texto: PAGINAS[i], n: i + 1, total: PAGINAS.length };
 }
 
+// ------------------------------------------------------------------ restos que cuentan (las matanzas)
+/**
+ * Las matanzas (`curarAdornos`, capa 'matanza') se vuelven restos que se leen. Se marcan al entrar, no al generar: así la
+ * zona sale idéntica (bloq, objetos y esquinas) y no se toca el azar. Cuál texto le toca a cada pieza sale de su
+ * posición: se ordenan por una huella de (cx, cy) y cada una toma un texto distinto del acto, empezando por uno que
+ * depende de la zona. En la zona donde Vesperio se te aparece (actos 1 a 5) la primera es su carta, y la carta no sale
+ * en ninguna otra. Las que sobran (más piezas que textos) quedan mudas, para no repetir en la misma zona.
+ */
+const huella = (x: number, y: number) => (Math.imul(x | 0, 73856093) ^ Math.imul(y | 0, 19349663)) >>> 0;
+export function marcarRestos(z: Zona) {
+  if ((z as any).restosHechos) return; (z as any).restosHechos = true;
+  const lista = RESTOS_ACTO[z.acto]; if (!lista || z.tipo === 'pueblo') return;
+  const ps = z.objetos.filter((o) => o.capa === 'matanza' && o.id !== 'cri_sangre_seca' && !o.tag);
+  ps.sort((a, b) => huella(a.cx, a.cy) - huella(b.cx, b.cy) || a.cx - b.cx || a.cy - b.cy);
+  const carta = z.acto <= HERALDO.final && HERALDO.zonas[z.acto] === z.id;
+  const orden = z.acto > HERALDO.final ? [0, 1, 2, 3] : carta ? [3, 0, 1, 2] : [0, 1, 2];
+  let off = 0; if (!carta) for (const c of z.id) off = (off * 31 + c.charCodeAt(0)) >>> 0;
+  ps.slice(0, orden.length).forEach((o, k) => { o.tag = 'restos'; o.dato = { acto: z.acto, i: orden[(k + off) % orden.length] }; });
+}
+/** Lo que se lee en unos restos (y queda anotado para el Códice). */
+export function leerRestos(d: DatosHeroe, o: ObjZ): { titulo: [string, string]; texto: [string, string] } {
+  const acto = o.dato?.acto ?? 1, i = o.dato?.i ?? 0, ls = RESTOS_ACTO[acto] ?? RESTOS_ACTO[1];
+  const h = hist(d), k = `${acto}:${i}`; (h.restos ??= []); if (!h.restos.includes(k)) h.restos.push(k);
+  return { titulo: tituloRestos(acto, i), texto: ls[i % ls.length] };
+}
+export const tituloRestos = (acto: number, i: number): [string, string] =>
+  i === 3 && acto <= HERALDO.final ? ['Una carta sin mandar', 'An unsent letter'] : i === 3 && acto === 7 ? ['Uno de los siete', 'One of the seven'] : ['Lo que pasó aquí', 'What happened here'];
+
 // ------------------------------------------------------------------ voces que flotan (fantasmas y heraldo)
-export interface Eco { x: number; y: number; txt: [string, string]; t: number; dur: number; color: string }
+export interface Eco { x: number; y: number; txt: [string, string]; t: number; dur: number; color: string; /** Va sobre el héroe y lo sigue (la voz de la Marca). */ sigue?: boolean }
 export interface Fantasma { id: string; sprite: string; texto: [string, string]; x: number; y: number; dir: Dir; estado: 'espera' | 'habla' | 'muere' | 'ido'; t: number }
 export const ecos = (j: Juego): Eco[] => ((j as any).ecos ??= []);
 export const fantasmas = (j: Juego): Fantasma[] => (j.zona as any)?.fantasmas ?? [];
 function eco(j: Juego, x: number, y: number, txt: [string, string], dur: number, color: string) { ecos(j).push({ x, y, txt, t: 0, dur, color }); }
+/**
+ * La voz de la Marca (`VOZ_MARCA`): sube del brazo del héroe y lo sigue, color brasa, un poco después de la línea de
+ * ambiente (el `t` negativo es la espera). También queda en el registro.
+ */
+export function vozMarca(j: Juego, txt: [string, string]) {
+  const h = j.heroe;
+  ecos(j).push({ x: h.x, y: h.y, txt, t: -1.4, dur: Math.max(6, Math.min(10, txt[j.idi].length / 13)), color: '#ff7a50', sigue: true });
+  msg(j, txt, '#ff6a48');
+  setTimeout(() => Sonido.susurro(), 1400);
+}
 
 // ------------------------------------------------------------------ al entrar a una zona
 export function historiaEntrar(j: Juego) {
   const z = j.zona, h = j.heroe, d = h.d;
   (j as any).ecos = [];
+  marcarRestos(z);
   misionesEntrar(j);
   // fantasmas: uno por zona, en un lugar alejado de la entrada (una vez por zona viva)
   if (!(z as any).fantasmas) {

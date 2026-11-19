@@ -475,6 +475,47 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   `desenfocar(..., 26, 3)` en `catedral_portada.ts` leía la lámina RGBA como de 3 canales. Ya va con 4.
 - `__pOff` para comparar: `luna`, `jirones`, `humo`, `niebla`, `cat`, o `-<capa>,` para quitar una capa.
 
+## Historia y canon (19 nov 2026)
+
+Rick aprobó la revisión entera de la historia (70 propuestas). Lo que quedó como canon, para que nada nuevo lo contradiga:
+
+- **Arriba** está Aun-Saar, el Dios **Sediento** (sed, nunca hambre). Su sed cae como brasas, una cada mil inviernos.
+- **Hace mil inviernos** cae la primera (Ozmaren). Los primeros hermanos de Santa Oria la parten en **cinco pedazos, cinco
+  sellos**, con **siete voces** que les cantan "por si alguna se cansa". El primer abad anuncia la segunda brasa.
+- Los monjes reparten los pedazos: Sahrim hace mil años, Hrimgard hace trescientos, Yhuantl hace una generación en el barco
+  de **Ama, la madre de Oyá**. Ysmeral pactó con el mar hace siglos y sube a veces: hace treinta años se llevó a Ama.
+- **Hace cuarenta años** el cielo se raja un dedo y suben siete marcados (Eskel es el único que queda). Odrán los vio salir.
+- **Hace un año** Vesperio canta de noche (Auren, su maestro de coro, le enseñó la canción, Lys lo oía y calló) y guía a la
+  segunda brasa. Cae en el claustro y suelta una astilla que se mete en el héroe dormido: la Marca que no se apaga.
+- **Actos 1 a 5**: Vesperio ablanda a cada guardián, el héroe lo mata y el pedazo se suelta (el héroe es la llave). Vesperio le
+  da las gracias cada vez. **Actos 6 y 7**: sin Ozmaren tira el dios directo, y la voz de la Marca cambia de dueño.
+- Lo de la selva suena a **tambores**. Las campanas son de Santa Oria y de Ysmeral. La villana de Ysmeral es la Abadesa de la
+  Sal. Al héroe nadie le dice hijo ni hija (criatura, sangre de su sangre). En inglés el pueblo del acto 3 es Kesh Landing (the
+  Landing) y los nombres van sin tilde (Oya, Odran, Tomas). La tercera brasa es la del final del Rey de Ceniza.
+
+Dónde vive cada hilo nuevo (nada de esto toca la partida salvo `restos`, campo opcional nuevo):
+
+- **Frase del jefe de zona** (`FRASE_JEFE_ZONA` en `mundo/actos.ts`, 20 zonas): el jefe de zona lleva `jefeZona` (no se guarda)
+  y `hablarJefe` en `juego/mundo.ts` la dice al despertar, antes que la del cuerpo (`FRASE_JEFE`). Antes los jefes de zona
+  (calidad 2) no hablaban nunca. La placa sobre la cabeza (`frasesMonstruos`) y la de la barra del jefe cortan en 3 renglones.
+- **La voz de la Marca** (`VOZ_MARCA` en `actos.ts`, 10 zonas): `vozMarca` en `juego/historia.ts` la pone en el registro y
+  flotando sobre el héroe (un eco que lo sigue, `sigue`), después de la línea de ambiente. Una vez por sesión, como `ENTRADA_ZONA`.
+- **Llegada a los campamentos**: filas de los siete pueblos en `ENTRADA_ZONA`.
+- **Restos de las matanzas** (`RESTOS_ACTO` en `actos.ts`, 4 por acto): `marcarRestos` (historia.ts) marca al entrar las piezas
+  de capa 'matanza' de `curarAdornos`, NO al generar: la zona sale igual (lo mide `t855_determinismo`). El texto sale de la
+  posición de la pieza (orden por huella de cx, cy y un corrimiento por zona), sin repetir en la misma zona (las que sobran
+  quedan mudas). La carta de Vesperio a su madre (el cuarto de los actos 1 a 5) sale solo en la zona donde se te aparece
+  (`HERALDO.zonas`). Clic en el bulto del medio (`escena.ts`), se lee en la página de las pistas con el lugar en vez del
+  número (`paginaSub`) y queda en el Códice (`hist(d).restos`, claves 'acto:i').
+- **Ecos en el epílogo** (`ECOS_FINAL` en `mundo/decisiones.ts`): hasta dos líneas según las elecciones de los encargos, antes
+  de la última. Solo lee `elecciones`. Auren recuerda el juicio en sus relatos del acto 7 (`DIALOGOS` en `datos/npcs.ts`).
+- El texto de las cinemáticas (`marcoCine` en `menus.ts`) crece hacia arriba: con 3 o 4 renglones se metía en la franja.
+- No se tocó: el orden de las páginas del abad (la partida guarda un contador) ni el tipo de objetivo de ninguna misión. Las
+  ideas sin texto final del informe (epígrafe en la presentación del jefe, bestiario con historia, fantasma de Vesperio en
+  los actos 6 y 7, página del niño de la nieve) siguen pendientes.
+- Prueba: `node juego/herramientas/t960_historia.cjs [pc|movil]` (clic de verdad en los restos de las Catacumbas, voz de la
+  Marca en el Camposanto, Ívola en la Cripta, capturas en `/tmp/requiem-pruebas/historia`).
+
 ## Publicar
 
 - **Sitio**: cada push a `main` arma el juego y lo deja en `gh-pages` (`.github/workflows/publicar.yml`).

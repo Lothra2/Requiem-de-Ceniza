@@ -1,4 +1,5 @@
-// Los cinco actos: zonas, cómo se unen, misiones y la historia que se cuenta en cada una.
+// Los actos 1 a 5 (el 6 y el 7 están en actos67.ts): zonas, cómo se unen, misiones y la historia que se cuenta en cada una.
+// Los finales viven en decisiones.ts. El canon de las brasas está resumido en CLAUDE.md (Historia y canon).
 import type { DefZona } from './zona';
 
 const Z = (d: DefZona) => d;
@@ -175,7 +176,7 @@ export const daMision = (m: Mision) => m.da ?? DA_MISIONES[m.acto];
 export const MISIONES: Mision[] = [
   // ============================================================== ACTO 1
   { id: 'm1_hambre', acto: 1, nombre: ['El hambre bajo el páramo', 'The Hunger Beneath the Moor'],
-    pedido: ['Hay una cueva en el páramo. De ahí salen arañas del tamaño de un perro y los que comen a los muertos. Algo grande teje allá abajo. Los pastores la llaman la Madre del Pozo. Mátala y el páramo respirará un poco.', 'There is a cave on the moor. Spiders the size of dogs crawl out of it, and the corpse-eaters with them. Something big weaves down below. The shepherds call it the Well Mother. Kill it and the moor will breathe a little.'],
+    pedido: ['Hay una cueva en el páramo. Desde la noche de la brasa salen de ahí arañas del tamaño de un perro, y detrás los que comen a los muertos. Algo grande teje allá abajo con la ceniza que cayó. Los pastores la llaman la Madre del Pozo y dicen que huele la Marca a una legua. La tuya no se apaga: te va a oler primero. Mátala antes de que venga a buscarte.', 'There is a cave on the moor. Since the night of the ember, spiders the size of dogs crawl out of it, and the corpse-eaters behind them. Something big weaves down below with the ash that fell. The shepherds call it the Well Mother and say it can smell the Mark a league away. Yours does not fade: it will smell you first. Kill it before it comes looking for you.'],
     hecho: ['Siento el aire más liviano. Toma, esto es lo único que sé enseñar: cómo aprender más rápido.', 'The air feels lighter. Here, this is the only thing I know how to teach: how to learn faster.'],
     objetivo: { tipo: 'matar', zona: 'a1_guarida', monstruo: 'arana_reina' }, premio: { habilidad: 1 } },
   { id: 'm1_campanas', acto: 1, nombre: ['Las campanas mudas', 'The Silent Bells'],
@@ -244,7 +245,7 @@ export const MISIONES: Mision[] = [
     pedido: ['En el Templo del Sol Caído hay un sacerdote que todavía reza. Pero reza hacia abajo, hacia la brasa. Tiene un mapa que yo dibujé de joven, cuando aún veía: el mapa de los cinco sellos. Si lo sigue usando, sabrá dónde cavar. Quítaselo.', 'In the Temple of the Fallen Sun there is a priest who still prays. But he prays downward, toward the ember. He has a map I drew when I was young and could still see: the map of the five seals. If he keeps using it, he will know where to dig. Take it from him.'],
     hecho: ['Lo tienes.', 'You have it.'],
     objetivo: { tipo: 'matar', zona: 'a2_sol', monstruo: 'sacerdote_caido', nombreUnico: ['Hamun, el que Reza hacia Abajo', 'Hamun, Who Prays Downward'] }, premio: {},
-    eleccion: { pregunta: ['Traes el mapa de los cinco sellos. Las líneas se mueven si no las miras. En una esquina hay un sexto sello que nadie dibujó, una escalera hacia arriba. El cartógrafo extiende la mano hacia tu voz.', 'You bring the map of the five seals. The lines move when you are not looking. In one corner there is a sixth seal no one drew, a stair leading up. The cartographer reaches his hand toward your voice.'], opciones: [
+    eleccion: { pregunta: ['Traes el mapa de los cinco sellos. Las líneas se mueven si no las miras. En una esquina, mar adentro, hay un sexto sello que nadie dibujó, bajo una ciudad que no existe. Y encima del mar, una escalera hacia arriba. El cartógrafo extiende la mano hacia tu voz.', 'You bring the map of the five seals. The lines move when you are not looking. In one corner, far out at sea, there is a sixth seal no one drew, beneath a city that does not exist. And above the sea, a stair leading up. The cartographer reaches his hand toward your voice.'], opciones: [
       { texto: ['Devolvérselo al cartógrafo.', 'Return it to the cartographer.'],
         hecho: ['El viejo pasa los dedos sobre el pergamino y se ríe como un niño. «Todavía lo veo. Aquí, aquí y aquí.» Te enseña a leer los caminos que no existen todavía.', 'The old man runs his fingers over the parchment and laughs like a child. "I can still see it. Here, here and here." He teaches you to read paths that do not exist yet.'],
         premio: { habilidad: 1 } },
@@ -301,7 +302,7 @@ export const MISIONES: Mision[] = [
     objetivo: { tipo: 'llegar', zona: 'a4_hielo1' }, premio: { habilidad: 1 } },
   { id: 'm4_rey', acto: 4, nombre: ['El trono vacío', 'The Empty Throne'], cierraActo: true,
     pedido: ['Hjaldur dejó el trono de hielo. Los muertos de la montaña lo siguen. Si no vuelve a sentarse, que no se levante nunca más. Tú eliges cómo.', 'Hjaldur left the ice throne. The mountain dead follow him. If he will not sit again, make sure he never stands again. You choose how.'],
-    hecho: ['Cuatro sellos. Queda uno: la Herida, donde cayó la sed del dios que tiene hambre. Auren te espera en el Bastión. Que la nieve te guarde.', 'Four seals. One remains: the Wound, where the thirst of the starving god fell. Auren awaits you at the Bastion. May the snow keep you.'],
+    hecho: ['Cuatro sellos. Queda uno: la Herida, donde cayó la sed de un dios. Auren, el último cantor de Santa Oria, te espera en el Bastión del Último Coro. Dicen que no ha dejado de cantar desde la noche de la brasa. Que la nieve te guarde.', 'Four seals. One remains: the Wound, where a god\'s thirst fell. Auren, the last singer of Santa Oria, awaits you at the Bastion of the Last Choir. They say he has not stopped singing since the night of the ember. May the snow keep you.'],
     objetivo: { tipo: 'matar', zona: 'a4_hielo2', monstruo: 'rey_escarcha' }, premio: { habilidad: 1, atributos: 5, objeto: 'unico', olvido: true } },
   { id: 'm4_nino', acto: 4, lateral: true, da: 'nino_nieve', nombre: ['El corazón del niño', 'The Child\'s Heart'],
     pedido: ['El niño de la nieve te toma la mano. Su piel no está fría, está vacía. «Los gigantes cavaron en la Veta Madre buscando mi corazón. Es rojo y está tibio. Uno grande se lo quedó. Tráemelo, por favor. Quiero saber cómo se siente tener frío.»', 'The snow child takes your hand. His skin is not cold, it is empty. "The giants dug in the Mother Lode looking for my heart. It is red and warm. A big one kept it. Bring it to me, please. I want to know how it feels to be cold."'],
@@ -447,6 +448,13 @@ export const MISIONES: Mision[] = [
 
 /** Lo que se ve al entrar a una zona por primera vez (una línea de ambiente). */
 export const ENTRADA_ZONA: Record<string, [string, string]> = {
+  a1_refugio: ['Lona remendada, un fuego que no calienta y gente con ceniza en la piel. Te miran el brazo antes que la cara.', 'Patched canvas, a fire that gives no heat and people with ash on their skin. They look at your arm before your face.'],
+  a2_oasis: ['El agua del oasis está clara. Nadie la bebe después de medianoche.', 'The oasis water is clear. No one drinks it after midnight.'],
+  a3_muelle: ['El río golpea el muelle con ritmo de corazón. El agua baja roja desde la selva.', 'The river beats against the landing like a heart. The water comes down red from the jungle.'],
+  a4_fortin: ['Muros de hielo, perros que no ladran y una jarla que no duerme. Aquí a los muertos los entierran boca abajo.', 'Walls of ice, dogs that do not bark and a jarl who does not sleep. Here the dead are buried face down.'],
+  a5_bastion: ['Una sola voz canta sobre las murallas. Si se calla, el Bastión cae.', 'A single voice sings above the walls. If it falls silent, the Bastion falls.'],
+  a6_barco: ['El barco de Oyá se inclina sobre la arena como un animal cansado. Las campanas de la ciudad no paran.', 'Oya\'s ship leans on the sand like a tired animal. The city bells never stop.'],
+  a7_campamento: ['Tiendas clavadas en el vidrio del cielo. Abajo no hay nada. Arriba, alguien tiene sed.', 'Tents staked into the glass of the sky. Below there is nothing. Above, someone is thirsty.'],
   a1_pastor: ['Huele a lana mojada y a algo que se pudre. El pastor nunca salió.', 'It smells of wet wool and something rotting. The shepherd never came out.'],
   a1_bosque: ['Las sogas todavía se mecen. No hay viento.', 'The ropes still sway. There is no wind.'],
   a1_mina1: ['Los picos siguen clavados donde los dejaron. Alguien sigue cavando más abajo.', 'The picks are still stuck where they were left. Someone is still digging below.'],
@@ -459,7 +467,7 @@ export const ENTRADA_ZONA: Record<string, [string, string]> = {
   a2_sol: ['El altar mira hacia abajo, no hacia el cielo.', 'The altar faces down, not toward the sky.'],
   a3_inundadas: ['El agua te llega a las rodillas. Algo la mueve desde adentro.', 'The water reaches your knees. Something moves it from within.'],
   a3_nido: ['Hilos por todas partes. Algunos tienen forma de gente.', 'Threads everywhere. Some are shaped like people.'],
-  a3_hundida1: ['Una ciudad entera se hundió en una noche. Las campanas todavía suenan bajo el agua.', 'A whole city sank in one night. Bells still toll beneath the water.'],
+  a3_hundida1: ['Una ciudad entera se hundió en una noche. Bajo el agua todavía se oyen tambores, lentos, como un corazón.', 'A whole city sank in one night. Beneath the water drums still beat, slow, like a heart.'],
   a3_hundida2: ['El palacio respira. Las paredes sudan agua negra.', 'The palace breathes. The walls sweat black water.'],
   a4_minas1: ['Herramientas del tamaño de un hombre. Los gigantes cavaban buscando algo.', 'Tools the size of a man. The giants dug, searching for something.'],
   a4_minas2: ['La veta brilla roja. No es hierro.', 'The vein glows red. It is not iron.'],
@@ -489,14 +497,28 @@ export const ENTRADA_ZONA: Record<string, [string, string]> = {
   a4_hielo1: ['En el hielo hay caras. Te siguen con los ojos.', 'There are faces in the ice. Their eyes follow you.'],
   a4_hielo2: ['Un trono vacío. Una corona en el suelo.', 'An empty throne. A crown on the floor.'],
   a5_llanuras: ['El cielo es una herida que no cierra.', 'The sky is a wound that does not close.'],
-  a5_santuario1: ['La Marca arde. Algo te llama hijo.', 'The Mark burns. Something calls you child.'],
+  a5_santuario1: ['La Marca arde. Algo te llama sangre de su sangre.', 'The Mark burns. Something calls you blood of its blood.'],
   a5_santuario2: ['Has llegado. Tiene sed.', 'You have arrived. It is thirsty.'],
+};
+
+/** La voz de la Marca: lo que la brasa (y en los actos 6 y 7 el dios) te dice al entrar por primera vez a ciertos lugares. */
+export const VOZ_MARCA: Record<string, [string, string]> = {
+  a1_cementerio: ['Tu brazo late. Dentro de la Marca algo dice, muy bajo: «Ahí abajo duerme una hermana mía. Despiértala».', 'Your arm throbs. Inside the Mark something says, very low: "A sister of mine sleeps down there. Wake her."'],
+  a1_pozo: ['La Marca: «Ella me tuvo en las manos y no se quemó. Tú tampoco te vas a quemar. Somos de la misma sangre».', 'The Mark: "She held me in her hands and did not burn. You will not burn either. We are of the same blood."'],
+  a2_tumbas1: ['La Marca: «El rey me vendió su sombra. Tú me vas a dar algo mejor. Todavía no sabes qué».', 'The Mark: "The king sold me his shadow. You will give me something better. You do not know what yet."'],
+  a3_templo1: ['La Marca: «Cuenta los escalones. Son tantos como los años que llevo esperándote».', 'The Mark: "Count the steps. There are as many as the years I have waited for you."'],
+  a4_hielo1: ['La Marca: «Cuatro. Ya casi me acuerdo de mi cara».', 'The Mark: "Four. I can almost remember my face."'],
+  a5_llanuras: ['La Marca ya no susurra. Habla con tu propia voz: «Llegamos a casa».', 'The Mark no longer whispers. It speaks in your own voice: "We are home."'],
+  a6_costa: ['Otra voz, más honda, como agua al fondo de un pozo, entra por la Marca: «Al fin alguien que sube».', 'Another voice, deeper, like water at the bottom of a well, comes through the Mark: "At last, someone who climbs."'],
+  a6_catedral1: ['La voz honda: «Ella tocó para mí tres días. Tú vas a tocar más tiempo».', 'The deep voice: "She rang for me for three days. You will ring longer."'],
+  a7_cielo: ['La voz honda: «No me odies. Nadie odia la sed. Solo se la aguanta, o se la calma».', 'The deep voice: "Do not hate me. No one hates thirst. They only endure it, or quench it."'],
+  a7_escaleras: ['La voz honda dice tu nombre una vez por escalón. No se equivoca nunca.', 'The deep voice says your name once for every step. It never gets it wrong.'],
 };
 
 /** Frases que el jefe dice al verte. */
 export const FRASE_JEFE: Record<string, [string, string]> = {
   verdugo: ['¡Otro cuello! ¡Otro cuello para la piedra!', 'Another neck! Another neck for the stone!'],
-  abadesa: ['Hija mía, ¿vienes a rezar? Aquí abajo ya no hace falta.', 'My child, have you come to pray? Down here there is no need.'],
+  abadesa: ['Criatura, ¿vienes a rezar? Aquí abajo ya no hace falta.', 'My child, have you come to pray? Down here there is no need.'],
   rey_sin_sombra: ['Devuélveme lo que es mío. Tu sombra servirá.', 'Give back what is mine. Your shadow will do.'],
   madre_cienaga: ['Otro hijo. Ven. Mamá tiene hambre.', 'Another child. Come. Mother is hungry.'],
   rey_escarcha: ['Juré no levantarme. Mentí.', 'I swore never to rise. I lied.'],
@@ -509,31 +531,102 @@ export const FRASE_JEFE: Record<string, [string, string]> = {
   senor_demonio: ['Llevas mi ceniza en la piel. Ven, vuelve a mí.', 'You wear my ash on your skin. Come, return to me.'],
 };
 
+/** Lo que dice al verte el jefe de cada zona (va antes que FRASE_JEFE: los cuerpos de jefe se repiten entre actos). */
+export const FRASE_JEFE_ZONA: Record<string, [string, string]> = {
+  a1_pastor: ['Algo que fue un hombre te mira con un cayado clavado en el hombro. «Las ovejas tenían frío... yo tenía hambre...»', 'Something that was once a man looks at you, a crook driven into its shoulder. "The sheep were cold... I was hungry..."'],
+  a1_mina2: ['«Los mineros cavaron hacia el calor. Los encadené para que no siguieran. Tú también tienes la piel tibia.»', '"The miners dug toward the heat. I chained them so they would stop. Your skin is warm too."'],
+  a1_cripta: ['«Raspé mi nombre para que ella no lo aprendiera. ¿Y tú cómo te llamas? Dímelo. Yo lo guardo.»', '"I scraped off my name so she would not learn it. And what is yours? Tell me. I will keep it."'],
+  a2_escarabajos: ['(El caparazón suena como una campana de bronce. Debajo, algo cuenta tus pasos.)', '(The shell rings like a bronze bell. Beneath it, something counts your steps.)'],
+  a2_nombres2: ['«Dame tu nombre. Aquí abajo nadie debe ser recordado, para que él no sepa a quién beber.»', '"Give me your name. Down here no one may be remembered, so that he does not know whom to drink."'],
+  a2_sol: ['«Recé hacia arriba cuarenta años y nadie contestó. Abajo contestaron a la primera.»', '"I prayed upward for forty years and no one answered. Below, they answered the first time."'],
+  a3_inundadas: ['(La campana de vísperas suena en el cuello del trol. Una vez. Dos. Algo en el agua se da vuelta.)', '(The vespers bell rings at the troll\'s neck. Once. Twice. Something in the water turns over.)'],
+  a3_nido: ['«Tunde canta tan bonito. Le enseñé la canción del hombre pálido. ¿Quieres oírla desde adentro?»', '"Tunde sings so sweetly. I taught him the pale man\'s song. Would you like to hear it from inside?"'],
+  a3_pantano: ['«Te llamé por tu nombre y viniste. Los marineros también vinieron. Todos vienen.»', '"I called you by name and you came. The sailors came too. Everyone comes."'],
+  a3_hundida2: ['«Me casé con el agua para que la ciudad no se hundiera. El agua me mintió. Todos mienten el día de la boda.»', '"I married the water so the city would not sink. The water lied to me. Everyone lies on their wedding day."'],
+  a4_minas2: ['«El corazón del niño es mío. Late. Me calienta. Hacía trescientos inviernos que no sentía las manos.»', '"The child\'s heart is mine. It beats. It warms me. I had not felt my hands for three hundred winters."'],
+  a4_barbaro: ['«Trescientos inviernos de pie mirando esta puerta. Por fin entra alguien que vale la pena matar.»', '"Three hundred winters standing, watching this door. At last someone walks in who is worth killing."'],
+  a4_grieta: ['«¿Hijos? ¿Son ustedes? No... Vigdis mandó a alguien. Siempre tan terca.»', '"Children? Is that you? No... Vigdis sent someone. Always so stubborn."'],
+  a5_abismo2: ['«Juré guardar seis cantos. No me pidas que los suelte. Si callan, la nada sube.»', '"I swore to guard six songs. Do not ask me to let them go. If they fall silent, the nothing rises."'],
+  a5_fragua: ['(El segador tira de la cadena del fuelle. Con cada soplido, en algún pueblo del valle se apaga una fragua.)', '(The reaper hauls the bellows chain. With every breath, somewhere in the valley a forge goes cold.)'],
+  a6_faro: ['«La lámpara está limpia. La luz espera. ¿Vienes a encenderla o a romperla? Los dos vinieron antes.»', '"The lamp is clean. The light is waiting. Have you come to light it or to break it? Both have come before."'],
+  a6_arrecife: ['(Entre las costillas del arrecife una voz de mujer canta «Nerea, Nerea». La coraza se da vuelta hacia ti.)', '(Among the ribs of the reef a woman\'s voice sings "Nerea, Nerea". The shell turns toward you.)'],
+  a6_criptas2: ['«No nos hundimos. Bajamos a rezar más cerca. Arrodíllate, que aquí el agua es bendita.»', '"We did not sink. We came down to pray closer. Kneel, for the water here is holy."'],
+  a7_boveda: ['«Cada estrella es un trago. Él tiene sed y yo soy su copa. ¿Tú qué eres?»', '"Every star is a swallow. He thirsts and I am his cup. What are you?"'],
+  a7_relicario: ['«Bienvenida sea tu sed. El señor tiene sed. Permíteme servirte a ti también. A todos les sirvo. Solo Eskel se negó.»', '"Welcome, and welcome your thirst. My lord is thirsty. Allow me to serve you as well. I serve everyone. Only Eskel refused."'],
+};
+
 export const INTRO: [string, string][] = [
   ['Hubo un tiempo en que el valle de Velmora solo le temía al invierno.', 'There was a time when the valley of Velmora feared only winter.'],
   ['Los monjes de Santa Oria tocaban las campanas al alba, y nadie preguntaba por qué la abadía se alzó sobre un pozo sellado.', 'The monks of Santa Oria rang the bells at dawn, and no one asked why the abbey was raised over a sealed well.'],
-  ['Nadie recordaba el voto de los primeros hermanos: no cantar nunca de noche.', 'No one remembered the vow of the first brothers: never sing at night.'],
+  ['Nadie recordaba ya por qué los primeros hermanos juraron no cantar nunca de noche.', 'No one remembered anymore why the first brothers swore never to sing at night.'],
   ['La noche de la última cosecha, el cielo se abrió.', 'On the night of the last harvest, the sky opened.'],
   ['Una brasa cayó, lenta, como si buscara algo.', 'An ember fell, slowly, as if it were searching for something.'],
   ['Cayó en el claustro. Y las campanas doblaron solas.', 'It fell into the cloister. And the bells tolled on their own.'],
   ['Al amanecer, los monjes ya no estaban. Y el valle empezó a arder sin fuego.', 'By dawn, the monks were gone. And the valley began to burn without fire.'],
   ['Los que sobrevivieron llevan ceniza en la piel. La llaman la Marca.', 'Those who survived carry ash on their skin. They call it the Mark.'],
-  ['Tú también la tienes.', 'You bear it too.'],
-  ['Y en el fondo del pozo, algo que esperaba mil inviernos abrió los ojos.', 'And at the bottom of the well, something that had waited a thousand winters opened its eyes.'],
+  ['Tú también la tienes. Pero la tuya no se apaga.', 'You bear it too. But yours does not fade.'],
+  ['Y en el fondo del pozo, lo que los primeros hermanos enterraron hace mil inviernos oyó llegar a su hermana, y abrió los ojos.', 'And at the bottom of the well, what the first brothers buried a thousand winters ago heard its sister arrive, and opened its eyes.'],
 ];
 
 /** Páginas arrancadas del diario del primer abad: se encuentran en libros malditos y cuentan el secreto. */
 export const PAGINAS: [string, string][] = [
   ['«Día uno. Cavamos donde cayó. La tierra estaba tibia a veinte palmos. El hermano Ulric dice que oyó un latido.»', '"Day one. We dug where it fell. The earth was warm twenty spans down. Brother Ulric says he heard a heartbeat."'],
   ['«No es una piedra. Es un pedazo de algo. Cuando le rezamos, se enfría. Cuando callamos, crece.»', '"It is not a stone. It is a piece of something. When we pray to it, it cools. When we fall silent, it grows."'],
-  ['«Decidimos cantar. Siete voces, siete cantos, siete pozos. Uno por cada pedazo. Nadie fuera del claustro debe saberlo.»', '"We decided to sing. Seven voices, seven songs, seven wells. One for each piece. No one outside the cloister must know."'],
+  ['«Decidimos cantar. Cinco pedazos, cinco pozos, y siete voces para cantarles, por si alguna se cansa. Nadie fuera del claustro debe saberlo.»', '"We decided to sing. Five pieces, five wells, and seven voices to sing to them, in case one grows tired. No one outside the cloister must know."'],
   ['«Ulric dejó de cantar una noche. Lo encontramos con la boca llena de ceniza. Sonreía.»', '"Ulric stopped singing one night. We found him with his mouth full of ash. He was smiling."'],
   ['«Los reyes del sur aceptaron un pedazo a cambio de oro. No entendieron. Uno de ellos ya no proyecta sombra.»', '"The southern kings took a piece in exchange for gold. They did not understand. One of them no longer casts a shadow."'],
   ['«La Marca aparece en los que la miran demasiado. Es una llave. Si todas las brasas se juntan, la llave abre.»', '"The Mark appears on those who look at it too long. It is a key. If all the embers come together, the key opens."'],
   ['«El nombre. No lo escribiré. Basta decir que tiene sed, y que la sed no se apaga matándolo. Se apaga olvidándolo.»', '"The name. I will not write it. Enough to say it is thirsty, and that the thirst is not quenched by killing it. It is quenched by forgetting it."'],
   ['«Si lees esto, la abadía cayó. Busca al niño que no habla. Él lo vio todo, y por eso le quitamos la voz.»', '"If you read this, the abbey has fallen. Seek the child who does not speak. He saw everything, and that is why we took his voice."'],
-  ['«Cayó una segunda brasa. No cayó aquí. Sigue cayendo. Tarda mil años en llegar.»', '"A second ember fell. It did not fall here. It is still falling. It takes a thousand years to arrive."'],
+  ['«Cayó una segunda brasa. No cayó aquí. Sigue cayendo. Tarda mil años en llegar. Cuando llegue va a buscar a sus hermanas, y la primera noche que alguien cante la va a guiar.»', '"A second ember fell. It did not fall here. It is still falling. It takes a thousand years to arrive. When it does, it will seek its sisters, and the first night someone sings will guide it."'],
 ];
+
+// ------------------------------------------------------------------ restos que cuentan (las matanzas)
+/** Lo que se lee en los restos de una matanza, por acto. El cuarto de cada acto (hasta el 5) es una carta de Vesperio a su madre. */
+export const RESTOS_ACTO: Record<number, [string, string][]> = {
+  1: [
+    ['Un monje con la boca cosida con alambre de campana. En la palma, escrito con la uña: «No cantamos. Igual vino».', 'A monk with his mouth sewn shut with bell wire. On his palm, scratched with a fingernail: "We did not sing. It came anyway."'],
+    ['Una familia sentada alrededor de una olla fría. A todos les falta la cara, cortada limpia, como si alguien se las hubiera llevado de recuerdo.', 'A family seated around a cold pot. All of them are missing their faces, cut away clean, as if someone took them as keepsakes.'],
+    ['Un pastor abierto del cuello al vientre. Adentro, en vez de tripas, lana mojada y ceniza tibia.', 'A shepherd opened from throat to belly. Inside, instead of guts, wet wool and warm ash.'],
+    ['Una carta sin mandar, con sangre vieja en el doblez: «Madre: aquí no me dejan cantar de noche. Pero en el pozo hay alguien que me escucha, y es lo único que me escucha. Vesperio».', 'An unsent letter, old blood in the fold: "Mother: they will not let me sing at night here. But there is someone in the well who listens to me, and it is the only thing that does. Vesperio."'],
+  ],
+  2: [
+    ['Saqueadores enterrados hasta el cuello, de espaldas al sol. La arena les llenó la boca. Sobre cada cabeza, un nombre raspado.', 'Raiders buried to the neck, their backs to the sun. The sand filled their mouths. Above each head, a scraped-off name.'],
+    ['Un camello vaciado y, adentro, un niño que no respira. Lo metieron ahí para protegerlo del viento. El viento entró igual.', 'A hollowed camel and, inside, a child who does not breathe. They put him there to shelter him from the wind. The wind got in anyway.'],
+    ['Doce manos derechas clavadas en una estela. Debajo: «El rey cobra en sombra o en carne».', 'Twelve right hands nailed to a stele. Beneath them: "The king takes payment in shadow or in flesh."'],
+    ['«Madre: los reyes de abajo me abrieron la puerta sin preguntar. Dicen que mi voz sabe a agua. Ya no tengo sed. Vesperio».', '"Mother: the kings below opened the door for me without asking. They say my voice tastes of water. I am no longer thirsty. Vesperio."'],
+  ],
+  3: [
+    ['Un marinero colgado de los pies sobre una cuenca de barro, desangrado gota a gota. Algo bebió de la cuenca. Dejó huellas chicas.', 'A sailor hung by the feet over a basin of mud, bled drop by drop. Something drank from the basin. It left small footprints.'],
+    ['Mujeres de la tribu sentadas en círculo, con el vientre abierto hacia el centro. En el centro, barro que se mueve.', 'Women of the tribe seated in a circle, their bellies opened toward the center. In the center, mud that moves.'],
+    ['Un cazador desollado con cuidado, la piel tendida a secar como una vela. En la piel hay escrita una canción de cuna.', 'A hunter flayed with care, his skin stretched to dry like a sail. A lullaby is written on the skin.'],
+    ['«Madre: la que vive bajo el templo me cantaba en sueños cuando yo era niño, en Velmora, y yo creía que eras tú. No eras tú. Vesperio».', '"Mother: the one who lives beneath the temple sang to me in dreams when I was a boy, in Velmora, and I thought it was you. It was not you. Vesperio."'],
+  ],
+  4: [
+    ['Los exploradores de Sigrun, de rodillas en fila, con el pecho abierto hacia el norte. A ninguno le dejaron el corazón.', 'Sigrun\'s scouts, kneeling in a row, their chests opened toward the north. None of them was left a heart.'],
+    ['Un oso partido en dos y, adentro, un hombre que se metió a buscar calor. Los dos murieron abrazados.', 'A bear split in two and, inside it, a man who crawled in looking for warmth. They died embracing.'],
+    ['Lobos clavados por la cola a la puerta de una cripta, todavía pateando. El hielo no los deja morir.', 'Wolves nailed by their tails to a crypt door, still kicking. The ice will not let them die.'],
+    ['«Madre: le canté al rey tu canción de cuna y se levantó del trono. Ojalá tú te hubieras levantado así cuando yo te llamaba. Vesperio».', '"Mother: I sang the king your lullaby and he rose from his throne. I wish you had risen like that when I called for you. Vesperio."'],
+  ],
+  5: [
+    ['Penitentes del Bastión con la lengua clavada a un poste. Cantaron hasta el final. Las lenguas todavía se mueven.', 'Penitents of the Bastion with their tongues nailed to a post. They sang to the end. The tongues still move.'],
+    ['Cuerpos apilados como leña. Los de abajo están quemados. Los de arriba esperan su turno con los ojos abiertos.', 'Bodies stacked like firewood. The ones below are burned. The ones on top wait their turn with open eyes.'],
+    ['Un herrero encadenado a su yunque, con el martillo fundido en la mano. Lo dejaron forjar hasta que se le acabó el cuerpo.', 'A smith chained to his anvil, the hammer melted into his hand. They let him forge until his body ran out.'],
+    ['«Madre: ya sé quién lleva la astilla. Va a venir a matarme y le voy a dar las gracias. Quema esta carta. Vesperio».', '"Mother: I know now who carries the splinter. They will come to kill me and I will thank them. Burn this letter. Vesperio."'],
+  ],
+  6: [
+    ['Una mesa puesta bajo el agua. Los comensales siguen sentados, hinchados, con la cuchara a medio camino. En el pan hay dientes clavados.', 'A table set beneath the water. The diners are still seated, bloated, spoons halfway to their mouths. There are teeth stuck in the bread.'],
+    ['Un niño amarrado con cadena de plata a la campana de una boya. Lo pusieron ahí para que sonara cuando subiera la marea.', 'A child bound with silver chain to the bell of a buoy. They put him there so it would ring when the tide rose.'],
+    ['Pescadores con la boca llena de perlas negras, hasta reventarles la mandíbula. Alguien les pagó el silencio.', 'Fishermen with their mouths stuffed with black pearls until their jaws split. Someone paid for their silence.'],
+    ['Ahogados en fila, todos con la cara hacia arriba y la boca abierta, como pichones esperando. Arriba no hay nada. Todavía.', 'Drowned men in a row, faces turned up and mouths open, like nestlings waiting. There is nothing above. Yet.'],
+  ],
+  7: [
+    ['Peregrinos convertidos en oro a medias. Donde el oro no alcanzó, la carne sigue fresca y sangra si la tocas.', 'Pilgrims half turned to gold. Where the gold did not reach, the flesh is still fresh and bleeds if you touch it.'],
+    ['Ángeles que se arrancaron los ojos para no ver el trono. Los ojos están en una copa, ordenados por tamaño.', 'Angels who tore out their eyes so as not to see the throne. The eyes are in a cup, sorted by size.'],
+    ['Un hombre cosido a su propia estatua, piel con piedra, por los bordes. La estatua sonríe. Él no.', 'A man stitched to his own statue, skin to stone, along the edges. The statue smiles. He does not.'],
+    ['Uno de los siete de Eskel, de rodillas, vaciado como una copa. En el puño aprieta una nota: «Eskel, no bebas».', 'One of Eskel\'s seven, kneeling, emptied like a cup. In his fist he clutches a note: "Eskel, do not drink."'],
+  ],
+};
 
 // ------------------------------------------------------------------ diarios de los sellos
 /** Un diario por acto: se lee en los libros malditos de las zonas de ese acto, antes que las páginas del abad. */
@@ -548,10 +641,10 @@ export const DIARIOS: Record<number, { titulo: [string, string]; paginas: [strin
     ['«El Rey ya no proyecta sombra. Dice que la vendió para dormir más hondo. Yo vi a la sombra irse. Caminaba hacia la caja de plomo.»', '"The King no longer casts a shadow. He says he sold it to sleep deeper. I saw the shadow leave. It walked toward the lead box."'],
     ['«Hoy vino un hombre pálido que cantaba en una lengua del norte. Las momias le abrieron la puerta. El segundo sello no se rompió. Lo invitaron a romperse.»', '"Today a pale man came singing in a northern tongue. The mummies opened the door for him. The second seal did not break. It was invited to break."'],
   ] },
-  3: { titulo: ['Bitácora de la capitana Ama Oyá', 'Log of Captain Ama Oya'], paginas: [
+  3: { titulo: ['Bitácora de la capitana Ama, madre de Oyá', 'Log of Captain Ama, Oya\'s mother'], paginas: [
     ['«Llevamos una caja de plomo río arriba, por encargo de unos monjes. Nadie de la tripulación quiere dormir cerca de ella. Dicen que la caja respira.»', '"We carry a lead box upriver, commissioned by some monks. No one in the crew wants to sleep near it. They say the box breathes."'],
     ['«La sacerdotisa del templo la recibió llorando. Dijo que su diosa era madre de todo lo que nace del barro, y que ahora tendría un hijo de fuego.»', '"The temple priestess received it weeping. She said her goddess was mother to all things born of mud, and that now she would bear a child of fire."'],
-    ['«La ciudad se hundió en una noche. Desde el barco vimos las torres entrar al agua, despacio, con las campanas sonando. Si mi hija lee esto: no vuelvas al templo. Nunca.»', '"The city sank in a single night. From the ship we watched the towers go into the water, slowly, with the bells ringing. If my daughter reads this: never go back to the temple. Never."'],
+    ['«La ciudad se hundió en una noche. Desde el barco vimos las torres entrar al agua, despacio, con los tambores sonando. Si mi hija lee esto: no vuelvas al templo. Nunca.»', '"The city sank in a single night. From the ship we watched the towers go into the water, slowly, with the drums beating. If my daughter reads this: never go back to the temple. Never."'],
   ] },
   4: { titulo: ['Runas de la guardia de Hjaldur', 'Runes of Hjaldur\'s Guard'], paginas: [
     ['«Hjaldur se sentó sobre el sello y juró no levantarse. Nosotros juramos quedarnos de pie a su lado. Eso fue hace trescientos inviernos.»', '"Hjaldur sat upon the seal and swore never to rise. We swore to stand beside him. That was three hundred winters ago."'],
@@ -560,8 +653,8 @@ export const DIARIOS: Record<number, { titulo: [string, string]; paginas: [strin
     ['«Las brasas no son el dios. Son su sed, que se le cayó del pecho como una lágrima de fuego. Si alguna vez se juntan todas, él va a sentir que vuelve a tener boca.»', '"The embers are not the god. They are his thirst, which fell from his chest like a tear of fire. If they ever come together, he will feel that he has a mouth again."'],
   ] },
   5: { titulo: ['Libro de horas del Último Coro', 'Book of Hours of the Last Choir'], paginas: [
-    ['«Ozmaren no es un demonio. Es la sed de Aun-Saar, el dios hambriento, hecha carne para bajar a beber. La partimos en brasas para que ninguna recordara a las otras.»', '"Ozmaren is not a demon. It is the thirst of Aun-Saar, the starving god, made flesh to come down and drink. We split it into embers so that none would remember the others."'],
-    ['«Eran cinco brasas en cinco sellos. Pero hubo una sexta, la más pequeña, que no pudimos encerrar. Se metió en la piel de una criatura dormida, en el valle. Esa criatura no lo sabe.»', '"There were five embers in five seals. But there was a sixth, the smallest, which we could not imprison. It slipped into the skin of a sleeping child, in the valley. The child does not know."'],
+    ['«Ozmaren no es un demonio. Es la sed de Aun-Saar, el dios sediento, hecha carne para bajar a beber. Los primeros hermanos la partieron en brasas para que ninguna recordara a las otras.»', '"Ozmaren is not a demon. It is the thirst of Aun-Saar, the thirsting god, made flesh to come down and drink. The first brothers split it into embers so that none would remember the others."'],
+    ['«Eran cinco brasas en cinco sellos. La noche de la cosecha cayó la segunda, la que anunció el primer abad, y al tocar el claustro soltó una astilla, la más pequeña. No pudimos encerrarla. Se metió en la piel de alguien que dormía en el valle. Esa criatura no lo sabe.»', '"There were five embers in five seals. On the night of the harvest the second one fell, the one the first abbot foretold, and when it struck the cloister it shed a splinter, the smallest. We could not imprison it. It slipped into the skin of someone sleeping in the valley. That creature does not know."'],
     ['«La ceniza de los sobrevivientes es solo ceniza. Pero en uno de ellos la Marca no se apaga. Esa es la sexta brasa. Quien la lleve podrá apagar la sed para siempre, o terminar de encenderla. Que el portador elija. Nosotros ya no podemos.»', '"The ash on the survivors is only ash. But on one of them the Mark does not fade. That is the sixth ember. Whoever bears it can put out the thirst forever, or finish lighting it. Let the bearer choose. We no longer can."'],
   ] },
   6: { titulo: ['Registro de la campanera de Ysmeral', 'Register of the Bell-Keeper of Ysmeral'], paginas: [
@@ -583,7 +676,7 @@ export const FANTASMAS: { id: string; zona: string; sprite: string; texto: [stri
   { id: 'f_bosque', zona: 'a1_bosque', sprite: 'penitente', texto: ['No fui yo. Fue la campana. Ella me pidió la soga.', 'It was not me. It was the bell. She asked me for the rope.'] },
   { id: 'f_abadia', zona: 'a1_abadia2', sprite: 'monja_hueca', texto: ['Hermano Vesperio, no cantes. Es de noche. Por favor, no cantes.', 'Brother Vesperio, do not sing. It is night. Please, do not sing.'] },
   { id: 'f_oasis', zona: 'a2_oasis_muerto', sprite: 'saqueador', texto: ['El agua estaba negra. Bebí igual. Tenía tanta sed.', 'The water was black. I drank anyway. I was so thirsty.'] },
-  { id: 'f_hundida', zona: 'a3_hundida1', sprite: 'ahogado', texto: ['Las campanas sonaban bajo el agua. Bajé a ver quién las tocaba.', 'The bells were ringing beneath the water. I went down to see who rang them.'] },
+  { id: 'f_hundida', zona: 'a3_hundida1', sprite: 'ahogado', texto: ['Los tambores sonaban bajo el agua. Bajé a ver quién los tocaba.', 'The drums were beating beneath the water. I went down to see who beat them.'] },
   { id: 'f_glaciar', zona: 'a4_glaciar', sprite: 'escarchado', texto: ['¿Hijo? ¿Eres tú? Te busqué toda la noche. Ya no siento las manos.', 'Son? Is that you? I searched for you all night. I can no longer feel my hands.'] },
   { id: 'f_llanuras', zona: 'a5_llanuras', sprite: 'caballero_abismo', texto: ['Juramos que no lo despertaríamos. Lo juramos cantando.', 'We swore we would not wake it. We swore it singing.'] },
   { id: 'f_barrio', zona: 'a6_barrio1', sprite: 'ahogado', texto: ['Siéntate, la sopa se enfría. ¿Por qué hay agua en el pan?', 'Sit down, the soup is getting cold. Why is there water in the bread?'] },
@@ -605,9 +698,9 @@ export const HERALDO = {
     5: ['Aquí forjó las cadenas. Aquí se rompe la última. ¿Todavía no lo sabes? La llave eres tú.', 'Here he forged the chains. Here the last one breaks. Do you still not know? The key is you.'],
   } as Record<number, [string, string]>,
   huida: {
-    1: ['Todavía no. Él quiere verte entero cuando llegues.', 'Not yet. He wants you whole when you arrive.'],
-    2: ['La arena me guarda un sitio. Nos vemos más abajo.', 'The sand keeps a place for me. We will meet further down.'],
-    3: ['El agua me lleva. Siempre me lleva adonde tú vas.', 'The water carries me. It always carries me where you are going.'],
+    1: ['Gracias por la Abadesa. Yo solo la hice cantar. Tú la abriste. Todavía no: él quiere verte entero cuando llegues.', 'Thank you for the Abbess. I only made her sing. You opened her. Not yet: he wants you whole when you arrive.'],
+    2: ['El rey ya no guarda nada. Lo soltaste tú, no yo. La arena me guarda un sitio. Nos vemos más abajo.', 'The king guards nothing now. You set it loose, not me. The sand keeps a place for me. We will meet further down.'],
+    3: ['Otra cerradura menos. Cantas mejor que yo, y ni siquiera abres la boca. El agua me lleva. Siempre me lleva adonde tú vas.', 'One lock fewer. You sing better than I do, and you never even open your mouth. The water carries me. It always carries me where you are going.'],
     4: ['Corre al trono. Yo te espero donde todo arde.', 'Run to the throne. I will wait for you where everything burns.'],
   } as Record<number, [string, string]>,
   muerte: ['Canté... para que alguien me escuchara... Tu Marca... no es ceniza... nunca lo fue...', 'I sang... so that someone would listen... Your Mark... is not ash... it never was...'] as [string, string],
@@ -638,7 +731,7 @@ export const ENTREACTO: Record<number, TomaEntreacto[]> = {
     { escena: 'nieve', seed: 4, texto: ['Cuatro sellos rotos. Cuatro brasas sueltas que buscan volver a juntarse.', 'Four seals broken. Four loose embers seeking to come together again.'] },
     { escena: 'infierno', seed: 3, texto: ['Sobre la Herida, el cielo se abrió como una boca que no termina de gritar.', 'Above the Wound, the sky opened like a mouth that never finishes screaming.'] },
     { escena: 'fortaleza', seed: 2, texto: ['En el Bastión del Último Coro, una sola voz sigue cantando.', 'In the Bastion of the Last Choir, a single voice keeps singing.'] },
-    { escena: 'infierno', seed: 6, figura: 'ozmaren', texto: ['Tu Marca ya no duele. Late. Y algo, del otro lado, te llama hijo.', 'Your Mark no longer hurts. It beats. And something, on the other side, calls you child.'] },
+    { escena: 'infierno', seed: 6, figura: 'ozmaren', texto: ['Tu Marca ya no duele. Late. Y algo, del otro lado, te llama sangre de su sangre.', 'Your Mark no longer hurts. It beats. And something, on the other side, calls you blood of its blood.'] },
   ],
   5: [
     { escena: 'infierno', seed: 8, texto: ['Ozmaren cayó. La sed que bajó a beber se quedó sin boca.', 'Ozmaren fell. The thirst that came down to drink was left without a mouth.'],
@@ -667,20 +760,4 @@ export const OPCIONES_BRASA: Record<FinalElegido, [string, string]> = { destruir
 export const TRAS_ELEGIR: Record<FinalElegido, [string, string]> = {
   destruir: ['Cierras la mano y aprietas hasta que la Brasa deja de latir. Tu Marca se pone gris y fría. Muy arriba, algo siente que le falta un pedazo.', 'You close your hand and squeeze until the Ember stops beating. Your Mark turns grey and cold. Far above, something feels a piece of itself go missing.'],
   absorber: ['Llevas la Brasa a tu pecho y la Marca la bebe como agua en el desierto. La sed entra en ti. Es tuya. Muy arriba, algo sonríe.', 'You bring the Ember to your chest and the Mark drinks it like water in the desert. The thirst enters you. It is yours. Far above, something smiles.'],
-};
-export const EPILOGO: Record<FinalElegido, { titulo: [string, string]; lineas: [string, string][] }> = {
-  destruir: { titulo: ['La Hoguera', 'The Pyre'], lineas: [
-    ['Aun-Saar cae de su trono. Busca en ti el pedazo que le faltaba, y no lo encuentra. Tu Marca está apagada.', 'Aun-Saar falls from his throne. He searches you for the piece he was missing, and does not find it. Your Mark is dark.'],
-    ['Sin nada que beber, la sed se apaga como una vela bajo el agua. Las islas de oro se enfrían y el cielo se cierra despacio, como una herida.', 'With nothing to drink, the thirst goes out like a candle under water. The isles of gold grow cold and the sky closes slowly, like a wound.'],
-    ['En Velmora las campanas callan para siempre. Tomás habla en voz alta, y la primera palabra que dice es tu nombre.', 'In Velmora the bells fall silent forever. Tomas speaks aloud, and the first word he says is your name.'],
-    ['Nadie vuelve a pronunciar el nombre del dios. Así se apaga la sed: olvidándola.', 'No one speaks the god\'s name again. That is how the thirst goes out: by being forgotten.'],
-    ['Pero muy arriba, en otro cielo, una segunda brasa sigue cayendo. Tardará mil años en llegar.', 'But far above, in another sky, a second ember is still falling. It will take a thousand years to arrive.'],
-  ] },
-  absorber: { titulo: ['La Corona de Ceniza', 'The Crown of Ash'], lineas: [
-    ['Aun-Saar cae de su trono, y su sed busca un cuerpo nuevo. Ya lo tiene. Es el tuyo.', 'Aun-Saar falls from his throne, and his thirst seeks a new body. It already has one. It is yours.'],
-    ['Te sientas en el Trono Sediento. La sed ya no tiene otro nombre que el tuyo, y por eso no puede volver a bajar.', 'You sit upon the Thirsting Throne. The thirst has no name but yours now, and so it can never come down again.'],
-    ['Velmora no vuelve a arder. Pero de noche nadie se acerca al fuego, y cuando el viento sopla desde el norte, las campanas contestan solas.', 'Velmora never burns again. But at night no one goes near the fire, and when the wind blows from the north, the bells answer on their own.'],
-    ['Ysolde guarda sus cartas para siempre. Dice que ya no ve la cura ni la herida. Solo te ve a ti, arriba, esperando.', 'Ysolde puts away her cards forever. She says she no longer sees the cure or the wound. She sees only you, above, waiting.'],
-    ['Muy lejos, en otro cielo, una segunda brasa cambia de rumbo. Ahora sabe adónde ir.', 'Far away, in another sky, a second ember changes course. Now it knows where to go.'],
-  ] },
 };

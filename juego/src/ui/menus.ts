@@ -283,6 +283,31 @@ export function dibujarFondoMenu(t: number) {
 }
 /** Estado del menú de la portada: qué renglón está encendido y cuánto lleva así (para que la raya crezca y la brasa prenda). */
 const menuP = { sel: 0, k: [0, 0, 0, 0, 0, 0], t0: -1, ult: 0 };
+/** La franja tibia del renglón encendido (hecha una vez por tamaño): se apaga a la derecha y se funde arriba y abajo. */
+const franjas = new Map<string, HTMLCanvasElement>();
+function franjaMenu(w: number, h: number) {
+  w = Math.round(w); h = Math.round(h); const k = w + 'x' + h; let c = franjas.get(k); if (c) return c;
+  c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d')!;
+  const lx = g.createLinearGradient(0, 0, w, 0); lx.addColorStop(0, 'rgba(200,96,32,0.34)'); lx.addColorStop(0.45, 'rgba(190,90,30,0.16)'); lx.addColorStop(1, 'rgba(190,90,30,0)');
+  g.fillStyle = lx; g.fillRect(0, 0, w, h);
+  const ly = g.createLinearGradient(0, 0, 0, h); ly.addColorStop(0, 'rgba(0,0,0,0)'); ly.addColorStop(0.3, 'rgba(0,0,0,1)'); ly.addColorStop(0.7, 'rgba(0,0,0,1)'); ly.addColorStop(1, 'rgba(0,0,0,0)');
+  g.globalCompositeOperation = 'destination-in'; g.fillStyle = ly; g.fillRect(0, 0, w, h);
+  if (franjas.size > 8) franjas.clear(); franjas.set(k, c); return c;
+}
+/** El paño de sombra del menú, hecho una vez por tamaño: oscuro a la izquierda, se deshace a la derecha y en los bordes. */
+let pano: HTMLCanvasElement | null = null;
+function panoMenu(w: number, h: number) {
+  w = Math.round(w); h = Math.round(h);
+  if (pano && pano.width === w && pano.height === h) return pano;
+  const c = pano ?? document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d')!;
+  const lx = g.createLinearGradient(0, 0, w, 0);
+  lx.addColorStop(0, 'rgba(4,2,2,0)'); lx.addColorStop(30 / w, 'rgba(4,2,2,0.84)'); lx.addColorStop(0.5, 'rgba(5,2,2,0.7)'); lx.addColorStop(0.8, 'rgba(6,3,2,0.3)'); lx.addColorStop(1, 'rgba(6,3,2,0)');
+  g.fillStyle = lx; g.fillRect(0, 0, w, h);
+  const ly = g.createLinearGradient(0, 0, 0, h), f = Math.min(0.3, 70 / h);
+  ly.addColorStop(0, 'rgba(0,0,0,0)'); ly.addColorStop(f, 'rgba(0,0,0,1)'); ly.addColorStop(1 - f, 'rgba(0,0,0,1)'); ly.addColorStop(1, 'rgba(0,0,0,0)');
+  g.globalCompositeOperation = 'destination-in'; g.fillStyle = ly; g.fillRect(0, 0, w, h);
+  return (pano = c);
+}
 /**
  * El menú de la portada: una columna a la izquierda, sobre la franja oscura del camposanto, sin tapar la catedral.
  * Cada renglón es un título grabado; el encendido lleva una brasa viva a su lado, se dora y le crece una raya debajo.
@@ -307,9 +332,8 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
   let r: string | null = null;
   ctx.save(); ctx.globalAlpha = alfa;
   // el paño: una sombra que se deshace hacia la derecha, con un filo de oro viejo a la izquierda y sus dos remates
-  const pg = ctx.createLinearGradient(x0 - 26, 0, x0 + ancho + 60, 0);
-  pg.addColorStop(0, 'rgba(4,2,2,0.86)'); pg.addColorStop(0.62, 'rgba(6,3,2,0.6)'); pg.addColorStop(1, 'rgba(6,3,2,0)');
-  ctx.fillStyle = pg; ctx.fillRect(x0 - 26, y0 - 22, ancho + 86, alto + 40);
+  // (difuminado también arriba y abajo: el rectángulo de antes cortaba las ruinas del horizonte con una raya)
+  ctx.drawImage(panoMenu(ancho + 86 + 60, alto + 40 + 80), x0 - 26 - 30, y0 - 22 - 40);
   const filo = ctx.createLinearGradient(0, y0 - 22, 0, y0 + alto + 18);
   filo.addColorStop(0, 'rgba(200,150,70,0)'); filo.addColorStop(0.5, 'rgba(214,168,88,0.95)'); filo.addColorStop(1, 'rgba(200,150,70,0)');
   ctx.fillStyle = filo; ctx.fillRect(x0 - 14, y0 - 22, 2, alto + 40);
@@ -326,7 +350,7 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
     const tx = x0 + 26 + k * 10 - (1 - entra) * 26, ty = y + Math.round(tam * 1.18), grande = n === 0 && !!fl.sub;
     ctx.globalAlpha = alfa * entra;
     // el fondo del encendido: una franja tibia que se apaga hacia la derecha
-    if (k > 0.01) { const fg = ctx.createLinearGradient(x0 - 12, 0, x0 + ancho, 0); fg.addColorStop(0, `rgba(190,90,30,${0.26 * k})`); fg.addColorStop(1, 'rgba(190,90,30,0)'); ctx.fillStyle = fg; ctx.fillRect(x0 - 12, y + 3, ancho + 12, h - 6); }
+    if (k > 0.01) { ctx.globalAlpha = alfa * entra * k; ctx.drawImage(franjaMenu(ancho + 12, h - 6), x0 - 12, y + 3); ctx.globalAlpha = alfa * entra; }
     // la brasa: un rombo que late, con su halo y dos chispas que suben
     if (k > 0.01) {
       const bx = x0 + 6, by = ty - tam * 0.34, lat = 0.75 + 0.25 * Math.sin(t * 9 + n) + 0.1 * Math.sin(t * 23);

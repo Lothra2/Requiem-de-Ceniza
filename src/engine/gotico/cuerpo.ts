@@ -4,7 +4,7 @@ import { claveBaja } from './clave_baja';
 import * as superficie from './superficie';
 import { MATERIALES } from './materiales';
 import { ruido } from './render';
-import { rasgos, mechones, hebras, type MarcoCab } from './rostro';
+import { rasgos, mechones, hebras, cabezaHeroe, barbaHeroe, labioDe, type MarcoCab } from './rostro';
 import { prendas, type Prenda } from './vestuario';
 import { efectosSeleccion } from './seleccion';
 import { codalBrazal } from './armadura';
@@ -37,6 +37,8 @@ M.cu_piel_gris = { rampa: ['#121214', '#202024', '#303036', '#424149', '#55545d'
 M.cu_piel_azul = { rampa: ['#0b1018', '#141d2b', '#1f2c40', '#2b3c56', '#384e6c', '#486283', '#5a779a'], ruido: 0.1, escala: 0.4 };
 M.cu_ojo = { rampa: ['#060505', '#120e0c', '#201a16'], ruido: 0, escala: 1 };
 M.cu_ojo_blanco = { rampa: ['#4e4842', '#7c7268', '#a89e90'], ruido: 0, escala: 1 };
+// el iris de los héroes (rostro.ts): pardo oscuro con brillo, así agarra un punto de luz desde el muñeco
+M.cu_ojo_vivo = { rampa: ['#070504', '#1c120c', '#3a281a', '#5a4130'], ruido: 0, escala: 1, brillo: 0.7 };
 M.cu_ojo_brasa = { rampa: ['#a0300c', '#e06818', '#ffb840', '#fff0a0'], ruido: 0, escala: 1, emite: true };
 M.cu_ojo_hielo = { rampa: ['#2060b0', '#50a0f0', '#b0e0ff', '#f0fbff'], ruido: 0, escala: 1, emite: true };
 M.cu_ojo_verde = { rampa: ['#207020', '#40c040', '#a0ff80'], ruido: 0, escala: 1, emite: true };
@@ -132,6 +134,8 @@ for (const k of ['cu_cuero', 'cu_cuero_negro', 'cu_cuero_oscuro', 'cu_cuero_teni
 M.cu_lino = { ...M.cu_lino, patron: superficie.tela };
 for (const k of Object.keys(M)) if (k.startsWith('cu_tela_') && !M[k].patron) M[k] = { ...M[k], patron: superficie.tela };
 M.cu_malla = { ...M.cu_malla, ruido: 0.06, patron: superficie.malla };
+// los labios de cada piel (rostro.ts): la misma rampa tirada al rojo
+for (const k of Object.keys(M)) if (/^cu_piel(_[a-z]+)?$/.test(k)) { labioDe(k, false); labioDe(k, true); }
 // lo del cuerpo lleva la textura pegada a la pieza (no se desliza al caminar)
 for (const k of Object.keys(M)) if (k.startsWith('cu_')) M[k] = { ...M[k], local: true };
 // las hebras del pelo y la barba (rostro.ts)
@@ -274,7 +278,15 @@ export interface Esqueleto {
   Pv?: Fn; pose?: Pose;
   /** Báculo: eje de la vara (del puño hacia el remate) y, si está apoyada, el punto del piso donde apoya el pie. */
   vara?: V3; varaPie?: V3;
+  /** Lo que hace cada mano (der, izq) y el detalle del pintado: los pone personaje() para las manos de los héroes. */
+  agarres?: [Agarre, Agarre]; det?: number;
 }
+/**
+ * Lo que hace una mano: 'agarre' cierra los dedos sobre un mango que pasa por `mano` en la dirección `eje` (hacia la
+ * cabeza del arma: del lado del pulgar), `guarda` si el arma tiene guarnición (los dedos van debajo, hacia el pomo) y
+ * `rh` el radio del mango; 'puno' es el puño cerrado sin nada; 'abierta' la mano suelta (`abre` 0 relajada, 1 tendida).
+ */
+export interface Agarre { modo: 'agarre' | 'puno' | 'abierta'; eje?: V3; guarda?: boolean; rh?: number; abre?: number }
 const ejesDe = (fn: Fn, o: [number, number, number]): [V3, V3, V3] => {
   const c = fn(...o), ex = nor(sub(fn(o[0] + 1, o[1], o[2]), c)), up = nor(sub(fn(o[0], o[1], o[2] + 1), c));
   const ey = nor(cruz(up, ex)), ez = cruz(ex, ey);
@@ -621,7 +633,7 @@ function ejeAgarre(d2: V3, F: V3, arma: TipoArma, s: number, muneca = 0): V3 {
 // ------------------------------------------------------------------ partes de la carne (con inflado para la ropa)
 type Parte = 'pelvis' | 'abdomen' | 'pecho' | 'hombros' | 'cuello' | 'brazo' | 'antebrazo' | 'mano' | 'muslo' | 'pantorrilla' | 'pie' | 'cabeza' | 'craneo';
 /** Las partes del cuerpo como componentes de masa, `grosor` unidades más gruesas (la prenda), con el material dado. */
-function partes(e: Esqueleto, cu: Cuerpo, que: Parte[], grosor: number, mat?: string, extra: { mangaCorta?: boolean; hasta?: number; liso?: boolean } = {}): Comp[] {
+function partes(e: Esqueleto, cu: Cuerpo, que: Parte[], grosor: number, mat?: string, extra: { mangaCorta?: boolean; hasta?: number; liso?: boolean; guante?: 'guantes' | 'guanteletes' | 'vendas' | 'brazales'; /** las manos de los héroes van aparte (cada una su masa chica: no encarecen la masa del cuerpo) */ manos?: Comp[][]; /** y la cabeza tallada, con su cuello */ cabeza?: Comp[] } = {}): Comp[] {
   const { S, A, T, cab, ejesT, ejesCab } = e;
   const inf = grosor;
   // (la mujer: cintura marcada, cadera más ancha que la cintura y hombros y brazos finos; el músculo le abulta la mitad.
@@ -683,7 +695,8 @@ function partes(e: Esqueleto, cu: Cuerpo, que: Parte[], grosor: number, mat?: st
       const tras = sub(b.d1, b.d2);
       if (len(tras) > 0.25) cs.push(bulto(add(b.codo, nor(tras), 0.75 * fino * A), [1.15 * fino * A + inf, 1.0 * fino * A + inf, 1.0 * fino * A + inf], { mat, k: 1.2 }));
     }
-    if (tiene('mano')) {
+    if (tiene('mano') && cu.presentacion && e.agarres) { const mc = manoHeroe(e, b, e.agarres[b === e.brazos[0] ? 0 : 1], { mat, inf, fino, guante: extra.guante }); if (extra.manos) extra.manos.push(mc); else cs.push(...mc); }
+    else if (tiene('mano')) {
       // la mano: palma chata entre la muñeca y el puño, nudillos un poco más anchos y el pulgar aparte, del lado de adentro
       // (antes era un solo bulto: a la escala de la selección se leía como una manopla)
       const lat = nor(cruz(b.d2, [0, 0, 1])), n = nor(cruz(b.d2, lat)), ej: [V3, V3, V3] = [b.d2, lat, n], f = fino;
@@ -722,8 +735,15 @@ function partes(e: Esqueleto, cu: Cuerpo, que: Parte[], grosor: number, mat?: st
   if (tiene('cabeza') || tiene('craneo')) {
     const H = escCab(cu) * S, cz = e.cz;
     const bC = (fw: number, rt: number, up: number, r: V3, m = mat, k?: number) => bulto(cab(fw * H, rt * H, cz + up * H), [r[0] * H + inf, r[1] * H + inf, r[2] * H + inf], { ejes: ejesCab, mat: m, k });
-    cs.push(bC(-0.2, 0, 0.9, [4.0, 3.55, 4.3]));
-    if (tiene('cabeza')) {
+    // los héroes llevan la cabeza tallada (rostro.ts): cráneo, frente, cuencas, nariz, boca y mandíbula propias
+    if (tiene('cabeza') && cu.presentacion) {
+      const cc = cabezaHeroe({ cab, ejes: ejesCab, cz, H }, { mujer, grasa: gr, orejas: cu.orejas, piel: mat === undefined ? cu.piel : undefined, mat, inf });
+      // (aparte, con una copia del cuello para que la unión con el cuello siga suave)
+      if (extra.cabeza) extra.cabeza.push(hueso(T(-0.3 * S, 0, hz + 0.4 * S), cab(0.2 * S, 0, e.cz - 2.6 * S), (1.9 + mu * 0.5) * S + inf, (1.7 + mu * 0.2) * S + inf, o), ...cc);
+      else cs.push(...cc);
+    }
+    else cs.push(bC(-0.2, 0, 0.9, [4.0, 3.55, 4.3]));
+    if (tiene('cabeza') && !cu.presentacion) {
       cs.push(bC(1.5, 0, -2.0, [2.9 + gr * 0.4, (mujer ? 2.5 : 2.85) + gr * 0.6, 2.4], mat, 1.6)); // mandíbula
       cs.push(bC(2.9, 0, -2.9, [1.1, mujer ? 1.2 : 1.6, 1.1], mat, 1.2)); // mentón
       for (const s of [1, -1]) cs.push(bC(2.6, s * 2.0, -0.4, [1.3, 1.1, 1.0], mat, 1)); // pómulos
@@ -734,6 +754,133 @@ function partes(e: Esqueleto, cu: Cuerpo, que: Parte[], grosor: number, mat?: st
         else cs.push(bC(-0.2, s * 3.45, -0.1, cu.orejas === 'grandes' ? [1.4, 0.6, 2.2] : [1.0, 0.5, 1.5], mat, 0.6));
       }
     }
+  }
+  return cs;
+}
+
+// ------------------------------------------------------------------ las manos de los héroes
+/** Radio del mango donde cierra el puño (unidades de S), por arma. */
+const RADIO_MANGO: Partial<Record<TipoArma, number>> = { daga: 0.6, varita: 0.45, orbe_mano: 0.5, hoz: 0.6, frasco: 0.7, hacha: 0.85, hacha_doble: 0.85, martillo: 0.9, mandoble: 0.8,
+  lanza: 0.7, alabarda: 0.7, guadana: 0.75, baculo: 0.82, cetro: 0.8, gran_baculo: 0.85, arco: 0.85, arco_largo: 0.85, arco_corto: 0.8, ballesta: 0.9 };
+/** Las armas con guarnición: el puño cierra debajo de la cruz, hacia el pomo. */
+const CON_GUARDA = new Set<TipoArma>(['espada', 'cimitarra', 'mandoble', 'daga', 'katana', 'estoque', 'falcata']);
+
+/** Qué hace cada mano del héroe en este cuadro (der, izq), según lo que lleva. */
+function agarresDe(e: Esqueleto, eq: Equipo, acc: Accion): [Agarre, Agarre] {
+  const t = eq.arma?.tipo ?? 'nada', [der, izq] = e.brazos;
+  const abre = acc === 'lanzar' || acc === 'presentar' || acc === 'seleccion' ? 0.9 : 0.3;
+  const vara = esVara(t) ? varaDe(e, der.mano, t === 'cetro' ? 0.45 : t === 'gran_baculo' ? 1.06 : 1)[2] : undefined;
+  let d: Agarre;
+  if (t === 'nada') d = { modo: 'abierta', abre };
+  else if (t === 'puno' || t === 'garras' || t === 'katar' || t === 'cestus' || esArco(t)) d = { modo: 'puno' };
+  else d = { modo: 'agarre', eje: vara ?? der.eje, guarda: CON_GUARDA.has(t), rh: RADIO_MANGO[t] ?? 0.75 };
+  let i: Agarre;
+  // la izquierda cierra sobre el mango cuando la pose la lleva ahí (personaje le da el mismo eje que a la derecha)
+  if (t !== 'nada' && t !== 'puno' && !esArco(t) && izq.eje === der.eje) i = { modo: 'agarre', eje: vara ?? der.eje, rh: RADIO_MANGO[t] ?? 0.75 };
+  else if (esArco(t)) i = { modo: 'agarre', eje: marcoArco(e, izq.mano, der.mano).arriba, rh: RADIO_MANGO[t] ?? 0.85 };
+  else if (eq.izq && !dos(t) && t !== 'ballesta') {
+    const it = eq.izq.tipo;
+    if (it === 'orbe' || it === 'libro') i = { modo: 'abierta', abre: 0.5 };
+    else if (it === 'antorcha') i = { modo: 'agarre', eje: [0, 0, 1], rh: 0.7 };
+    else if (it === 'arma') i = { modo: 'agarre', eje: izq.eje, guarda: CON_GUARDA.has(eq.izq.arma ?? 'nada'), rh: RADIO_MANGO[eq.izq.arma ?? 'nada'] ?? 0.75 };
+    else i = { modo: 'puno' };
+  } else i = { modo: 'abierta', abre };
+  return [d, i];
+}
+
+/**
+ * La mano del héroe (19 nov 2026; antes una palma, un bulto de nudillos y un pulgar: un mitón). Palma chata, cuatro
+ * dedos en tres falanges con el nudillo marcado y el pulgar aparte, desde la eminencia de la base.
+ * - 'agarre': cada dedo da la vuelta al mango (que pasa por `b.mano`): la falange de la base cruza por delante, la del
+ *   medio por el otro lado y la punta vuelve hacia la palma; el pulgar se cierra por encima, sobre el índice. Con
+ *   guarnición el índice queda justo bajo la cruz y los demás bajan hacia el pomo.
+ * - 'puno': el mismo cierre sobre un mango imaginario angosto.
+ * - 'abierta': los dedos apenas curvados y abiertos en abanico, el pulgar separado.
+ * La palma mira hacia adentro según la mano (derecha o izquierda: `b.s`), el pulgar hacia la cabeza del arma o al frente.
+ * Guantes: la misma forma un poco más gruesa; guanteletes: cada falange es una lámina, con la placa de los nudillos y
+ * la del dorso; vendas: envuelven la palma y la base de los dedos (las puntas quedan a la vista).
+ */
+function manoHeroe(e: Esqueleto, b: Brazo, ag: Agarre, o: { mat?: string; inf: number; fino: number; guante?: 'guantes' | 'guanteletes' | 'vendas' | 'brazales' }): Comp[] {
+  const { S, F } = e, f = o.fino, mat = o.mat, cs: Comp[] = [];
+  const gt = o.guante, placa = gt === 'guanteletes', venda = gt === 'vendas';
+  // grosor de la prenda en dedos y palma (los dedos del guante no se funden en un mitón)
+  const iD = gt ? (placa ? 0.24 : venda ? 0.16 : 0.14) * S : 0, iP = gt ? (placa ? 0.42 : venda ? 0.2 : 0.3) * S : 0;
+  const kD = 0.18 * S, kP = 0.42 * S;
+  const ax = b.d2, W = b.mun;
+  const perp = (v: V3, a: V3): V3 => sub(v, mulv(a, dot3(v, a)));
+  // el lado del pulgar: hacia la cabeza del arma o, sin arma, al frente (con el brazo colgando el pulgar mira adelante)
+  let pul = perp(F, ax); if (len(pul) < 0.25) pul = perp([0, 0, 1], ax); pul = nor(pul);
+  const eh = ag.modo === 'agarre' && ag.eje ? nor(ag.eje) : pul;
+  let u = perp(ax, eh); if (len(u) < 0.2) u = perp(F, eh); if (len(u) < 0.2) u = perp([0, 0, 1], eh); u = nor(u);
+  // la palma: hacia adentro (mano derecha y mano izquierda son espejo)
+  const n = nor(mulv(cruz(u, eh), -b.s));
+  const rf = 0.4 * S * f, sp = 2 * rf * (ag.modo === 'puno' ? 0.86 : 0.92);
+  const radio = (i: number) => rf * (i === 3 ? 0.86 : i === 1 ? 1.04 : 1);
+  const K: V3[] = [], dedos: [V3, V3, V3, V3, number][] = [];
+  if (ag.modo === 'abierta') {
+    const abre = ag.abre ?? 0.3, c = 1 - abre;
+    const Kc = add(add(W, ax, 2.45 * S * f), n, -0.1 * S);
+    const L = [1.3, 0.85, 0.7], esc = [1, 1.07, 1, 0.82];
+    for (let i = 0; i < 4; i++) {
+      const k0 = add(Kc, eh, (1.5 - i) * sp * (1 + abre * 0.15));
+      const ab = rad((i - 1.5) * (3 + 9 * abre));
+      const a = nor(add(mulv(ax, Math.cos(ab)), eh, -Math.sin(ab)));
+      let p = k0; const pts: V3[] = [k0]; let th = 0;
+      for (let j = 0; j < 3; j++) { th += rad([6 + 22 * c, 10 + 30 * c, 6 + 22 * c][j]); const d = nor(add(mulv(a, Math.cos(th)), n, Math.sin(th))); p = add(p, d, L[j] * esc[i] * S * f); pts.push(p); }
+      K.push(k0); dedos.push([pts[0], pts[1], pts[2], pts[3], radio(i)]);
+    }
+  } else {
+    // el cierre: un anillo alrededor del mango (o de un mango imaginario angosto en el puño)
+    const rh = (ag.modo === 'agarre' ? ag.rh ?? 0.75 : 0.32) * S;
+    const t0 = ag.modo === 'agarre' && ag.guarda ? -(0.1 * S + rf * 1.02) : 1.5 * sp;
+    const G = ag.modo === 'agarre' ? b.mano : add(b.mano, n, 0.3 * S);
+    for (let i = 0; i < 4; i++) {
+      const r = radio(i), rr = rh + r, C = add(G, eh, t0 - i * sp - (i === 3 ? 0.06 * S : 0));
+      const at = (cu: number, cn: number) => add(add(C, u, rr * cu), n, rr * cn);
+      const k0 = at(0.78, -0.92);
+      K.push(k0); dedos.push([k0, at(1.0, 0.5), at(-0.12, 1.0), at(-0.82, 0.5), r]);
+    }
+  }
+  const Kc = mulv(add(add(K[0], K[1]), add(K[2], K[3])), 0.25);
+  // la palma: chata, de la muñeca a la línea de los nudillos; la muñeca la funde con el antebrazo
+  const pax = nor(sub(Kc, W)), pL = len(sub(Kc, W)), pey = nor(perp(eh, pax)), pez = cruz(pax, pey);
+  const ancho = len(sub(K[0], K[3])) / 2 + rf * 1.05;
+  const pc = mez(W, Kc, 0.55);
+  const mp = venda ? mat : mat;
+  cs.push(hueso(add(W, ax, -0.6 * S), add(W, pax, pL * 0.3), 1.05 * f * e.A + iP * 0.6, (1.2 * f * e.A + iP) * 0.95, { mat: mp, k: kP }));
+  cs.push(bulto(pc, [pL * 0.55 + iP, ancho + iP, 0.62 * S * f + iP], { ejes: [pax, pey, pez], mat: mp, k: kP }));
+  // el dorso sube un poco hacia los nudillos (la mano no es una tabla)
+  cs.push(bulto(add(mez(W, Kc, 0.78), n, -0.18 * S), [pL * 0.3 + iP, ancho * 0.92 + iP, 0.55 * S * f + iP], { ejes: [pax, pey, pez], mat: mp, k: kP, tono: 0.03 }));
+  // los dedos: falange de la base con su nudillo, la del medio y la punta
+  dedos.forEach(([k0, j1, j2, tp, r], i) => {
+    const largo = !venda;
+    cs.push(bulto(k0, [r * 1.18 + iD, r * 1.12 + iD, r * 1.12 + iD], { eje: sub(j1, k0), mat, k: kD * 1.6, tono: placa ? 0.12 : 0.05 }));
+    cs.push(hueso(k0, j1, r * 1.08 + iD, r * 1.0 + iD, { mat, k: kD, tono: placa ? (i % 2 ? -0.06 : 0.04) : 0 }));
+    if (largo) {
+      cs.push(hueso(j1, j2, r * 0.98 + iD, r * 0.9 + iD, { mat, k: kD, tono: placa ? 0.08 : 0 }));
+      cs.push(hueso(j2, tp, r * 0.88 + iD, r * 0.72 + iD, { mat, k: kD, tono: placa ? -0.04 : -0.02 }));
+    }
+  });
+  // el pulgar: de la eminencia de la base, separado; cerrado, por encima del mango sobre el índice
+  const base = add(add(add(W, pax, pL * 0.28), eh, ancho * 0.72), n, 0.3 * S);
+  let tj: V3, tt: V3;
+  if (ag.modo === 'abierta') {
+    const ab = ag.abre ?? 0.3;
+    tj = add(base, nor(add(add(mulv(ax, 0.8), eh, 0.55 + ab * 0.35), n, 0.3 - ab * 0.2)), 1.3 * S * f);
+    tt = add(tj, nor(add(add(mulv(ax, 1.0), eh, 0.12 + ab * 0.3), n, 0.18)), 1.0 * S * f);
+  } else {
+    const [k0, , j2] = dedos[0], C0 = mez(k0, j2, 0.5);
+    tj = add(add(C0, eh, rf * 1.9), n, 0.15 * S);
+    tt = add(add(j2, eh, -0.35 * rf), n, rf * 0.75);
+  }
+  cs.push(bulto(mez(base, tj, 0.3), [0.95 * S * f + iP * 0.5, 0.62 * S * f + iP * 0.5, 0.58 * S * f + iP * 0.5], { eje: sub(tj, base), mat, k: kP }));
+  cs.push(hueso(base, tj, 0.52 * S * f + iD, 0.46 * S * f + iD, { mat, k: kD * 1.4 }));
+  if (!venda) cs.push(hueso(tj, tt, 0.46 * S * f + iD, 0.36 * S * f + iD, { mat, k: kD, tono: placa ? 0.08 : 0 }));
+  // guantelete: la placa de los nudillos y la del dorso
+  if (placa) {
+    const kn = mulv(n, -(rf + 0.32 * S));
+    cs.push(hueso(add(K[0], kn), add(K[3], kn), 0.42 * S, 0.4 * S, { mat, k: 0.1 * S, tono: 0.14 }));
+    cs.push(bulto(add(mez(W, Kc, 0.55), n, -0.5 * S), [pL * 0.42, ancho * 0.95, 0.4 * S], { ejes: [pax, pey, pez], mat, k: 0.12 * S, tono: 0.06 }));
   }
   return cs;
 }
@@ -758,6 +905,9 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
   const tipoArma = eq.arma?.tipo ?? 'nada';
   const e = esqueleto(cu, dir, acc, f, tipoArma, eq.izq?.tipo);
   const { S, A, T, cab, ejesCab, F, R } = e;
+  // el detalle de la cara sale de la escala si no lo piden (el muñeco del inventario va a 1,4 a 2,2: detalle 2)
+  const det = o.detalle ?? (S >= 1.35 ? 2 : 1);
+  if (cu.presentacion) { e.det = det; e.agarres = agarresDe(e, eq, acc); }
   // el cuadro llevado a un ciclo de 8 (los vaivenes de colas, jirones y adornos cierran el ciclo con cualquier cantidad de cuadros)
   // (en la selección el ciclo de 8 cuenta desde el bucle, que empalma el último cuadro con el de la entrada)
   const f8 = acc === 'seleccion' ? ((((f - SEL_ENTRADA) * 8) / (SEL_CUADROS - SEL_ENTRADA)) % 8 + 8) % 8 : (f * 8) / cuadrosDe(acc, cu.presentacion);
@@ -768,7 +918,8 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
   if (cu.oseo) ps.push(...huesos(e, cu));
   else {
     // con una prenda en el torso la carne va lisa: ni abdominales ni pectorales que asomen por la ropa
-    let carne = partes(e, cu, cu.flota ? todo.filter((p) => p !== 'pantorrilla' && p !== 'pie') : todo, 0, undefined, { liso: !!eq.torso });
+    const manosC: Comp[][] = [], cabC: Comp[] = [];
+    let carne = partes(e, cu, cu.flota ? todo.filter((p) => p !== 'pantorrilla' && p !== 'pie') : todo, 0, undefined, { liso: !!eq.torso, manos: manosC, cabeza: cabC });
     if (cu.parches) carne = carne.map((c, i) => (i % 3 === 1 ? { ...c, mat: cu.parches } : c));
     if (cu.demacrado && !eq.torso) for (let k = 0; k < 5; k++) for (const s of [1, -1]) {
       // costillas que se marcan bajo la piel del pecho
@@ -776,6 +927,8 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
       carne.push(hueso(T(-0.5 * S, s * w, z), T(3.3 * A, s * 1.2 * A, z - 2 * S), 0.55 * S, 0.45 * S, { mat: cu.piel, k: 0.5 }));
     }
     ps.push(masa(carne, { mat: cu.piel, suave: 1.6 }));
+    for (const mc of manosC) ps.push(masa(mc, { mat: cu.piel, suave: 0.4 * S }));
+    if (cabC.length) ps.push(masa(cabC, { mat: cu.piel, suave: 1.6 }));
   }
   // terror: fauces con dientes, heridas, garras y jirones de ectoplasma bajo el que flota
   if (cu.boca) {
@@ -804,7 +957,7 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
   const ojo = cu.ojos ?? 'cu_ojo', brilla = MATERIALES[ojo]?.emite;
   // el héroe lleva la cara con luz y sombra (rostro.ts); los ojos que brillan siguen siendo bolas de luz
   const marcoCab: MarcoCab = { cab, ejes: ejesCab, cz, H };
-  if (cu.presentacion && !cu.oseo) ps.push(...rasgos(marcoCab, { piel: cu.piel, pelo: cu.peinado === 'calvo' ? undefined : cu.pelo, mujer: cu.genero === 'm', barba: !!cu.barba && cu.barba !== 'bigote', ojo, brilla: !!brilla, detalle: o.detalle ?? 1 }));
+  if (cu.presentacion && !cu.oseo) ps.push(...rasgos(marcoCab, { piel: cu.piel, ceja: cu.pelo, mujer: cu.genero === 'm', barba: !!cu.barba, bigote: cu.barba === 'bigote', ojo: ojo === 'cu_ojo' ? 'cu_ojo_vivo' : ojo, brilla: !!brilla, detalle: det }));
   if (!cu.presentacion || brilla) for (const s of [1, -1]) ps.push(elipsoide(...cab(3.35 * H, s * 1.45 * H, cz + 0.25 * H), (brilla ? 0.7 : 0.5) * H, 0.75 * H, (brilla ? 0.55 : 0.5) * H, { mat: ojo }));
   // ---- piernas y pies
   const pz = eq.piernas, pi = eq.pies;
@@ -967,7 +1120,10 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
   if (eq.manos) {
     const mn = eq.manos;
     const inf = mn.tipo === 'guanteletes' ? 0.9 : 0.45;
-    ps.push(masa(partes(e, cu, ['mano', 'antebrazo'], inf, mn.mat, { hasta: 1 }), { mat: mn.mat, suave: 1.2 }));
+    // (los brazales del héroe dejan la mano desnuda: antes eran un mitón de cuero)
+    const manosG: Comp[][] = [];
+    ps.push(masa(partes(e, cu, cu.presentacion && mn.tipo === 'brazales' ? ['antebrazo'] : ['mano', 'antebrazo'], inf, mn.mat, { hasta: 1, guante: mn.tipo, manos: manosG }), { mat: mn.mat, suave: 1.2 }));
+    for (const mc of manosG) ps.push(masa(mc, { mat: mn.mat, suave: 0.4 * S }));
     // guanteletes: brazal acampanado hacia el puño y nudillos de placa
     if (mn.tipo === 'guanteletes') for (const b of e.brazos) {
       // el guantelete: brazal que afina hacia el codo y se abre en el puño, con una lámina de borde arriba (sin el tubo parejo
@@ -1089,7 +1245,8 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
   }
   // (un yelmo cerrado tapa la barba: si no, asoma por la babera)
   const fc = eq.cabeza?.icono ? formaCasco(eq.cabeza.icono) : null;
-  if (cu.barba && !(fc && CASCO_CERRADO.includes(fc))) {
+  if (cu.barba && !(fc && CASCO_CERRADO.includes(fc)) && cu.presentacion) ps.push(...barbaHeroe(marcoCab, cu.barba, cu.pelo ?? 'cu_pelo_negro', det));
+  else if (cu.barba && !(fc && CASCO_CERRADO.includes(fc))) {
     const bm = cu.pelo ?? 'cu_pelo_negro';
     const bc: Comp[] = [];
     const bC = (fw: number, rt: number, up: number, r: V3) => bulto(cab(fw * H, rt * H, cz + up * H), [r[0] * H, r[1] * H, r[2] * H], { ejes: ejesCab });

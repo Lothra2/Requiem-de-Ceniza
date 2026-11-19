@@ -325,8 +325,8 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     los íconos, las recargas, las cuentas y los números.
   - Pixel entero: el panel va en puntos de dibujo de D puntos del lienzo (D = redondeo de RES × 1,15: 1 a 720, 2 a 1080 y
     1440, 3 a 2160) pegados en el espacio del aparato. A 1080 va la talla compacta. El rosetón se dibuja con `rejilla`.
-  - Casillas de poder (`ui/forja_habilidad.ts`, Rick: "mucho, mucho mejores"): el ícono de `iconos_hab.ts` llevado al
-    tamaño exacto, afilado y con bisel de vidrio a pixel (`iconoPixel`), la sombra que gira a pixel con los segundos,
+  - Casillas de poder (`ui/forja_habilidad.ts`, Rick: "mucho, mucho mejores"): el ícono de `iconos_hab.ts` pintado al
+    tamaño exacto, con bisel de vidrio a pixel (`iconoPixel`), la sombra que gira a pixel con los segundos,
     tinte azul sin maná y rojo sin furia, encima y apretado, y un destello al quedar listo. Lo usan el panel de PC, los
     medallones del táctil y la elección de poderes (`casillaElegir`, solo con el HUD forjado).
   - Cámara: `ALTO_HUD` en `lienzo.ts` (96 el de siempre) entra en `aPant`, `aMundo` y la cámara del jefe. El panel pone
@@ -347,6 +347,21 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     cuadros a 10 por segundo (`CUADROS_LIQ`, `cuadroLiq`), hilos de luz, más claro al frente y hundido hacia el borde y
     el fondo. Lab sin servidor: `npx tsx juego/herramientas/t953_orbes.mts` (el del motor y tres cuadros del nuevo al
     100, 50 y 15 %, en `/tmp/requiem-pruebas/hud/orbes_lab.png`).
+  - **Íconos de habilidad** (Rick, 19 nov 2026: "¿y los íconos nuevos de las habilidades?"): las 240 son pixel art pintado
+    al tamaño exacto en que se ven (46 y 26 en el panel, 40 y 22 a 1080, 34 en el árbol, la elección y los medallones
+    del táctil a lo que pidan; más de 64 se pinta a una base chica y se agranda por enteros). `icono_pintor.ts` (sin DOM)
+    pinta formas por distancia con signo en 32 x 32 unidades, cada una con su rampa de 6 tonos de sombra corrida de matiz,
+    la luz de arriba a la izquierda del HUD, sombra que cae, contorno selectivo y el filo del elemento en el canto de la
+    sombra, sobre el fondo del elemento en bandas (lo físico toma el tono de la clase) con Bayer solo entre banda y banda.
+    `iconos_motivos.ts` tiene los motivos (armas, cuerpos, bestias, elementos, signos) y `iconos_recetas.ts` una
+    composición propia por id (las definitivas con el aro de oro y gemas). Las seudo habilidades (el golpe con el arma de
+    la clase, agresivo y calmo) caen a la receta de su glifo. `iconoPintado` y `iconoPixel` siguen con la misma firma y
+    `iconoHab` y `discoHab` pegan a puntos enteros del aparato. Se pinta cuando se pide, unos 2 a 3 ms cada uno
+    (`window.__iconosHorneado`). Habilidad nueva: su fila en `RECETAS`, distinta de las de su clase. Lab sin servidor:
+    `npx tsx juego/herramientas/t971_iconos_lab.mts todo` + `python3 juego/herramientas/t971_lamina.py` (una lámina por
+    clase en `/tmp/requiem-pruebas/iconos`, `REV=id,id` arma una de revisión). En el juego: `t970_iconos.cjs <etiqueta>`
+    (las 240 a cada tamaño y el tiempo), `t970_antes_ahora.py` y `t972_iconos_juego.cjs [vistas] [clases]` (HUD, árbol y
+    elección).
   - **Atajos vacíos** (Rick: "llenan el panel de cajas vacías"): el marco de todos los cuadros lleva cada atajo como un
     rebaje apenas tallado en la piedra y la tecla apenas marcada en una plaquita de piedra. El marco con los atajos llenos
     (`tallarMarco(g, true)`: bisel de hierro, hueco, remaches y la tecla de latón) se hornea solo en el pedazo de los

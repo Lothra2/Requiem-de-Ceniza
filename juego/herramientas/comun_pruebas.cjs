@@ -12,7 +12,7 @@ async function entrar(vista, clase, nivel, URL = process.env.URL || 'http://127.
   await p.evaluate(([clase, nivel, ajustes]) => { const d = window.__T.H.nuevoHeroe(clase, 'Prueba'); d.nivel = nivel; d.misiones = { m1_hambre: 3, m1_campanas: 2 }; if (ajustes) new Function('d', ajustes)(d); localStorage.setItem('marca.heroes', JSON.stringify([d])); }, [clase, nivel, ajustes]);
   await p.reload(); await aMenu(); await p.waitForTimeout(4800);
   const L = await p.evaluate(() => { const c = document.getElementById('juego'); const r = c.getBoundingClientRect(); const v = window.__vista ? window.__vista() : { W: c.width, H: c.height }; return { k: r.width / v.W, l: r.left, t: r.top, W: v.W, H: v.H }; });
-  const tactil = vista !== 'pc';
+  const tactil = !/^pc/.test(vista);
   const tap = async (x, y) => { if (tactil) await p.touchscreen.tap(L.l + x * L.k, L.t + y * L.k); else await p.mouse.click(L.l + x * L.k, L.t + y * L.k); };
   // el menú de la portada: Continuar entra directo con el héroe guardado
   { const c = await p.evaluate(() => window.__menuFilas && window.__menuFilas.continuar); await tap(c[0], c[1]); }

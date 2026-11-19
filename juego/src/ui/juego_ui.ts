@@ -69,17 +69,24 @@ export function orbeHud(tipo: string, k: number, x: number, y: number, s: number
 }
 /** Solo el glifo de la habilidad, centrado en (cx, cy), sin fondo ni marco. */
 export const glifoHab = (hb: Habilidad, cx: number, cy: number, s: number, apagado = false) => iconoHab(hb, cx - s / 2, cy - s / 2, s, apagado, true, true);
-/** El icono entero en un disco de radio r (fondo de su elemento y glifo, sin marco: el botón redondo pone su aro). */
+/** Pega un ícono a puntos enteros del aparato (pixel art: sin suavizar) si la transformación es una escala; si no, suavizado. */
+function pegarIcono(pintar: (lado: number) => HTMLCanvasElement, x: number, y: number, s: number) {
+  const tr = ctx.getTransform();
+  if (tr.b === 0 && tr.c === 0 && tr.a > 0 && Math.abs(tr.a - tr.d) < 1e-6) {
+    const k = tr.a, px = Math.round(x * k + tr.e), py = Math.round(y * k + tr.f), ds = Math.round((x + s) * k + tr.e) - px;
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(pintar(ds), px, py, ds, ds); ctx.restore(); return;
+  }
+  const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = true; (ctx as any).imageSmoothingQuality = 'high';
+  ctx.drawImage(pintar(Math.round(s)), x, y, s, s); ctx.imageSmoothingEnabled = su;
+}
+/** El icono entero en un disco de radio r (fondo de su elemento y motivo, sin marco: el botón redondo pone su aro). */
 export function discoHab(hb: Habilidad, cx: number, cy: number, r: number, apagado = false) {
-  const cv = iconoPintado(hb, r * 2, apagado, true, false, true), su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = true; (ctx as any).imageSmoothingQuality = 'high';
-  ctx.drawImage(cv, cx - r, cy - r, r * 2, r * 2); ctx.imageSmoothingEnabled = su;
+  pegarIcono((l) => iconoPintado(hb, l, apagado, true, false, true), cx - r, cy - r, r * 2);
 }
 export function iconoHab(hb: Habilidad, x: number, y: number, s: number, apagado = false, redondo = false, soloGlifo = false) {
-  // el icono se pinta una vez (al doble de tamaño) y después se copia: fondo según el elemento, el glifo con volumen,
-  // contorno y brillo, y el marco de bronce (ver iconos_hab.ts)
-  const cv = iconoPintado(hb, s, apagado, redondo, soloGlifo);
-  const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = true; (ctx as any).imageSmoothingQuality = 'high';
-  ctx.drawImage(cv, x, y, s, s); ctx.imageSmoothingEnabled = su;
+  // el icono es pixel art pintado al tamaño en que se ve (ver iconos_hab.ts): fondo del elemento, motivo con luz y contorno,
+  // y el marco de bronce (oro en las definitivas)
+  pegarIcono((l) => iconoPintado(hb, l, apagado, redondo, soloGlifo), x, y, s);
 }
 
 /**

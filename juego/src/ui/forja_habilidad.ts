@@ -1,6 +1,6 @@
-// Las casillas de poder del HUD forjado (PC, táctil y la elección de poderes): el ícono pintado de siempre
-// (iconos_hab.ts) llevado a pixel entero del tamaño exacto de la casilla, con un afilado suave, su bisel de vidrio a
-// pixel (luz arriba a la izquierda, sombra abajo a la derecha, viñeta), y encima los estados: encima, apretado, la
+// Las casillas de poder del HUD forjado (PC, táctil y la elección de poderes): el ícono de pixel art (iconos_hab.ts)
+// pintado al tamaño exacto de la casilla, con su bisel de vidrio a pixel (luz arriba a la izquierda, sombra abajo a la
+// derecha), y encima los estados: encima, apretado, la
 // sombra que gira de la recarga con los segundos, el tinte azul si falta maná o rojo si falta furia, y un destello
 // corto cuando el poder vuelve a estar listo.
 import { ctx } from '../nucleo/lienzo';
@@ -10,27 +10,19 @@ import { cacheRaster, texto, TITULO } from './comun';
 import type { Habilidad } from '../datos/clases';
 
 const iconos = new Map<string, HTMLCanvasElement>();
-/** El ícono a pixel entero: s × s puntos, afilado y con su bisel. */
+/** El ícono a pixel entero: s × s puntos, con su bisel de vidrio a pixel (el ícono ya viene pintado a ese tamaño). */
 export function iconoPixel(hb: Habilidad, s: number, apagado = false): HTMLCanvasElement {
-  const clave = `${hb.id ?? ''}~${hb.glifo}~${hb.color}|${s}|${apagado ? 1 : 0}`;
+  const clave = `${hb.id ?? ''}~${hb.glifo}~${hb.elem}|${s}|${apagado ? 1 : 0}`;
   let cv = iconos.get(clave); if (cv) return cv;
   cv = document.createElement('canvas'); cv.width = cv.height = s;
   const c = cv.getContext('2d', { willReadFrequently: true })!;
-  c.imageSmoothingEnabled = true; (c as any).imageSmoothingQuality = 'high';
+  c.imageSmoothingEnabled = false;
   c.drawImage(iconoPintado(hb, s, apagado, false, false, true), 0, 0, s, s);
-  const im = c.getImageData(0, 0, s, s), d = im.data, src = new Uint8ClampedArray(d);
-  // afilado (máscara de enfoque de un punto): el glifo se lee nítido a pixel entero, sin el velo del achique
-  for (let y = 1; y < s - 1; y++) for (let x = 1; x < s - 1; x++) for (let k = 0; k < 3; k++) {
-    const i = (y * s + x) * 4 + k, m = (src[i - 4] + src[i + 4] + src[i - s * 4] + src[i + s * 4]) / 4;
-    d[i] = src[i] + (src[i] - m) * 0.55;
-  }
-  // el bisel del vidrio: luz arriba y a la izquierda, sombra abajo y a la derecha, y la viñeta hacia el borde
+  const im = c.getImageData(0, 0, s, s), d = im.data;
+  // el bisel del vidrio: luz arriba y a la izquierda, sombra abajo y a la derecha, en los dos puntos del canto
   for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
-    const i = (y * s + x) * 4, e = Math.min(x, y, s - 1 - x, s - 1 - y);
-    let k = 1;
-    if (e === 0) k = x === 0 || y === 0 ? (x === s - 1 || y === s - 1 ? 0.6 : 1.45) : 0.45;
-    else if (e === 1) k = x === 1 || y === 1 ? 1.15 : 0.75;
-    else { const cx = (x + 0.5) / s - 0.5, cy = (y + 0.5) / s - 0.5; k = 1 - Math.max(0, Math.hypot(cx, cy) - 0.38) * 0.9; }
+    const e = Math.min(x, y, s - 1 - x, s - 1 - y); if (e > 1) continue;
+    const i = (y * s + x) * 4, luz = x === e || y === e, k = e === 0 ? (luz ? (x === s - 1 || y === s - 1 ? 0.6 : 1.45) : 0.45) : luz ? 1.15 : 0.75;
     for (let q = 0; q < 3; q++) d[i + q] = Math.min(255, d[i + q] * k + (k > 1.2 ? 18 : 0));
     d[i + 3] = 255;
   }

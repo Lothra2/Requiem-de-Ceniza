@@ -403,9 +403,19 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       const br = q.ay > 200 ? conBruma(q, colorBruma) : null;
       if (alfa < 1) ctx.globalAlpha = alfa;
       // (lo que cuelga gira desde su punto más alto; lo que está plantado, desde el pie)
-      if (ciz) { ctx.save(); ctx.transform(1, 0, ciz, 1, -ciz * (cuelga ? py - q.ay : py), 0); }
-      if (br) ctx.drawImage(br, Math.round(px - q.ax), Math.round(py - q.ay)); else dibujar(ctx, q, px, py);
-      if (ciz) ctx.restore();
+      // lo plantado se mece de la franja del piso para arriba: la base, las raíces y la sombra horneada sobre el piso quedan
+      // quietas (antes se cizallaba el cuadro entero y la sombra y el pie se corrían sobre el piso)
+      const PISO_QUIETO = Math.min(26, Math.round(alto * 0.22));
+      if (ciz && !cuelga && !br && alto > PISO_QUIETO + 4) {
+        const corte = q.ay - PISO_QUIETO; // fila del cuadro donde empieza lo quieto
+        const abajo = { ...q, y: q.y + corte, h: q.h - corte, ay: q.ay - corte }, arriba = { ...q, h: corte };
+        dibujar(ctx, abajo as Cuadro, px, py);
+        ctx.save(); ctx.transform(1, 0, ciz, 1, -ciz * (py - PISO_QUIETO), 0); dibujar(ctx, arriba as Cuadro, px, py); ctx.restore();
+      } else {
+        if (ciz) { ctx.save(); ctx.transform(1, 0, ciz, 1, -ciz * (cuelga ? py - q.ay : py), 0); }
+        if (br) ctx.drawImage(br, Math.round(px - q.ax), Math.round(py - q.ay)); else dibujar(ctx, q, px, py);
+        if (ciz) ctx.restore();
+      }
       if (alfa < 1) ctx.globalAlpha = 1;
       // la luz del cofre que se abre va con el cofre en el orden de fondo: quien esté parado delante la tapa, no al revés
       if (o.dato?.abre !== undefined && j.t - o.dato.abre < 2.6 && /cofre/.test(o.id)) luzCofre(px, py, j.t - o.dato.abre, /ornado|noble|sarcofago|gg/.test(o.id) ? 1.25 : 1, /maldito/.test(o.id) ? '#b060ff' : '#ffc860');
@@ -851,7 +861,10 @@ const MECE = /^(arb_(roble|sauce|pino_alto|pino_bajo|abeto|cipres|palmera|arbol_
 // lo demás que también se mueve con el aire: telarañas, lianas, algas, matas y trapos de cualquier tema (el id o la variante lo dicen)
 const MECE_MAS = /telar|liana|alga|helecho|pasto|hierba|junco|flor|cardo|planta|zarza|brote|trapo|vela_raida|cortina|mortaja|estandarte|bandera/;
 // lo que cuelga se hamaca desde arriba: cadenas, jaulas, ahorcados, campanas y faroles colgantes
-const CUELGA = /colg|ahorc|pendul|horca/;
+// (antes era /colg|ahorc|pendul|horca/ y agarraba estructuras plantadas en el piso: la horca, el árbol del ahorcado, la
+// campana en su mástil, la jaula en su poste y hasta armas clavadas: se hamacaban desde arriba y la base se corría sobre el
+// piso, Rick lo vio en el campamento, 19 nov 2026. Ahora solo lo que cuelga suelto, sin apoyo dibujado en el piso)
+const CUELGA = /^(abi_cadena\|colgante|cri_telarana\|colgante|cat2_raices\|colgantes(_der)?)$/;
 const BLANDA = /^(arb_(arbusto|helecho|pasto_alto|flores|juncos)|dec_planta|par_(juncos_orilla|pasto)|sel2?_(helecho|planta|planta_hojas)|des2?_arbusto|cem_flores_secas)$/;
 function pajaro(x: number, y: number, t: number) {
   const a = Math.sin(t * 18) * 5;

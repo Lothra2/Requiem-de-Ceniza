@@ -426,14 +426,13 @@ export function golpeVivo(el: ElemArma, x: number, y: number, ox: number, oy: nu
 }
 
 /** Avanza y dibuja las partículas de las armas vivas (una vez por cuadro). */
-export function dibujarDerrames(ctx: CanvasRenderingContext2D, ox: number, oy: number, dt: number) {
+/** Mueve lo que soltaron las armas (una vez por cuadro). */
+export function moverDerrames(dt: number) {
   if (!ps.length) return;
   const d = Math.min(dt, 0.05);
-  ctx.save(); ctx.imageSmoothingEnabled = false;
   for (let i = ps.length - 1; i >= 0; i--) {
     const p = ps[i]; p.t += d;
     if (p.t >= p.dur) { ps[i] = ps[ps.length - 1]; ps.pop(); continue; }
-    const v = p.t / p.dur, r = RAMPA[p.el];
     switch (p.k) {
       case 'gota': case 'esquirla':
         p.vy += 260 * d; p.x += p.vx * d; p.y += p.vy * d;
@@ -452,8 +451,13 @@ export function dibujarDerrames(ctx: CanvasRenderingContext2D, ox: number, oy: n
       case 'miasma': p.x += p.vx * d + Math.sin(p.t * 3 + p.s) * 4 * d; p.y += p.vy * d; break;
       default: p.x += p.vx * d; p.y += p.vy * d; if (p.k === 'chispa') { p.vy += 120 * d; p.vx *= 1 - d * 3; } if (p.k === 'cristal' && p.y > p.piso) { p.y = p.piso; p.vx = p.vy = 0; }
     }
-    if (p.t >= p.dur) continue;
-    const x = Math.round(p.x + ox), y = Math.round(p.y + oy);
+  }
+}
+
+function dibujarUno(ctx: CanvasRenderingContext2D, p: P, ox: number, oy: number) {
+  if (p.t >= p.dur) return;
+  const v = p.t / p.dur, r = RAMPA[p.el];
+  const x = Math.round(p.x + ox), y = Math.round(p.y + oy);
     switch (p.k) {
       case 'llama': {
         ctx.globalCompositeOperation = 'lighter';
@@ -490,8 +494,24 @@ export function dibujarDerrames(ctx: CanvasRenderingContext2D, ox: number, oy: n
         break;
       }
     }
-  }
+}
+
+
+/** Todo junto, encima (el muñeco del inventario, que no tiene mundo detrás). */
+export function dibujarDerrames(ctx: CanvasRenderingContext2D, ox: number, oy: number, dt: number) {
+  moverDerrames(dt);
+  if (!ps.length) return;
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  for (const p of ps) dibujarUno(ctx, p, ox, oy);
   ctx.restore();
+}
+/**
+ * Lo que soltaron las armas en el mundo, para meterlo en el orden de pintado (Rick, 19 nov 2026: las gotas de veneno se
+ * pintaban encima de las rocas que tenían delante). `piso` es la fila del suelo debajo de cada partícula (en puntos del
+ * mundo): de ahí sale su profundidad. Las manchas van con el piso (antes que todo lo de pie), lo demás en su fila.
+ */
+export function derramesDelMundo(): { prof: number; piso: boolean; dibujar: (ctx: CanvasRenderingContext2D, ox: number, oy: number) => void }[] {
+  return ps.map((p) => ({ prof: p.piso / 8, piso: p.k === 'mancha', dibujar: (ctx: CanvasRenderingContext2D, ox: number, oy: number) => { ctx.save(); ctx.imageSmoothingEnabled = false; dibujarUno(ctx, p, ox, oy); ctx.restore(); } }));
 }
 
 /** La luz que el arma viva echa en el piso, a los pies (va detrás del cuerpo). */

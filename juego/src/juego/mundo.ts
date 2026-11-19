@@ -2526,13 +2526,17 @@ export function curarEnTiempo(j: Juego, dt: number) {
  * deja en el piso: es lo que menos vale y llenaría la bolsa. Cada cosa espera medio segundo después de caer para que se
  * vea caer. Si la bolsa está llena lo dice una sola vez por objeto.
  */
+/** Lo fija Opciones (menus.ts). */
+export const prefsRecoger = { equipo: false };
 function recogerSolo(j: Juego) {
   const h = j.heroe;
   if (h.muerto || j.zona.tipo === 'pueblo' && !j.suelo.length) return;
   for (let i = j.suelo.length - 1; i >= 0; i--) {
     const s = j.suelo[i]; if (!s || s.t < 0.5) continue;
     const consumible = !!s.o && s.o.tipo !== 'equipo';
-    const radio = s.oro ? 2.6 : consumible ? 2.0 : s.o && s.o.rareza !== 'normal' ? 1.15 : 0;
+    // el equipo solo con clic (como en Diablo): al ir por una poción el héroe se llevaba de paso lo que pisaba (Rick, 19 nov
+    // 2026). Opciones, Recoger equipo, Al pasar, vuelve a lo de antes
+    const radio = s.oro ? 2.6 : consumible ? 2.0 : prefsRecoger.equipo && s.o && s.o.rareza !== 'normal' ? 1.15 : 0;
     if (!radio || dist(s.x, s.y, h.x, h.y) > radio) continue;
     if (s.o && !s.oro && ((s as any).sinLugar || s.botado)) continue; // (lo que el jugador botó no vuelve solo a la bolsa)
     if (!recogerSuelo(j, s, true)) (s as any).sinLugar = true;

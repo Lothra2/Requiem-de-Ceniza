@@ -127,6 +127,13 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **En marcha** (Rick, 19 nov 2026: el veneno no dejaba nada al correr): veneno y sangre chorrean por lo barrido mientras
   se camina o corre (gotas con la inercia del paso que caen y dejan mancha de 2,8 a 3,4 s, y el veneno su estela de
   miasma); la gota de la punta sigue juntándose aunque la hoja se mezca. Probar con `recalc(j)` tras poner `arma.vivo`.
+- **Lo que sueltan las armas en el orden** (`derramesDelMundo` y `moverDerrames` en `arma_viva.ts`): cada gota, miasma o
+  chispa entra en la lista de pintado con la fila de suelo que tiene debajo (`piso/8`), las manchas con lo plano. Antes iban
+  encima de todo y se veían sobre las rocas de delante (Rick, 19 nov 2026). El muñeco sigue con `dibujarDerrames`.
+- **Objetos en cubetas** (`objetosVisibles` en `escena.ts`): 8 x 8 casillas, solo las que ve la pantalla; los rasgos del
+  nombre (mece, cuelga, blanda) se calculan una vez por objeto (`flagsObj`). `__sinCubetas` para comparar.
+- **Recoger equipo** (`prefsRecoger` en `mundo.ts`, Opciones): por omisión el equipo solo con clic, como en Diablo; solos
+  van el oro, las pociones y lo consumible. Al ir por una poción el héroe se llevaba lo que pisaba.
 - **Huellas del héroe** (`pisadaNueva` en `ambiente.ts`): del mismo esqueleto con que se pinta (`esqueleto` del motor), el
   pie que apoya en el cuadro que se ve (`pisadaHeroe`, lo deja escena.ts con el rumbo real y el pie clavado): una huella
   por paso, en el talón y la punta de ese pie. Antes salían cada 0,46 casillas (tres veces más seguidas que los pasos) a

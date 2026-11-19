@@ -20,7 +20,7 @@ import { cuadrosVivos, cuadrosFinos, cambioVisible, FINO_RUMBOS } from '../motor
 import { energiaSuelo, energiaAire, itemsEnergia } from './energia';
 import { dibujarMarca } from './marcas';
 import { R, rng } from '../nucleo/azar';
-import { armaViva, dibujarDerrames, luzPisoArma, golpeVivo, estiloEstela, luzViva, LUZ_RGB, elemMonstruo, mascaraMonstruo, llamaArmaAtras, type ElemArma } from './arma_viva';
+import { armaViva, moverDerrames, derramesDelMundo, luzPisoArma, golpeVivo, estiloEstela, luzViva, LUZ_RGB, elemMonstruo, mascaraMonstruo, llamaArmaAtras, type ElemArma } from './arma_viva';
 import { auraEquipo } from '../juego/visual';
 import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from './fuego';
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
@@ -322,8 +322,10 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   const fViento = (window as any).__sinViento ? 0 : z.tipo === 'mazmorra' ? 0.25 : z.lluvia ? 1.9 : 1;
   let nMecen = 0, nDoblan = 0;
   // objetos del mapa
-  for (const o of z.objetos) {
+  let nCerca = 0;
+  for (const o of (window as any).__sinCubetas ? z.objetos : objetosVisibles(z)) {
     if (!cerca(o.cx + 0.5, o.cy + 0.5, 4)) continue;
+    nCerca++;
     const meta = objetoMeta(o.id, o.v); if (!meta || !meta.f.length) continue;
     let q = meta.f[Math.floor(f25 / meta.t) % meta.f.length];
     // cofres que se abren: la animación se toca una vez y queda abierto
@@ -343,11 +345,11 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     const alto = q.ay;
     // lo que es hoja o tela se mece con el viento (un cizallado desde el pie), y el pasto se aparta de quien lo pisa
     let ciz = 0;
-    const idv = o.id + '|' + o.v, cuelga = CUELGA.test(idv), meceMas = !cuelga && !MECE.test(o.id) && MECE_MAS.test(idv);
+    const fo = flagsObj(o), cuelga = fo.cuelga, meceMas = fo.meceMas;
     // lo que cuelga se hamaca siempre un poco (también bajo techo): un péndulo lento, cada uno a su ritmo
     if (cuelga) { ciz = Math.sin(tiempo * 1.1 + o.cx * 1.7 + o.cy * 0.9) * 0.035 + Math.sin(tiempo * 2.3 + o.cx) * 0.012 * (0.4 + fViento); nMecen++; }
-    else if ((MECE.test(o.id) || meceMas) && (fViento || meceMas)) {
-      const blanda = BLANDA.test(o.id) || (meceMas && alto < 46), amp = (blanda ? 0.05 : alto > 150 ? 0.011 : 0.028) * (meceMas && !fViento ? 0.35 : 1), fViento2 = Math.max(fViento, meceMas ? 0.35 : 0);
+    else if ((fo.mece || meceMas) && (fViento || meceMas)) {
+      const blanda = fo.blanda || (meceMas && alto < 46), amp = (blanda ? 0.05 : alto > 150 ? 0.011 : 0.028) * (meceMas && !fViento ? 0.35 : 1), fViento2 = Math.max(fViento, meceMas ? 0.35 : 0);
       // ráfagas: una ola lenta que recorre el mapa y, encima, el temblor propio de cada planta
       const raf = 0.55 + 0.45 * Math.sin(tiempo * 0.5 - (o.cx + o.cy) * 0.11);
       ciz = (Math.sin(tiempo * 1.5 + o.cx * 0.7 + o.cy * 0.45) + 0.45 * Math.sin(tiempo * 3.3 + o.cx * 1.3)) * amp * raf * fViento2 + amp * 0.6 * raf * fViento2;
@@ -395,7 +397,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     if (o.dato?.mision && (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'destino')) items.push({ prof: prof - 0.01, draw: () => haloMision(px, py, tiempo, o.tag === 'destino') });
     if (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'libro' || o.tag === 'cofre' || o.tag === 'santuario' || o.tag === 'pozo' || o.tag === 'baul' || o.tag === 'romper' || o.id === 'com_piedra_viaje') picks.push({ tipo: 'objeto', ref: o, x0: px - q.ax, y0: py - q.ay, x1: px - q.ax + q.w, y1: py - q.ay + q.h, prof });
   }
-  (window as any).__viento = { mecen: nMecen, doblan: nDoblan };
+  (window as any).__viento = { mecen: nMecen, doblan: nDoblan, cerca: nCerca };
   // salidas (las puertas/escaleras ya están como objetos; aquí solo la zona de clic)
   // la zona de clic de una salida es chica y centrada: el umbral, no todo el borde (antes se robaba clics para caminar)
   for (const s of z.salidas) { const [px, py] = aPant(...puntoSalida(z, s)); picks.push({ tipo: 'salida', ref: s, x0: px - 26, y0: py - 70, x1: px + 26, y1: py + 12, prof: s.cx + s.cy - 2 }); }
@@ -501,6 +503,14 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const it of itemsEnergia(ctx, aPant)) items.push(it);
   for (const it of itemsSuelo(ctx, aPant, dtCuadro)) items.push(it);
   tramo('orden');
+  // lo que sueltan las armas vivas entra en el orden: las manchas con el piso, las gotas, el miasma y las chispas en la fila
+  // del suelo que tienen debajo (antes iban encima de todo y se veían sobre las rocas de delante)
+  { const [ox, oy] = aPant(0, 0), gv = (j as any).golpesVivos as { x: number; y: number; el: ElemArma; fuerte: boolean; alto: number }[] | undefined;
+    // los golpes del arma viva que conectaron este cuadro revientan en el blanco, a la altura del pecho
+    if (gv?.length) { for (const g of gv) { const [gx, gy] = aPant(g.x, g.y); golpeVivo(g.el, gx, gy - g.alto, ox, oy, gy, g.fuerte); luzViva.golpe = { x: gx - ox, y: gy - oy, t: tiempo, c: LUZ_RGB[g.el] }; } gv.length = 0; }
+    moverDerrames(dtCuadro);
+    for (const d of derramesDelMundo()) items.push({ prof: d.piso ? -1e6 + d.prof + 0.5 : d.prof + 0.3, draw: () => d.dibujar(ctx, ox, oy) } as any);
+  }
   items.sort((a, b) => a.prof - b.prof);
   if (rend.on) { let cur = ''; for (const it of items) { const t = it.t ?? 'otros'; if (t !== cur) tramo(cur = t); it.draw(); } }
   else for (const it of items) it.draw();
@@ -510,10 +520,6 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // los de mucha materia (sangre, hueso, humo, flechas) van con alfa normal: sumados se pierden
   const mezclar = (id: string) => { ctx.globalCompositeOperation = LUZ_EFECTO[id]?.mezcla === 'normal' ? 'source-over' : 'lighter'; };
   for (const e of j.efectos) { if (((e as any).partido && !(window as any).__sinPartir) || enOrden(e)) continue; mezclar(e.id); dibujarEfecto(e, tiempo); }
-  { const [ox, oy] = aPant(0, 0), gv = (j as any).golpesVivos as { x: number; y: number; el: ElemArma; fuerte: boolean; alto: number }[] | undefined;
-    // los golpes del arma viva que conectaron este cuadro revientan en el blanco, a la altura del pecho
-    if (gv?.length) { for (const g of gv) { const [gx, gy] = aPant(g.x, g.y); golpeVivo(g.el, gx, gy - g.alto, ox, oy, gy, g.fuerte); luzViva.golpe = { x: gx - ox, y: gy - oy, t: tiempo, c: LUZ_RGB[g.el] }; } gv.length = 0; }
-    dibujarDerrames(ctx, ox, oy, dtCuadro); }
   energiaAire(ctx, j, aPant, W, H);
   // cuervos
   for (const c of j.cuervos) { const [px, py] = aPant(c.x, c.y); ctx.globalCompositeOperation = 'source-over'; pajaro(px, py - 50 - Math.sin(tiempo * 9 + c.ang) * 6, tiempo + c.ang); ctx.globalCompositeOperation = 'lighter'; }
@@ -835,6 +841,32 @@ function rayo(ax: number, ay: number, bx: number, by: number, k: number) {
   ctx.restore();
 }
 const ambJefe: { k: number; m: { x: number; y: number; v: number; f: number; s: number }[] } = { k: 0, m: [] };
+// Los objetos de la zona en cubetas de 8 x 8 casillas: el cuadro solo recorre las que tocan la pantalla (en el cementerio
+// eran miles por cuadro) y los rasgos que salen del nombre se calculan una vez por objeto, no en cada cuadro.
+const CUB = 8;
+const cubetas = new WeakMap<object, { n: number; W: number; H: number; c: (typeof objsTipo)[] }>();
+let objsTipo: any[] = [];
+function objetosVisibles(z: Juego['zona']): any[] {
+  let cb = cubetas.get(z);
+  if (!cb || cb.n !== z.objetos.length) {
+    const W2 = Math.ceil(z.W / CUB) + 1, H2 = Math.ceil(z.H / CUB) + 1, c: any[][] = Array.from({ length: W2 * H2 }, () => []);
+    for (const o of z.objetos) { const bx = Math.max(0, Math.min(W2 - 1, Math.floor(o.cx / CUB))), by = Math.max(0, Math.min(H2 - 1, Math.floor(o.cy / CUB))); c[by * W2 + bx].push(o); }
+    cb = { n: z.objetos.length, W: W2, H: H2, c }; cubetas.set(z, cb);
+  }
+  // las casillas que ve la pantalla (con margen: lo alto se ve desde lejos y lo que se mece se sale un poco)
+  const esq = [aMundo(-260, -80), aMundo(W + 260, -80), aMundo(-260, H + 420), aMundo(W + 260, H + 420)];
+  let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9; for (const [x, y] of esq) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const bx0 = Math.max(0, Math.floor(x0 / CUB) - 1), bx1 = Math.min(cb.W - 1, Math.floor(x1 / CUB) + 1), by0 = Math.max(0, Math.floor(y0 / CUB) - 1), by1 = Math.min(cb.H - 1, Math.floor(y1 / CUB) + 1);
+  objsTipo.length = 0;
+  for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) { const l = cb.c[by * cb.W + bx]; for (let i = 0; i < l.length; i++) objsTipo.push(l[i]); }
+  return objsTipo;
+}
+const flagsCache = new WeakMap<object, { v: string; cuelga: boolean; meceMas: boolean; mece: boolean; blanda: boolean }>();
+function flagsObj(o: { id: string; v: string }) {
+  let f = flagsCache.get(o);
+  if (!f || f.v !== o.v) { const idv = o.id + '|' + o.v, cuelga = CUELGA.test(idv), mece = MECE.test(o.id); f = { v: o.v, cuelga, mece, meceMas: !cuelga && !mece && MECE_MAS.test(idv), blanda: BLANDA.test(o.id) }; flagsCache.set(o, f); }
+  return f;
+}
 /** Lo que el viento mece: árboles, matas, pasto, estandartes y toldos. Lo BLANDO además se aparta de quien lo pisa. */
 const MECE = /^(arb_(roble|sauce|pino_alto|pino_bajo|abeto|cipres|palmera|arbol_selva|arbol_seco|arbusto|helecho|pasto_alto|flores|juncos)|[a-z0-9]+_estandarte|des2?_(palmera|arbusto)|des_toldo|nie2?_pino|sel2?_(arbol|palmera|helecho|planta|planta_hojas)|par_(juncos_orilla|pasto)|dec_planta|cem_flores_secas|cel_arbol_oro)$/;
 // lo demás que también se mueve con el aire: telarañas, lianas, algas, matas y trapos de cualquier tema (el id o la variante lo dicen)

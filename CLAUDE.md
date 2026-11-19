@@ -324,6 +324,10 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   2026: se trancaba con muchos monstruos y bolas de fuego). No volver a un lienzo único. En la nube no se nota porque
   Chromium pinta sin tarjeta. Prueba de fluidez: `t860_fps.cjs [n] [zona]` (sirve para comparar y ver el perfil).
 
+- **Medidor F3** (`nucleo/rendimiento.ts`, `window.__rend()`): fps, 1 % bajo, tiempo de JS por fase (`medir`: lógica,
+  mundo, interfaz), luz avanzada, llamadas de dibujo, lienzo y la tarjeta que da Chrome. Si el JS es mucho menos que el
+  cuadro, frena la tarjeta.
+
 ## Luz avanzada (la versión única desde el 18 nov 2026)
 
 - Cada atlas trae sus gemelos `_n` (normales) y `_h` (altura) en `manifiesto.json` (`rel`). Se hornea con `RELIEVE=1`

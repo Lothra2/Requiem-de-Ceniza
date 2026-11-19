@@ -14,6 +14,7 @@ import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistor
 import { dibujarHistoria } from './ui/historia_ui';
 import { FANTASMAS, HERALDO, type FinalElegido } from './mundo/actos';
 import { fijarAvisoLuz } from './render/luz_gpu';
+import { medir, empezarCuadro, terminarCuadro, dibujarRendimiento } from './nucleo/rendimiento';
 import { cargarOpciones, opciones, guardarOpciones, dibujarIntro, menuPrincipal, dibujarSeleccion, dibujarCrear, dibujarOpciones, pantallaCarga } from './ui/menus';
 import { hud, etiquetasMundo } from './ui/hud_rects';
 import { abrirTienda, cerrarPaneles, cambiarAgresivo, rectPanel, compacto } from './ui/juego_ui';
@@ -596,7 +597,7 @@ function cartelComenzar(t: number) {
 (window as any).__carga = (k: number, m: string) => { estado = 'carga'; cargaK = k; cargaMsg = m; };
 (window as any).__usar = (o: ObjZ) => { if (j) usarObjeto(j, o); };
 function cuadro(ahora: number) {
-  marcarCuadro(ahora);
+  marcarCuadro(ahora); empezarCuadro(ahora);
   // (nunca hacia atrás: si el reloj del sistema retrocede, un paso negativo dejaba el tiempo del juego en negativo)
   const dt = Math.max(0, Math.min(0.05, (ahora - ultimo) / 1000)); ultimo = ahora;
   tiempo += dt; tEstado += dt;
@@ -604,6 +605,7 @@ function cuadro(ahora: number) {
   if (musicaMenuEn && estado !== 'menu') { musicaMenuEn = 0; if (estado !== 'intro' && estado !== 'juego') Sonido.musica('menu'); }
   baseLienzo();
   try { paso(dt); } catch (e) { console.error(e); }
+  terminarCuadro(); dibujarRendimiento();
   finCuadro();
   requestAnimationFrame(cuadro);
 }
@@ -762,8 +764,8 @@ function paso(dt: number) {
       if (presenta) { presenta.t += dt; foco.x = presenta.m.x; foco.y = presenta.m.y; foco.k = Math.min(1, presenta.t / 0.6, Math.max(0, (DUR_PRESENTA - presenta.t) / 0.6)); if (presenta.t >= DUR_PRESENTA || presenta.m.muerto) { presenta = null; foco.k = 0; } }
       if (caida) { caida.t += dt; if (caida.m) { foco.x = caida.m.x; foco.y = caida.m.y; } foco.k = Math.min(1, caida.t / 0.4); if (caida.t >= DUR_CAIDA) { const c = caida; caida = null; foco.k = 0; empezarCine(c.acto, c.despues); } }
       const dtMundo = presenta ? dt * 0.18 : caida ? dt * 0.22 : dt;
-      if (!pausa) { actualizar(jj, dtMundo); historiaPaso(jj, dtMundo); miedoPaso(jj, dtMundo); }
-      enMundo(() => { dibujarMundo(jj, dtMundo, tiempo); dibujarMiedo(jj, tiempo); dibujarHistoria(jj, tiempo); });
+      if (!pausa) medir('logica', () => { actualizar(jj, dtMundo); historiaPaso(jj, dtMundo); miedoPaso(jj, dtMundo); });
+      medir('mundo', () => enMundo(() => { dibujarMundo(jj, dtMundo, tiempo); dibujarMiedo(jj, tiempo); dibujarHistoria(jj, tiempo); }));
       // los blancos del clic salen del pase del mundo: se llevan a puntos del HUD, que es donde está el puntero
       if (ZM !== 1) for (const p of picks) { p.x0 *= ZM; p.y0 *= ZM; p.x1 *= ZM; p.y1 *= ZM; }
       {
@@ -791,8 +793,7 @@ function paso(dt: number) {
       if (E.soltoIzq || !ui.mano) arrastre = null;
       const clicAntes = E.clicIzq, manoAntes = ui.mano;
       entradaFicha(jj);
-      dibujarPaneles(jj, tiempo);
-      if (E.tactil) dibujarHudTactil(jj, tiempo); else dibujarBarra(jj, tiempo);
+      medir('interfaz', () => { dibujarPaneles(jj, tiempo); if (E.tactil) dibujarHudTactil(jj, tiempo); else dibujarBarra(jj, tiempo); });
       if (clicAntes && !manoAntes && ui.mano && E.izq && !E.soltoIzq) arrastre = { x: E.x, y: E.y };
       // el clic lo usó un menú (se puso una prenda, se cerró una ficha, se tocó un botón) o el botón está apretado sobre
       // un panel: mientras siga apretado no es una orden de caminar, aunque el panel ya se haya cerrado debajo del cursor

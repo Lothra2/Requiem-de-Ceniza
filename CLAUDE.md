@@ -161,6 +161,10 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   cuadro, ahora sostienen la decisión), todos los enemigos pegaban en 0,8 s (ahora según su peso), el cartel de muerte
   tapaba la caída y las bestias soltaban un alma con forma humana.
 
+- **Viento sin mover el piso** (`escena.ts`, Rick, 19 nov 2026: la horca, el árbol del ahorcado y otras piezas del
+  campamento se corrían desde la base): lo plantado se mece de la franja del piso para arriba (`PISO_QUIETO`, el pie, las
+  raíces y la sombra horneada no se mueven) y el péndulo (`CUELGA`) es solo para lo que cuelga suelto sin apoyo dibujado.
+  Antes `CUELGA` agarraba por el nombre horcas, mástiles, postes y armas clavadas.
 - **Arco del arma** (`estelaArma` en `escena.ts`): lo que barre la hoja entre cuadros se pinta como un arco curvo
   alrededor de la mano, para el héroe y los enemigos con arma. Usa `hoja` de cada cuadro horneado.
 - **Enemigo que tapa**: el monstruo que queda delante del héroe y lo cubre va medio transparente (`tapa`).

@@ -99,7 +99,7 @@ export function dirPfx(vx: number, vy: number) {
  * Dibuja el efecto con su ancla en (x, y) de pantalla. `dir` 0..7. Devuelve false si todavía no está cargado o ya
  * terminó. Capa pantalla: estirado a cubrir (W, H) y la esquina en (0, 0).
  */
-export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: number, x: number, y: number, o: { dir?: number; alfa?: number; escala?: number; W?: number; H?: number; tesela?: boolean } = {}): boolean {
+export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: number, x: number, y: number, o: { dir?: number; alfa?: number; escala?: number; W?: number; H?: number; tesela?: boolean; cabeza?: number } = {}): boolean {
   const e = efectoPfx(id); if (!e) return false;
   const n = cuadroPfx(e, seg); if (n < 0) return false;
   let d = e.direcciones[e.direccional ? (o.dir ?? 0) % e.direcciones.length : 0];
@@ -130,6 +130,9 @@ export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: numbe
     // gruesos (otro juego encima del juego) y tapaba al héroe y a medio campo. El radio real lo marcan el anillo y la
     // energía del piso, que se pintan al grano del mundo.
     const k = (window as any).__pfxSinTope ? e.escala * (o.escala ?? 1) : Math.min(e.escala * (o.escala ?? 1), Math.max(2, e.escala)), w = c[3] * k, h = c[4] * k;
+    // lo que va sobre la cabeza (estrellas del aturdido, la calavera del maldito...) se hornea sobre un cuerpo de unos 50
+    // puntos: con el tope de grano no crece con el cuerpo, así que se sube (o se baja) a la cabeza de verdad
+    if (o.cabeza !== undefined) y += Math.max(-400, Math.min(60, o.cabeza - (y - 50 * k)));
     if (espejo) { ctx.translate(Math.round(x - (c[5] + c[3]) * k) + w, Math.round(y + c[6] * k)); ctx.scale(-1, 1); ctx.drawImage(bmp, c[1], c[2], c[3], c[4], 0, 0, w, h); }
     else ctx.drawImage(bmp, c[1], c[2], c[3], c[4], Math.round(x + c[5] * k), Math.round(y + c[6] * k), w, h);
   }

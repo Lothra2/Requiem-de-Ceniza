@@ -26,6 +26,9 @@ import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from '.
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
 import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
+import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha, dibujarVeneno } from './electro';
+/** Estados que van encima de la cabeza (se suben a la cabeza de verdad del cuerpo). */
+const ENCIMA = /^fx_(aturdido|confundido|maldito|presa_marcada)$/;
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { pisadaHeroe } from './ambiente';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
@@ -1006,6 +1009,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     for (const id of [...Object.keys(hh.buffs), hh.d.aura ?? '']) { const lz = id && usosPfx.hab.get(id)?.lanzador; if (lz && efectoPfx(lz)?.bucle && !ests.includes(lz) && ests.length < 4) ests.push(lz); }
   }
   const tinteEst = ests.map((id) => efectoPfx(id)?.cuerpo?.tinte).find(Boolean);
+  // el rayo sacude su propia silueta (render/electro.ts)
+  const fEl = e.muerto || (window as any).__sinElectro ? 0 : fuerzaElectro(e, j.t), tinEl = tinteElectro(e.id, fEl, j.t);
   const pm = (e as any).pfxMuerte as { id: string; t0: number } | undefined;
   const alfaM = e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1;
   if (alfaM <= 0.01) return;
@@ -1045,6 +1050,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   // los estados tiñen sin tapar el sprite: como mucho 40 % (salvo petrificado, que es piedra)
   else if (tinM) { if (alM < 1) ctx.globalAlpha = alM; ok = dibujarTenido(ctx, q, px, py, tinM[0], tinM[1], esc); ctx.globalAlpha = 1;
     if (brM && brM[1] > 0.01) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = brM[1]; dibujarTenido(ctx, q, px, py, brM[0], 1, esc); ctx.restore(); } }
+  else if (tinEl) ok = dibujarTenido(ctx, q, px, py, tinEl[0], tinEl[1], esc);
   else if (tinteEst) ok = dibujarTenido(ctx, q, px, py, tinteEst.color, Math.min(tinteEst.fuerza >= 0.8 ? tinteEst.fuerza : 0.4, tinteEst.fuerza) * (e.frio > 0 && !(e.congelado > 0) ? 0.6 : 1), esc);
   else if (e.tinte) ok = dibujarTenido(ctx, q, px, py, e.tinte, e.tipo === 'invocado' ? 0.35 : e.tipo === 'heroe' ? 0.22 : 0.3, esc);
   else if (e.muerto && e.tMuerto > 60) { ctx.globalAlpha = Math.max(0.25, 1 - (e.tMuerto - 60) / 400); ok = dibujar(ctx, q, px, py, esc); ctx.globalAlpha = 1; }
@@ -1062,7 +1068,16 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   }
   if (alfaM * tapa < 1) ctx.globalAlpha = 1;
   if (ok && !e.muerto && !(window as any).__sinReflejos) reflejos(ctx, e, q, px, py, esc);
-  if (ok && ests.length) { const k = Math.max(0.6, Math.min(3, (q.ay * esc) / 75)); for (const id of ests) dibujarPfx(ctx, id, tiempo + (e.id % 7) * 0.31, px, py, { escala: k }); }
+  if (ok && fEl > 0) dibujarElectro(ctx, e.id, q, px, py, esc, fEl, j.t);
+  if (ok && ests.length && !(window as any).__estadosViejos) {
+    // el frío y el veneno se dibujan sobre la silueta de verdad (render/electro.ts); lo de encima de la cabeza, a su cabeza
+    const k = Math.max(0.6, Math.min(3, (q.ay * esc) / 75)), cab = cabezaDe(q, py, esc) ?? undefined, marca = usosPfx.estado.get('marca') ?? 'fx_presa_marcada';
+    for (const id of ests) {
+      if (id === 'fx_congelado') { dibujarEscarcha(ctx, e.id, q, px, py, esc, tiempo, e.congelado > 0); continue; }
+      if (id === 'fx_envenenado') { dibujarVeneno(ctx, e.id, q, px, py, esc, tiempo); continue; }
+      dibujarPfx(ctx, id, tiempo + (e.id % 7) * 0.31, px, py, { escala: k, cabeza: ENCIMA.test(id) || id === marca ? cab : undefined });
+    }
+  } else if (ok && ests.length) { const k = Math.max(0.6, Math.min(3, (q.ay * esc) / 75)); for (const id of ests) dibujarPfx(ctx, id, tiempo + (e.id % 7) * 0.31, px, py, { escala: k }); }
   if (ok && !e.muerto && !(window as any).__sinFuego && e.tipo === 'monstruo' && m.def.sprite === 'jefe_ozmaren') {
     const furia = Math.min(1, (m.fase ?? 0) * 0.6 + (m.acc === 'lanzar' || (m.acc as string) === 'especial' ? 0.6 : 0));
     ozmarenArde(ctx, m, q, px, py, esc, dtCuadro, furia); calorOzmaren(ctx, q, px, py, esc, tiempo, furia);

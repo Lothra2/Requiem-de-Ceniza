@@ -140,7 +140,7 @@ function efectoLegGolpe(j: Juego, m: Monstruo, total: number, crit: boolean) {
       danar(j, b, { min: total * 0.45, max: total * 0.45, elem: 'rayo', deHeroe: true, fuente: h, sinFallo: true });
       // el destello de impacto_rayo solo en el primero (su luz inunda la pantalla); en cada uno, electrocutado
       if (k === 0) efecto(j, 'impacto_rayo', b.x, b.y, 0, 0.5);
-      efecto(j, 'pfx:fx_electrocutado', b.x, b.y, 0, 1, 0, 0.5); ya.add(b.id); desde = b;
+      ya.add(b.id); desde = b;
     }
     enCadena = false;
   }
@@ -633,6 +633,8 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
     // quemadura: el fuego sigue ardiendo un rato (20 % más en 2 s)
     if (e === 'fuego' && d > 0) { (v as any).quema = 2; (v as any).quemaDps = Math.max((v as any).quemaDps ?? 0, d * 0.1); }
     if (e === 'sangre') v.sangrado = Math.max(v.sangrado, 3);
+    // el rayo sacude el cuerpo que pega: se dibuja sobre su propia silueta (render/electro.ts), no un muñeco horneado
+    if (e === 'rayo' && d > 0) (v as any).electroT = j.t;
     total += d;
   }
   // núcleo expuesto de Ozmaren: doble daño
@@ -1585,7 +1587,6 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
         (j.efectos[j.efectos.length - 1] as any).x2 = blanco.x; (j.efectos[j.efectos.length - 1] as any).y2 = blanco.y;
         danar(j, blanco, { min: dh[0], max: dh[1], elem: 'rayo', deHeroe: true, fuente: h, sinFallo: true });
         if (!golpeados.size) efecto(j, 'impacto_rayo', blanco.x, blanco.y, 0, 0.6);
-        efecto(j, 'pfx:fx_electrocutado', blanco.x, blanco.y, 0, 1, 0, 0.5);
         golpeados.add(blanco.id);
         desde = blanco;
         blanco = masCercano(j, desde.x, desde.y, 6, golpeados);

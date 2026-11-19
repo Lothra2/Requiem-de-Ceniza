@@ -10,6 +10,7 @@ const hexRgb = (c: string): [number, number, number] => { const n = parseInt(c.r
 import { manifiesto, objetoMeta } from '../motor/assets';
 import type { Juego, Ent } from '../juego/mundo';
 import { R } from '../nucleo/azar';
+import { fuerzaElectro } from './electro';
 import { puntoSalida } from '../mundo/zona';
 import { auraEquipo } from '../juego/visual';
 import { lucesOzmaren, ALTO_OZMAREN } from './fuego';
@@ -206,6 +207,12 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     const [px, py] = aPant(a.x, a.y);
     if (!dentro(px, py, 300)) continue;
     L.push({ id: idDe(a), x: px, y: py, h: 20, r: a.radio * 32 + 40, c: COLOR_ELEM[a.elem] ?? COLOR_ELEM.fuego, k: 0.6 + Math.sin(t * 11 + a.x) * 0.08 });
+  }
+  // el cuerpo sacudido por el rayo alumbra azul a tirones (render/electro.ts)
+  for (const m of [h as any, ...j.monstruos]) {
+    const f = m.muerto ? 0 : fuerzaElectro(m, j.t); if (f <= 0) continue;
+    const [px, py] = aPant(m.x, m.y); if (!dentro(px, py, 300)) continue;
+    L.push({ id: 'el' + m.id, x: px, y: py, h: 34 * (m.escala ?? 1), r: 80 + 40 * (m.escala ?? 1), c: [150, 170, 255], k: f * (0.16 + 0.22 * R()), de: m, sinSombra: true, prio: 1 });
   }
   // Ozmaren arde: una luz naranja que palpita, más fuerte cuando abre el pecho
   for (const m of j.monstruos) {

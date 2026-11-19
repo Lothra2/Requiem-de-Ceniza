@@ -152,6 +152,15 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.
   Lo que inmoviliza sin ser hielo marca `preso` ('raices' o 'hueso') y no se dibuja como bloque de hielo.
+- **Estados sobre el cuerpo de verdad** (`render/electro.ts`, Rick, 19 nov 2026: un jefe grande se electrocutaba con la
+  silueta de un muñeco genérico). `fx_electrocutado`, `fx_congelado` y `fx_envenenado` traían horneado el contorno de un
+  cuerpo humano de 50 puntos. Ahora el rayo (`electroT`, lo pone `danar` con daño de rayo, no se guarda) dibuja arcos que
+  nacen en el borde del cuadro que se ve, corren por dentro de la silueta y saltan afuera, con parpadeo del sprite y luz
+  azul; el frío pone escarcha en lo que mira arriba, motas y piso escarchado del ancho del cuerpo; el veneno burbujas,
+  gotas y charco a su medida. La silueta sale de leer el cuadro una vez (`mascaraDe`, como mucho 3 lecturas nuevas por
+  cuadro). Lo que va sobre la cabeza (aturdido, confundido, maldito, la marca) se sube a la cabeza real (`cabeza` en
+  `dibujarPfx`): con el tope de grano no crecía con el cuerpo. Prueba: `t900_electro.cjs <ids> <etiqueta>` (`ESTADO=frio`,
+  `veneno`, `aturdido+marca`...). `__sinElectro` y `__estadosViejos` para comparar.
 - **Números de daño** (`render/numeros.ts`): cifras de pixel con canto negro, brinco y apertura lateral, sin encimarse.
 
 - **Ríos**: el camino cruza el agua siempre por un puente, nunca por vado (se veía igual que lo hondo y Rick creyó que

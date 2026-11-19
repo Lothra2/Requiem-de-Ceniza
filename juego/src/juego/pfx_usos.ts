@@ -65,7 +65,8 @@ export function armarUsosPfx(efectos: { id: string; uso?: any[]; luz?: { enVuelo
   const declarado = new Map<string, Partial<Record<Rol, string>>>(), deducido = new Map<string, Partial<Record<Rol, string>>>();
   const poner = (m: typeof declarado, h: string, r: Rol, id: string) => { const x = m.get(h) ?? {}; if (!x[r]) x[r] = id; m.set(h, x); };
   for (const e of efectos) if (!e.soloCinematica) for (const u of e.uso ?? []) {
-    if (u.tipo === 'poder') for (const h of u.habilidades ?? []) {
+    // (el electrocutado trae horneado el contorno de un muñeco de 50 puntos: el rayo se dibuja sobre el cuerpo de verdad)
+    if (u.tipo === 'poder' && e.id !== 'fx_electrocutado') for (const h of u.habilidades ?? []) {
       if (u.rol) poner(declarado, h, u.rol, e.id);
       else poner(deducido, h, e.luz?.enVuelo ? 'proyectil' : 'area', e.id);
     }

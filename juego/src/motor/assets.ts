@@ -43,10 +43,15 @@ let ahoraCuadro = 0;
 export const marcarCuadro = (t: number) => { ahoraCuadro = t; };
 const turno = () => new Promise<void>((ok) => { if (activas < MAX_DESCARGAS) { activas++; ok(); } else cola.push(() => { activas++; ok(); }); });
 const soltarTurno = () => { activas--; const s = cola.shift(); if (s) s(); };
-function bajar(url: string): Promise<HTMLImageElement | null> {
+// Los atlas van como ImageBitmap: se decodifican UNA vez y quedan listos. Como <img>, Chrome los guarda en un caché de
+// imágenes decodificadas con tope; con el relieve (color, normales y altura por atlas) una zona pasaba ese tope y Chrome
+// volvía a descomprimir los WebP en cada cuadro: 900 ms de "mundo" y 9 mil llamadas en la RTX 2080 de Rick (19 nov 2026).
+const aBitmap = (im: HTMLImageElement): Promise<ImageBitmap | HTMLImageElement> =>
+  typeof createImageBitmap === 'function' ? createImageBitmap(im).catch(() => im) : Promise.resolve(im);
+function bajar(url: string): Promise<HTMLImageElement | ImageBitmap | null> {
   return new Promise((ok) => {
     const im = new Image();
-    im.onload = () => ok(im);
+    im.onload = () => { aBitmap(im).then((b) => { if (b !== im) im.src = ''; ok(b); }); };
     im.onerror = () => ok(null);
     im.src = url;
   });
@@ -88,7 +93,7 @@ export function liberarAtlas(mantener: Set<string>, topeMB = 500): string[] {
   const fuera = new Set<string>();
   for (const n of cand) { if (total <= tope) break; total -= bytesAtlas(n); fuera.add(n); }
   if (!fuera.size) return [];
-  for (const n of fuera) { const im = imgs.get(n); imgs.delete(n); usado.delete(n); if (im instanceof HTMLImageElement) im.src = ''; }
+  for (const n of fuera) { const im = imgs.get(n); imgs.delete(n); usado.delete(n); if (im instanceof HTMLImageElement) im.src = ''; else (im as ImageBitmap)?.close?.(); }
   // los cuadros guardan la imagen: soltarla para que se pueda recoger y se vuelva a pedir al dibujar
   const limpiar = (q: Cuadro) => { if (q.img && fuera.has(q.atlas)) q.img = null; };
   for (const l of cuadros.values()) l.forEach(limpiar);
@@ -163,12 +168,12 @@ export function clavesCon(grupo: 'h' | 'm' | 'p' | 'o' | 'i' | 'w', prefijo: str
 
 /** Dibuja un cuadro con el ancla en (x, y). Devuelve si se pudo (el atlas puede estar bajando). */
 // ---------------- laboratorio de luz: los atlas gemelos de relieve (_n) y alto (_h), y el gancho que los dibuja en paralelo
-const rels = new Map<string, HTMLImageElement | null>();
+const rels = new Map<string, ImageBitmap | HTMLImageElement | 'bajando' | null>();
 /** La imagen de un atlas de relieve si ya está bajada (la pide la primera vez). */
-export function relDe(nombre: string): HTMLImageElement | null {
-  const r = rels.get(nombre); if (r !== undefined) return r && r.complete && r.naturalWidth ? r : null;
+export function relDe(nombre: string): ImageBitmap | HTMLImageElement | null {
+  const r = rels.get(nombre); if (r !== undefined) return r === 'bajando' ? null : r;
   const a = (man as any)?.rel?.[nombre]; if (!a) { rels.set(nombre, null); return null; }
-  const im = new Image(); im.src = BASE + a[0]; rels.set(nombre, im); return null;
+  rels.set(nombre, 'bajando'); void bajar(BASE + a[0]).then((b) => { if (b) rels.set(nombre, b); else rels.delete(nombre); }); return null;
 }
 let gancho: ((c: CanvasRenderingContext2D, q: Cuadro, im: CanvasImageSource, x: number, y: number, escala: number) => void) | null = null;
 export const fijarGanchoRelieve = (f: typeof gancho) => { gancho = f; };

@@ -5,7 +5,7 @@
 // trae relieve borra lo de abajo (queda sin reiluminar). Al terminar el mundo, un pase de WebGL toma la imagen, el
 // relieve y la altura y, con las luces de la zona (las mismas fogatas y antorchas de luces.ts), aclara lo que mira a
 // cada fuego y oscurece lo que le da la espalda. Después suma un resplandor (bloom) de lo que brilla.
-import { relDe } from '../motor/assets';
+import { relDe, bajandoAlgo } from '../motor/assets';
 import { lienzoTrabajo } from '../motor/lienzos';
 import type { Cuadro } from '../motor/assets';
 
@@ -215,8 +215,11 @@ function vigilar() {
   const ahora = performance.now();
   if (!ultimoT || ahora - ultimoT > 1500) { ultimoT = ahora; desde = ahora; lentoDesde = 0; media = 16; return; } // (pestaña dormida o recién prendida)
   const dt = ahora - ultimoT; ultimoT = ahora; media = media * 0.85 + dt * 0.15;
-  if (ahora - desde < 4000) return; // (al entrar a la zona se bajan atlas: no contar eso)
-  if (media > 70) { if (!lentoDesde) lentoDesde = ahora; else if (ahora - lentoDesde > 2000) { lab.on = false; lentoDesde = 0; alApagar?.(); } } else lentoDesde = 0;
+  // (al prenderla o entrar a una zona se bajan y suben a la tarjeta los relieves: esos cuadros no cuentan. Antes la
+  // guardia la apagaba justo ahí y quedaba guardada en Clásica aunque la RTX de Rick la aguanta de sobra)
+  if (bajandoAlgo()) { desde = ahora; lentoDesde = 0; return; }
+  if (ahora - desde < 6000) return;
+  if (media > 90) { if (!lentoDesde) lentoDesde = ahora; else if (ahora - lentoDesde > 4000) { lab.on = false; lentoDesde = 0; alApagar?.(); } } else lentoDesde = 0;
 }
 
 // ------------------------------------------------------------------ un sprite suelto con su luz (la selección de clase)

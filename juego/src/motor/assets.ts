@@ -170,6 +170,8 @@ export function clavesCon(grupo: 'h' | 'm' | 'p' | 'o' | 'i' | 'w', prefijo: str
 // ---------------- laboratorio de luz: los atlas gemelos de relieve (_n) y alto (_h), y el gancho que los dibuja en paralelo
 const rels = new Map<string, ImageBitmap | HTMLImageElement | 'bajando' | null>();
 /** La imagen de un atlas de relieve si ya está bajada (la pide la primera vez). */
+/** Hay atlas o relieves bajando o decodificándose (la guardia de la luz no cuenta esos cuadros). */
+export const bajandoAlgo = () => cargando.size > 0 || [...rels.values()].some((r) => r === 'bajando');
 export function relDe(nombre: string): ImageBitmap | HTMLImageElement | null {
   const r = rels.get(nombre); if (r !== undefined) return r === 'bajando' ? null : r;
   const a = (man as any)?.rel?.[nombre]; if (!a) { rels.set(nombre, null); return null; }

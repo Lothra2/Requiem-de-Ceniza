@@ -5,7 +5,7 @@
 // tiene el mismo grano que el resto del HUD. Rick (18 nov 2026): el sello de antes "parecía un parche con el nivel".
 import { Lienzo, PALETA as P, type C3 } from '../../../src/engine/gotico/hud';
 import type { Raster } from '../../../src/engine/core/raster';
-import { ctx } from '../nucleo/lienzo';
+import { ctx, RES } from '../nucleo/lienzo';
 import { acc } from '../nucleo/accesible';
 import { cacheRaster } from './comun';
 
@@ -178,7 +178,7 @@ export const selloDibujado = { x: 0, y: 0, r: 0 };
  * Al subir de nivel el esmalte se pone al rojo, el oro del canal arde, sale un anillo de luz y unas chispas que suben
  * (todo más suave con Destellos suaves).
  */
-export function dibujarRoseton(nivel: number, kxp: number, cx: number, cy: number, esc: number, t: number) {
+export function dibujarRoseton(nivel: number, kxp: number, cx: number, cy: number, esc: number, t: number, rejilla = false) {
   if (nivelVisto >= 0 && nivel > nivelVisto) subioEn = t;
   if (nivel < nivelVisto) subioEn = -99; // otro héroe: no es una subida
   nivelVisto = nivel;
@@ -186,7 +186,9 @@ export function dibujarRoseton(nivel: number, kxp: number, cx: number, cy: numbe
   const calor = Math.round(Math.pow(ard, 0.6) * 4) / 4;
   const llenos = Math.round(cl(kxp) * PIXELES_CANAL);
   const img = cacheRaster(`roseton_${nivel}_${llenos}_${calor}`, () => rosetonNivel(nivel, llenos, calor));
-  const x0 = Math.round(cx - C_SELLO * esc), y0 = Math.round(cy - C_SELLO * esc), R = R_CANTO * esc;
+  // (rejilla: a puntos enteros del lienzo y no del HUD lógico, para el HUD forjado a 1,5 puntos por punto lógico)
+  const aR = (v: number) => (rejilla ? Math.round(v * RES) / RES : Math.round(v));
+  const x0 = aR(cx - C_SELLO * esc), y0 = aR(cy - C_SELLO * esc), R = R_CANTO * esc;
   selloDibujado.x = cx; selloDibujado.y = cy; selloDibujado.r = R;
   (window as any).__selloNivel = [cx, cy, R];
   ctx.save();

@@ -1,7 +1,7 @@
 // Réquiem de Ceniza: arranque, estados (carga, intro, menú, elegir, crear, juego) y el control del héroe.
 import { partidaEnEnlace } from './ui/traslado';
 import { registrar as registrarInstalacion, abrirInstalar } from './nucleo/instalar';
-import { ctx, W, H, E, ZM, ajustar, instalarEntrada, finCuadro, pulso, alPrimerGesto, baseLienzo, enMundo } from './nucleo/lienzo';
+import { ctx, W, H, E, ZM, ajustar, instalarEntrada, finCuadro, pulso, alPrimerGesto, baseLienzo, enMundo, hudForja, fijarAltoHud } from './nucleo/lienzo';
 import { cargarManifiesto, asegurar, atlasDe, clavesCon, manifiesto, objetoMeta, liberarAtlas, precargar, marcarCuadro } from './motor/assets';
 import * as Assets from './motor/assets';
 import { pintarHeroe, progresoPintura } from './motor/pintor';
@@ -10,6 +10,7 @@ import { T, TT, texto, IDI, fijarIdioma, tooltip, TITULO } from './ui/comun';
 import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from './ui/menus';
 import { dibujarCine, precargarCine, claveCine, claveFinal, marcasCine, hayCine, soltarCine } from './ui/cine';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
+import { dibujarHudForja } from './ui/hud_forja';
 import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe } from './juego/historia';
 import { dibujarHistoria } from './ui/historia_ui';
 import { FANTASMAS, HERALDO, type FinalElegido } from './mundo/actos';
@@ -793,7 +794,7 @@ function paso(dt: number) {
       if (E.soltoIzq || !ui.mano) arrastre = null;
       const clicAntes = E.clicIzq, manoAntes = ui.mano;
       entradaFicha(jj);
-      medir('interfaz', () => { dibujarPaneles(jj, tiempo); if (E.tactil) dibujarHudTactil(jj, tiempo); else dibujarBarra(jj, tiempo); });
+      medir('interfaz', () => { dibujarPaneles(jj, tiempo); dibujarHud(jj, tiempo); });
       if (clicAntes && !manoAntes && ui.mano && E.izq && !E.soltoIzq) arrastre = { x: E.x, y: E.y };
       // el clic lo usó un menú (se puso una prenda, se cerró una ficha, se tocó un botón) o el botón está apretado sobre
       // un panel: mientras siga apretado no es una orden de caminar, aunque el panel ya se haya cerrado debajo del cursor
@@ -870,3 +871,21 @@ arrancar();
 /** Prueba: fija la variante de la catedral (sellada, entera o herida) por encima de la historia; sin argumento vuelve a la historia. */
 let catedralForzada: string | null = null;
 (window as any).__catedral = (v?: string) => { catedralForzada = v || null; return catedralForzada; };
+
+/**
+ * El HUD de abajo: la barra de siempre (PC) o el táctil, o el HUD forjado si está encendido (window.__hudNuevo u
+ * opciones.hud = 'forja'). Con el forjado, la PC con pantalla táctil sigue con el panel de PC (que también se toca):
+ * manda el aparato (puntero fino) y no el último toque.
+ */
+function dibujarHud(jj: Juego, tiempo: number) {
+  delete hud.forjaMsg;
+  if (hudForja()) {
+    // (pantalla baja con un panel abierto: dibujarBarra borra sus rectángulos y no dibuja nada, como siempre)
+    if (!aparatoTactil()) { if (compacto() && (ui.izq || ui.der)) dibujarBarra(jj, tiempo); else if (!dibujarHudForja(jj, tiempo)) { fijarAltoHud(96); dibujarBarra(jj, tiempo); } return; }
+    fijarAltoHud(96); dibujarHudTactil(jj, tiempo); return;
+  }
+  fijarAltoHud(96);
+  if (E.tactil) dibujarHudTactil(jj, tiempo); else dibujarBarra(jj, tiempo);
+}
+/** ¿El aparato es de dedo (teléfono, tableta)? Un PC con pantalla táctil tiene puntero fino y no cuenta. */
+function aparatoTactil() { return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches; }

@@ -4,6 +4,7 @@ const { chromium } = require('playwright');
   for (const vista of [1, 2]) {
     const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const c = await b.newContext({ viewport: { width: 1920, height: 1080 } }); const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
     await p.addInitScript((v) => { localStorage.setItem('marca.intro', '1'); localStorage.setItem('marca.opciones', JSON.stringify({ general: 0, musica: 0, efectos: 0, horror: 0, idioma: 0, brillo: 1, vista: v })); }, vista);
+    if (process.env.HUD === '1') await p.addInitScript(() => { window.__hudNuevo = true; }); // el HUD forjado (t950_hud.cjs)
     const aMenu = async () => { for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
     await p.goto('http://127.0.0.1:5190/'); await aMenu(); await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });
     await p.evaluate(() => { const d = window.__T.H.nuevoHeroe('berserker', 'Rick'); d.nivel = 20; d.misiones = { m1_hambre: 3 }; localStorage.setItem('marca.heroes', JSON.stringify([d])); });

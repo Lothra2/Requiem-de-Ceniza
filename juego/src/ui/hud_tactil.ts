@@ -5,7 +5,9 @@
 //   Abajo al centro: el cinturón de pociones y la experiencia en una línea fina.
 //   Abajo a la izquierda: un joystick que aparece donde apoyas el pulgar.
 // Todo en tamaños de dedo (44 pt o más), lejos de los bordes laterales (notch e isla) y respetando el área segura.
-import { ctx, W, H, E, ESCALA, SEGURO } from '../nucleo/lienzo';
+import { ctx, W, H, E, ESCALA, SEGURO, hudForja } from '../nucleo/lienzo';
+import { disposicionForja, dibujarBaseForja, pocionForja, type DispForja } from './hud_forja_tactil';
+import { iconoPixel } from './forja_habilidad';
 import { texto, T, TT, dentro, icono, envolver as envolverT, TITULO, cacheRaster } from './comun';
 import { botonForjado } from '../../../src/engine/gotico/hud';
 import { ui, alternar, discoHab, orbeHud, selloNivel, recursoClase, objetivoTxt, COLOR_POCION, cambiarAgresivo } from './juego_ui';
@@ -19,7 +21,7 @@ import { Sonido } from '../audio/sonido';
 
 /** Puntos de pantalla a píxeles del lienzo. */
 const L = (pt: number) => pt / Math.max(0.1, ESCALA);
-const CLAVES = ['cartel', 'orbes', 'rastreo', 'botones', 'mini', 'golpe', 'poder', 'hab1', 'hab2', 'hab3', 'agresivo', 'cinturon', 'xp', 'jefe'];
+const CLAVES = ['casaVida', 'casaMana', 'cartel', 'orbes', 'rastreo', 'botones', 'mini', 'golpe', 'poder', 'hab1', 'hab2', 'hab3', 'agresivo', 'cinturon', 'xp', 'jefe'];
 /** Los objetivos de toque de este cuadro, para la auditoría (cada uno debe medir 44 pt o más). */
 export const toques: { id: string; r: Rect }[] = [];
 let joy: { x0: number; y0: number; activo: boolean; repath: number } | null = null;
@@ -35,7 +37,10 @@ function margenes() {
 }
 
 /** Dónde va cada pieza (la usan el dibujo, la barra del jefe, los mensajes y el minimapa). */
-export function disposicion() {
+export function disposicion(): ReturnType<typeof disposicionVieja> & Partial<DispForja> {
+  return hudForja() ? disposicionForja(margenes()) : disposicionVieja();
+}
+function disposicionVieja() {
   const m = margenes();
   const O = L(56), B = L(44), gap = L(6);
   const orbes: Rect = [m.l, m.t, O * 2 + gap, O + L(14)];
@@ -68,7 +73,7 @@ const aclarar = (hex: string, k: number) => { const n = parseInt(hex.slice(1), 1
 const oscurecer = (hex: string, k: number) => { const n = parseInt(hex.slice(1), 16), f = (v: number) => Math.round(v * (1 - k)); return `rgb(${f((n >> 16) & 255)},${f((n >> 8) & 255)},${f(n & 255)})`; };
 /** Cuándo quedó lista cada habilidad (para el destello al terminar la recarga). */
 const listaDesde = new Map<string, number>(), enRecarga = new Set<string>();
-interface Med { id?: string; hb?: Habilidad; apagado?: boolean; etiqueta?: string; apretado?: boolean; principal?: boolean; recarga?: number; segundos?: number; falta?: number }
+interface Med { furia?: boolean; id?: string; hb?: Habilidad; apagado?: boolean; etiqueta?: string; apretado?: boolean; principal?: boolean; recarga?: number; segundos?: number; falta?: number }
 /**
  * Un botón de combate como pieza de orfebrería: aro de bronce labrado (muescas, y remaches en el principal), ranura
  * oscura, vidrio engastado del color de la habilidad con su brillo arriba, y el glifo con resplandor. La recarga se lee
@@ -111,13 +116,18 @@ function medallon(cx: number, cy: number, d: number, o: Med = {}) {
   ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, ri, 0, Math.PI * 2); ctx.clip();
   { const g = ctx.createRadialGradient(cx - ri * 0.25, cy - ri * 0.3, ri * 0.05, cx, cy, ri * 1.05); g.addColorStop(0, aclarar(col, 0.22)); g.addColorStop(0.45, col); g.addColorStop(0.85, oscurecer(col, 0.6)); g.addColorStop(1, oscurecer(col, 0.82)); ctx.fillStyle = g; ctx.fillRect(cx - ri, cy - ri, ri * 2, ri * 2); }
   // el icono pintado entero: el fondo de su elemento y el glifo con volumen (antes iba un glifo plano sobre un disco gris)
-  discoHab(o.hb, cx, cy, ri, !!o.apagado);
+  if (hudForja()) {
+    // con el HUD forjado, el ícono a pixel entero del lienzo (afilado, con su bisel), recortado en el vidrio
+    const tr = ctx.getTransform(), k = tr.a, s = Math.max(8, Math.round(ri * 2 * k)), px = Math.round((cx - ri) * k + tr.e), py = Math.round((cy - ri) * k + tr.f);
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(iconoPixel(o.hb, s, !!o.apagado), px, py); ctx.restore();
+  } else discoHab(o.hb, cx, cy, ri, !!o.apagado);
   // volumen: sombra interior en el borde y brillo de vidrio arriba
   { const g = ctx.createRadialGradient(cx, cy, ri * 0.62, cx, cy, ri); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.6)'); ctx.fillStyle = g; ctx.fillRect(cx - ri, cy - ri, ri * 2, ri * 2); }
   { const g = ctx.createLinearGradient(0, cy - ri, 0, cy - ri * 0.1); g.addColorStop(0, 'rgba(255,246,224,0.3)'); g.addColorStop(1, 'rgba(255,246,224,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(cx, cy - ri * 0.52, ri * 0.74, ri * 0.42, 0, 0, Math.PI * 2); ctx.fill(); }
   ctx.strokeStyle = 'rgba(255,240,210,0.18)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(cx, cy, ri - 1.5, Math.PI * 0.2, Math.PI * 0.8); ctx.stroke();
   // estados sobre el vidrio
   if (rec > 0) { ctx.fillStyle = 'rgba(4,3,2,0.66)'; ctx.fillRect(cx - ri, cy - ri, ri * 2, ri * 2); }
+  if (o.furia && !rec) { ctx.fillStyle = 'rgba(120,10,6,0.55)'; ctx.fillRect(cx - ri, cy - ri, ri * 2, ri * 2); }
   if (o.falta) { ctx.fillStyle = 'rgba(6,14,70,0.6)'; ctx.fillRect(cx - ri, cy - ri, ri * 2, ri * 2); }
   if (o.apretado) { ctx.fillStyle = 'rgba(255,232,180,0.2)'; ctx.fillRect(cx - ri, cy - ri, ri * 2, ri * 2); }
   ctx.restore();
@@ -204,7 +214,11 @@ export function dibujarHudTactil(j: Juego, t: number) {
   const h = j.heroe, d = h.d, P = disposicion(), f = Math.floor(t * 8) % 8;
 
   // ---------------- arriba a la izquierda: orbes, recurso y misión
-  {
+  if (P.orbV) {
+    // el HUD forjado: marco, orbes en sus casas, rosetón y recurso (hud_forja_tactil.ts); la misión arriba a la izquierda
+    dibujarBaseForja(j, P as DispForja, t);
+    misionArriba(j);
+  } else {
     const [x, y] = P.orbes;
     orbeHud(h.veneno > 0 ? 'veneno' : h.frio > 0 ? 'helado' : 'vida', h.vida / h.vidaMax, x, y, P.O, f);
     orbeHud('mana', h.mana / Math.max(1, h.c.manaMax), x + P.O + P.gap, y, P.O, f);
@@ -219,16 +233,7 @@ export function dibujarHudTactil(j: Juego, t: number) {
       // los nombres del mundo esquivan también los lóbulos de abajo del rosetón
       const fondo = y + P.O * 0.93 + 19 * esc; if (fondo > P.orbes[1] + P.orbes[3]) hud.orbes = [P.orbes[0], P.orbes[1], P.orbes[2], fondo - P.orbes[1]]; }
     recursoClase(j, x, P.orbes[1] + P.orbes[3] + L(4), P.orbes[2] + L(60));
-    const m = MISIONES.find((q) => q.acto === d.acto && !q.lateral && (d.misiones[q.id] ?? 0) >= 1 && (d.misiones[q.id] ?? 0) < 3);
-    if (m) {
-      const e = d.misiones[m.id];
-      const linea = e === 2 ? T('Vuelve al campamento', 'Return to camp') : objetivoTxt(m, d);
-      const [rx, ry, rw, rh] = P.rastreo;
-      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(rx, ry, rw, rh); ctx.restore();
-      texto(TT(m.nombre), rx + L(6), ry + Math.max(L(13), 12), { tam: Math.max(10, Math.round(L(11))), color: '#ffd080', max: rw - L(10) });
-      texto(linea, rx + L(6), ry + Math.max(L(28), 25), { tam: Math.max(9, Math.round(L(10))), color: e === 2 ? '#80ff80' : '#d8c8a0', max: rw - L(10) });
-      hud.rastreo = P.rastreo;
-    }
+    misionArriba(j);
   }
 
   // ---------------- arriba a la derecha: cinco botones y el minimapa
@@ -250,14 +255,14 @@ export function dibujarHudTactil(j: Juego, t: number) {
     // el ataque básico lleva el arma y el color de la clase
     const hbG = hbI.id === 'ataque' && arma ? ({ ...hbI, glifo: arma[0], color: arma[1] } as Habilidad) : hbI;
     const rG = circ(P.gx, P.gy, P.G);
-    rielArco(P.gx, P.gy, Math.hypot(P.habs[0][0] - P.gx, P.habs[0][1] - P.gy), P.S * 0.56, P.G / 2);
+    if (!P.orbV) rielArco(P.gx, P.gy, Math.hypot(P.habs[0][0] - P.gx, P.habs[0][1] - P.gy), P.S * 0.56, P.G / 2);
     boton('golpe', rG, (ap) => medallon(P.gx, P.gy, P.G, { id: 'golpe', hb: hbG, etiqueta: T('Golpe', 'Hit'), apretado: ap, principal: true }), () => { (ui as any).tactilHab = 'izq'; }, true, true);
     habsArco(j).forEach((id, i) => {
       const [cx, cy] = P.habs[i], r = circ(cx, cy, P.S), clave = i === 0 ? 'poder' : 'hab' + i;
       if (!id) { boton(clave, r, (ap) => medallon(cx, cy, P.S, { apretado: ap }), () => alternar('habs', 'der'), true, true); return; }
       const hb = habilidadDe(id), n = hb.id === 'ataque' ? 1 : nivelHab(d, hb.id, h.c), costo = hb.id === 'ataque' ? 0 : costoMana(j, hb);
       const rc = h.recargas[hb.id] ?? 0;
-      boton(clave, r, (ap) => medallon(cx, cy, P.S, { id: clave + hb.id, hb, apagado: n <= 0, etiqueta: i === 0 ? T('Poder', 'Skill') : undefined, apretado: ap, recarga: rc > 0 ? rc / (hb.recarga ?? 1) : 0, segundos: rc, falta: rc <= 0 && h.mana < costo ? costo : 0 }),
+      boton(clave, r, (ap) => medallon(cx, cy, P.S, { id: clave + hb.id, hb, apagado: n <= 0, etiqueta: i === 0 ? T('Poder', 'Skill') : undefined, apretado: ap, recarga: rc > 0 ? rc / (hb.recarga ?? 1) : 0, segundos: rc, falta: rc <= 0 && h.mana < costo ? costo : 0, furia: !!(hb as any).furia && h.furia < (hb as any).furia }),
         () => { if (i === 0) (ui as any).tactilHab = 'der'; else (ui as any).tactilHabId = id; }, true, true);
     });
     // agresivo o calmo: el mismo medallón, espada sobre rojo si ataca solo, escudo sobre acero si espera tu orden
@@ -270,6 +275,7 @@ export function dibujarHudTactil(j: Juego, t: number) {
     const tipos = tiposCinturon(d);
     for (let i = 0; i < 4; i++) {
       const r: Rect = [P.cinturon[0] + i * (P.P + P.gap), P.cinturon[1], P.P, P.P], o = d.cinturon[i];
+      if (P.orbV) { boton('poc' + i, r, (ap) => pocionForja(j, i, r, ap), () => { if (o) usarPocion(j, i); else Sonido.efecto('negado'); }, false, true); delete hud['poc' + i]; continue; }
       boton('poc' + i, r, () => {
         if (o) { icono(o, r[0] + L(4), r[1] + L(4), r[2] - L(8), r[3] - L(8)); texto('×' + cant(o), r[0] + r[2] - L(4), r[1] + r[3] - L(5), { alin: 'right', tam: Math.round(L(10)), color: '#e8dcc0' }); }
         else { ctx.save(); ctx.globalAlpha = 0.25; ctx.fillStyle = COLOR_POCION[tipos[i]]; ctx.beginPath(); ctx.arc(r[0] + r[2] / 2, r[1] + r[3] / 2, r[2] * 0.22, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
@@ -278,7 +284,7 @@ export function dibujarHudTactil(j: Juego, t: number) {
     }
     hud.cinturon = P.cinturon;
     const x0 = xpPara(d.nivel), x1 = xpPara(d.nivel + 1), [xx, xy, xw, xh] = P.xp;
-    ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(xx, xy, xw, xh); ctx.fillStyle = '#c0a040'; ctx.fillRect(xx, xy, xw * Math.max(0, Math.min(1, (d.xp - x0) / Math.max(1, x1 - x0))), xh);
+    if (!P.orbV) { ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(xx, xy, xw, xh); ctx.fillStyle = '#c0a040'; ctx.fillRect(xx, xy, xw * Math.max(0, Math.min(1, (d.xp - x0) / Math.max(1, x1 - x0))), xh); }
     hud.xp = P.xp;
   }
 
@@ -342,6 +348,20 @@ export function dibujarHudTactil(j: Juego, t: number) {
   }
 }
 
+/** La misión en curso (arriba a la izquierda, debajo de los orbes o, con el HUD forjado, en la esquina). */
+function misionArriba(j: Juego) {
+  const d = j.heroe.d, P = disposicion();
+    const m = MISIONES.find((q) => q.acto === d.acto && !q.lateral && (d.misiones[q.id] ?? 0) >= 1 && (d.misiones[q.id] ?? 0) < 3);
+    if (m) {
+      const e = d.misiones[m.id];
+      const linea = e === 2 ? T('Vuelve al campamento', 'Return to camp') : objetivoTxt(m, d);
+      const [rx, ry, rw, rh] = P.rastreo;
+      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(rx, ry, rw, rh); ctx.restore();
+      texto(TT(m.nombre), rx + L(6), ry + Math.max(L(13), 12), { tam: Math.max(10, Math.round(L(11))), color: '#ffd080', max: rw - L(10) });
+      texto(linea, rx + L(6), ry + Math.max(L(28), 25), { tam: Math.max(9, Math.round(L(10))), color: e === 2 ? '#80ff80' : '#d8c8a0', max: rw - L(10) });
+      hud.rastreo = P.rastreo;
+    }
+}
 /** Dónde poner la barra del jefe sin pisar los botones de arriba (en táctil). */
 export function rectJefeTactil(w: number, h: number): Rect {
   const P = disposicion(), izq = P.orbes[0] + P.orbes[2] + L(10), der = P.botones[0] - L(10);

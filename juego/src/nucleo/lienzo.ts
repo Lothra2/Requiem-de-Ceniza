@@ -4,6 +4,16 @@ export const ctx = lienzo.getContext('2d', { alpha: false })!;
 export let W = 960, H = 540, ESCALA = 1;
 /** El acercamiento del mundo (solo el mundo: el HUD y los menús no cambian), el tamaño del mundo visible y los puntos del lienzo por punto lógico. */
 export let ZM = 1, MW = 960, MH = 540, RES = 1;
+/**
+ * Cuánto tapa el HUD abajo, en puntos lógicos: la cámara pone al héroe en el medio de lo que queda arriba (aPant usa
+ * (MH - ALTO_HUD / ZM) / 2). 96 es el de siempre. El HUD forjado (ui/hud_forja.ts) pone el alto de su panel.
+ */
+export let ALTO_HUD = 96;
+export function fijarAltoHud(a: number) { ALTO_HUD = a; }
+/** El HUD forjado (prototipo): window.__hudNuevo = true o el campo opcional opciones.hud = 'forja'. Por omisión, el de siempre. */
+let hudOpcion = false;
+try { hudOpcion = JSON.parse(localStorage.getItem('marca.opciones') ?? '{}').hud === 'forja'; } catch { /* nada */ }
+export const hudForja = () => { const w = (window as unknown as { __hudNuevo?: boolean }).__hudNuevo; return w ?? hudOpcion; };
 
 /** Área segura del teléfono (notch, isla, barra de inicio) en puntos de pantalla, leída de env(safe-area-inset-*). */
 export const SEGURO = { l: 0, r: 0, t: 0, b: 0 };
@@ -76,7 +86,8 @@ export function ajustar() {
   // barra y los menús van a una escala que se lea (1,5 a 1080: unos 720 de alto lógico). Rick, 18 nov 2026.
   if (!tactilL && ww >= wh && dh >= 900 && !(window as unknown as { __sinNativo?: boolean }).__sinNativo) {
     const s = Math.max(1, Math.min(2.2, dh / 720)), T = [1, 2, 3][vista] ?? 1;
-    W = Math.min(1600, Math.round(dw / s)); H = Math.round(dh / s);
+    // (con el HUD forjado el ancho no se corta en 1600: en 2560 × 1080 quedaba una franja negra a la derecha)
+    W = hudForja() ? Math.round(dw / s) : Math.min(1600, Math.round(dw / s)); H = Math.round(dh / s);
     RES = dh / H; ZM = T / RES;
     MW = Math.ceil(W / ZM); MH = Math.ceil(H / ZM);
     lienzo.width = dw; lienzo.height = dh;

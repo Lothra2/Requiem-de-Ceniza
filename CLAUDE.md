@@ -290,6 +290,47 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Al subir arde 3,5 s (esmalte al rojo, anillo y chispas, con `acc.destellos`). No va en `src/engine/gotico` para no
   cambiar `__PINTOR__`. El de antes Rick lo vio "como un parche" (18 nov 2026). Prueba: `t840_nivel.cjs [etiqueta] [vistas]`
   (pc, pc1080, ipad, movil; capturas en `/tmp/requiem-pruebas/nivel`).
+- **HUD forjado (prototipo, NO es el de por omisión)** (Rick, 19 nov 2026: "un HUD que cubra todo el borde de abajo como
+  Diablo 2, encima del juego y no en una franja negra"). Se prende con `window.__hudNuevo = true` o con el campo opcional
+  `opciones.hud = 'forja'` (`hudForja()` en `nucleo/lienzo.ts`). Hasta que Rick lo apruebe sale la barra de siempre.
+  - PC (`ui/hud_forja.ts`): un panel de piedra de borde a borde, bajo en el medio (88 puntos a 720) y alto en las casas de
+    los orbes (arco apuntado con filete de latón, crestería, florón, radios tallados y un óculo de tres lóbulos). Junto a la
+    vida una gárgola agazapada con brasas en los ojos (laten con la vida baja) y junto al maná una doliente con su vela que
+    tiembla (`gargola` y `doliente` en `ui/forja_taller.ts`). En el medio la bandeja del cinturón con una cuenta por fila
+    apilada (`filasCinturon`, hoy siempre `PILA_CINTURON`: solo se ve, no cambia reglas), los dos poderes en pozos de latón,
+    diez atajos con su tecla en plaquitas, el recurso de la clase, el correr, las placas del menú (y agresivo) y la
+    experiencia por la cornisa hasta el rosetón. Los extremos de pantallas anchas siguen con muro de arquería ciega y el
+    medio no se estira. Si la pantalla no tiene ancho para el núcleo (936 puntos de dibujo) va la barra de siempre.
+  - Todo se esculpe en un mapa de alturas con material (`Taller` en `forja_taller.ts`: formas con bisel por distancia de
+    chaflán, elipsoides y cápsulas con unión suave, anillos, pozos, surcos, sillares) y se hornea una vez por tamaño con la
+    luz de la barra: normales, sombra que cae, oclusión, contorno y tramado (unos 150 a 400 ms la primera vez, `__hudForjaMs`).
+    Por cuadro solo van los orbes (`orbe` del motor con el nivel a punto entero, cacheado, dos nuevos por cuadro como mucho),
+    los íconos, las recargas, las cuentas y los números.
+  - Pixel entero: el panel va en puntos de dibujo de D puntos del lienzo (D = redondeo de RES × 1,15: 1 a 720, 2 a 1080 y
+    1440, 3 a 2160) pegados en el espacio del aparato. A 1080 va la talla compacta. El rosetón se dibuja con `rejilla`.
+  - Casillas de poder (`ui/forja_habilidad.ts`, Rick: "mucho, mucho mejores"): el ícono de `iconos_hab.ts` llevado al
+    tamaño exacto, afilado y con bisel de vidrio a pixel (`iconoPixel`), la sombra que gira a pixel con los segundos,
+    tinte azul sin maná y rojo sin furia, encima y apretado, y un destello al quedar listo. Lo usan el panel de PC, los
+    medallones del táctil y la elección de poderes (`casillaElegir`, solo con el HUD forjado).
+  - Cámara: `ALTO_HUD` en `lienzo.ts` (96 el de siempre) entra en `aPant`, `aMundo` y la cámara del jefe. El panel pone
+    su banda + 10 y el héroe queda en el medio de lo que se ve arriba del panel. Los clics, `__aPant` y el minimapa siguen
+    la misma cuenta. Lo tallado (máscara del marco) no deja caminar; lo transparente encima de la banda es del mundo.
+  - Táctil (`ui/hud_forja_tactil.ts`, lo llama `hud_tactil.ts` cuando `disposicion()` trae `orbV`): orbes en las esquinas
+    de abajo en sus casas, el rosetón en la punta de la de vida, el cinturón de cuatro en su bandeja al centro con el
+    recurso encima, la rueda (Golpe, Poder y tres atajos) sobre un cuarto de rosetón de piedra alrededor de la casa del
+    maná, y la experiencia en una canaleta por el borde. La misión pasa arriba a la izquierda. El teléfono va más chico.
+    La zona del pulgar izquierdo queda libre. Manda el aparato: un PC con pantalla táctil (puntero fino) lleva el panel
+    de PC, que también se toca (`aparatoTactil` en `main.ts`).
+  - Con el HUD forjado en 2560 × 1080 el lienzo ya no se corta en 1600 de ancho (quedaba una franja negra a la derecha).
+  - Prueba: `HUD=1 node juego/herramientas/t950_hud.cjs <etiqueta> [vistas]` (pc, pc1080, ultra, ipad, movil, pctactil;
+    sin `HUD=1` saca el de antes): vida baja con latido, un poder en recarga, el destello de listo, clics de verdad
+    (cinturón, tecla 2, bolsa, personaje, poder derecho, el mundo encima del panel), toques de 44 pt sin cruces y el costo
+    de la interfaz. `python3 juego/herramientas/t950_lamina.py antes <etiqueta>` arma `lamina_hud.png` en
+    `/tmp/requiem-pruebas/hud`. Sin servidor: `npx tsx juego/herramientas/t951_esculturas.mts [ampliación]` (las esculturas
+    y el marco entero a 1280 x 720, 960 x 540 y 1707 x 540). `HUD=1` también prende el forjado en `comun_pruebas.cjs`,
+    `t650_zoom` y `t651_zoom_pick`.
+  - Falta para después de que Rick lo apruebe: prenderlo por omisión (y una opción en Opciones), y las filas del cinturón
+    según el cinto puesto (hoy toda columna apila 4).
 - **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos
   40 s los 8 rumbos y otros 45 s los 16 con 2 obreros, ahora van 4). En ese rato camina en 8: no es que se pierdan.
 

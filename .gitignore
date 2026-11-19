@@ -4,3 +4,4 @@ dist
 .DS_Store
 # atlas intermedios del horneado (se publican en webp)
 /juego/public/assets/*.png
+.claude/worktrees/

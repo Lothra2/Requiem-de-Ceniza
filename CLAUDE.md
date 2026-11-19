@@ -213,8 +213,23 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Rodela**: puesta usa el modelo del ícono como los demás escudos (quedaba afuera por el nombre).
 - **Frases de jefes y campeones**: van encima de todo en una placa (`frasesMonstruos`), no dentro del orden del mundo.
 - **Mapa y minimapa** (`dibujarMapa` y `SIGNO` en `ui/juego_ui.ts`): cada cosa lleva su signo de pixel (carpa dorada
-  al campamento, boca morada mazmorra, flecha verde otra región, casita, óvalo celeste tu portal, rombo azul piedra de
+  al campamento, cada salida según su rumbo, flecha verde otra región, casita, óvalo celeste tu portal, rombo azul piedra de
   viaje, cofre, altar, calavera jefe, misión nueva y por entregar). El mapa grande trae la leyenda de lo que hay a la vista.
+- **Salidas por su rumbo** (`mundo/rumbos.ts`, Rick, 19 nov 2026: "identificar bien los portales que suben y los que
+  bajan"). Antes el signo salía del tipo del destino: en una mazmorra la escalera de subir y la de bajar eran la misma boca
+  morada, y el umbral del mundo el mismo verde azulado. `rumboSalida` da bajar (flecha abajo y escalera que baja, brasa),
+  subir (flecha arriba y escalera que sube, azul frío), superficie (arco abierto con la flecha arriba, cielo pálido),
+  guarida (calavera sobre la escalera que baja, carmesí: el destino tiene `jefe`), región, campamento y casa. Sale del
+  `lado` de la salida y del nivel (`nivelMazmorra`, contado desde la superficie por la salida 'arriba'). Las Islas de Oro
+  son mazmorra pero se cruzan por los costados: cuentan como superficie (`honda`). En las mazmorras de varios niveles el
+  signo lleva la cifra del nivel (`cifraMapa`, 3 x 5) y el nombre dice "Catacumbas, nivel 3". El mapa grande lista cada
+  salida vista con su verbo y destino en la leyenda (filas de 22 por los signos de 9 x 9) y el ratón sobre un signo da la
+  pista (mapa grande y minimapa de PC). En el mundo el umbral, su halo y su luz en el piso toman el color del rumbo, el
+  letrero dice "Bajar a ..." o "Subir a ..." y tres cheurones de pixel caen o suben sobre la escalera, pintados después de
+  la luz (dentro del orden los tapaba el sprite de la escalera). Nada guía ni revela: solo lo ya explorado, sin marcar la
+  salida "que sigue" (Rick quiere explorar). `__sinRumbos` vuelve al umbral y al letrero de antes. Prueba:
+  `t952_salidas_mapa.cjs <etiqueta> [zonas]` (camposanto, abadía 2, catacumbas y páramo: mapa grande y cada salida con el
+  minimapa) y `python3 juego/herramientas/t952_lamina_mapa.py antes despues` (`/tmp/requiem-pruebas/mapa/lamina_mapa.png`).
 
 ## Auditoría en video
 

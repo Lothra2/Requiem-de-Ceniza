@@ -38,7 +38,7 @@ const colorDe = (id: string, elem?: string): RGB => {
   return COLOR_ELEM.fisico;
 };
 /** Efectos que no son un golpe de poder: avisos, marcas, humo, lo que queda en el piso. No revientan en chispas. */
-const SIN_ESTALLIDO = /fx_(aviso|recoger|cofre|humareda|congelar|alma|monedas|plumas|baba|salpicadura|curacion|critico|electrocutado|circulo)|suelo_ardiente|glifo|circulo_|polvo_|destello_tele|subida_nivel|aura_|transformacion|maldicion|llanto|tajo_|arco_cadena|muro_|nube_/;
+const SIN_ESTALLIDO = /fx_(aviso|recoger|cofre|humareda|congelar|alma|monedas|plumas|baba|salpicadura|curacion|critico|electrocutado|circulo)|suelo_ardiente|glifo|circulo_|polvo_|destello_tele|subida_nivel|aura_|transformacion|maldicion|llanto|tajo_|arco_cadena|muro_|nube_|^combustion$/;
 const HAB = new Map(HABILIDADES.map((h) => [h.id, h]));
 const R = Math.random;
 const sprites = new Map<string, HTMLCanvasElement>();
@@ -60,6 +60,13 @@ function estallar(x: number, y: number, z: number, c: RGB, fuerza: number) {
   anillos.push({ x, y, t: 0, d: 0.34 + fuerza * 0.08, r0: 0.25, r1: 1.3 + fuerza * 1.15, c, g: 2.5 + fuerza, a: 0.85 });
   if (fuerza >= 1.35) { anillos.push({ x, y, t: -0.09, d: 0.55, r0: 0.4, r1: 2.2 + fuerza * 1.5, c, g: 1.6, a: 0.5 }); pantalla = Math.max(pantalla, Math.min(0.2, 0.07 * fuerza)); pantallaC = c; }
 }
+
+/** El estallido de energía de un golpe (chispas, fogonazo, onda y, si es grande, segunda onda y resplandor de pantalla). */
+export function estallido(x: number, y: number, z: number, c: RGB, fuerza: number) { estallar(x, y, z, c, fuerza); }
+/** Una onda en el piso (r0 y r1 en casillas: de mayor a menor se cierra). */
+export function anilloPiso(x: number, y: number, o: { d: number; r0: number; r1: number; c: RGB; g: number; a: number; t?: number }) { anillos.push({ x, y, t: o.t ?? 0, d: o.d, r0: o.r0, r1: o.r1, c: o.c, g: o.g, a: o.a }); }
+/** Chispas propias de un poder (con el tope de siempre). */
+export function chispasLibres(n: number, f: () => Chispa) { const tope = E.tactil ? 240 : 440; for (let i = 0; i < n && chispas.length < tope; i++) chispas.push(f()); }
 
 /** Avanza la simulación con el reloj del juego (se detiene en pausa y en el golpe congelado) y dibuja lo que va en el piso. */
 export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: number, y: number) => [number, number]) {

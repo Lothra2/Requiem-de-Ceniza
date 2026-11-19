@@ -22,6 +22,7 @@ const luzDe = (id: string): any => (id.startsWith('pfx:') ? efectoPfx(id.slice(4
 import { pulsosOzmaren, lucesSuelo } from './fuego_especial';
 import { luzViva } from './arma_viva';
 import { pulsoLuz } from '../../../src/engine/gotico/fuego_doom';
+import { luzCombustion } from './poderes_vivos';
 
 export interface Luz {
   /** Punto del piso bajo la luz, en pantalla. */
@@ -176,6 +177,8 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   for (const e of j.efectos) {
     const [px, py] = aPant(e.x, e.y);
     if (!dentro(px, py, 300)) continue;
+    // la Combustión: el calor que se junta, el golpe (con destello) y el fuego que queda (poderes_vivos.ts)
+    if (e.id === 'combustion') { const lz = luzCombustion(e); if (lz) { L.push({ id: idDe(e), x: px, y: py, h: 34, r: lz[0], c: COLOR_ELEM.fuego, k: lz[1], prio: 0 }); if (lz[2] > fl) { fl = lz[2]; flc = COLOR_ELEM.fuego; } } continue; }
     // pixelfx: el cuadro sale del efecto (en el manifiesto de poderes no está y caía en la luz genérica)
     const ep = e.id.startsWith('pfx:') ? efectoPfx(e.id.slice(4)) : null;
     const meta = ep ? { t: ep.t, bucle: ep.bucle } : manifiesto().wm?.[e.id];

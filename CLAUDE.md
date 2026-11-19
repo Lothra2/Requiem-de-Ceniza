@@ -187,8 +187,45 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Nada de rectángulos. Después de tocarla correr `conectividad.cjs 20` y `t370_zonas`.
 
 - **Auditoría de poderes**: `node juego/herramientas/t760_auditoria_poderes.cjs <clase>` lanza cada habilidad contra
-  tres zombis pegados, en campo abierto, cuatro cuadros seguidos, y `python3 juego/herramientas/t760_lamina.py <clase>`
-  arma la lámina en `/tmp/requiem-pruebas/pa`. No correr otras pruebas a la vez: se pisan.
+  tres zombis pegados, en campo abierto, cinco cuadros (0,15 a 1,1 s), y `python3 juego/herramientas/t760_lamina.py
+  <clase> [carpeta]` arma la lámina en `/tmp/requiem-pruebas/pa` (`SALIDA=` otra carpeta, `SOLO=a,b` solo esos). Antes de
+  cada poder despeja lo de alrededor: objetos a 12 casillas, los monstruos de la zona, el perro, el remolino de polvo del
+  ambiente (`__sinAmbientePfx`) y el piso que arde (`__apagarSuelos`). Hasta el 19 nov 2026 el fuego de un poder pasaba
+  al siguiente (el piso que ardía de la tanda anterior) y Thor se paraba delante de todo: las láminas engañaban. Importar
+  un módulo desde la prueba da otra copia si Vite ya lo recargó: los ganchos van por `window`. No correr otras pruebas a
+  la vez: se pisan.
+- **Poderes en vivo** (`render/poderes_vivos.ts`, Rick, 19 nov 2026: "un rayo de nivel 12 que no funciona bien, la
+  combustión de fuego podría verse mejor"). `__sinPoderesVivos` vuelve al dibujo de antes.
+  - **Rayo saltarín y Arco voltaico** (`cadena` en `mundo.ts`): salta de a uno cada 0,06 s (`seguirCadenas`, antes todos
+    en el mismo cuadro), el primer blanco a no más de 13 casillas del héroe (`ALCANCE_CADENA`) y siempre a la vista, el
+    siguiente a 6 del anterior; si el que iba a recibir murió en el medio busca otro. Sin nadie a tiro el rayo cae a tierra
+    donde se apuntó (hasta 7 casillas, cortado por el muro): antes no salía nada y el maná se iba igual. Cada arco
+    (`arco_cadena`, `arcoCadena`) sigue a los dos cuerpos mientras dura (`de` y `a`, los mueve `actualizar`) y se dibuja
+    como relámpago de pixel (`dibujarArcos`): rama principal por desplazamiento del punto medio, una hebra al lado y 2 a 4
+    bifurcaciones, rasterizado a puntos enteros en un solo camino por capa (halo, cuerpo, núcleo blanco), se vuelve a
+    quebrar 24 veces por segundo, nace grueso, se apaga a tirones y pega con una estrella de pixel. El estallido horneado
+    (`impacto_rayo`) solo en el primero: en cada salto tapaba el arco con una bola blanca. Suena un chasquido por salto.
+  - **El relámpago que cae** (`efecto(j, 'relampago', ...)`: Tempestad, Furia del firmamento y otros) trae además un rayo
+    de pixel que baja del cielo (`arco_cadena` con `cielo`, `za` 230 a 290). Las novas de rayo (Latido galvánico) tiran
+    un arco a cada uno que tocan.
+  - **Combustión** (`combustion`): el efecto `combustion` dura 2,4 s y el área de daño cae a los 0,2 s (`caida`, con
+    `quemar` que deja la marca quemada y `congela` 0,05 s de golpe). Antes era el anillo de fuego del piso
+    (`fx_anillo_fuego`), que tardaba casi 4 s y no se leía como estallido. Ahora: implosión (40 motas con su raya que
+    acuden en espiral, el punto que se enciende, el aire que tiembla y un anillo que se cierra en el piso), fogonazo y
+    onda de pixel en el aire, una bola de pixel en racimo de bocanadas (cinco capas de rojo oscuro a blanco que se
+    enfrían de adentro hacia afuera, `disco` con el borde que hierve), la bola de fuego de Doom (`bolaFuego` en
+    `fuego_especial.ts`, un disco de fuente que crece 0,1 s, se alimenta hasta 0,24 s y sube en humo; cuatro a la vez
+    como mucho, dos en táctil), humo oscuro, brasas (`chispasLibres` de energia.ts) y pedazos de piso que rebotan
+    (`itemsPoderes`, en el orden del mundo), el piso que sigue ardiendo (`prender`) y la luz (`luzCombustion`: crece con
+    la implosión, golpe y se apaga con el fuego). El sonido de lanzar es `fuego_lanzar` y la explosión suena al caer.
+  - **El aire que tiembla** (`calima`): copia lo ya pintado a un lienzo de la rueda (nunca la pantalla sobre sí misma) y lo
+    vuelve a pegar en tiras de 2 puntos corridas por una onda. No en táctil. `__sinCalima` lo apaga.
+  - Pruebas: `node juego/herramientas/t970_poderes_cerca.cjs <etiqueta> [rayo,suelo,combustion,hab:<id>]` (reloj del
+    juego controlado, cuadro a cuadro: el rayo contra seis zombis regados, el rayo a tierra, la combustión sobre tres;
+    `VIEJO=1` el dibujo de antes, `CLASE=` para otra clase) y `python3 juego/herramientas/t970_lamina.py <etiqueta>
+    [otra]` (`/tmp/requiem-pruebas/poderes/cerca`, al doble). Con el reloj quieto el héroe sale como silueta blanca (el
+    pintor espera temporizadores): es de la prueba. Costo: `t971_poderes_fps.cjs [ids]` lanza el poder cada 0,35 s con doce
+    zombis, con y sin lo nuevo (en la nube la diferencia queda dentro del ruido, los arcos cuestan 0,1 a 0,3 ms).
 - **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.

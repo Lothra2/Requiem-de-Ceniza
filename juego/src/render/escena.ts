@@ -33,6 +33,7 @@ const ENCIMA = /^fx_(aturdido|confundido|maldito|presa_marcada)$/;
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { pisadaHeroe } from './ambiente';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
+import { seguirPoderes, itemsPoderes, dibujarArcos, dibujarCombustion, poderesVivos } from './poderes_vivos';
 import { cuerpoArde, seguirSuelo, itemsSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
 let dtCuadro = 1 / 60;
 // bruma de altura: cada cuadro alto se pinta una vez con el degradado del color de la niebla de la zona
@@ -236,7 +237,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   if (foco.k > 0) { const k = foco.k * foco.k * (3 - 2 * foco.k); cam.x += ((foco.x - foco.y) * 16 - camS.x) * k; cam.y += ((foco.x + foco.y) * 8 - 60 - camS.y + camAlzada) * k; }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   picks = []; vivasMonstruo = 0;
-  prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
+  prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); seguirPoderes(j); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
   colorBruma = '96,100,108'; anclasCuadro = []; esAncla = new Set(z.salidas.flatMap((sa) => sa.piezas ?? []));
   recolectar(j, tiempo, aPant, W, H);
   // explorar
@@ -514,6 +515,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const p of j.proyectiles) items.push({ prof: p.x + p.y + 0.07, draw: () => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; dibujarProyectil(p); ctx.restore(); } });
   for (const it of itemsEnergia(ctx, aPant)) items.push(it);
   for (const it of itemsSuelo(ctx, aPant, dtCuadro)) items.push(it);
+  for (const it of itemsPoderes(ctx, aPant)) items.push(it);
   tramo('orden');
   // lo que sueltan las armas vivas entra en el orden: las manchas con el piso, las gotas, el miasma y las chispas en la fila
   // del suelo que tienen debajo (antes iban encima de todo y se veían sobre las rocas de delante)
@@ -556,13 +558,15 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   tramo('arriba'); // (laboratorio: reiluminar con la tarjeta gráfica)
   puertaCatedral(j, dt, tiempo);
   // arcos de rayo: después de la luz (dibujados antes, la noche los apagaba y el rayo no se veía salir de la mano)
-  ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1;
-  for (const e of j.efectos) if (e.id === 'arco_cadena' && (e as any).x2 !== undefined) {
+  // (el relámpago de pixel que sigue a los cuerpos está en poderes_vivos.ts; `__sinPoderesVivos` vuelve al de antes)
+  if (poderesVivos()) dibujarArcos(ctx, j, aPant);
+  else { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1;
+  for (const e of j.efectos) if (e.id === 'arco_cadena' && (e as any).x2 !== undefined && e.t >= 0) {
     const [ax, ay] = aPant(e.x, e.y), [bx, by] = aPant((e as any).x2, (e as any).y2);
     // el relámpago en vivo, de la mano al pecho (el arco prehorneado estirado no se veía)
     rayo(ax, ay - ((e as any).deMano ? 44 : 34), bx, by - 34, Math.max(0, 1 - e.t / (e.dur ?? 0.3)) ** 0.6);
   }
-  ctx.restore();
+  ctx.restore(); }
   // números de daño (encima de la oscuridad para que se lean)
   dibujarNumeros(ctx, j.numeros, aPant, TITULO);
   frasesMonstruos();
@@ -839,6 +843,7 @@ function luzCofre(px0: number, py0: number, t: number, k: number, col: string) {
 }
 function dibujarEfecto(e: Efecto, _t: number) {
   if (e.id === 'arco_cadena') return;
+  if (e.id === 'combustion') { if (poderesVivos()) { const [px, py] = aPant(e.x, e.y); dibujarCombustion(ctx, e, px, py); } else if (e.t >= 0.2) dibujarEfecto({ ...e, id: 'explosion_fuego', t: e.t - 0.2 } as Efecto, _t); return; }
   if (e.id.startsWith('pfx:')) { const [px, py] = aPant(e.x, e.y);
     // (un efecto cortado antes de su final se apaga en su último cuarto de segundo en vez de desaparecer de golpe)
     const corte = (e as any).corte ? Math.max(0, Math.min(1, ((e.dur ?? 9) - e.t) * 4)) : 1; if (corte < 1) ctx.globalAlpha = corte;

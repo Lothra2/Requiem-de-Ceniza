@@ -4,7 +4,7 @@ import { claveBaja } from './clave_baja';
 import * as superficie from './superficie';
 import { MATERIALES } from './materiales';
 import { ruido } from './render';
-import { rasgos, mechones, hebras, cabezaHeroe, barbaHeroe, labioDe, type MarcoCab } from './rostro';
+import { rasgos, mechones, hebras, cabezaHeroe, barbaHeroe, labioDe, flequilloHeroe, type MarcoCab } from './rostro';
 import { prendas, type Prenda } from './vestuario';
 import { efectosSeleccion } from './seleccion';
 import { codalBrazal } from './armadura';
@@ -39,6 +39,8 @@ M.cu_ojo = { rampa: ['#060505', '#120e0c', '#201a16'], ruido: 0, escala: 1 };
 M.cu_ojo_blanco = { rampa: ['#4e4842', '#7c7268', '#a89e90'], ruido: 0, escala: 1 };
 // el iris de los héroes (rostro.ts): pardo oscuro con brillo, así agarra un punto de luz desde el muñeco
 M.cu_ojo_vivo = { rampa: ['#070504', '#1c120c', '#3a281a', '#5a4130'], ruido: 0, escala: 1, brillo: 0.7 };
+// el punto de luz del ojo (claro aunque la cuenca esté en sombra)
+M.cu_ojo_brillo = { rampa: ['#9a9286', '#cfc7ba', '#efe9de', '#fbf8f2'], ruido: 0, escala: 1 };
 M.cu_ojo_brasa = { rampa: ['#a0300c', '#e06818', '#ffb840', '#fff0a0'], ruido: 0, escala: 1, emite: true };
 M.cu_ojo_hielo = { rampa: ['#2060b0', '#50a0f0', '#b0e0ff', '#f0fbff'], ruido: 0, escala: 1, emite: true };
 M.cu_ojo_verde = { rampa: ['#207020', '#40c040', '#a0ff80'], ruido: 0, escala: 1, emite: true };
@@ -758,6 +760,9 @@ function partes(e: Esqueleto, cu: Cuerpo, que: Parte[], grosor: number, mat?: st
   return cs;
 }
 
+/** El ceño de cada clase (rostro.ts): cuánto baja la ceja hacia el entrecejo. */
+const GESTO: Record<string, number> = { rugido: 1, guardia: 0.7, invoca: 0.8, apunta: 0.6, conjuro: 0.5, kata: 0.55, naturaleza: 0.4, frasco: 0.35 };
+
 // ------------------------------------------------------------------ las manos de los héroes
 /** Radio del mango donde cierra el puño (unidades de S), por arma. */
 const RADIO_MANGO: Partial<Record<TipoArma, number>> = { daga: 0.6, varita: 0.45, orbe_mano: 0.5, hoz: 0.6, frasco: 0.7, hacha: 0.85, hacha_doble: 0.85, martillo: 0.9, mandoble: 0.8,
@@ -957,7 +962,7 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
   const ojo = cu.ojos ?? 'cu_ojo', brilla = MATERIALES[ojo]?.emite;
   // el héroe lleva la cara con luz y sombra (rostro.ts); los ojos que brillan siguen siendo bolas de luz
   const marcoCab: MarcoCab = { cab, ejes: ejesCab, cz, H };
-  if (cu.presentacion && !cu.oseo) ps.push(...rasgos(marcoCab, { piel: cu.piel, ceja: cu.pelo, mujer: cu.genero === 'm', barba: !!cu.barba, bigote: cu.barba === 'bigote', ojo: ojo === 'cu_ojo' ? 'cu_ojo_vivo' : ojo, brilla: !!brilla, detalle: det }));
+  if (cu.presentacion && !cu.oseo) ps.push(...rasgos(marcoCab, { piel: cu.piel, ceja: cu.pelo, mujer: cu.genero === 'm', barba: !!cu.barba, bigote: cu.barba === 'bigote', ojo: ojo === 'cu_ojo' ? 'cu_ojo_vivo' : ojo, brilla: !!brilla, detalle: det, gesto: GESTO[cu.presentacion] ?? 0.5 }));
   if (!cu.presentacion || brilla) for (const s of [1, -1]) ps.push(elipsoide(...cab(3.35 * H, s * 1.45 * H, cz + 0.25 * H), (brilla ? 0.7 : 0.5) * H, 0.75 * H, (brilla ? 0.55 : 0.5) * H, { mat: ojo }));
   // ---- piernas y pies
   const pz = eq.piernas, pi = eq.pies;
@@ -1223,7 +1228,7 @@ export function personaje(cu: Cuerpo, eq: Equipo, dir: Dir, acc: Accion, f: numb
       else {
         pc.push(bC(-0.7, 0, 1.35, [4.25, 3.9, 4.35]));
         // flequillo arriba de la frente (en el héroe más alto y atrás: no tira sombra sobre los ojos; los mechones caen)
-        pc.push(cu.presentacion ? bC(1.0, 0, 3.75, [2.6, 3.4, 1.2], 1.4) : bC(1.4, 0, 3.3, [2.8, 3.5, 1.4], 1.4));
+        if (cu.presentacion) pc.push(...flequilloHeroe({ cab, ejes: ejesCab, cz, H })); else pc.push(bC(1.4, 0, 3.3, [2.8, 3.5, 1.4], 1.4));
         for (const s of [1, -1]) pc.push(bC(0.2, s * 3.0, 0.4, [2.6, 1.0, 2.6], 1.2)); // patillas
       }
       // el pelo largo cuelga del cráneo y sus puntas se arrastran con la inercia (pelo de la pose)

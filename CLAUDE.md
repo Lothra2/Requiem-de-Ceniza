@@ -296,10 +296,14 @@ después de tocar esto se hornea `h,g,r` (con `RELIEVE=1`) y nada más.
   mentón, ángulo de la mandíbula, orejas). El ojo queda hundido en la cuenca: la sombra sale de la forma y de la
   oclusión, no de pintura. Ella: cejas, mandíbula y nariz más finas, labios llenos y más rojos. `rasgos` pone encima
   según `detalle` (sale de la escala si no lo piden: 1 en el juego, 2 desde S 1,35, o sea muñeco y selección): en el
-  juego el ojo es un trazo oscuro (blanco y pupila a un punto eran anteojos) y las cejas; desde 2, globo apagado, iris
-  con brillo (`cu_ojo_vivo`), párpado, línea de pestañas, boca y surcos. Las rayas oscuras van HUNDIDAS en la masa: solo
+  juego el ojo es un trazo oscuro (blanco y pupila a un punto eran anteojos) y las cejas; desde 2, el globo casi al ras
+  del arco (hundido se leía dormido), iris, un punto de luz (`cu_ojo_brillo`), párpados abiertos, pestañas, boca y
+  surcos. Las cejas se afinan hacia afuera y bajan al entrecejo según `GESTO` de la clase (berserker el ceño más duro).
+  Frente, cráneo, pómulos y arco van con uniones anchas para que la luz caiga de a poco (las repisas eran franjas),
+  pero la frente no pasa de la de antes: los cascos se arman a esa medida y la piel asomaba por el borde. Las rayas oscuras van HUNDIDAS en la masa: solo
   asoman en el pliegue (entre los labios, junto a la aleta). `barbaHeroe`: bigote que cae, carrillos, mentón, mechones
-  con punta en el borde, chorro de mechones (larga) o trenza de nudos (trenzada); deja ver el labio de abajo.
+  con punta en el borde, chorro de mechones (larga) o trenza de nudos (trenzada); deja ver el labio de abajo. El
+  flequillo es parte de la masa del pelo (`flequilloHeroe`) con cortes hundidos entre mechas.
 - **Manos** (`manoHeroe` y `agarresDe` en `cuerpo.ts`): palma, cuatro dedos de tres falanges con nudillo y pulgar aparte.
   'agarre': cada dedo da la vuelta al mango que pasa por `b.mano` (en `eje`, hacia la cabeza del arma, del lado del
   pulgar); con guarnición (`CON_GUARDA`) el índice queda bajo la cruz y los demás bajan al pomo. 'puno' (puños, garras,
@@ -309,8 +313,8 @@ después de tocar esto se hornea `h,g,r` (con `RELIEVE=1`) y nada más.
   nudillos y de dorso; vendas: palma y base de los dedos (las puntas a la vista); brazales: la mano desnuda.
   No mueve armas ni `filoDe`/`hoja`.
 - **Costo**: cada mano y la cabeza tallada van en su propia masa chica (`extra.manos`, `extra.cabeza` en `partes`): en la
-  masa del cuerpo cada componente se recorre en cada rayo. Así el pintor quedó un poco más rápido que antes (juego
-  218 a 204 ms por cuadro, muñeco 839 a 796 ms, medido en la nube a una muestra por punto).
+  masa del cuerpo cada componente se recorre en cada rayo. Así el pintor quedó igual o un poco más rápido que antes
+  (juego 218 a 200 ms por cuadro, muñeco 839 a 830 ms, medido en la nube a una muestra por punto).
 - Pruebas: `npx tsx juego/herramientas/t890_caras.mts <salida> [caras|manos|todo]` (8 clases y variantes de género, piel
   y barba; juego en 4 rumbos, muñeco a 2,1 con su luz, retrato a 2,25 con la fogata; manos vacía, puño, espada, mandoble,
   hacha, lanza, báculo, arco, daga, escudo, guantes, guanteletes, vendas, brazales; `SUJ=` y `MAN=` filtran; `RAIZ=`

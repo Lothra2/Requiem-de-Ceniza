@@ -68,22 +68,24 @@ export function cabezaHeroe(m: MarcoCab, o: OpcCabeza): Comp[] {
     hueso(P(m, ...a), P(m, ...b), r0 * H + inf, r1 * H + inf, { mat, tono, k: k * H });
   const cs: Comp[] = [];
   // el cráneo, más atrás que el de la gente (la cara no es su frente): la frente va aparte, arriba del arco
-  cs.push(B(-0.45, 0, 0.95, [3.8, 3.55, 4.3], 1.1));
-  cs.push(B(1.15, 0, 1.95, [2.62, mj ? 2.95 : 3.05, 1.6], 0.9));
+  // (formas redondas con uniones anchas: la luz cae de a poco, sin repisas que se lean como franjas)
+  // (sin pasarse de la frente de antes: los cascos se arman a esa medida y la piel asomaba por el borde)
+  cs.push(B(-0.4, 0, 0.95, [3.85, 3.55, 4.3], 1.2));
+  cs.push(B(0.85, 0, 1.75, [2.78, mj ? 2.9 : 3.0, 1.9], 1.0));
   // el arco de las cejas (dos, con el entrecejo): el techo de la cuenca; en ella apenas marcado
-  for (const s of [1, -1]) cs.push(Bg(mj ? 2.92 : 2.97, s * 1.32, 1.08, mj ? [0.72, 1.4, 0.48] : [0.84, 1.45, 0.56], 0.5, [1, -s * 0.18, 0], [0, 0, 1]));
-  cs.push(B(mj ? 3.2 : 3.32, 0, 0.82, [0.6, 0.72, 0.58], 0.45));
+  for (const s of [1, -1]) cs.push(Bg(mj ? 2.85 : 2.9, s * 1.3, 1.05, mj ? [0.72, 1.4, 0.5] : [0.82, 1.45, 0.6], 0.9, [1, -s * 0.18, 0], [0, 0, 1]));
+  cs.push(B(mj ? 3.1 : 3.2, 0, 0.85, [0.6, 0.75, 0.6], 0.8));
   // el reborde de afuera de la órbita (cierra la cuenca de costado) y el pómulo alto, bajo el ojo
   for (const s of [1, -1]) {
-    cs.push(B(2.15, s * 2.55, 0.45, [1.0, 0.85, 1.25], 0.7));
-    cs.push(Bg(2.42, s * 2.12, -0.95, [1.15, 1.05, 0.85], 0.75, [1, s * 0.45, 0], [0.25, 0, 1]));
+    cs.push(B(2.1, s * 2.55, 0.45, [1.0, 0.85, 1.25], 1.0));
+    cs.push(Bg(2.3, s * 2.1, -0.95, [1.25, 1.2, 1.05], 1.1, [1, s * 0.45, 0], [0.25, 0, 1]));
   }
   // la nariz: el lomo angosto entre los ojos, la punta y las aletas
   cs.push(Hu([3.5, 0, 0.72], [4.42, 0, -0.82], mj ? 0.32 : 0.36, mj ? 0.42 : 0.48, 0.4, 0.05));
   cs.push(B(mj ? 4.38 : 4.5, 0, -1.02, mj ? [0.5, 0.5, 0.45] : [0.58, 0.56, 0.5], 0.35, 0.06));
   for (const s of [1, -1]) cs.push(B(3.95, s * (mj ? 0.48 : 0.56), -1.18, [0.48, 0.36, 0.38], 0.28, -0.04));
   // el maxilar (la boca no pasa de la frente), los labios y el mentón con su surco
-  cs.push(B(2.5, 0, -1.95, [1.32, mj ? 1.62 : 1.75, 1.15], 0.85));
+  cs.push(B(2.5, 0, -1.95, [1.32, mj ? 1.62 : 1.75, 1.15], 1.1));
   const lab = o.piel ? labioDe(o.piel, mj) : mat;
   cs.push(Bg(3.6, 0, -2.02, mj ? [0.42, 0.98, 0.3] : [0.4, 1.0, 0.27], 0.3, [1, 0, -0.25], [0, 0, 1], mj ? -0.02 : -0.1, lab));
   cs.push(Bg(3.5, 0, -2.5, mj ? [0.46, 0.88, 0.34] : [0.4, 0.82, 0.28], 0.28, [1, 0, 0.35], [0, 0, 1], mj ? 0.1 : 0.05, lab));
@@ -103,7 +105,7 @@ export function cabezaHeroe(m: MarcoCab, o: OpcCabeza): Comp[] {
   return cs;
 }
 
-export interface OpcRasgos { piel: string; ceja?: string; mujer: boolean; barba: boolean; bigote?: boolean; ojo: string; brilla: boolean; detalle?: number }
+export interface OpcRasgos { piel: string; ceja?: string; mujer: boolean; barba: boolean; bigote?: boolean; ojo: string; brilla: boolean; detalle?: number; /** el ceño (0 sereno a 1 furioso): baja la ceja hacia el entrecejo */ gesto?: number }
 /**
  * Lo que va encima de la cabeza tallada: los ojos dentro de la cuenca, las cejas sobre el arco y, desde el muñeco, el
  * párpado, la línea de la boca con sus comisuras y el surco de la nariz. Las líneas oscuras van HUNDIDAS en la masa:
@@ -116,28 +118,34 @@ export function rasgos(m: MarcoCab, o: OpcRasgos): Pieza[] {
     if (!o.brilla) {
       if (det >= 2) {
         // el globo: blanco apagado (en la sombra de la cuenca), el iris con su brillo y el párpado de arriba que lo corta
-        ps.push(elipCab(m, 3.06, s * 1.36, 0.22, [0.5, 0.62, 0.4], 'cu_ojo_blanco', 0.04));
-        ps.push(elipCab(m, 3.36, s * 1.3, 0.2, [0.24, 0.28, 0.28], ojoVivo));
-        ps.push({ ...elipsoide(...P(m, 3.08, s * 1.36, 0.6), 0.56 * H, 0.7 * H, 0.32 * H, { mat: o.piel, tono: -0.04 }), ...ejesP(m, [1, -s * 0.1, -0.35]) } as Pieza);
+        // (el globo adelante, casi al ras del arco: hundido se leía dormido)
+        ps.push(elipCab(m, 3.16, s * 1.36, 0.26, [0.5, 0.68, 0.46], 'cu_ojo_blanco', 0.2));
+        ps.push(elipCab(m, 3.5, s * 1.3, 0.24, [0.22, 0.3, 0.32], ojoVivo));
+        // el brillo: un punto claro arriba del iris (mirada despierta)
+        ps.push(elipCab(m, 3.72, s * 1.2, 0.38, [0.1, 0.14, 0.14], 'cu_ojo_brillo'));
+        // los párpados: el de arriba corta apenas el iris (gesto firme), el de abajo cierra el ojo
+        ps.push({ ...elipsoide(...P(m, 3.16, s * 1.36, 0.86), 0.58 * H, 0.74 * H, 0.32 * H, { mat: o.piel, tono: -0.03 }), ...ejesP(m, [1, -s * 0.1, -0.3]) } as Pieza);
+        ps.push({ ...elipsoide(...P(m, 3.12, s * 1.36, -0.3), 0.52 * H, 0.68 * H, 0.22 * H, { mat: o.piel, tono: 0.03 }), ...ejesP(m, [1, -s * 0.1, 0.25]) } as Pieza);
         // la línea de las pestañas en el canto del párpado: dibuja el ojo (más marcada en ella)
-        const rp = (mj ? 0.12 : 0.09) * H;
-        ps.push(palo(P(m, 3.4, s * 0.86, 0.36), P(m, 3.5, s * 1.42, 0.37), rp, { mat: 'cu_ojo', r1: rp }));
-        ps.push(palo(P(m, 3.5, s * 1.42, 0.37), P(m, 3.28, s * (mj ? 2.02 : 1.94), mj ? 0.46 : 0.4), rp, { mat: 'cu_ojo', r1: rp * 0.7 }));
+        const rp = (mj ? 0.12 : 0.085) * H;
+        ps.push(palo(P(m, 3.5, s * 0.82, 0.56), P(m, 3.64, s * 1.42, 0.58), rp, { mat: 'cu_ojo', r1: rp }));
+        ps.push(palo(P(m, 3.64, s * 1.42, 0.58), P(m, 3.36, s * (mj ? 2.06 : 1.98), mj ? 0.66 : 0.58), rp, { mat: 'cu_ojo', r1: rp * 0.6 }));
       } else {
         // en el juego: un trazo oscuro en el fondo de la cuenca (blanco y pupila a 1 punto eran anteojos)
-        ps.push(elipCab(m, 3.05, s * 1.36, 0.22, [0.5, 0.62, 0.3], o.ojo));
+        ps.push(elipCab(m, 3.22, s * 1.36, 0.22, [0.5, 0.68, 0.34], o.ojo));
       }
     }
-    // la ceja: dos tramos (adentro baja hacia el entrecejo: gesto firme); en ella fina y en arco
-    const ceja = o.ceja ?? o.piel, tc = o.ceja ? 0 : 0.12;
-    const a: V3 = mj ? [3.72, 0.5, 1.2] : [3.82, 0.45, 0.98], b: V3 = mj ? [3.6, 1.35, 1.52] : [3.7, 1.35, 1.24], c: V3 = mj ? [3.08, 2.2, 1.36] : [3.18, 2.28, 1.24];
-    const r = (mj ? 0.15 : 0.22) * H;
-    ps.push(palo(P(m, a[0], s * a[1], a[2]), P(m, b[0], s * b[1], b[2]), r * 1.05, { mat: ceja, tono: tc, r1: r }));
-    ps.push(palo(P(m, b[0], s * b[1], b[2]), P(m, c[0], s * c[1], c[2]), r, { mat: ceja, tono: tc - 0.04, r1: r * 0.6 }));
+    // la ceja: dos tramos que se afinan hacia afuera; adentro baja hacia el entrecejo según el ceño de la clase. En ella
+    // más fina y en arco. (Las barras gruesas y parejas de antes eran un antifaz)
+    const ceja = o.ceja ?? o.piel, tc = o.ceja ? -0.18 : 0.12, g = o.gesto ?? 0.5;
+    const a: V3 = mj ? [3.66, 0.48, 1.22 - 0.08 * g] : [3.74, 0.42, 1.04 - 0.16 * g], b: V3 = mj ? [3.56, 1.32, 1.5] : [3.62, 1.3, 1.24], c: V3 = mj ? [3.04, 2.18, 1.38] : [3.12, 2.25, 1.26 + 0.06 * g];
+    const r = (mj ? 0.12 : 0.17) * H;
+    ps.push(palo(P(m, a[0], s * a[1], a[2]), P(m, b[0], s * b[1], b[2]), r, { mat: ceja, tono: tc, r1: r * 0.8 }));
+    ps.push(palo(P(m, b[0], s * b[1], b[2]), P(m, c[0], s * c[1], c[2]), r * 0.8, { mat: ceja, tono: tc - 0.04, r1: r * 0.32 }));
     if (det >= 2) {
       // el surco de la aleta de la nariz y (en él) el pliegue que baja a la comisura
-      ps.push(palo(P(m, 4.05, s * 0.86, -0.9), P(m, 4.12, s * 0.74, -1.42), 0.1 * H, { mat: o.piel, tono: -0.5 }));
-      if (!mj && !o.barba) ps.push(palo(P(m, 3.66, s * 1.05, -1.4), P(m, 3.32, s * 1.28, -2.28), 0.1 * H, { mat: o.piel, tono: -0.35 }));
+      ps.push(palo(P(m, 4.05, s * 0.86, -0.9), P(m, 4.12, s * 0.74, -1.42), 0.09 * H, { mat: o.piel, tono: -0.4 }));
+      if (!o.barba) ps.push(palo(P(m, 3.66, s * 1.05, -1.4), P(m, 3.32, s * 1.28, -2.28), 0.08 * H, { mat: o.piel, tono: mj ? -0.12 : -0.22 }));
     }
   }
   if (det >= 2 && !(o.barba && !o.bigote)) {
@@ -208,20 +216,29 @@ export function mechones(m: MarcoCab, pelo: string, mujer: boolean): Pieza[] {
   // la raya (hundida en el pelo: se ve como surco, no como un palo encima)
   ps.push(palo(P(m, 2.0, 1.05, 4.6), P(m, -1.6, 1.2, 5.3), 0.28 * m.H, { mat: pelo, tono: -0.45 }));
   // el flequillo: tres mechones desparejos que bajan del nacimiento del pelo, chatos contra la frente
-  // (mechas chatas que se apoyan en la frente: los conos de antes, de cerca, eran dientes; la frente de la cabeza
-  // tallada va en `frente`, así la mecha sigue su curva)
-  const frente = (up: number) => Math.max(1.15 + 2.62 * Math.sqrt(Math.max(0, 1 - ((up - 1.95) / 1.6) ** 2)), -0.45 + 3.8 * Math.sqrt(Math.max(0, 1 - ((up - 0.95) / 4.3) ** 2)));
-  for (const [rt, largo, t] of [[-1.6, 1.0, 0.1], [0.2, 1.4, 0.16], [2.0, 0.8, 0.04]] as const) {
-    const u0 = 3.7, u1 = 3.7 - largo, uc = (u0 + u1) / 2;
-    const [ex, ey, ez] = ejesGir(m, [frente(u1) - frente(u0), -0.35, u1 - u0], [1, 0, 0]);
-    ps.push({ ...elipsoide(...P(m, frente(uc) + 0.08, rt - 0.18, uc), (largo / 2 + 0.35) * m.H, 0.58 * m.H, 0.24 * m.H, { mat: pelo, tono: t }), ex, ey, ez } as Pieza);
-  }
+  // el flequillo va en la masa del pelo (flequilloHeroe); aquí solo los cortes entre mechas, hundidos: se ven como surcos
+  for (const rt of [-0.75, 1.15]) ps.push(palo(P(m, 3.0, rt, 3.75), P(m, 3.32, rt - 0.3, 2.85), 0.13 * m.H, { mat: pelo, tono: -0.4, r1: 0.06 * m.H }));
   // la nuca: puntas que salen del borde de atrás
   for (const s of [1, -1, 0]) {
     const rt = s * 2.0;
     ps.push(palo(P(m, -3.6, rt, 0.2), P(m, -4.1, rt * 1.1, mujer ? -1.6 : -1.0), 0.7 * m.H, { mat: pelo, tono: s === 0 ? -0.06 : 0.05, r1: 0.2 * m.H }));
   }
   return ps;
+}
+
+/**
+ * El flequillo del héroe como parte de la masa del pelo: la franja sobre la frente y tres mechas que bajan pegadas a su
+ * curva, fundidas con el resto (antes eran piezas sueltas: de cerca, dientes o escamas).
+ */
+export function flequilloHeroe(m: MarcoCab): Comp[] {
+  const H = m.H, cs: Comp[] = [];
+  const frente = (up: number) => Math.max(0.9 + 2.95 * Math.sqrt(Math.max(0, 1 - ((up - 1.75) / 1.9) ** 2)), -0.4 + 3.85 * Math.sqrt(Math.max(0, 1 - ((up - 0.95) / 4.3) ** 2)));
+  cs.push(bulto(P(m, 1.0, 0, 3.75), [2.6 * H, 3.4 * H, 1.2 * H], { ejes: m.ejes, k: 1.4 * H }));
+  for (const [rt, largo, t] of [[-1.6, 1.0, 0.06], [0.2, 1.35, 0.1], [2.0, 0.85, 0.02]] as const) {
+    const u0 = 3.75, u1 = 3.75 - largo, uc = (u0 + u1) / 2;
+    cs.push(bulto(P(m, frente(uc) - 0.05, rt - 0.15, uc), [(largo / 2 + 0.45) * H, 0.75 * H, 0.32 * H], { ejes: ejesGir(m, [frente(u1) - frente(u0), -0.3, u1 - u0], [1, 0, 0]), tono: t, k: 0.6 * H }));
+  }
+  return cs;
 }
 
 /**

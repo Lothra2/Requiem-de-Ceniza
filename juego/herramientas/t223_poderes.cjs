@@ -11,7 +11,7 @@ const { entrar } = require('./comun_pruebas.cjs');
     const r = await p.evaluate(async (id) => {
       const j = window.__juego(), h = j.heroe, M = window.__mundo, D = await import('/src/datos/monstruos.ts'), C = await import('/src/datos/clases.ts');
       const hb = C.HABILIDADES.find((x) => x.id === id);
-      h.vida = h.vidaMax = 1e6; h.mana = h.manaMax; h.recargas = {}; h.acc = 'quieto'; h.furia = 100; h.frascos = 9; h.salto = null;
+      h.vida = h.vidaMax = 1e6; h.mana = h.c.manaMax; // (h.manaMax no existe: el maná quedaba en NaN y el HUD tiraba errores) h.recargas = {}; h.acc = 'quieto'; h.furia = 100; h.frascos = 9; h.salto = null;
       if (hb.forma) h.buffs[hb.forma === 'oso' ? 'forma_oso' : 'forma_lobo'] = { t: 30, bonos: {}, hab: 'x' };
       j.monstruos.forEach((o) => { if (!o.dueno) { o.vida = 0; o.muerto = true; o.tMuerto = 999; } });
       const ms = [0, 1, 2].map((i) => { const m = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 1.3 + i * 0.7, h.y + 0.4 - i * 0.4, 0, 0); m.vida = m.vidaMax = 5000; j.monstruos.push(m); return m; });

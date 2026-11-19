@@ -278,3 +278,39 @@ export function llamaViva(ctx: CanvasRenderingContext2D, pal: D.NombrePaleta, x:
   ctx.drawImage(s.llama.cv, x - w / 2, y - h, w, h);
   ctx.restore();
 }
+// ------------------------------------------------------------------ la bola de la Combustión
+/**
+ * Una bola de fuego de Doom que revienta en el aire: la fuente es un disco a la altura del pecho que crece en 0,12 s, se
+ * alimenta hasta los 0,32 s y se apaga, así la llama sube y se deshace en humo. Una grilla por estallido (cuatro a la
+ * vez como mucho, dos en táctil). `seg` son los segundos desde que reventó. Devuelve el pulso de su luz.
+ */
+const BW = 46, BH = 58, BCY = 42;
+const bolas = new WeakMap<object, { s: Suelto; apagada: boolean; ultimo: number }>();
+let bolasVivas = 0, cuadroBolas = -1;
+export function bolaFuego(ctx: CanvasRenderingContext2D, clave: object, seg: number, px: number, py: number, esc: number, dt: number): number {
+  if (cuadroBolas !== cuadro) { cuadroBolas = cuadro; bolasVivas = 0; }
+  let b = bolas.get(clave);
+  if (!b) {
+    if (bolasVivas >= (E.tactil ? 2 : 4) || seg > 1.6) return 0;
+    const s = suelto({ ancho: BW, alto: BH, forma: { tipo: 'mapa', fuente: new Float32Array(BW * BH) }, paleta: 'infierno', decay: D.decayPara(0.7, BH), humo: 0.75, turbulencia: 0.85, ruido: 0.3, brillo: 1.9, pegada: 0.35, semilla: Math.floor(px * 7 + py * 13) & 1023, margen: 1, pps: 70 }, 2);
+    b = { s, apagada: false, ultimo: -9 }; bolas.set(clave, b);
+  }
+  bolasVivas++;
+  const f = b.s.f;
+  if (seg < 0.24) {
+    // el disco que crece: caliente parejo adentro, más flojo y roto en el borde
+    const rx = 3 + 9 * Math.min(1, seg / 0.1), ry = rx * 0.8;
+    for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) { const d = ((x + 0.5 - BW / 2) / rx) ** 2 + ((y + 0.5 - BCY) / ry) ** 2; f.fuente[y * BW + x] = d < 1 ? 1 - 0.3 * d : 0; }
+    // (de una vez: el autómata tarda en subir la llama y el estallido tiene que verse en el mismo cuadro)
+    if (b.ultimo === -9) D.pasos(f, 10);
+  } else if (!b.apagada) { b.apagada = true; D.apagar(f); }
+  b.ultimo = cuadro;
+  avanzar(b.s, dt);
+  const w = BW * 2 * esc, h = BH * 2 * esc;
+  pintarEn(ctx, b.s, Math.round(px - w / 2), Math.round(py - h + 8 * esc), esc, Math.max(0, Math.min(0.9, (1.5 - seg) / 0.7)));
+  return D.pulsoLuz(f, 0.5).k;
+}
+
+/** Apaga de una vez todo el piso que arde (para las pruebas: cada poder de la auditoría empieza limpio). */
+export function apagarSuelos() { charcos.length = 0; areasFuego.clear(); }
+(window as any).__apagarSuelos = apagarSuelos;

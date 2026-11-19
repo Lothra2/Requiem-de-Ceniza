@@ -65,7 +65,7 @@ const EN_PISO = /ola|onda|charco|burbuj|circulo|grieta|suelo|lava|pantano/;
  * Lo tendido en el piso va con la profundidad del suelo. Como mucho 6 en táctil y 12 en escritorio.
  */
 export function itemsAmbiente(ctx: CanvasRenderingContext2D, j: Juego, aPant: (x: number, y: number) => [number, number], W: number, H: number, t: number): { prof: number; draw: () => void }[] {
-  if (!pfxListo()) return [];
+  if (!pfxListo() || (window as any).__sinAmbientePfx) return []; // (las pruebas de cerca lo apagan: un remolino de polvo tapaba el poder)
   if (zonaId !== j.zona.id + ':' + j.zona.semilla) armar(j);
   const out: { prof: number; draw: () => void }[] = []; const tope = E.tactil ? 6 : 12;
   for (const p of plantas) {

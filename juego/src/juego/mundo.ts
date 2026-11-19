@@ -108,7 +108,7 @@ export interface Proyectil {
   /** Quién lo disparó (para atribuir el golpe, la escarcha que congela al atacante, etc.). */
   fuente?: Ent;
 }
-export interface Area { /** Lo que se dibuja al caer (por omisión explosion_fuego; '' nada, el efecto ya trae su impacto). */ fxCaida?: string; escCaida?: number; x: number; y: number; radio: number; dano: [number, number]; elem: Elemento; t: number; dur: number; tick: number; prox: number; deHeroe: boolean; efecto: string; retraso: number; caida?: boolean }
+export interface Area { /** Lo que se dibuja al caer (por omisión explosion_fuego; '' nada, el efecto ya trae su impacto). */ fxCaida?: string; escCaida?: number; x: number; y: number; radio: number; dano: [number, number]; elem: Elemento; t: number; dur: number; tick: number; prox: number; deHeroe: boolean; efecto: string; retraso: number; caida?: boolean; /** Al caer deja la marca quemada de este radio. */ quemar?: number; /** Al caer congela el juego estos segundos (el golpe se siente). */ congela?: number }
 export interface Suelo { o: Objeto | null; oro: number; x: number; y: number; t: number; id: number; /** Lo botó el jugador: no se recoge solo (sí con clic). */ botado?: boolean }
 export interface Numero { x: number; y: number; z: number; txt: string; color: string; t: number; grande?: boolean; chico?: boolean; /** Golpe menor de un combo: número un poco más chico. */ menor?: boolean }
 export interface Efecto { id: string; x: number; y: number; t: number; dir: number; escala: number; z?: number; seguir?: Ent; dur?: number }
@@ -534,6 +534,9 @@ export function efecto(j: Juego, id: string, x: number, y: number, dir = 0, esca
   // pintaba encima y el arco de atrás le cruzaba la espalda.
   const h = j.heroe, partido = z === 0 && ((!!h && Math.abs(x - h.x) + Math.abs(y - h.y) < 0.05) || RODEA.test(id));
   j.efectos.push({ id, x, y, t: 0, dir, escala, z, dur, ...(partido ? { partido: true } : {}) } as Efecto);
+  // el relámpago que cae (Tempestad, Furia del firmamento, el lanzar de los poderes de rayo): además del horneado, un
+  // rayo de pixel de verdad que baja del cielo, se quiebra y se abre en el piso (el mismo dibujo del Rayo saltarín)
+  if (id === 'relampago') j.efectos.push({ id: 'arco_cadena', x: x + (R() - 0.5) * 1.2, y: y - 0.6 - R() * 0.6, x2: x, y2: y, t: 0, dir: 0, escala: 1, z: 0, dur: 0.3, za: 230 + R() * 60, zb: 0, suelo: true, cielo: true, sem: Math.floor(R() * 1e6) } as Efecto);
 }
 export function particulas(j: Juego, x: number, y: number, n: number, tipo: Particula['tipo'], color: string, fuerza = 1, z = 30) {
   if (j.particulas.length > 900) return;
@@ -1485,6 +1488,8 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
         total += danar(j, e, { ...golpeSimple(j, d0, hb.elem), aturdir: hb.bonos?.aturdir ? 60 : 0 });
         if (congela && !esJefe(e)) e.congelado = congela;
         if (hb.id === 'canto_invierno' && !esJefe(e)) e.miedo = val(hb.duracion, n);
+        // la descarga de rayo alrededor del héroe salta a cada uno con su arco (antes solo se veía el campo en el piso)
+        if (hb.elem === 'rayo' && lineaLibre(j.zona, h.x, h.y, e.x, e.y)) arcoCadena(j, h, e, e.x, e.y);
       }
       if (hb.id === 'rio_carmesi') h.vida = Math.min(h.vidaMax, h.vida + Math.min(total * 0.4, h.vidaMax * 0.5));
       if (hb.id === 'canto_invierno') ganarFuria(j, 100);
@@ -1576,6 +1581,14 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
         break;
       }
       if (hb.id === 'lluvia_flechas') { const g = golpeArma(j, mult); j.areas.push({ x: ax, y: ay, radio: r, dano: [g.min * 0.5, g.max * 0.5], elem: 'fisico', t: 0, dur, tick: 0.3, prox: 0.2, deHeroe: true, efecto: 'lluvia_flechas', retraso: 0.2 }); break; }
+      // la Combustión: el aire donde apuntas chupa el calor y a los 0,2 s revienta (el dibujo entero está en
+      // render/poderes_vivos.ts: implosión, fogonazo, bola de fuego de Doom, onda, pedazos y el piso que sigue ardiendo).
+      // Antes era el anillo de fuego del piso que tardaba casi 4 s: no se leía como un estallido (Rick, 19 nov 2026)
+      if (hb.id === 'combustion') {
+        efecto(j, 'combustion', ax, ay, 0, Math.max(0.8, Math.min(1.5, r / 2.2)), 0, 2.4);
+        j.areas.push({ x: ax, y: ay, radio: r, dano: dh, elem: 'fuego', t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: '', retraso: 0.2, caida: true, fxCaida: '', quemar: r * 0.7, congela: 0.05 });
+        break;
+      }
       // ---- varios golpes repartidos (columnas, rayos, rocas)
       if (hb.n) {
         const cn = Math.round(val(hb.n, n));
@@ -1592,21 +1605,24 @@ function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
       break;
     }
     case 'cadena': {
-      let desde: Ent = h, golpeados = new Set<number>(), rebotes = (hb.rebota ?? 3) + Math.floor(n / 4);
+      const rebotes = (hb.rebota ?? 3) + Math.floor(n / 4);
       efecto(j, 'pfx:fx_carga_rayo', h.x, h.y, 0, 0.8, 0, 0.35); particulas(j, h.x, h.y, 8, 'chispa', '#fff6a0', 1.2, 40);
       // el primer salto sale de la mano: el blanco tiene que verse desde el héroe (Rick, 19 nov 2026: el rayo cruzaba
-      // muros). Si apuntó a uno tapado, va al más cercano al clic que sí se ve
-      let blanco: Ent | null = obj && !obj.muerto && lineaLibre(j.zona, h.x, h.y, obj.x, obj.y) ? obj : masCercano(j, tx, ty, 8, golpeados, h);
-      while (blanco && rebotes-- >= 0) {
-        // (sin `seguir`: el arco seguía al blanco y quedaba de largo cero, o sea que el rayo no se veía salir de la mano)
-        j.efectos.push({ id: 'arco_cadena', x: desde.x, y: desde.y, t: 0, dir: 0, escala: 1, z: 0, dur: 0.42 } as Efecto);
-        (j.efectos[j.efectos.length - 1] as any).x2 = blanco.x; (j.efectos[j.efectos.length - 1] as any).y2 = blanco.y;
-        danar(j, blanco, { min: dh[0], max: dh[1], elem: 'rayo', deHeroe: true, fuente: h, sinFallo: true });
-        if (!golpeados.size) efecto(j, 'impacto_rayo', blanco.x, blanco.y, 0, 0.6);
-        golpeados.add(blanco.id);
-        desde = blanco;
-        blanco = masCercano(j, desde.x, desde.y, 6, golpeados);
+      // muros). Si apuntó a uno tapado, va al más cercano al clic que sí se ve, sin pasar del alcance de la pantalla
+      const blanco: Ent | null = obj && !obj.muerto && dist(h.x, h.y, obj.x, obj.y) <= ALCANCE_CADENA && lineaLibre(j.zona, h.x, h.y, obj.x, obj.y) ? obj : masCercano(j, tx, ty, 8, new Set(), h, ALCANCE_CADENA);
+      if (!blanco) {
+        // sin nadie a tiro el rayo cae a tierra donde se apuntó (antes no salía nada y el maná se iba igual): hasta 7
+        // casillas, y si un muro lo para, cae de este lado
+        let gx = tx, gy = ty; const d = dist(h.x, h.y, gx, gy); if (d > 7) { gx = h.x + ((gx - h.x) * 7) / d; gy = h.y + ((gy - h.y) * 7) / d; }
+        for (let k = 0; k < 30 && !lineaLibre(j.zona, h.x, h.y, gx, gy); k++) { gx = h.x + (gx - h.x) * 0.88; gy = h.y + (gy - h.y) * 0.88; }
+        arcoCadena(j, h, null, gx, gy);
+        efecto(j, 'impacto_rayo', gx, gy, 0, 0.45);
+        break;
       }
+      // salto a salto, uno cada 0,06 s: se ve el rayo ir de uno a otro (antes salían todos en el mismo cuadro)
+      const c: Cadena = { desde: h, blanco, golpeados: new Set(), rebotes, dh, t: 0, n: 0, zona: j.zona.id };
+      saltoCadena(j, c);
+      if (c.blanco) ((j as any).cadenas ??= []).push(c);
       break;
     }
     case 'invocar': {
@@ -1788,11 +1804,46 @@ export function efectoDe(e: string, elem: Elemento, hb?: Habilidad, proyectil = 
   if (e === 'flecha' && elem === 'frio') return 'flecha_hielo';
   return EFECTOS[e] ?? e;
 }
-/** El enemigo más cercano a (x, y) que se ve desde ahí (o desde `desde`, si el tiro sale de otro lado). */
-function masCercano(j: Juego, x: number, y: number, r: number, salvo: Set<number>, desde?: { x: number; y: number }): Ent | null {
+/** El enemigo más cercano a (x, y) que se ve desde ahí (o desde `desde`, si el tiro sale de otro lado, y a no más de `max` de él). */
+function masCercano(j: Juego, x: number, y: number, r: number, salvo: Set<number>, desde?: { x: number; y: number }, max = Infinity): Ent | null {
   let best: Ent | null = null, bd = r; const ox = desde?.x ?? x, oy = desde?.y ?? y;
-  for (const m of enemigosDe(j, true)) { if (salvo.has(m.id)) continue; const d = dist(m.x, m.y, x, y); if (d < bd && lineaLibre(j.zona, ox, oy, m.x, m.y)) { bd = d; best = m; } }
+  for (const m of enemigosDe(j, true)) { if (salvo.has(m.id) || m.muerto) continue; const d = dist(m.x, m.y, x, y); if (d < bd && dist(m.x, m.y, ox, oy) <= max && lineaLibre(j.zona, ox, oy, m.x, m.y)) { bd = d; best = m; } }
   return best;
+}
+
+// ------------------------------------------------------------------ el Rayo saltarín, salto a salto
+/** Hasta dónde busca el primer blanco desde el héroe (casillas: lo que entra en la pantalla). */
+const ALCANCE_CADENA = 13;
+/** Segundos entre un salto y el siguiente. */
+const PASO_CADENA = 0.06;
+interface Cadena { desde: Ent; blanco: Ent | null; golpeados: Set<number>; rebotes: number; dh: [number, number]; t: number; n: number; zona: string }
+const altoPecho = (e: Ent) => 30 * Math.max(0.8, Math.min(2.5, (e as any).escala ?? 1));
+/** Un arco del rayo: sigue a los dos cuerpos que une mientras dura (lo mueve `actualizar`); `a` null cae a tierra en (x2, y2). */
+function arcoCadena(j: Juego, de: Ent, a: Ent | null, x2: number, y2: number) {
+  const mano = de === j.heroe;
+  j.efectos.push({ id: 'arco_cadena', x: de.x, y: de.y, t: 0, dir: 0, escala: 1, z: 0, dur: a ? 0.42 : 0.34, x2, y2, de, a, deMano: mano, za: mano ? 44 : altoPecho(de), zb: a ? altoPecho(a) : 0, suelo: !a, sem: Math.floor(R() * 1e6) } as Efecto);
+}
+function saltoCadena(j: Juego, c: Cadena) {
+  const b = c.blanco!;
+  arcoCadena(j, c.desde, b, b.x, b.y);
+  danar(j, b, { min: c.dh[0], max: c.dh[1], elem: 'rayo', deHeroe: true, fuente: j.heroe, sinFallo: true });
+  // el estallido horneado solo en el primero: en cada salto tapaba el arco con una bola blanca (la estrella del arco y
+  // el cuerpo electrocutado ya dicen dónde pegó)
+  if (!c.n) efecto(j, 'impacto_rayo', b.x, b.y, 0, 0.6);
+  if (c.n) sonar(j, 'rayo', b.x, b.y, 0.3);
+  c.golpeados.add(b.id); c.desde = b; c.n++; c.t = PASO_CADENA;
+  c.blanco = c.rebotes-- > 0 ? masCercano(j, b.x, b.y, 6, c.golpeados) : null;
+}
+function seguirCadenas(j: Juego, dt: number) {
+  const cs = (j as any).cadenas as Cadena[] | undefined; if (!cs?.length) return;
+  for (const c of cs) {
+    if (c.zona !== j.zona.id) { c.blanco = null; continue; }
+    c.t -= dt; if (c.t > 0 || !c.blanco) continue;
+    // si el que seguía ya cayó (lo mató otro), busca otro cerca de donde va
+    if (c.blanco.muerto) c.blanco = masCercano(j, c.desde.x, c.desde.y, 6, c.golpeados);
+    if (c.blanco) saltoCadena(j, c);
+  }
+  (j as any).cadenas = cs.filter((c) => c.blanco);
 }
 
 // ------------------------------------------------------------------ actualización
@@ -1896,7 +1947,12 @@ export function actualizar(j: Juego, dt: number) {
   }
   j.torretas = j.torretas.filter((t) => t.t < t.dur);
   // efectos, números, partículas
-  for (const e of j.efectos) e.t += dt;
+  for (const e of j.efectos) {
+    e.t += dt;
+    // el arco del rayo va de un cuerpo al otro aunque se muevan (o los empuje el golpe)
+    if (e.id === 'arco_cadena') { const q = e as any; if (q.de) { q.x = q.de.x; q.y = q.de.y; } if (q.a) { q.x2 = q.a.x; q.y2 = q.a.y; } }
+  }
+  seguirCadenas(j, dt);
   j.efectos = j.efectos.filter((e) => e.t < (e.dur ?? 1.4));
   for (const n of j.numeros) { n.t += dt; n.z += dt * 30; }
   j.numeros = j.numeros.filter((n) => n.t < 1.1);
@@ -2487,7 +2543,9 @@ function explotar(j: Juego, p: Proyectil) {
 }
 function actualizarAreas(j: Juego, dt: number) {
   for (const a of j.areas) {
-    if (a.retraso > 0) { a.retraso -= dt; if (a.retraso <= 0 && a.caida) { j.sacudida = 0.5; sonar(j, 'explosion', a.x, a.y); const fc = a.fxCaida ?? 'explosion_fuego'; if (fc) efecto(j, fc, a.x, a.y, 0, a.escCaida ?? 1.6, 0, fc.startsWith('pfx:') ? 3.5 : undefined); } if (a.retraso > 0) continue; if (a.efecto && !a.caida) efecto(j, a.efecto, a.x, a.y, 0, a.radio / 2.5, 0, Math.max(0.8, a.dur)); }
+    if (a.retraso > 0) { a.retraso -= dt; if (a.retraso <= 0 && a.caida) { j.sacudida = 0.5; sonar(j, 'explosion', a.x, a.y); const fc = a.fxCaida ?? 'explosion_fuego'; if (fc) efecto(j, fc, a.x, a.y, 0, a.escCaida ?? 1.6, 0, fc.startsWith('pfx:') ? 3.5 : undefined);
+      if (a.quemar) ponerMancha(j, { x: a.x, y: a.y, r: a.quemar, color: '#141008', t: 0, tipo: 'quemado' });
+      if (a.congela) (j as any).congela = Math.max((j as any).congela ?? 0, a.congela); } if (a.retraso > 0) continue; if (a.efecto && !a.caida) efecto(j, a.efecto, a.x, a.y, 0, a.radio / 2.5, 0, Math.max(0.8, a.dur)); }
     a.t += dt; a.prox -= dt;
     if (a.prox <= 0) {
       a.prox = a.tick;

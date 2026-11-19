@@ -20,7 +20,9 @@ export interface Vivo {
 
 const capa = (w: number, h: number): Capa => {
   const cv = document.createElement('canvas'); cv.width = Math.max(1, w); cv.height = Math.max(1, h);
-  const g = cv.getContext('2d')!; return { cv, g, img: g.createImageData(cv.width, cv.height) };
+  // (en memoria, no en la tarjeta: se reescribe entero cada cuadro con putImageData, que en un lienzo de la tarjeta es una
+  // subida sincrónica por llamada; así es una copia y el pegado sube unos pocos puntos)
+  const g = cv.getContext('2d', { willReadFrequently: true })!; return { cv, g, img: g.createImageData(cv.width, cv.height) };
 };
 export const hexRgb = (h: string): [number, number, number] => { const n = parseInt(h.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
 

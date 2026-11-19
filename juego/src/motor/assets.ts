@@ -15,7 +15,7 @@ export interface ObjMeta { f: Cuadro[]; t: number; hu: [number, number]; b: numb
 interface Manifiesto { atlas: Record<string, [string, number, number]>; h: Record<string, any[]>; m: Record<string, any[]>; o: Record<string, any>; p: Record<string, any[]>; i?: Record<string, any[]>; w?: Record<string, any[]>; wm?: Record<string, any>; r?: Record<string, any[]>; za?: Record<string, number> }
 
 let man: Manifiesto | null = null;
-const imgs = new Map<string, HTMLImageElement | ImageBitmap>();
+const imgs = new Map<string, HTMLImageElement | ImageBitmap | HTMLCanvasElement>();
 const cargando = new Map<string, Promise<void>>();
 const cuadros = new Map<string, Cuadro[]>();
 const objetos = new Map<string, ObjMeta>();
@@ -48,12 +48,47 @@ const soltarTurno = () => { activas--; const s = cola.shift(); if (s) s(); };
 // volvía a descomprimir los WebP en cada cuadro: 900 ms de "mundo" y 9 mil llamadas en la RTX 2080 de Rick (19 nov 2026).
 const aBitmap = (im: HTMLImageElement): Promise<ImageBitmap | HTMLImageElement> =>
   typeof createImageBitmap === 'function' ? createImageBitmap(im).catch(() => im) : Promise.resolve(im);
-// (prueba: el atlas pegado una vez en un lienzo, que vive en la tarjeta)
-function aLienzo(b: ImageBitmap | HTMLImageElement): any { const c = document.createElement('canvas'); c.width = b.width; c.height = b.height; c.getContext('2d')!.drawImage(b, 0, 0); return c; }
-function bajar(url: string): Promise<HTMLImageElement | ImageBitmap | null> {
+// En un PC con tarjeta gráfica de verdad cada atlas se pega UNA vez en un lienzo, que vive en la tarjeta: dibujar desde un
+// ImageBitmap le costaba a Chrome entre 0,5 y 3,5 ms por cuadro y por atlas grande (lo que el medidor F3 de Rick mostraba
+// arriba de todo: "drawImage pantalla <- ImageBitmap 2044x1144"); desde un lienzo de la tarjeta es una copia de textura.
+// Sale punto por punto igual (el mismo dibujo, sin escalar). Si la tarjeta se reinicia, el lienzo queda vacío: se suelta
+// y se vuelve a bajar (del caché del navegador). En el teléfono y el iPad queda el ImageBitmap (la memoria es justa).
+// `__atlasBitmap` lo apaga, `__atlasLienzo` lo fuerza (pruebas en la nube, donde no hay tarjeta).
+let lienzoAtlas: boolean | null = null;
+const atlasEnLienzo = (): boolean => {
+  const w = window as any; if (w.__atlasBitmap) return false; if (w.__atlasLienzo) return true;
+  if (lienzoAtlas === null) lienzoAtlas = !!w.__gpu?.ok && !(typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+  return lienzoAtlas;
+};
+const alPerder = new Set<() => void>();
+/** Lo que hay que soltar si la tarjeta gráfica se reinicia (los lienzos guardados quedan vacíos). */
+export const siSePierdeLaTarjeta = (f: () => void) => { alPerder.add(f); };
+function aLienzo(b: ImageBitmap | HTMLImageElement, perder: () => void): HTMLCanvasElement | ImageBitmap | HTMLImageElement {
+  try {
+    const c = document.createElement('canvas'); c.width = b.width; c.height = b.height;
+    const g = c.getContext('2d'); if (!g) return b;
+    g.drawImage(b, 0, 0);
+    c.addEventListener('contextlost', perder);
+    if (b instanceof ImageBitmap) b.close();
+    return c;
+  } catch { return b; }
+}
+let perdida = false;
+function tarjetaPerdida() {
+  if (perdida) return; perdida = true;
+  setTimeout(() => { perdida = false; }, 0);
+  // los atlas en lienzo se sueltan (se vuelven a pedir al dibujar) y lo guardado por otros (trozos del piso, mapa) también
+  for (const [n, im] of imgs) if (im instanceof HTMLCanvasElement) { imgs.delete(n); usado.delete(n); }
+  for (const [n, r] of rels) if (r instanceof HTMLCanvasElement) rels.delete(n);
+  const limpiar = (q: Cuadro) => { if (q.img instanceof HTMLCanvasElement) q.img = null; };
+  for (const l of cuadros.values()) l.forEach(limpiar);
+  for (const o of objetos.values()) o.f.forEach(limpiar);
+  for (const f of alPerder) f();
+}
+function bajar(url: string): Promise<HTMLImageElement | ImageBitmap | HTMLCanvasElement | null> {
   return new Promise((ok) => {
     const im = new Image();
-    im.onload = () => { aBitmap(im).then((b) => { if (b !== im) im.src = ''; ok((window as any).__atlasLienzo ? aLienzo(b) : b); }); };
+    im.onload = () => { aBitmap(im).then((b) => { if (b !== im) im.src = ''; ok(atlasEnLienzo() ? (aLienzo(b, tarjetaPerdida) as any) : b); }); };
     im.onerror = () => ok(null);
     im.src = url;
   });
@@ -95,7 +130,7 @@ export function liberarAtlas(mantener: Set<string>, topeMB = 500): string[] {
   const fuera = new Set<string>();
   for (const n of cand) { if (total <= tope) break; total -= bytesAtlas(n); fuera.add(n); }
   if (!fuera.size) return [];
-  for (const n of fuera) { const im = imgs.get(n); imgs.delete(n); usado.delete(n); if (im instanceof HTMLImageElement) im.src = ''; else (im as ImageBitmap)?.close?.(); }
+  for (const n of fuera) { const im = imgs.get(n); imgs.delete(n); usado.delete(n); if (im instanceof HTMLImageElement) im.src = ''; else if (im instanceof HTMLCanvasElement) im.width = im.height = 0; else (im as ImageBitmap)?.close?.(); }
   // los cuadros guardan la imagen: soltarla para que se pueda recoger y se vuelva a pedir al dibujar
   const limpiar = (q: Cuadro) => { if (q.img && fuera.has(q.atlas)) q.img = null; };
   for (const l of cuadros.values()) l.forEach(limpiar);
@@ -170,12 +205,12 @@ export function clavesCon(grupo: 'h' | 'm' | 'p' | 'o' | 'i' | 'w', prefijo: str
 
 /** Dibuja un cuadro con el ancla en (x, y). Devuelve si se pudo (el atlas puede estar bajando). */
 // ---------------- laboratorio de luz: los atlas gemelos de relieve (_n) y alto (_h), y el gancho que los dibuja en paralelo
-const rels = new Map<string, ImageBitmap | HTMLImageElement | 'bajando' | null>();
+const rels = new Map<string, ImageBitmap | HTMLImageElement | HTMLCanvasElement | 'bajando' | null>();
 /** La imagen de un atlas de relieve si ya está bajada (la pide la primera vez). */
 /** Hay atlas o relieves bajando o decodificándose (la guardia de la luz no cuenta esos cuadros). */
 export const bajandoAlgo = () => cargando.size > 0 || [...rels.values()].some((r) => r === 'bajando');
 export const relBajando = (nombre: string) => rels.get(nombre) === 'bajando';
-export function relDe(nombre: string): ImageBitmap | HTMLImageElement | null {
+export function relDe(nombre: string): ImageBitmap | HTMLImageElement | HTMLCanvasElement | null {
   const r = rels.get(nombre); if (r !== undefined) return r === 'bajando' ? null : r;
   const a = (man as any)?.rel?.[nombre]; if (!a) { rels.set(nombre, null); return null; }
   rels.set(nombre, 'bajando'); void bajar(BASE + a[0]).then((b) => { if (b) rels.set(nombre, b); else rels.delete(nombre); }); return null;

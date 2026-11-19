@@ -383,6 +383,28 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   `python3 juego/herramientas/sync_artifact.py juego/dist <copia de lo publicado>` y publicar `publicar.html` con los
   archivos que cambiaron.
 
+- **Fluidez del dibujo** (19 nov 2026, rama `fps`; el F3 de Rick: 4 a 6 mil llamadas por cuadro y 15 a 21 ms de JS del
+  mundo a 1920 × 1007 en Lejos). Todo sale punto por punto igual salvo lo que se dice:
+  - **Atlas en lienzo** (`aLienzo` en `motor/assets.ts`): en PC con tarjeta (`__gpu.ok`, sin táctil) cada atlas y cada
+    relieve se pega una vez en un lienzo de la tarjeta. Dibujar desde el ImageBitmap era lo que encabezaba el F3 de Rick
+    ("drawImage pantalla <- ImageBitmap 2044x1144", 1 a 3,5 ms por atlas). Si la tarjeta se reinicia se sueltan y se
+    vuelven a bajar (`siSePierdeLaTarjeta`). `__atlasBitmap` lo apaga, `__atlasLienzo` lo fuerza en la nube.
+  - **Piso en trozos** (`trozosPiso` en `escena.ts`): baldosas, matiz, detalles, roca y relleno se pintan una vez por trozo
+    de unos 512 puntos de pantalla (con su relieve y alto si la luz avanzada está prendida) y se copian. Las baldosas vivas
+    (agua, lava, pantano, fortaleza, pentagrama) guardan su fase y la siguiente se pinta antes. Solo a escala entera (PC
+    nativo); si no, `pintarPiso` como siempre. El matiz, la roca y el relleno quedan a lo sumo medio punto corridos
+    respecto de antes (ahora van pegados a las baldosas). `__sinTrozos` para comparar.
+  - Objetos fuera de pantalla no se pintan (siguen pidiendo su atlas). Cuervos y hojas secas son un drawImage
+    (`render/mapitas.ts`, a escala entera). La niebla de guerra, los aros del umbral y las líneas del arma viva van en un
+    solo camino (`__sinLotes`). El terreno del minimapa se guarda en un lienzo y se rehace al explorar (`__sinTerreno`).
+  - Teselas del clima: una por lienzo (rearmar la misma en el cuadro frenaba 11 ms en el cementerio) y la niebla se arma
+    una sola vez. El fuego de Doom de cada fogata va en lienzos `willReadFrequently` (putImageData por cuadro).
+  - Medidor F3: además el mundo por tramos (cámara, piso, suelo, lista, objetos, cuerpos, otros, efectos, luz, luzgpu,
+    clima). `__rendFases.ligero(true)` mide sin el envoltorio de las llamadas.
+  - Pruebas: `GPU=1 node juego/herramientas/t890_llamadas.cjs [zonas] [luz]` (con `GPU=1` el lienzo va acelerado por
+    SwiftShader en el proceso de la GPU: el JS por cuadro se parece mucho al del PC de Rick; `CARAS=1` imprime el F3,
+    `PELEA=24`, `ATLAS_LIENZO=1`) y `SOLO=1 node juego/herramientas/t891_igual.cjs [zonas] [luz]` (el mismo cuadro con lo
+    de antes y lo nuevo, diferencia punto por punto; `FOTO=1` guarda el mapa de diferencias).
 - **Lienzos de trabajo en rueda** (`motor/lienzos.ts`): sombras, filos y destellos de golpe se arman cada uno en un lienzo
   distinto de una rueda de 160. Reusar un solo lienzo ya pegado en el mismo cuadro frena la tarjeta gráfica (Rick, 18 nov
   2026: se trancaba con muchos monstruos y bolas de fuego). No volver a un lienzo único. En la nube no se nota porque

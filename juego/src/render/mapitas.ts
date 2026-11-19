@@ -18,5 +18,5 @@ export function mapita(clave: string, filas: string[], color: (c: string, x: num
 export function escalaEntera(c: CanvasRenderingContext2D): boolean {
   if ((window as any).__sinMapitas) return false;
   const t = c.getTransform(), e = (v: number) => Math.abs(v - Math.round(v)) < 1e-6;
-  return !t.b && !t.c && t.a >= 1 && e(t.a) && e(t.d) && e(t.e) && e(t.f);
+  return !t.b && !t.c && Math.round(t.a) >= 1 && e(t.a) && e(t.d) && e(t.e) && e(t.f);
 }

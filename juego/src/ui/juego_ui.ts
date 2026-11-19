@@ -1440,7 +1440,8 @@ function terrenoGuardado(z: Juego['zona'], esc: number, bx: number, by: number):
   let vistos = 0; for (let i = 0; i < z.explorado.length; i++) if (z.explorado[i] && z.pisos[i]) vistos++;
   const clave = `${z.id}:${z.semilla}:${esc}:${k}:${vistos}:${z.tipo}`;
   if (!terreno || terreno.clave !== clave || terrenoZona !== z) {
-    const cv = terreno?.cv ?? document.createElement('canvas');
+    let cv = terreno?.cv;
+    if (!cv) { cv = document.createElement('canvas'); cv.addEventListener('contextlost', () => { terreno = null; }); }
     const dx = Math.ceil(k * (z.H * esc * 0.5 + 3)), dy = Math.ceil(k * 3), w = Math.ceil(k * ((z.W + z.H) * esc * 0.5 + 6)), h = Math.ceil(k * ((z.W + z.H) * esc * 0.25 + 6));
     if (w * h > 16e6) return false;
     if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }

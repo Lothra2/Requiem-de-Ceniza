@@ -7,7 +7,7 @@ import { puntoSalida } from '../mundo/zona';
 import { esquivarHud, etiquetasMundo, hud } from '../ui/hud_rects';
 import { NPCS } from '../datos/npcs';
 import { LUZ_EFECTO } from '../../../src/engine/gotico/luz_efectos';
-import { cuadrosPiso, variantePiso, cuadrosHeroe, cuadrosMonstruo, objetoMeta, dibujar, dibujarTenido, manifiesto, precargar, relDe, type Cuadro } from '../motor/assets';
+import { cuadrosPiso, variantePiso, cuadrosHeroe, cuadrosMonstruo, objetoMeta, dibujar, dibujarTenido, manifiesto, precargar, relDe, siSePierdeLaTarjeta, type Cuadro } from '../motor/assets';
 import type { Juego, Ent, Monstruo, Efecto, Mancha } from '../juego/mundo';
 import { CUADROS, DIRS, DIR_VEC, ZANCADA, ALTO_CLASE } from '../juego/mundo';
 import { sensacionDe, cuadroAtaque } from '../juego/sensacion';
@@ -1387,11 +1387,13 @@ const poolTrozos: HTMLCanvasElement[] = [];
 const isoP = (x: number, y: number): [number, number] => [(x - y) * 16, (x + y) * 8];
 const mcm = (a: number, b: number) => { let x = a, y = b; while (y) [x, y] = [y, x % y]; return (a / x) * b; };
 function lienzoTrozo(lado: number): HTMLCanvasElement {
-  const c = poolTrozos.pop() ?? document.createElement('canvas');
+  let c = poolTrozos.pop();
+  if (!c) { c = document.createElement('canvas'); c.addEventListener('contextlost', () => vaciarTrozos()); }
   if (c.width !== lado || c.height !== lado) { c.width = lado; c.height = lado; }
   return c;
 }
 function soltarTrozo(t: Trozo) { poolTrozos.push(t.cv); if (t.rel) poolTrozos.push(t.rel); if (t.alt) poolTrozos.push(t.alt); if (poolTrozos.length > 24) poolTrozos.length = 24; }
+siSePierdeLaTarjeta(() => vaciarTrozos());
 export function vaciarTrozos() { for (const e of trozos.values()) for (const t of e.f) soltarTrozo(t); trozos.clear(); }
 (window as any).__trozos = () => ({ n: trozos.size, lienzos: [...trozos.values()].reduce((s, e) => s + e.f.length, 0), clave: trozosDe });
 function rangoTrozo(z: Juego['zona'], X0: number, Y0: number, S: number): [number, number, number, number] {

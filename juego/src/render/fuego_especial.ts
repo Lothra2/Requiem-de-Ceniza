@@ -10,7 +10,9 @@ import type { Juego, Ent } from '../juego/mundo';
 interface Capa { cv: HTMLCanvasElement; g: CanvasRenderingContext2D; img: ImageData }
 const capa = (w: number, h: number): Capa => {
   const cv = document.createElement('canvas'); cv.width = Math.max(1, w); cv.height = Math.max(1, h);
-  const g = cv.getContext('2d')!; return { cv, g, img: g.createImageData(cv.width, cv.height) };
+  // (en memoria, no en la tarjeta: se reescribe entero cada cuadro con putImageData, que en un lienzo de la tarjeta es una
+  // subida sincrónica por llamada; así es una copia y el pegado sube unos pocos puntos)
+  const g = cv.getContext('2d', { willReadFrequently: true })!; return { cv, g, img: g.createImageData(cv.width, cv.height) };
 };
 /** Un fuego suelto con sus dos capas pintadas a escala 1. */
 export interface Suelto { f: D.Fuego; celda: number; llama: Capa; humo: Capa | null; normal: boolean; visto: number; brasa: number; ox: number; oy: number; luz: [number, number, number] }

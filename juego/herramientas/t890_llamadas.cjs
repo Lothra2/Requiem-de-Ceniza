@@ -40,6 +40,14 @@ const b = await chromium.launch({ ...(process.env.CHROMIUM ? { executablePath: p
     else await p.evaluate(() => { window.__lab.on = false; });
     // 1) tiempo de JS sin envoltorio (medidor de fases en modo liviano)
     const t = await p.evaluate(() => new Promise((ok) => { const R = window.__rendFases; R.ligero(true); setTimeout(() => { const f = R.leer(); R.ligero(false); ok(f); }, 3000); }));
+    if (process.env.PERFIL) {
+      const cdp = await p.context().newCDPSession(p); await cdp.send('Profiler.enable'); await cdp.send('Profiler.setSamplingInterval', { interval: 200 }); await cdp.send('Profiler.start');
+      await p.waitForTimeout(4000); const { profile } = await cdp.send('Profiler.stop');
+      const dt = profile.timeDeltas, cuenta = new Map(), porId = new Map(profile.nodes.map((n) => [n.id, n]));
+      profile.samples.forEach((id, i) => { const n = porId.get(id); const k = `${n.callFrame.functionName || '(anon)'} ${(n.callFrame.url || '').split('/').slice(-2).join('/').split('?')[0]}:${n.callFrame.lineNumber + 1}`; cuenta.set(k, (cuenta.get(k) || 0) + (dt[i] || 0)); });
+      const tot = [...cuenta.values()].reduce((a, b) => a + b, 0);
+      [...cuenta.entries()].sort((a, b) => b[1] - a[1]).slice(0, +process.env.PERFIL || 25).forEach(([k, v]) => console.log('   perfil', ((v / tot) * 100).toFixed(1).padStart(5) + '%', k));
+    }
     // 2) llamadas
     const n = await p.evaluate(() => new Promise((ok) => { const W = window.__cuenta; W.n = 0; W.pant = 0; W.por.clear(); W.met.clear(); let cu = 0; W.on = true; const f = () => { if (++cu < 60) requestAnimationFrame(f); else { W.on = false; ok({ porCuadro: Math.round(W.n / 60), pantalla: Math.round(W.pant / 60), met: Object.fromEntries([...W.met].map(([k, v]) => [k, Math.round(v / 60)])), por: [...W.por].sort((a, b) => b[1] - a[1]).slice(0, 22).map(([k, v]) => [Math.round(v / 60), k]) }); } }; requestAnimationFrame(f); }));
     if (process.env.CARAS) { await p.keyboard.press('F3'); await p.waitForTimeout(4000); const r = await p.evaluate(() => window.__rend()); await p.keyboard.press('F3'); console.log('  F3', JSON.stringify({ fases: r.fases, llamadas: r.llamadas, caras: r.caras.map(([k, v]) => [k, +v.toFixed(2)]) })); }

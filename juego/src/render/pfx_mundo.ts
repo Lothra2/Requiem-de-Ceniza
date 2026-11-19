@@ -105,7 +105,7 @@ function hojasQueCaen(ctx: CanvasRenderingContext2D, j: Juego, W: number, H: num
   ctx.restore();
 }
 
-const FUNDE = 48, tesela = document.createElement('canvas'), mascaras = new Map<string, HTMLCanvasElement>();
+const FUNDE = 48, teselas: HTMLCanvasElement[] = [], mascaras = new Map<string, HTMLCanvasElement>();
 /** Alfa de una tesela: entera en el medio y apagándose en los FUNDE puntos de cada borde (dos vecinas suman uno). */
 function mascaraTesela(w: number, h: number): HTMLCanvasElement {
   const k = w + 'x' + h; let m = mascaras.get(k); if (m) return m;
@@ -119,6 +119,7 @@ export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: numb
   const r = { lluvia: false, nieve: false, niebla: false };
   if (!pfxListo()) return r;
   if (zonaId !== j.zona.id + ':' + j.zona.semilla) armar(j);
+  let nt = 0;
   for (const id of clima) {
     // la lluvia y la tormenta ahora las pinta el juego (escena.ts: gotas con viento, salpicaduras, charcos y relámpagos)
     if ((id === 'fx_lluvia' || id === 'fx_tormenta') && j.zona.lluvia && j.zona.tipo !== 'mazmorra') continue;
@@ -132,18 +133,27 @@ export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: numb
     let dibujo = false;
     if (!caja) continue;
     const cw = caja[2] * 2, ch = caja[3] * 2, px = cw - FUNDE, py = ch - FUNDE, mz = mascaraTesela(cw, ch);
-    if (tesela.width !== cw || tesela.height !== ch) { tesela.width = cw; tesela.height = ch; }
-    const tg = tesela.getContext('2d')!, aditivo = e.mezcla === 'aditiva' || e.mezcla === 'sumar';
+    const aditivo = e.mezcla === 'aditiva' || e.mezcla === 'sumar', fija = id === 'fx_niebla' || id === 'fx_rayos_luz';
+    // cada tesela en su propio lienzo (rearmar uno que ya se pegó en este cuadro frena la tarjeta: ver motor/lienzos.ts, y
+    // en el cementerio eran 11 ms por cuadro), y si todas van en la misma fase (niebla, rayos de luz) se arma una sola vez
+    let hecha: HTMLCanvasElement | null = null;
     for (let ty = -FUNDE, fy = 0; ty < H; ty += py, fy++) for (let tx = -FUNDE, fx = 0; tx < W; tx += px, fx++) {
       // las hojas, en damero: la mitad de densidad (sueltas, no se nota el corte)
       if (id === 'fx_hojas_caen' && (fx + fy) % 2) continue;
-      const fase = id === 'fx_niebla' || id === 'fx_rayos_luz' ? 0 : (fx * 7 + fy * 3) * 0.37;
-      tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, cw, ch);
-      if (!dibujarPfx(tg, id, t + fase, -caja[0] * 2, -caja[1] * 2, { tesela: true })) continue;
-      tg.globalCompositeOperation = 'destination-in'; tg.drawImage(mz, 0, 0);
+      const fase = fija ? 0 : (fx * 7 + fy * 3) * 0.37;
+      let cv: HTMLCanvasElement | null = fija ? hecha : null;
+      if (!cv) {
+        cv = teselas[nt] ??= document.createElement('canvas'); nt++;
+        if (cv.width !== cw || cv.height !== ch) { cv.width = cw; cv.height = ch; }
+        const tg = cv.getContext('2d')!;
+        tg.globalCompositeOperation = 'source-over'; tg.clearRect(0, 0, cw, ch);
+        if (!dibujarPfx(tg, id, t + fase, -caja[0] * 2, -caja[1] * 2, { tesela: true })) continue;
+        tg.globalCompositeOperation = 'destination-in'; tg.drawImage(mz, 0, 0);
+        if (fija) hecha = cv;
+      }
       ctx.save(); ctx.globalAlpha *= alfa;
       ctx.globalCompositeOperation = aditivo ? 'lighter' : 'source-over'; ctx.imageSmoothingEnabled = false;
-      ctx.drawImage(tesela, Math.round(tx), Math.round(ty)); ctx.restore();
+      ctx.drawImage(cv, Math.round(tx), Math.round(ty)); ctx.restore();
       dibujo = true;
     }
     if (dibujo) {

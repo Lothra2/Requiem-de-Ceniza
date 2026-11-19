@@ -15,6 +15,7 @@
 // Los cetros, báculos y varitas llevan además un orbe en la cabeza: una gema con volumen (canto oscuro, núcleo claro
 // corrido hacia la luz, brillo duro), motas que la orbitan por delante y por detrás y el elemento saliendo de ella.
 // Lo que va detrás del cuerpo no se dibuja: los tramos tapados no echan nada y el orbe tapado no se ve.
+import { escalaEntera } from './mapitas';
 import type { Cuadro } from '../motor/assets';
 import { armaArdeViva } from './fuego_especial';
 
@@ -79,6 +80,12 @@ function punto(ctx: CanvasRenderingContext2D, x: number, y: number, c: string, a
 /** Una línea de un punto de grueso, sin suavizado (para arcos, rayos y cristales). */
 function linea(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, c: string, a: number) {
   const n = Math.max(1, Math.round(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)))); ctx.globalAlpha = a > 1 ? 1 : a; ctx.fillStyle = c;
+  // (a escala entera, todos los puntos en un camino y un solo fill: sale igual y es una llamada en vez de n)
+  if (escalaEntera(ctx)) {
+    ctx.beginPath(); let px = NaN, py = NaN;
+    for (let i = 0; i <= n; i++) { const x = Math.round(x0 + ((x1 - x0) * i) / n), y = Math.round(y0 + ((y1 - y0) * i) / n); if (x === px && y === py) { ctx.fill(); ctx.beginPath(); } px = x; py = y; ctx.rect(x, y, 1, 1); } // (si repite un punto, se suma dos veces como antes)
+    ctx.fill(); return;
+  }
   for (let i = 0; i <= n; i++) ctx.fillRect(Math.round(x0 + ((x1 - x0) * i) / n), Math.round(y0 + ((y1 - y0) * i) / n), 1, 1);
 }
 

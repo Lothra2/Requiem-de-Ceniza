@@ -2076,6 +2076,8 @@ export function objetosDeMuestra() {
 
 export interface OpcInventario {
   vacio?: boolean; oro?: number;
+  /** el nicho sin el héroe: el juego dibuja encima su propio muñeco en vivo (juego/src/ui/muneco.ts) */
+  sinHeroe?: boolean;
   /** el héroe que se ve en el nicho (por omisión un templario leyenda) */
   /** el héroe del nicho: su cuerpo y, si no hay casillas, su equipo; `ropaBase` es lo que lleva debajo cuando una casilla está vacía */
   heroe?: { cuerpo: Cuerpo; equipo: Equipo; ropaBase?: Equipo };
@@ -2123,7 +2125,7 @@ export function panelInventario(idioma: Idioma = 'es', o: OpcInventario = {}): P
   }
   sombraInterna(l, N.x, N.y, N.w, N.h, 6, 0.6);
   bisel(l, N.x - 2, N.y - 2, N.w + 4, N.h + 4, P.hierro, 2, { hundido: true });
-  if (!o.vacio) {
+  if (!o.vacio && !o.sinHeroe) {
     // el héroe lleva exactamente lo que está en sus casillas: lo equipado manda, lo vacío cae a su ropa base
     const hh = o.heroe ?? HEROE_MUESTRA;
     const puesto = o.equipo ?? (o.heroe ? undefined : muestra.equipo);

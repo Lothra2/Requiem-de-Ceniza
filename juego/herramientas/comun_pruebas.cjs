@@ -1,6 +1,6 @@
 // Arranque común de las pruebas: un héroe guardado y adentro del juego. Devuelve { b, p, L, tap, errs }.
 const { chromium, devices } = require('playwright');
-const VISTAS = { pc: { viewport: { width: 1280, height: 720 } }, ipad: { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true }, ipad11: { viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true }, movil: { ...devices['iPhone 13'], viewport: { width: 844, height: 390 } } };
+const VISTAS = { pc: { viewport: { width: 1280, height: 720 } }, pc1080: { viewport: { width: 1920, height: 1080 } }, ipad: { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true }, ipad11: { viewport: { width: 1180, height: 820 }, hasTouch: true, isMobile: true }, movil: { ...devices['iPhone 13'], viewport: { width: 844, height: 390 } } };
 async function entrar(vista, clase, nivel, URL = process.env.URL || 'http://127.0.0.1:5190/', ajustes = '') {
   const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const c = await b.newContext({ ...VISTAS[vista], deviceScaleFactor: +(process.env.DPR || 1) });
   const p = await c.newPage(); const errs = []; c.on('response', (r) => { if (r.status() >= 400) errs.push('HTTP ' + r.status() + ' ' + r.url()); }); p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });

@@ -17,12 +17,13 @@ import { EPILOGOS } from '../mundo/decisiones';
 import { colorObj, crearObjeto, crearPocion, crearPergamino, engarzar, baseDe, textoStat, crearUnicoId, type Objeto } from '../juego/objetos';
 import { BASES } from '../datos/objetos_datos';
 import type { DatosHeroe } from '../juego/heroe';
-import { CASILLAS, BOLSA_W, BOLSA_H, equipoVisual, ropaBase, cuerpoDe, firmaVisual, libre, cumpleReq, nivelHab, puedeAprender, xpPara, NIVEL_MAX, recoger, type Casilla, type EnBolsa, nivelEnDificultad, cant, apilable, partir, alCinturon, meterEnBolsa, tiposCinturon, PILA_BOLSA, PILA_CINTURON, type TipoPocion } from '../juego/heroe';
+import { CASILLAS, BOLSA_W, BOLSA_H, equipoVisual, ropaBase, cuerpoDe, libre, cumpleReq, nivelHab, puedeAprender, xpPara, NIVEL_MAX, recoger, type Casilla, type EnBolsa, nivelEnDificultad, cant, apilable, partir, alCinturon, meterEnBolsa, tiposCinturon, PILA_BOLSA, PILA_CINTURON, type TipoPocion } from '../juego/heroe';
 import { recalc, usarPocion, beberPocion, noRellenar, abrirPortal, costoMana, danoHab, habilidadDe, msg, frascosMax, ventanaCombo, cadaveresCerca, MAX_CARGAS, colorElem, thorDe, tramoThor, type Juego, type Monstruo } from '../juego/mundo';
 import { cuadrosMonstruo, dibujar as dibujarCuadro } from '../motor/assets';
 import { Sonido } from '../audio/sonido';
 import { R, entero } from '../nucleo/azar';
 import { dibujarRoseton } from './sello_nivel';
+import { munecoInventario } from './muneco';
 
 export type PanelId = 'inv' | 'pers' | 'habs' | 'cofre' | 'tienda' | 'dialogo' | 'viaje' | 'misiones' | 'codice' | 'menu' | 'elegirHab' | null;
 export const ui = {
@@ -431,6 +432,7 @@ export const compacto = () => H < PANEL_ALTO + BAR_H + 8;
 const PANEL_ALTO = 440;
 const escPanel = () => Math.min(1, (H - (compacto() ? 0 : BAR_H)) / PANEL_ALTO);
 /** Dónde queda cada panel en pantalla real (para clics fuera y para la barra). */
+(window as any).__rectPanel = (lado: 'izq' | 'der') => { const [x, y, w, h] = rectPanel(lado), rc = ctx.canvas.getBoundingClientRect(), k = rc.width / W; return [rc.left + x * k, rc.top + y * k, w * k, h * k]; };
 export function rectPanel(lado: 'izq' | 'der'): [number, number, number, number] {
   const k = escPanel(), w = 320 * k, h = 432 * k;
   const y = compacto() ? Math.max(0, (H - h) / 2) : Math.max(0, (H - BAR_H - h) / 2);
@@ -518,7 +520,7 @@ let cacheInv: { k: string; c: HTMLCanvasElement } | null = null;
 function panelInv(j: Juego, x: number, y: number, t: number) {
   const h = j.heroe, d = h.d;
   const act = (ui as any).bolsaActiva ?? 0;
-  const firma = JSON.stringify([IDI, act, d.oro, firmaVisual(d), Object.entries(d.equipo).map(([k, o]) => [k, o!.uid, Math.ceil(o!.durab), o!.engarces.length]), d.bolsa.map((e) => [e.o.uid, e.x, e.y, e.b ?? 0, e.o.engarces.length, Math.ceil(e.o.durab)]), h.c.dano, h.c.def]);
+  const firma = JSON.stringify([IDI, act, d.oro, Object.entries(d.equipo).map(([k, o]) => [k, o!.uid, Math.ceil(o!.durab), o!.engarces.length]), d.bolsa.map((e) => [e.o.uid, e.x, e.y, e.b ?? 0, e.o.engarces.length, Math.ceil(e.o.durab)]), h.c.dano, h.c.def]);
   if (!cacheInv || cacheInv.k !== firma) {
     const equipo: Record<string, { it: any; arma3d?: any }> = {};
     for (const [hid, cas] of Object.entries(CAS_HUD)) { const o = cas ? d.equipo[cas] : undefined; if (o) equipo[hid] = { it: aLoot(o), arma3d: arma3dDe(o) }; }
@@ -530,10 +532,12 @@ function panelInv(j: Juego, x: number, y: number, t: number) {
       return { it: aLoot(e.o), arma3d: arma3dDe(e.o), x: e.x, y: e.y, w: e.o.w, h: e.o.h, durabilidad: e.o.durabMax ? e.o.durab / e.o.durabMax : undefined, engastes: e.o.huecos ? Array.from({ length: e.o.huecos }, (_, i) => gemaDe(e.o.engarces[i])) : undefined, compara } as ObjetoInv;
     });
     const ocup = d.bolsa.reduce((s2, e) => s2 + e.o.w * e.o.h, 0);
-    const p = panelInventario(IDI ? 'en' : 'es', { heroe: { cuerpo: cuerpoDe(d.clase), equipo: equipoVisual(d), ropaBase: ropaBase(d.clase) }, equipo, bolsa, bolsaActiva: act, oro: d.oro, resumen: { danio: h.c.dano, defensa: h.c.def, res: [h.c.res.fuego, h.c.res.frio, h.c.res.rayo, h.c.res.veneno], peso: [ocup, BOLSA_W * BOLSA_H * 3] }, cuadro: 0 });
+    const p = panelInventario(IDI ? 'en' : 'es', { heroe: { cuerpo: cuerpoDe(d.clase), equipo: equipoVisual(d), ropaBase: ropaBase(d.clase) }, sinHeroe: true, equipo, bolsa, bolsaActiva: act, oro: d.oro, resumen: { danio: h.c.dano, defensa: h.c.def, res: [h.c.res.fuego, h.c.res.frio, h.c.res.rayo, h.c.res.veneno], peso: [ocup, BOLSA_W * BOLSA_H * 3] }, cuadro: 0 });
     cacheInv = { k: firma, c: rasterACanvas(p.img) };
   }
   ctx.drawImage(cacheInv.c, x, y);
+  // el héroe en su nicho: en vivo, con lo que lleva, en pixel art y se puede girar (ui/muneco.ts)
+  munecoInventario(j, x, y, t, !!ui.mano);
   // pestañas y ordenar
   const yt = BOLSA_HUD.y - 14;
   for (let b2 = 0; b2 < BOLSA_HUD.bolsas; b2++) if (dentro(x + BOLSA_HUD.x + b2 * 40, y + yt, 38, 13) && E.clicIzq) { E.clicIzq = false; (ui as any).bolsaActiva = b2; Sonido.efecto('click'); }

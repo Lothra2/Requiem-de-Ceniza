@@ -325,6 +325,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   let nCerca = 0;
   for (const o of (window as any).__sinCubetas ? z.objetos : objetosVisibles(z)) {
     if (!cerca(o.cx + 0.5, o.cy + 0.5, 4)) continue;
+    if (o.id === 'muro_esquina' && (window as any).__sinEsquinas) continue; // (las esquinas de muro, para comparar)
     nCerca++;
     const meta = objetoMeta(o.id, o.v); if (!meta || !meta.f.length) continue;
     let q = meta.f[Math.floor(f25 / meta.t) % meta.f.length];

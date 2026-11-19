@@ -3,6 +3,7 @@
 import './actos67';
 import { REGISTRO, huellaDe, generarPaisaje, type ObjetoDef, type Tema, type AmbienteId } from '../../../src/engine/gotico/index';
 import { ATRIO_CATEDRAL } from '../../../src/engine/gotico/catalogo/atrio_oria';
+import { ESQUINAS_MURO } from '../../../src/engine/gotico/catalogo/muros';
 import { juncosDeTramo } from '../../../src/engine/gotico/agua';
 import { pisosParamo, estadoEn } from '../../../src/engine/gotico/suelo_paramo';
 import { regarDecalsParamo } from '../../../src/engine/gotico/decals_paramo';
@@ -1701,7 +1702,36 @@ export function generarZona(def: DefZona, semilla: number): Zona {
       z.spawns = z.spawns.filter((sp) => sp.tipo === 'jefe' || llega(sp.cx, sp.cy));
     }
   }
+  esquinasMuro(z);
   return z;
+}
+
+/**
+ * Las esquinas de los muros (Rick, 19 nov 2026: "plano contra plano, con una rendija que se ve poco profesional"). Donde
+ * un muro en x termina justo en la columna donde baja un muro en y que termina en su fila (la V que sale hacia la sala),
+ * las dos puntas quedaban separadas por un grueso de muro: se veía el negro de atrás por la rendija y cada cornisa
+ * cortada por su lado. Se pone la pieza de esquina de ese muro (`muro_esquina` en muros.ts: los dos paños que doblan a
+ * inglete) en la celda del vértice. Va al final de todo, sin azar y sin tocar `bloq` (no bloquea: la celda era de piso y
+ * lo sigue siendo), así una partida guardada ve la misma zona, los mismos índices de objetos y el mismo paso.
+ * La L del fondo de una sala (los dos muros de la misma baldosa) ya se cierra sola: cada muro se mete en el otro.
+ */
+function esquinasMuro(z: Zona) {
+  const familia = (o: ObjZ) => (o.id === 'muro_obra' ? 'obra_' + o.v.split('_')[0] : o.id);
+  const X = new Map<string, ObjZ>(), Y = new Map<string, ObjZ>();
+  for (const o of z.objetos) {
+    if (!o.bloquea || !ESQUINAS_MURO[familia(o)]) continue;
+    const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2);
+    if (o.hw === 5 && o.hh <= 2) X.set(x0 + 5 + ',' + y0, o); // (clave: donde termina, la celda que sigue)
+    else if (o.hh === 5 && o.hw <= 2) Y.set(x0 + ',' + (y0 + 5), o);
+  }
+  const roto = (o: ObjZ) => /rot|derrumb/.test(o.v), n = z.objetos.length;
+  for (const [k, ox] of X) {
+    const oy = Y.get(k); if (!oy || familia(oy) !== familia(ox) || (roto(ox) && roto(oy))) continue;
+    const [c, f] = k.split(',').map(Number), g = Math.max(ox.hh, oy.hw) > 1 ? 1 : 0;
+    // lo que se usa (un libro, un cofre, una salida) no se tapa con la esquina: ahí queda como estaba
+    if (z.objetos.some((o, i) => i < n && o.tag && Math.abs(o.cx - c - g) <= (o.hw - 1) / 2 + 0.5 && Math.abs(o.cy - f - g) <= (o.hh - 1) / 2 + 0.5)) continue;
+    z.objetos.push({ id: 'muro_esquina', v: familia(ox), cx: c + g, cy: f + g, hw: 1, hh: 1, bloquea: false });
+  }
 }
 
 export const pasable = (z: Zona, x: number, y: number) => { const cx = Math.floor(x), cy = Math.floor(y); if (cx < 0 || cy < 0 || cx >= z.W || cy >= z.H) return false; const b = z.bloq[cy * z.W + cx]; return b === 0 || b === 3; };

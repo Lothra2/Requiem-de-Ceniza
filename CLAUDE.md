@@ -101,6 +101,15 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Ambientación** (`ambientarVida` en `juego/src/mundo/zona.ts`): matas, telarañas, cráneos y velas del tema, siempre
   sin tapar el paso y con su propio azar al final de la generación, para no mover nada de una partida guardada.
   `juego/herramientas/t730_ambiente.cjs` genera las 96 zonas y revisa que todo exista horneado.
+- **Esquinas de muro** (`muro_esquina` en `src/engine/gotico/catalogo/muros.ts`, `esquinasMuro` en `zona.ts`, Rick,
+  19 nov 2026: "plano contra plano, con una rendija"). Donde un muro en x y uno en y se juntan en V hacia la sala, las dos
+  puntas quedaban a un grueso de muro: rendija negra y cada cornisa cortada por su lado. La esquina es el muro que sigue
+  en cada eje (su paño liso, `ESQUINAS_MURO`), cortado a inglete: hiladas, imposta y cornisa doblan. Va al final de la
+  generación, sin azar, sin tocar `bloq` (la celda sigue de piso) y no tapa lo que tiene `tag`. La L del fondo de una sala
+  ya cerraba sola. Un muro nuevo en un tema necesita su fila en `ESQUINAS_MURO` y hornear solo eso:
+  `RELIEVE=1 GRUPOS=o SOLO=muro_esquina npx tsx juego/hornear/hornear.mts && python3 juego/hornear/atlas_webp.py` (10 s).
+  Pruebas: `t911_esquina_lab.mts` (sin servidor, antes y después por variante, `L=1` la L), `t910_esquinas.cjs` +
+  `t910_lamina.py` (en el juego, `__sinEsquinas` para comparar) y `t912_esquinas_todas.cjs` (todas las zonas).
 - El servidor de desarrollo se cae seguido: `sh juego/herramientas/servidor.sh &` lo vuelve a levantar solo.
 
 ## Armas vivas, cofres, poderes y siluetas

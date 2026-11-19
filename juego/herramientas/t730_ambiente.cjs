@@ -2,7 +2,7 @@
 const { chromium } = require('playwright');
 (async () => { const b = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}); const p = await b.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.addInitScript(() => localStorage.setItem('marca.intro', '1'));
-  await p.goto('http://127.0.0.1:5190/'); await p.waitForFunction(() => window.__T, null, { timeout: 90000 });
+  await p.goto(process.env.URL || 'http://127.0.0.1:5190/'); await p.waitForFunction(() => window.__T, null, { timeout: 90000 });
   const r = await p.evaluate(async () => {
     const Z = await import('/src/mundo/zona.ts'), A = await import('/src/mundo/actos.ts'); const man = await (await fetch('/assets/manifiesto.json')).json();
     const faltan = {}, zonas = []; let tot = 0, fallas = [];

@@ -124,6 +124,24 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   `RELIEVE=1 GRUPOS=o SOLO=muro_esquina npx tsx juego/hornear/hornear.mts && python3 juego/hornear/atlas_webp.py` (10 s).
   Pruebas: `t911_esquina_lab.mts` (sin servidor, antes y después por variante, `L=1` la L), `t910_esquinas.cjs` +
   `t910_lamina.py` (en el juego, `__sinEsquinas` para comparar) y `t912_esquinas_todas.cjs` (todas las zonas).
+- **Adornos con intención** (`curarAdornos` en `zona.ts`, Rick, 19 nov 2026: "dos cofres uno al lado del otro", "no
+  quiero adornos por todos lados sin intención"). Los cofres salían de cinco pasos que no se miraban (escenas, los dos
+  escondidos, los sueltos de `colocarInteractivos`, el del mini jefe a la fuerza y el de la casa) y los cofres de adorno del
+  tema (`hie2_cofre`, `ahg_cofre_barco`, `arc_cofre`, `tum_cofre`) caían pegados a uno de verdad. Va al final de la
+  generación, con su propio azar, y cada objeto sabe de qué paso salió (`capa`: riego, vida, macabro, relleno, escena,
+  horror, jefe, matanza...). Reglas: ningún cofre a menos de 10 celdas de otro (el que sobra se muda junto a un grupo de
+  élite o no sale), sin cofres de adorno cerca, urnas y barriles no pegados al cofre. Nada del riego en pasillos de 6 celdas
+  o menos ni junto a entradas y salidas. El gore suelto se junta donde pasó algo (horror, escenas, jefe y las **matanzas**:
+  junto a los campeones y únicos sin horror cerca, o a un grupo, una pieza de horror del acto con charcos de
+  sangre, de 2 a 5 por zona afuera y de 4 a 9 en las mazmorras, donde pasa lo peor), las velas junto a altares, lápidas y santuarios, las telarañas contra el muro. La misma
+  pieza no se repite a menos de 6 celdas (3,5 las matas, 5 en un lugar de gore) y como mucho 2 adornos sueltos por cuadro de 8 x 8 en mazmorras (3 afuera).
+  Los escalones del relieve en tramos de menos de 4 piezas se quitan (se leían como ladrillos regados). Lo que se quita solo
+  abre paso. Lo que se muda o se agrega con bloqueo va con todo el anillo de alrededor libre y sobre piso que se alcanza.
+  De la zona la partida solo guarda el mapa descubierto por baldosa: pisos, tamaño, entradas, salidas y grupos no cambian.
+  `__sinCurar` lo apaga. Medida: `node juego/herramientas/t920_adornos.cjs <etiqueta> [semillas]` (`SIN_CURAR=1` el antes,
+  y además compara cada zona contra la misma sin curar: tamaño, pisos, entradas, salidas, grupos y lo que se alcanza). Fotos:
+  `t921_adornos_fotos.cjs <etiqueta> [zonas]` (héroe de id fijo, mismos puntos en `puntos.json`) y
+  `python3 juego/herramientas/t921_lamina.py antes ahora` (láminas en `/tmp/requiem-pruebas/adornos`).
 - El servidor de desarrollo se cae seguido: `sh juego/herramientas/servidor.sh &` lo vuelve a levantar solo.
 
 ## Armas vivas, cofres, poderes y siluetas

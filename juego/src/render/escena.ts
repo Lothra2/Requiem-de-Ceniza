@@ -1,13 +1,13 @@
 // Dibuja la zona: pisos, manchas, objetos y personajes por profundidad, poderes, partículas, luz, niebla y clima.
 import { nuevoCuadroSombras } from './luces';
-import { ctx, W, H, E, ZM, MW, MH } from '../nucleo/lienzo';
+import { ctx, W, H, E, ZM, MW, MH, baseLienzo, enMundo } from '../nucleo/lienzo';
 import { Sonido } from '../audio/sonido';
 import { ZONAS } from '../mundo/actos';
 import { puntoSalida } from '../mundo/zona';
 import { esquivarHud, etiquetasMundo, hud } from '../ui/hud_rects';
 import { NPCS } from '../datos/npcs';
 import { LUZ_EFECTO } from '../../../src/engine/gotico/luz_efectos';
-import { cuadrosPiso, variantePiso, cuadrosHeroe, cuadrosMonstruo, objetoMeta, dibujar, dibujarTenido, manifiesto, type Cuadro } from '../motor/assets';
+import { cuadrosPiso, variantePiso, cuadrosHeroe, cuadrosMonstruo, objetoMeta, dibujar, dibujarTenido, manifiesto, precargar, relDe, type Cuadro } from '../motor/assets';
 import type { Juego, Ent, Monstruo, Efecto, Mancha } from '../juego/mundo';
 import { CUADROS, DIRS, DIR_VEC, ZANCADA, ALTO_CLASE } from '../juego/mundo';
 import { sensacionDe, cuadroAtaque } from '../juego/sensacion';
@@ -50,7 +50,8 @@ const nieblaCv = document.createElement('canvas');
 const congelados = new WeakSet<object>();
 const ES_FUEGO = /fogata|hoguera|brasero|pira|antorcha|fuego|caldero|hogar/;
 import { acc } from '../nucleo/accesible';
-import { empezarRelieve, aplicarLuzGPU, ganchoRelieve, marcarHeroe } from './luz_gpu';
+import { empezarRelieve, aplicarLuzGPU, ganchoRelieve, marcarHeroe, desviarRelieve, devolverRelieve, lienzosRelieve, lab } from './luz_gpu';
+import { tramo, cerrarTramos, rend } from '../nucleo/rendimiento';
 import { fijarGanchoRelieve } from '../motor/assets';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
@@ -179,6 +180,7 @@ function puertaCatedral(j: Juego, dt: number, t: number) {
 }
 fijarGanchoRelieve(ganchoRelieve);
 export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
+  tramo('camara');
   empezarRelieve(ctx);
   const z = j.zona, h = j.heroe;
   nuevoCuadroSombras();
@@ -248,51 +250,12 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   const [wx0] = aMundo(0, 0), [, wy0] = aMundo(W, 0), [wx1] = aMundo(W, H), [, wy1] = aMundo(0, H);
   const bx0 = Math.max(0, Math.floor(wx0 / 5) - 1), bx1 = Math.min(z.tw - 1, Math.ceil(wx1 / 5) + 1);
   const by0 = Math.max(0, Math.floor(wy0 / 5) - 1), by1 = Math.min(z.th - 1, Math.ceil(wy1 / 5) + 1);
-  for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {
-    const p = z.pisos[by * z.tw + bx]; if (!p) continue;
-    const fs = cuadrosPiso(p.id, variantePiso(p.id, p.v, bx, by)); if (!fs.length) continue;
-    const q = fs[Math.floor(f25 / 4) % fs.length];
-    const [px, py] = aPant(bx * 5 + 2.5, by * 5 + 2.5);
-    if (px < -100 || px > W + 100 || py < -60 || py > H + 60) continue;
-    dibujar(ctx, q, px, py);
-  }
   gobernar(dt);
-  if (!(window as any).__sinMatiz) matizSuelo(j, bx0, bx1, by0, by1);
-  // cavernas: la roca maciza se pinta negra encima del piso, por tramos de celdas seguidas (los peñascos del contorno van después, encima)
-  if (z.hueco) {
-    const hu = z.hueco, cx0 = Math.max(0, bx0 * 5), cx1 = Math.min(z.W - 1, bx1 * 5 + 4), cy0 = Math.max(0, by0 * 5), cy1 = Math.min(z.H - 1, by1 * 5 + 4);
-    ctx.fillStyle = '#050403'; ctx.beginPath();
-    for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++) {
-      if (!hu[y * z.W + x]) continue;
-      let x2 = x; while (x2 < cx1 && hu[y * z.W + x2 + 1]) x2++;
-      const a = aPant(x, y), b2 = aPant(x2 + 1, y), c = aPant(x2 + 1, y + 1), d = aPant(x, y + 1);
-      if (!(b2[0] < -40 || d[0] > W + 40 || c[1] < -20 || a[1] > H + 20)) { ctx.moveTo(a[0], a[1] - 1); ctx.lineTo(b2[0] + 1, b2[1]); ctx.lineTo(c[0], c[1] + 1); ctx.lineTo(d[0] - 1, d[1]); ctx.closePath(); }
-      x = x2;
-    }
-    ctx.fill();
-  }
-  // el hueco rellenado (rellenarBolsas): su suelo en penumbra, el piso del tema oscurecido y cortado celda por celda, para que
-  // entre las piezas del derrumbe se vea tierra y cascajo en sombra y no el negro de fuera del mapa
-  if (z.relleno && z.rellenoPiso && !(window as any).__sinRelleno) {
-    const re = z.relleno, cx0 = Math.max(0, bx0 * 5), cx1 = Math.min(z.W - 1, bx1 * 5 + 4), cy0 = Math.max(0, by0 * 5), cy1 = Math.min(z.H - 1, by1 * 5 + 4);
-    const tiles = new Set<number>(); ctx.save(); ctx.beginPath(); let hay = false;
-    for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++) {
-      if (!re[y * z.W + x]) continue;
-      let x2 = x; while (x2 < cx1 && re[y * z.W + x2 + 1]) x2++;
-      const a = aPant(x, y), b2 = aPant(x2 + 1, y), c = aPant(x2 + 1, y + 1), d = aPant(x, y + 1);
-      if (!(b2[0] < -40 || d[0] > W + 40 || c[1] < -20 || a[1] > H + 20)) { ctx.moveTo(a[0], a[1] - 1); ctx.lineTo(b2[0] + 1, b2[1]); ctx.lineTo(c[0], c[1] + 1); ctx.lineTo(d[0] - 1, d[1]); ctx.closePath(); hay = true; for (let q = x; q <= x2; q++) tiles.add(Math.floor(y / 5) * z.tw + Math.floor(q / 5)); }
-      x = x2;
-    }
-    if (hay) {
-      ctx.clip();
-      for (const ti of tiles) {
-        const bx = ti % z.tw, by = (ti - bx) / z.tw, fs = cuadrosPiso(z.rellenoPiso, variantePiso(z.rellenoPiso, (bx * 7 + by * 3) % 8, bx, by)); if (!fs.length) continue;
-        const [px, py] = aPant(bx * 5 + 2.5, by * 5 + 2.5); dibujar(ctx, fs[0], px, py);
-      }
-      ctx.fillStyle = 'rgba(8,6,5,0.62)'; ctx.fillRect(0, 0, W, H);
-    }
-    ctx.restore();
-  }
+  tramo('piso');
+  // el piso entero (baldosas, matiz, detalles, roca de las cavernas, suelo del relleno) se pinta una vez en trozos y se
+  // copia: antes eran unas 400 llamadas por cuadro (y el doble con la luz avanzada). Ver trozosPiso.
+  if (!trozosPiso(j, f25)) pintarPiso(ctx, z, aPant, bx0, bx1, by0, by1, Math.floor(f25 / 4), 0, 0, W, H);
+  tramo('suelo');
   if (z.lluvia && z.tipo !== 'mazmorra' && !(window as any).__sinLluvia) lluviaSuelo(j, dt, tiempo, aPant, aMundo);
   if (!(window as any).__sinAmbiente) ambienteSuelo(j, dt, tiempo, aPant, bx0, bx1, by0, by1);
   // manchas
@@ -347,8 +310,9 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     } else disco(mn.x, mn.y, mn.radio);
     ctx.restore();
   }
-  // lista de cosas a ordenar
-  type Item = { prof: number; draw: () => void };
+  tramo('lista');
+  // lista de cosas a ordenar (t: de qué es, para el medidor F3)
+  type Item = { prof: number; draw: () => void; t?: string };
   energiaSuelo(ctx, j, aPant);
   const items: Item[] = [];
   const cerca = (x: number, y: number, m = 3) => { const [px, py] = aPant(x, y); return px > -220 * m / 3 && px < W + 220 && py > -60 && py < H + 320; };
@@ -392,7 +356,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
         ciz -= (dx - dy >= 0 ? 1 : -1) * 0.42 * (1 - d2 / 1.7); nDoblan++;
       }
     }
-    items.push({ prof, draw: () => {
+    items.push({ prof, t: 'objetos', draw: () => {
       // transparencia si tapa al héroe
       let alfa = 1;
       if (alto > 60) {
@@ -406,7 +370,10 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       // lo plantado se mece de la franja del piso para arriba: la base, las raíces y la sombra horneada sobre el piso quedan
       // quietas (antes se cizallaba el cuadro entero y la sombra y el pie se corrían sobre el piso)
       const PISO_QUIETO = Math.min(26, Math.round(alto * 0.22));
-      if (ciz && !cuelga && !br && alto > PISO_QUIETO + 4) {
+      // fuera de la pantalla no se pinta (con lo que se mece de margen): unas 300 llamadas menos en el páramo
+      const mg = Math.abs(ciz) * q.h + 2, x0 = px - q.ax, y0 = py - q.ay;
+      if (x0 + q.w + mg < 0 || x0 - mg > W || y0 > H || y0 + q.h < 0) { if (!q.img) precargar([q.atlas]); if (lab.on) { relDe(q.atlas + '_n'); relDe(q.atlas + '_h'); } } // (que sigan bajando antes de entrar)
+      else if (ciz && !cuelga && !br && alto > PISO_QUIETO + 4) {
         const corte = q.ay - PISO_QUIETO; // fila del cuadro donde empieza lo quieto
         const abajo = { ...q, y: q.y + corte, h: q.h - corte, ay: q.ay - corte }, arriba = { ...q, h: corte };
         dibujar(ctx, abajo as Cuadro, px, py);
@@ -456,7 +423,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const e of ents) {
     if (!cerca(e.x, e.y)) continue;
     const muerto = e.muerto;
-    items.push({ prof: (muerto ? e.x + e.y - 0.6 : e.x + e.y) + (sobrePuente(j, e) > 0 ? 4 : 0), draw: () => dibujarEnt(j, e, tiempo) });
+    items.push({ prof: (muerto ? e.x + e.y - 0.6 : e.x + e.y) + (sobrePuente(j, e) > 0 ? 4 : 0), t: 'cuerpos', draw: () => dibujarEnt(j, e, tiempo) });
   }
   // visiones
   for (const v of j.visiones) {
@@ -485,11 +452,11 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     if (esDePiso(e)) {
       const [, py] = aPant(e.x, e.y), F = 16, alc = Math.round(60 + 70 * Math.min(2.4, e.escala ?? 1));
       for (let y0 = -alc; y0 < alc; y0 += F) { const borde = y0 + F >= alc, arriba = y0 === -alc;
-        items.push({ prof: e.x + e.y + (y0 + F / 2) / 8 - 0.55, draw: () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, arriba ? py - 4000 : py + y0, W + 8000, arriba ? 4000 + y0 + F : borde ? 4000 : F); ctx.clip(); pinta(); ctx.restore(); } }); }
+        items.push({ prof: e.x + e.y + (y0 + F / 2) / 8 - 0.55, t: 'efectos', draw: () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, arriba ? py - 4000 : py + y0, W + 8000, arriba ? 4000 + y0 + F : borde ? 4000 : F); ctx.clip(); pinta(); ctx.restore(); } }); }
     } else if (partido) {
       const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); pinta(); ctx.restore(); };
-      items.push({ prof: e.x + e.y - 0.03, draw: mitad(true) }, { prof: e.x + e.y + 0.03, draw: mitad(false) });
-    } else items.push({ prof: e.x + e.y + 0.06, draw: () => { ctx.save(); pinta(); ctx.restore(); } });
+      items.push({ prof: e.x + e.y - 0.03, t: 'efectos', draw: mitad(true) }, { prof: e.x + e.y + 0.03, t: 'efectos', draw: mitad(false) });
+    } else items.push({ prof: e.x + e.y + 0.06, t: 'efectos', draw: () => { ctx.save(); pinta(); ctx.restore(); } });
   }
   // Lo que está parado en el mundo y antes se pintaba al final, encima de todo: el portal del héroe, los umbrales de
   // salida, las torretas y las llamas de las fogatas sin fuego vivo. Ahora van en el orden de pintado: lo que tienen
@@ -532,8 +499,11 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const p of j.proyectiles) items.push({ prof: p.x + p.y + 0.07, draw: () => { ctx.save(); ctx.globalCompositeOperation = 'lighter'; dibujarProyectil(p); ctx.restore(); } });
   for (const it of itemsEnergia(ctx, aPant)) items.push(it);
   for (const it of itemsSuelo(ctx, aPant, dtCuadro)) items.push(it);
+  tramo('orden');
   items.sort((a, b) => a.prof - b.prof);
-  for (const it of items) it.draw();
+  if (rend.on) { let cur = ''; for (const it of items) { const t = it.t ?? 'otros'; if (t !== cur) tramo(cur = t); it.draw(); } }
+  else for (const it of items) it.draw();
+  tramo('efectos');
   // poderes y efectos
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   // los de mucha materia (sangre, hueso, humo, flechas) van con alfa normal: sumados se pierden
@@ -547,6 +517,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // cuervos
   for (const c of j.cuervos) { const [px, py] = aPant(c.x, c.y); ctx.globalCompositeOperation = 'source-over'; pajaro(px, py - 50 - Math.sin(tiempo * 9 + c.ang) * 6, tiempo + c.ang); ctx.globalCompositeOperation = 'lighter'; }
   ctx.restore();
+  tramo('particulas');
   // partículas
   for (const p of j.particulas) {
     const [px, py] = aPant(p.x, p.y);
@@ -558,9 +529,12 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   }
   ctx.globalAlpha = 1;
   // bruma baja al pie de la catedral, y después la luz
+  tramo('luz');
   brumaAncla(j);
   dibujarLuz(j, tiempo);
-  aplicarLuzGPU(ctx, luces as any, ctx.getTransform()); // (laboratorio: reiluminar con la tarjeta gráfica)
+  tramo('luzgpu');
+  aplicarLuzGPU(ctx, luces as any, ctx.getTransform());
+  tramo('arriba'); // (laboratorio: reiluminar con la tarjeta gráfica)
   puertaCatedral(j, dt, tiempo);
   // arcos de rayo: después de la luz (dibujados antes, la noche los apagaba y el rayo no se veía salir de la mano)
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1;
@@ -599,7 +573,9 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     ctx.fillStyle = '#e8c070'; ctx.fillText(txt, lx, ly); ctx.globalAlpha = 1; ctx.textAlign = 'left';
   }
   // clima
+  tramo('clima');
   clima(j, dt, tiempo);
+  cerrarTramos();
 }
 
 const nieblaBaja = document.createElement('canvas');
@@ -622,7 +598,9 @@ function umbralVivo(px: number, py: number, conArco: boolean, dest: { tipo?: str
   ctx.lineWidth = 1.5;
   for (const [rx, giro, n, a] of [[34, t * 0.5, 14, 0.55], [24, -t * 0.8, 9, 0.4]] as [number, number, number, number][]) {
     ctx.strokeStyle = rgba(a + pulso * 0.2);
-    for (let i = 0; i < n; i++) { const a0 = giro + (i / n) * Math.PI * 2; ctx.beginPath(); ctx.ellipse(px, py, rx, rx / 2, 0, a0, a0 + (Math.PI * 2 / n) * 0.62); ctx.stroke(); }
+    // (los trazos de un aro no se tocan: van en un solo camino y un solo stroke, antes eran uno por trazo)
+    if ((window as any).__sinLotes) { for (let i = 0; i < n; i++) { const a0 = giro + (i / n) * Math.PI * 2; ctx.beginPath(); ctx.ellipse(px, py, rx, rx / 2, 0, a0, a0 + (Math.PI * 2 / n) * 0.62); ctx.stroke(); } }
+    else { ctx.beginPath(); for (let i = 0; i < n; i++) { const a0 = giro + (i / n) * Math.PI * 2; ctx.moveTo(px + Math.cos(a0) * rx, py + Math.sin(a0) * rx / 2); ctx.ellipse(px, py, rx, rx / 2, 0, a0, a0 + (Math.PI * 2 / n) * 0.62); } ctx.stroke(); }
   }
   for (let i = 0; i < 8; i++) {
     const a = t * 0.5 + (i / 8) * Math.PI * 2, x = px + Math.cos(a) * 29, y = py + Math.sin(a) * 14.5, k = 0.45 + 0.4 * Math.sin(t * 3 + i * 1.7);
@@ -1210,6 +1188,7 @@ function dibujarLuz(j: Juego, t: number) {
   const NB = 20, nw = Math.ceil(W / NB) + 2, nh = Math.ceil(H / NB) + 2;
   if (nieblaBaja.width !== nw || nieblaBaja.height !== nh) { nieblaBaja.width = nw; nieblaBaja.height = nh; }
   const nb = nieblaBaja.getContext('2d')!; nb.clearRect(0, 0, nw, nh); nb.fillStyle = '#000';
+  const lotes = !(window as any).__sinLotes;
   const [fx0] = aMundo(0, 0), [, fy0] = aMundo(W, 0), [fx1] = aMundo(W, H), [, fy1] = aMundo(0, H);
   let hay = false;
   for (let by = Math.floor(fy0 / 5) - 2; by <= Math.ceil(fy1 / 5) + 2; by++) for (let bx = Math.floor(fx0 / 5) - 2; bx <= Math.ceil(fx1 / 5) + 2; bx++) {
@@ -1228,8 +1207,13 @@ function dibujarLuz(j: Juego, t: number) {
     if (px < -140 || px > W + 140 || py < -90 || py > H + 90) continue;
     // cada mancha con su tamaño (sale de la baldosa, no cambia con el tiempo): el contorno no repite
     const k = dentro && z.pisos[by * z.tw + bx] ? 0.92 + 0.3 * hashCelda(bx * 3 + 1, by * 7 + 2) : z.tipo === 'mazmorra' ? 0.74 + 0.2 * hashCelda(bx * 3 + 1, by * 7 + 2) : 0.95 + 0.6 * hashCelda(bx * 3 + 1, by * 7 + 2); // (en las mazmorras, menos: no debe comerse los muros)
-    nb.beginPath(); nb.ellipse(px / NB + 1, py / NB + 1, (81 * k) / NB, (41 * k) / NB, 0, 0, Math.PI * 2); nb.fill(); hay = true;
+    // (todas las manchas en un solo camino y un solo fill: antes era un fill por baldosa, hasta 200 por cuadro)
+    const ex = px / NB + 1, ey = py / NB + 1, rx = (81 * k) / NB;
+    if (lotes) { if (!hay) nb.beginPath(); nb.moveTo(ex + rx, ey); nb.ellipse(ex, ey, rx, (41 * k) / NB, 0, 0, Math.PI * 2); }
+    else { nb.beginPath(); nb.ellipse(ex, ey, rx, (41 * k) / NB, 0, 0, Math.PI * 2); nb.fill(); }
+    hay = true;
   }
+  if (hay && lotes) nb.fill();
   if (hay) { nc.save(); nc.imageSmoothingEnabled = true; nc.imageSmoothingQuality = 'high'; nc.drawImage(nieblaBaja, -NB, -NB, nw * NB, nh * NB); nc.restore(); }
   if (conAncla) {
     nc.globalCompositeOperation = 'destination-out';
@@ -1286,8 +1270,8 @@ function brumaAncla(j: Juego) {
 // astillas) que salen de la posición: ninguna parte del mapa se ve igual a otra.
 let matizDe = '', matizCv: HTMLCanvasElement | null = null;
 const PISO_VERDE = /pasto|selva|pantano|par_suelo|musgo/;
-function matizSuelo(j: Juego, bx0: number, bx1: number, by0: number, by1: number) {
-  const z = j.zona, clave = z.id + ':' + z.semilla;
+function matizSuelo(g: CanvasRenderingContext2D, z: Juego['zona'], ap: (x: number, y: number) => [number, number], bx0: number, bx1: number, by0: number, by1: number, rx0: number, ry0: number, rx1: number, ry1: number): boolean {
+  const clave = z.id + ':' + z.semilla;
   if (matizDe !== clave || !matizCv) {
     matizDe = clave; matizCv = document.createElement('canvas'); matizCv.width = z.W; matizCv.height = z.H;
     const g = matizCv.getContext('2d')!, im = g.createImageData(z.W, z.H), r = rng(z.semilla * 31 + 7);
@@ -1313,19 +1297,205 @@ function matizSuelo(j: Juego, bx0: number, bx1: number, by0: number, by1: number
     g.putImageData(im, 0, 0);
   }
   if (calidadMundo.nivel > 0) {
-  ctx.save();
-  const [ox, oy] = aPant(0, 0);
-  ctx.globalCompositeOperation = 'multiply'; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-  ctx.setTransform(ctx.getTransform().multiply(new DOMMatrix([16, 8, -16, 8, ox, oy])));
-  ctx.drawImage(matizCv, 0, 0);
-  ctx.restore();
+  g.save();
+  const [ox, oy] = ap(0, 0);
+  g.globalCompositeOperation = 'multiply'; g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';
+  g.transform(16, 8, -16, 8, ox, oy);
+  g.drawImage(matizCv, 0, 0);
+  g.restore();
   }
   // detalles sueltos: se pintan una vez por baldosa en un lienzo propio y después solo se copian
+  let completo = true;
   for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {
     if (!z.pisos[by * z.tw + bx]) continue;
-    const [px, py] = aPant(bx * 5 + 2.5, by * 5 + 2.5); if (px < -100 || px > W + 100 || py < -60 || py > H + 60) continue;
-    const c = detalleBaldosa(z, bx, by); if (c) ctx.drawImage(c, Math.round(px) - 88, Math.round(py) - 48);
+    const [px, py] = ap(bx * 5 + 2.5, by * 5 + 2.5); if (px < rx0 - 100 || px > rx1 + 100 || py < ry0 - 60 || py > ry1 + 60) continue;
+    const c = detalleBaldosa(z, bx, by); if (c) g.drawImage(c, Math.round(px) - 88, Math.round(py) - 48); else if (!detalles.has(by * z.tw + bx)) completo = false;
   }
+  return completo;
+}
+
+/**
+ * La capa del piso en `g`: baldosas, matiz, detalles, la roca negra de las cavernas y el suelo en penumbra del relleno.
+ * `ap` lleva del mundo al lienzo y (rx0, ry0)-(rx1, ry1) es lo que se ve. Devuelve si salió entera (si falta un atlas,
+ * no se guarda). Es el mismo código para la pantalla y para los trozos guardados.
+ */
+function pintarPiso(g: CanvasRenderingContext2D, z: Juego['zona'], ap: (x: number, y: number) => [number, number], bx0: number, bx1: number, by0: number, by1: number, ph: number, rx0: number, ry0: number, rx1: number, ry1: number): boolean {
+  let completo = true;
+  for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {
+    const p = z.pisos[by * z.tw + bx]; if (!p) continue;
+    const fs = cuadrosPiso(p.id, variantePiso(p.id, p.v, bx, by)); if (!fs.length) continue;
+    const q = fs[ph % fs.length];
+    const [px, py] = ap(bx * 5 + 2.5, by * 5 + 2.5);
+    if (px < rx0 - 100 || px > rx1 + 100 || py < ry0 - 60 || py > ry1 + 60) continue;
+    if (!dibujar(g, q, px, py)) completo = false;
+  }
+  if (!(window as any).__sinMatiz && !matizSuelo(g, z, ap, bx0, bx1, by0, by1, rx0, ry0, rx1, ry1)) completo = false;
+  // cavernas: la roca maciza se pinta negra encima del piso, por tramos de celdas seguidas (los peñascos del contorno van después, encima)
+  if (z.hueco) {
+    const hu = z.hueco, cx0 = Math.max(0, bx0 * 5), cx1 = Math.min(z.W - 1, bx1 * 5 + 4), cy0 = Math.max(0, by0 * 5), cy1 = Math.min(z.H - 1, by1 * 5 + 4);
+    g.fillStyle = '#050403'; g.beginPath();
+    for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++) {
+      if (!hu[y * z.W + x]) continue;
+      let x2 = x; while (x2 < cx1 && hu[y * z.W + x2 + 1]) x2++;
+      const a = ap(x, y), b2 = ap(x2 + 1, y), c = ap(x2 + 1, y + 1), d = ap(x, y + 1);
+      if (!(b2[0] < rx0 - 40 || d[0] > rx1 + 40 || c[1] < ry0 - 20 || a[1] > ry1 + 20)) { g.moveTo(a[0], a[1] - 1); g.lineTo(b2[0] + 1, b2[1]); g.lineTo(c[0], c[1] + 1); g.lineTo(d[0] - 1, d[1]); g.closePath(); }
+      x = x2;
+    }
+    g.fill();
+  }
+  // el hueco rellenado (rellenarBolsas): su suelo en penumbra, el piso del tema oscurecido y cortado celda por celda, para que
+  // entre las piezas del derrumbe se vea tierra y cascajo en sombra y no el negro de fuera del mapa
+  if (z.relleno && z.rellenoPiso && !(window as any).__sinRelleno) {
+    const re = z.relleno, cx0 = Math.max(0, bx0 * 5), cx1 = Math.min(z.W - 1, bx1 * 5 + 4), cy0 = Math.max(0, by0 * 5), cy1 = Math.min(z.H - 1, by1 * 5 + 4);
+    const tiles = new Set<number>(); g.save(); g.beginPath(); let hay = false;
+    for (let y = cy0; y <= cy1; y++) for (let x = cx0; x <= cx1; x++) {
+      if (!re[y * z.W + x]) continue;
+      let x2 = x; while (x2 < cx1 && re[y * z.W + x2 + 1]) x2++;
+      const a = ap(x, y), b2 = ap(x2 + 1, y), c = ap(x2 + 1, y + 1), d = ap(x, y + 1);
+      if (!(b2[0] < rx0 - 40 || d[0] > rx1 + 40 || c[1] < ry0 - 20 || a[1] > ry1 + 20)) { g.moveTo(a[0], a[1] - 1); g.lineTo(b2[0] + 1, b2[1]); g.lineTo(c[0], c[1] + 1); g.lineTo(d[0] - 1, d[1]); g.closePath(); hay = true; for (let q = x; q <= x2; q++) tiles.add(Math.floor(y / 5) * z.tw + Math.floor(q / 5)); }
+      x = x2;
+    }
+    if (hay) {
+      g.clip();
+      for (const ti of tiles) {
+        const bx = ti % z.tw, by = (ti - bx) / z.tw, fs = cuadrosPiso(z.rellenoPiso, variantePiso(z.rellenoPiso, (bx * 7 + by * 3) % 8, bx, by)); if (!fs.length) continue;
+        const [px, py] = ap(bx * 5 + 2.5, by * 5 + 2.5); if (!dibujar(g, fs[0], px, py)) completo = false;
+      }
+      g.fillStyle = 'rgba(8,6,5,0.62)'; g.fillRect(rx0, ry0, rx1 - rx0, ry1 - ry0);
+    }
+    g.restore();
+  }
+  return completo;
+}
+
+// ------------------------------------------------------------------ el piso en trozos
+// El piso no cambia de un cuadro a otro: se pinta UNA vez por trozo de unos 512 x 512 puntos de pantalla (en las
+// coordenadas del piso, sin cámara) y en cada cuadro solo se copian los trozos que se ven. Las baldosas van a puntos
+// enteros (dibujar redondea), así que con la cámara corrida en enteros la copia es punto por punto lo mismo; el matiz,
+// la roca y el relleno quedan a lo sumo medio punto corridos (antes nadaban medio punto respecto de las baldosas).
+// Las baldosas vivas (agua, lava, pantano, fortaleza, pentagrama) cambian de cuadro cada 4/25 s: el trozo guarda su fase
+// y la siguiente se pinta antes de que toque. Con la luz avanzada, cada trozo lleva también su relieve y su alto.
+// Solo si el mundo va a una escala entera de puntos del aparato (PC: Lejos, Cerca, Muy cerca); si no, lo de siempre.
+// `__sinTrozos` lo apaga para comparar.
+interface Trozo { k: number; cv: HTMLCanvasElement; rel: HTMLCanvasElement | null; alt: HTMLCanvasElement | null; usado: number }
+const trozos = new Map<number, { L: number; f: Trozo[]; usado: number }>();
+let trozosDe = '', trozosZona: object | null = null, cuadroTrozo = 0;
+const poolTrozos: HTMLCanvasElement[] = [];
+const isoP = (x: number, y: number): [number, number] => [(x - y) * 16, (x + y) * 8];
+const mcm = (a: number, b: number) => { let x = a, y = b; while (y) [x, y] = [y, x % y]; return (a / x) * b; };
+function lienzoTrozo(lado: number): HTMLCanvasElement {
+  const c = poolTrozos.pop() ?? document.createElement('canvas');
+  if (c.width !== lado || c.height !== lado) { c.width = lado; c.height = lado; }
+  return c;
+}
+function soltarTrozo(t: Trozo) { poolTrozos.push(t.cv); if (t.rel) poolTrozos.push(t.rel); if (t.alt) poolTrozos.push(t.alt); if (poolTrozos.length > 24) poolTrozos.length = 24; }
+export function vaciarTrozos() { for (const e of trozos.values()) for (const t of e.f) soltarTrozo(t); trozos.clear(); }
+(window as any).__trozos = () => ({ n: trozos.size, lienzos: [...trozos.values()].reduce((s, e) => s + e.f.length, 0), clave: trozosDe });
+function rangoTrozo(z: Juego['zona'], X0: number, Y0: number, S: number): [number, number, number, number] {
+  const u0 = (X0 - 100) / 80, u1 = (X0 + S + 100) / 80, v0 = (Y0 - 100) / 40, v1 = (Y0 + S + 20) / 40;
+  return [Math.max(0, Math.floor((u0 + v0) / 2) - 1), Math.min(z.tw - 1, Math.ceil((u1 + v1) / 2) + 1), Math.max(0, Math.floor((v0 - u1) / 2) - 1), Math.min(z.th - 1, Math.ceil((v1 - u0) / 2) + 1)];
+}
+function pintarTrozo(z: Juego['zona'], tx: number, ty: number, S: number, T: number, k: number, conRel: boolean, t: Trozo | null): Trozo | null {
+  const lado = S * T, X0 = tx * S, Y0 = ty * S;
+  const cv = t?.cv ?? lienzoTrozo(lado), g = cv.getContext('2d')!;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.imageSmoothingEnabled = false;
+  g.fillStyle = '#000'; g.fillRect(0, 0, lado, lado);
+  g.setTransform(T, 0, 0, T, -T * X0, -T * Y0);
+  let rel: HTMLCanvasElement | null = null, alt: HTMLCanvasElement | null = null, antes: ReturnType<typeof desviarRelieve> | null = null;
+  if (conRel) {
+    rel = t?.rel ?? lienzoTrozo(lado); alt = t?.alt ?? lienzoTrozo(lado);
+    for (const c of [rel, alt]) { const x = c.getContext('2d')!; x.setTransform(1, 0, 0, 1, 0, 0); x.globalCompositeOperation = 'source-over'; x.globalAlpha = 1; x.clearRect(0, 0, lado, lado); x.imageSmoothingEnabled = false; }
+    antes = desviarRelieve(g, rel.getContext('2d')!, alt.getContext('2d')!);
+  } else if (t?.rel) { poolTrozos.push(t.rel); if (t.alt) poolTrozos.push(t.alt); }
+  const [bx0, bx1, by0, by1] = rangoTrozo(z, X0, Y0, S);
+  let ok: boolean;
+  try { ok = pintarPiso(g, z, isoP, bx0, bx1, by0, by1, k, X0, Y0, X0 + S, Y0 + S); }
+  finally { if (antes) ok = devolverRelieve(antes) && ok!; }
+  const nt: Trozo = { k, cv, rel, alt, usado: cuadroTrozo };
+  if (!ok!) { trozoFallido = nt; return null; }
+  return nt;
+}
+let trozoFallido: Trozo | null = null;
+/** El período de las baldosas vivas del trozo (1 si no tiene). */
+function periodoTrozo(z: Juego['zona'], tx: number, ty: number, S: number): number {
+  const [bx0, bx1, by0, by1] = rangoTrozo(z, tx * S, ty * S, S); let L = 1;
+  for (let by = by0; by <= by1; by++) for (let bx = bx0; bx <= bx1; bx++) {
+    const p = z.pisos[by * z.tw + bx]; if (!p) continue;
+    const n = cuadrosPiso(p.id, variantePiso(p.id, p.v, bx, by)).length; if (n > 1) L = mcm(L, n);
+  }
+  return L;
+}
+/** Para las pruebas (t891_igual): solo el piso, con lo de siempre (antes) o con los trozos, en la cámara de ahora. */
+(window as any).__pintarMundo = (j: Juego, solo: boolean, antes: boolean, tiempo = 100) => { baseLienzo(); enMundo(() => (solo ? soloPiso(j, antes, tiempo) : dibujarMundo(j, 0, tiempo))); return { cam: [cam.x, cam.y] }; };
+function soloPiso(j: Juego, antes: boolean, tiempo = 100) {
+  empezarRelieve(ctx); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  const f25 = Math.floor(tiempo * 25), z = j.zona;
+  const [wx0] = aMundo(0, 0), [, wy0] = aMundo(W, 0), [wx1] = aMundo(W, H), [, wy1] = aMundo(0, H);
+  const bx0 = Math.max(0, Math.floor(wx0 / 5) - 1), bx1 = Math.min(z.tw - 1, Math.ceil(wx1 / 5) + 1);
+  const by0 = Math.max(0, Math.floor(wy0 / 5) - 1), by1 = Math.min(z.th - 1, Math.ceil(wy1 / 5) + 1);
+  if (antes || !trozosPiso(j, f25)) pintarPiso(ctx, z, aPant, bx0, bx1, by0, by1, Math.floor(f25 / 4), 0, 0, W, H);
+}
+function trozosPiso(j: Juego, f25: number): boolean {
+  if ((window as any).__sinTrozos) { if (trozos.size) vaciarTrozos(); return false; }
+  const tr = ctx.getTransform(), T = Math.round(tr.a);
+  const ent = (v: number) => Math.abs(v - Math.round(v)) < 1e-6;
+  if (T < 1 || tr.b || tr.c || !ent(tr.a) || !ent(tr.d) || Math.round(tr.d) !== T || !ent(tr.e) || !ent(tr.f)) return false;
+  const z = j.zona, S = Math.round(512 / T);
+  const clave = `${z.id}:${z.semilla}:${T}:${calidadMundo.nivel > 0 && !(window as any).__sinMatiz}:${!!(window as any).__sinRelleno}`;
+  if (clave !== trozosDe || z !== trozosZona) { vaciarTrozos(); trozosDe = clave; trozosZona = z; }
+  cuadroTrozo++;
+  const rl = lienzosRelieve(ctx), conRel = !!rl;
+  const [ox, oy] = aPant(0, 0), OX = Math.round(ox), OY = Math.round(oy), ph = Math.floor(f25 / 4);
+  const tx0 = Math.floor(-OX / S), tx1 = Math.floor((W - 1e-6 - OX) / S), ty0 = Math.floor(-OY / S), ty1 = Math.floor((H - 1e-6 - OY) / S);
+  const lado = S * T;
+  let pintados = 0;
+  const conseguir = (tx: number, ty: number, fase: number, ahora: boolean): Trozo | null => {
+    const id = (ty + 4096) * 8192 + (tx + 4096);
+    let e = trozos.get(id);
+    if (!e) { e = { L: periodoTrozo(z, tx, ty, S), f: [], usado: cuadroTrozo }; trozos.set(id, e); }
+    if (ahora) e.usado = cuadroTrozo;
+    const kq = fase % e.L;
+    const t = e.f.find((q) => q.k === kq && (!conRel || q.rel));
+    if (t) { if (ahora) t.usado = cuadroTrozo; return t; }
+    // se pinta (sobre el más viejo del trozo si ya tiene dos, o sobre el de la misma fase sin relieve)
+    let viejo: Trozo | null = null;
+    const i = e.f.findIndex((q) => q.k === kq);
+    if (i >= 0) viejo = e.f.splice(i, 1)[0];
+    else if (e.f.length >= 2) { e.f.sort((a, b) => a.usado - b.usado); viejo = e.f.shift()!; }
+    trozoFallido = null; pintados++;
+    const nt = pintarTrozo(z, tx, ty, S, T, kq, conRel, viejo);
+    if (nt) { if (!ahora) nt.usado = 0; e.f.push(nt); return nt; }
+    // incompleto (falta un atlas): se usa este cuadro y no se guarda
+    if (!ahora && trozoFallido) { soltarTrozo(trozoFallido); trozoFallido = null; }
+    return ahora ? trozoFallido : null;
+  };
+  const suavizar = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  const r0 = rl?.[0], r1 = rl?.[1];
+  if (rl) { for (const c of rl) { c.save(); c.setTransform(tr); c.globalAlpha = 1; c.globalCompositeOperation = 'source-over'; c.imageSmoothingEnabled = false; } }
+  for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+    const t = conseguir(tx, ty, ph, true); if (!t) continue;
+    const x = tx * S + OX, y = ty * S + OY;
+    ctx.drawImage(t.cv, 0, 0, lado, lado, x, y, S, S);
+    if (r0 && t.rel) r0.drawImage(t.rel, 0, 0, lado, lado, x, y, S, S);
+    if (r1 && t.alt) r1.drawImage(t.alt, 0, 0, lado, lado, x, y, S, S);
+    if (t === trozoFallido) { soltarTrozo(t); trozoFallido = null; }
+  }
+  if (rl) for (const c of rl) c.restore();
+  ctx.imageSmoothingEnabled = suavizar;
+  // adelantar: la fase siguiente de los trozos vivos que se ven y los trozos de alrededor (para cuando la cámara llegue)
+  for (let ty = ty0; ty <= ty1 && pintados < 2; ty++) for (let tx = tx0; tx <= tx1 && pintados < 2; tx++) conseguir(tx, ty, ph + 1, false);
+  for (let ty = ty0 - 1; ty <= ty1 + 1 && pintados < 1; ty++) for (let tx = tx0 - 1; tx <= tx1 + 1 && pintados < 1; tx++) {
+    if (ty >= ty0 && ty <= ty1 && tx >= tx0 && tx <= tx1) continue;
+    const e = trozos.get((ty + 4096) * 8192 + (tx + 4096)); if (!e || !e.f.length) conseguir(tx, ty, ph, false);
+  }
+  // tope de memoria: unos 48 trozos de 512 x 512 (los que no se usan hace más rato se van)
+  const tope = Math.max(2 * (tx1 - tx0 + 3) * (ty1 - ty0 + 3), 48);
+  let n = 0; for (const e of trozos.values()) n += e.f.length;
+  if (n > tope) {
+    const lista = [...trozos.entries()].sort((a, b) => a[1].usado - b[1].usado);
+    for (const [id, e] of lista) { if (n <= tope) break; if (e.usado === cuadroTrozo) continue; for (const t of e.f) soltarTrozo(t); n -= e.f.length; trozos.delete(id); }
+  }
+  return true;
 }
 const detalles = new Map<number, HTMLCanvasElement | null>(); let detallesDe = '';
 function detalleBaldosa(z: Juego['zona'], bx: number, by: number): HTMLCanvasElement | null {

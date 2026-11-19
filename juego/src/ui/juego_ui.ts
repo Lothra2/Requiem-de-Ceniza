@@ -1408,6 +1408,54 @@ function signoMapa(tipo: string, x: number, y: number, k = 1, suelto = false) {
   ctx.drawImage(c, Math.round(x - 4.5 * k), Math.round(y - (tipo === 'heroe' || tipo === 'viaje' || tipo === 'portal' ? 4.5 : 7) * k), 9 * k, 9 * k);
   ctx.imageSmoothingEnabled = su;
 }
+/** Las baldosas vistas del mapa (contorno y relleno), con `q` del mundo al lienzo `g`. */
+function terrenoMapa(g: CanvasRenderingContext2D, z: Juego['zona'], q: (x: number, y: number) => [number, number]) {
+  for (let by = 0; by < z.th; by++) for (let bx = 0; bx < z.tw; bx++) {
+    if (!z.explorado[by * z.tw + bx] || !z.pisos[by * z.tw + bx]) continue;
+    // cavernas y mundos con costa: el contorno se traza celda por celda (sigue la forma de verdad, no la baldosa)
+    if (z.hueco) {
+      const sg = segmentosMapa(z, bx, by);
+      g.strokeStyle = z.tipo === 'mazmorra' ? '#8a7a5a' : '#6a6a50'; g.lineWidth = 1; g.beginPath();
+      for (let i = 0; i < sg.length; i += 4) { const [x1, y1] = q(sg[i], sg[i + 1]), [x2, y2] = q(sg[i + 2], sg[i + 3]); g.moveTo(x1, y1); g.lineTo(x2, y2); }
+      g.stroke(); continue;
+    }
+    const [a, b] = q(bx * 5, by * 5), [c, d] = q(bx * 5 + 5, by * 5), [e, f] = q(bx * 5 + 5, by * 5 + 5), [gx, hh] = q(bx * 5, by * 5 + 5);
+    g.strokeStyle = z.tipo === 'mazmorra' ? '#8a7a5a' : '#6a6a50'; g.lineWidth = 1;
+    // borde con lo no explorado o vacío
+    const vacio = (X: number, Y: number) => X < 0 || Y < 0 || X >= z.tw || Y >= z.th || !z.pisos[Y * z.tw + X];
+    g.beginPath();
+    if (vacio(bx, by - 1)) { g.moveTo(a, b); g.lineTo(c, d); }
+    if (vacio(bx + 1, by)) { g.moveTo(c, d); g.lineTo(e, f); }
+    if (vacio(bx, by + 1)) { g.moveTo(e, f); g.lineTo(gx, hh); }
+    if (vacio(bx - 1, by)) { g.moveTo(gx, hh); g.lineTo(a, b); }
+    g.stroke();
+    g.fillStyle = 'rgba(80,70,50,0.12)'; g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.lineTo(e, f); g.lineTo(gx, hh); g.closePath(); g.fill();
+  }
+}
+let terreno: { cv: HTMLCanvasElement; clave: string; dx: number; dy: number; k: number } | null = null, terrenoZona: object | null = null;
+/** Pega el terreno guardado con su origen del mundo en (bx, by) del lienzo. false si no se puede (se pinta como siempre). */
+function terrenoGuardado(z: Juego['zona'], esc: number, bx: number, by: number): boolean {
+  const tr = ctx.getTransform(), k = tr.a;
+  if ((window as any).__sinTerreno || tr.b || tr.c || Math.abs(tr.d - k) > 1e-9 || k <= 0) return false;
+  let vistos = 0; for (let i = 0; i < z.explorado.length; i++) if (z.explorado[i] && z.pisos[i]) vistos++;
+  const clave = `${z.id}:${z.semilla}:${esc}:${k}:${vistos}:${z.tipo}`;
+  if (!terreno || terreno.clave !== clave || terrenoZona !== z) {
+    const cv = terreno?.cv ?? document.createElement('canvas');
+    const dx = Math.ceil(k * (z.H * esc * 0.5 + 3)), dy = Math.ceil(k * 3), w = Math.ceil(k * ((z.W + z.H) * esc * 0.5 + 6)), h = Math.ceil(k * ((z.W + z.H) * esc * 0.25 + 6));
+    if (w * h > 16e6) return false;
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const g = cv.getContext('2d')!; g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, w, h);
+    // (con el mismo alfa que en pantalla: lo encimado se compone igual, y después se pega entero)
+    g.setTransform(k, 0, 0, k, dx, dy); g.globalAlpha = ctx.globalAlpha;
+    terrenoMapa(g, z, (x, y) => [(x - y) * esc * 0.5, (x + y) * esc * 0.25]);
+    terreno = { cv, clave, dx, dy, k }; terrenoZona = z;
+  }
+  const a = ctx.globalAlpha, s0 = ctx.imageSmoothingEnabled, q0 = ctx.imageSmoothingQuality;
+  ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low';
+  ctx.drawImage(terreno.cv, bx - terreno.dx / k, by - terreno.dy / k, terreno.cv.width / k, terreno.cv.height / k);
+  ctx.globalAlpha = a; ctx.imageSmoothingEnabled = s0; ctx.imageSmoothingQuality = q0;
+  return true;
+}
 export function dibujarMapa(j: Juego, grande: boolean) {
   const z = j.zona, h = j.heroe;
   // el grande llena la pantalla con la zona entera y se centra en ella (no en el héroe)
@@ -1430,27 +1478,9 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   else if (!grande) { ctx.beginPath(); ctx.rect(W - 180, 0, 180, 160); ctx.clip(); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(W - 180, 0, 180, 160); }
   else { ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(0, 0, W, H - BAR_H + 56); }
   ctx.globalAlpha = grande ? 0.75 : 0.85;
-  for (let by = 0; by < z.th; by++) for (let bx = 0; bx < z.tw; bx++) {
-    if (!z.explorado[by * z.tw + bx] || !z.pisos[by * z.tw + bx]) continue;
-    // cavernas y mundos con costa: el contorno se traza celda por celda (sigue la forma de verdad, no la baldosa)
-    if (z.hueco) {
-      const sg = segmentosMapa(z, bx, by);
-      ctx.strokeStyle = z.tipo === 'mazmorra' ? '#8a7a5a' : '#6a6a50'; ctx.lineWidth = 1; ctx.beginPath();
-      for (let i = 0; i < sg.length; i += 4) { const [x1, y1] = p(sg[i], sg[i + 1]), [x2, y2] = p(sg[i + 2], sg[i + 3]); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
-      ctx.stroke(); continue;
-    }
-    const [a, b] = p(bx * 5, by * 5), [c, d] = p(bx * 5 + 5, by * 5), [e, f] = p(bx * 5 + 5, by * 5 + 5), [g, hh] = p(bx * 5, by * 5 + 5);
-    ctx.strokeStyle = z.tipo === 'mazmorra' ? '#8a7a5a' : '#6a6a50'; ctx.lineWidth = 1;
-    // borde con lo no explorado o vacío
-    const vacio = (X: number, Y: number) => X < 0 || Y < 0 || X >= z.tw || Y >= z.th || !z.pisos[Y * z.tw + X];
-    ctx.beginPath();
-    if (vacio(bx, by - 1)) { ctx.moveTo(a, b); ctx.lineTo(c, d); }
-    if (vacio(bx + 1, by)) { ctx.moveTo(c, d); ctx.lineTo(e, f); }
-    if (vacio(bx, by + 1)) { ctx.moveTo(e, f); ctx.lineTo(g, hh); }
-    if (vacio(bx - 1, by)) { ctx.moveTo(g, hh); ctx.lineTo(a, b); }
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(80,70,50,0.12)'; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c, d); ctx.lineTo(e, f); ctx.lineTo(g, hh); ctx.closePath(); ctx.fill();
-  }
+  // el terreno del mapa chico se pinta una vez en un lienzo (cambia solo al explorar) y se pega corrido con el héroe:
+  // antes eran dos llamadas por baldosa vista en cada cuadro (unas 300 a 600)
+  if (grande || !terrenoGuardado(z, esc, cx - (ox - oy) * esc * 0.5, cy - (ox + oy) * esc * 0.25)) terrenoMapa(ctx, z, p);
   // Cada cosa con su signo (de pixel, con canto negro): antes todas las salidas eran el mismo arco ámbar y el portal al
   // campamento ni salía. Carpa dorada = al campamento, boca morada = mazmorra, flecha verde = otra región, casita =
   // casa, óvalo celeste que late = tu portal, rombo azul = piedra de viaje, cofre, altar, calavera roja = jefe.

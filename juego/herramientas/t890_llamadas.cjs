@@ -11,7 +11,7 @@ const args = process.env.GPU ? ['--use-gl=angle', '--use-angle=swiftshader', '--
 const b = await chromium.launch({ ...(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {}), args });
   const c = await b.newContext({ viewport: { width: 1920, height: 1007 }, deviceScaleFactor: 1 });
   const p = await c.newPage(); const errs = []; p.on('pageerror', (e) => errs.push(e.message));
-  await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); localStorage.setItem('marca.opciones', JSON.stringify({ vista: 0, luz: 1 })); });
+  await p.addInitScript((al) => { if (al) window.__atlasLienzo = 1; localStorage.setItem('marca.intro', '1'); localStorage.setItem('marca.opciones', JSON.stringify({ vista: +(window.__vistaPrueba ?? 0), luz: 1 })); }, !!process.env.ATLAS_LIENZO);
   const aMenu = async () => { for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
   await p.goto(URL); await aMenu();
   await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });
@@ -42,6 +42,7 @@ const b = await chromium.launch({ ...(process.env.CHROMIUM ? { executablePath: p
     const t = await p.evaluate(() => new Promise((ok) => { const R = window.__rendFases; R.ligero(true); setTimeout(() => { const f = R.leer(); R.ligero(false); ok(f); }, 3000); }));
     // 2) llamadas
     const n = await p.evaluate(() => new Promise((ok) => { const W = window.__cuenta; W.n = 0; W.pant = 0; W.por.clear(); W.met.clear(); let cu = 0; W.on = true; const f = () => { if (++cu < 60) requestAnimationFrame(f); else { W.on = false; ok({ porCuadro: Math.round(W.n / 60), pantalla: Math.round(W.pant / 60), met: Object.fromEntries([...W.met].map(([k, v]) => [k, Math.round(v / 60)])), por: [...W.por].sort((a, b) => b[1] - a[1]).slice(0, 22).map(([k, v]) => [Math.round(v / 60), k]) }); } }; requestAnimationFrame(f); }));
+    if (process.env.CARAS) { await p.keyboard.press('F3'); await p.waitForTimeout(4000); const r = await p.evaluate(() => window.__rend()); await p.keyboard.press('F3'); console.log('  F3', JSON.stringify({ fases: r.fases, llamadas: r.llamadas, caras: r.caras.map(([k, v]) => [k, +v.toFixed(2)]) })); }
     await p.screenshot({ path: `/tmp/requiem-pruebas/fps/z_${Z}_${LUZ}.png` });
     res[Z] = { t, ...n };
     console.log('==', Z, 'luz', LUZ, JSON.stringify(t)); console.log('  llamadas/cuadro', n.porCuadro, 'pantalla', n.pantalla, JSON.stringify(n.met)); for (const [v, k] of n.por) { const x = /^\S+ (\S+):(\d+)/.exec(k); let lin = ''; if (x) { fuente[x[1]] ??= await (await fetch(URL + 'src/' + x[1])).text().catch(() => ''); lin = (fuente[x[1]].split('\n')[+x[2] - 1] || '').trim().slice(0, 70); } console.log('   ', String(v).padStart(5), k.padEnd(52), lin); }

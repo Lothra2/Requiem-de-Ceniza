@@ -48,10 +48,12 @@ const soltarTurno = () => { activas--; const s = cola.shift(); if (s) s(); };
 // volvía a descomprimir los WebP en cada cuadro: 900 ms de "mundo" y 9 mil llamadas en la RTX 2080 de Rick (19 nov 2026).
 const aBitmap = (im: HTMLImageElement): Promise<ImageBitmap | HTMLImageElement> =>
   typeof createImageBitmap === 'function' ? createImageBitmap(im).catch(() => im) : Promise.resolve(im);
+// (prueba: el atlas pegado una vez en un lienzo, que vive en la tarjeta)
+function aLienzo(b: ImageBitmap | HTMLImageElement): any { const c = document.createElement('canvas'); c.width = b.width; c.height = b.height; c.getContext('2d')!.drawImage(b, 0, 0); return c; }
 function bajar(url: string): Promise<HTMLImageElement | ImageBitmap | null> {
   return new Promise((ok) => {
     const im = new Image();
-    im.onload = () => { aBitmap(im).then((b) => { if (b !== im) im.src = ''; ok(b); }); };
+    im.onload = () => { aBitmap(im).then((b) => { if (b !== im) im.src = ''; ok((window as any).__atlasLienzo ? aLienzo(b) : b); }); };
     im.onerror = () => ok(null);
     im.src = url;
   });
@@ -172,6 +174,7 @@ const rels = new Map<string, ImageBitmap | HTMLImageElement | 'bajando' | null>(
 /** La imagen de un atlas de relieve si ya está bajada (la pide la primera vez). */
 /** Hay atlas o relieves bajando o decodificándose (la guardia de la luz no cuenta esos cuadros). */
 export const bajandoAlgo = () => cargando.size > 0 || [...rels.values()].some((r) => r === 'bajando');
+export const relBajando = (nombre: string) => rels.get(nombre) === 'bajando';
 export function relDe(nombre: string): ImageBitmap | HTMLImageElement | null {
   const r = rels.get(nombre); if (r !== undefined) return r === 'bajando' ? null : r;
   const a = (man as any)?.rel?.[nombre]; if (!a) { rels.set(nombre, null); return null; }

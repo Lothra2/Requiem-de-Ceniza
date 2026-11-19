@@ -6,6 +6,7 @@ import { ctx, W, H, E } from '../nucleo/lienzo';
 import { ZONAS } from '../mundo/actos';
 import type { Juego, Ent } from '../juego/mundo';
 import { objetoMeta } from '../motor/assets';
+import { mapita, escalaEntera } from './mapitas';
 
 type AP = (x: number, y: number) => [number, number];
 const hc = (x: number, y: number) => { const h = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return h - Math.floor(h); };
@@ -35,8 +36,11 @@ const CUERVO: Record<string, string[]> = {
   arriba: ['XX.......XX', '.XXX...XXX.', '..XXhXhXX..', '...XXXXXb..', '....XXX....'],
   abajo: ['....XhX....', '..XXXXXXb..', '.XXXXXXXX..', 'XXX.XXX.XXX', 'X.........X'],
 };
+const COLOR_CUERVO = (c: string) => (c === 'X' ? '#0a0a10' : c === 'h' ? '#30303e' : c === 'b' ? '#8a8478' : '#1c1a1a');
 function cuervo(X0: number, Y0: number, ala: number, dir: number) {
-  const m = CUERVO[ala === 0 ? 'posado' : ala > 0 ? 'arriba' : 'abajo'], w = m[0].length, alto = m.length;
+  const pose = ala === 0 ? 'posado' : ala > 0 ? 'arriba' : 'abajo', m = CUERVO[pose], w = m[0].length, alto = m.length;
+  // de un drawImage (ver mapitas.ts); a escala no entera, punto por punto como siempre
+  if (escalaEntera(ctx) && X0 === Math.round(X0) && Y0 === Math.round(Y0)) { ctx.drawImage(mapita('cuervo_' + pose, m, COLOR_CUERVO, dir <= 0), dir > 0 ? X0 - (w >> 1) : X0 + (w >> 1) - (w - 1), Y0 - alto + 1); return; }
   for (let y = 0; y < alto; y++) for (let x = 0; x < w; x++) {
     const c = m[y][x]; if (c === '.') continue;
     ctx.fillStyle = c === 'X' ? '#0a0a10' : c === 'h' ? '#30303e' : c === 'b' ? '#8a8478' : '#1c1a1a';

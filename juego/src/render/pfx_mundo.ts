@@ -2,6 +2,7 @@
 // burbujas, medusas...), sembrado en lugares fijos por zona. Se carga solo lo de la zona en la que estás.
 import { todosPfx, dibujarPfx, efectoPfx, precargarPfx, pfxListo, cajaPfx } from './pfx';
 import { E } from '../nucleo/lienzo';
+import { mapita, escalaEntera } from './mapitas';
 import { pasable } from '../mundo/zona';
 import type { Juego } from '../juego/mundo';
 import { usosPfx } from '../juego/pfx_usos';
@@ -86,7 +87,7 @@ const HOJA_COLOR: [string, string][] = [['#8f4a1a', '#5a2c10'], ['#a4661c', '#6a
 const hsh = (i: number, k: number) => { let h = Math.imul(i + 1, 374761393) ^ Math.imul(k + 7, 668265263); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 function hojasQueCaen(ctx: CanvasRenderingContext2D, j: Juego, W: number, H: number, t: number) {
   const h = j.heroe, ox = (h.x - h.y) * 16, oy = (h.x + h.y) * 8, AW = W + 48, AH = H + 48;
-  const n = Math.min(48, Math.round((W * H) / 13000));
+  const n = Math.min(48, Math.round((W * H) / 13000)), entera = escalaEntera(ctx);
   ctx.save();
   for (let i = 0; i < n; i++) {
     const vy = 13 + hsh(i, 1) * 15, vx = -(16 + hsh(i, 2) * 22), fase = hsh(i, 3) * 40, vaiven = 6 + hsh(i, 4) * 12;
@@ -98,6 +99,7 @@ function hojasQueCaen(ctx: CanvasRenderingContext2D, j: Juego, W: number, H: num
     const forma = HOJA_FORMAS[Math.floor(t * (2.2 + hsh(i, 9) * 2.4) + fase) % HOJA_FORMAS.length], [c1, c2] = HOJA_COLOR[i % HOJA_COLOR.length];
     ctx.globalAlpha = 0.55 + 0.35 * hsh(i, 10);
     const px = Math.round(x), py = Math.round(y);
+    if (entera) { const fi = HOJA_FORMAS.indexOf(forma), ci = i % HOJA_COLOR.length; ctx.drawImage(mapita(`hoja_${fi}_${ci}`, forma, (_c, fx, fy) => (fy === forma.length - 1 || fx === 0 ? c2 : c1)), px, py); continue; }
     for (let fy = 0; fy < forma.length; fy++) for (let fx = 0; fx < forma[fy].length; fx++) if (forma[fy][fx] === '#') { ctx.fillStyle = fy === forma.length - 1 || fx === 0 ? c2 : c1; ctx.fillRect(px + fx, py + fy, 1, 1); }
   }
   ctx.restore();

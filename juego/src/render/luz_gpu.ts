@@ -5,7 +5,7 @@
 // trae relieve borra lo de abajo (queda sin reiluminar). Al terminar el mundo, un pase de WebGL toma la imagen, el
 // relieve y la altura y, con las luces de la zona (las mismas fogatas y antorchas de luces.ts), aclara lo que mira a
 // cada fuego y oscurece lo que le da la espalda. Después suma un resplandor (bloom) de lo que brilla.
-import { relDe, bajandoAlgo } from '../motor/assets';
+import { relDe, bajandoAlgo, relBajando } from '../motor/assets';
 import { lienzoTrabajo } from '../motor/lienzos';
 import type { Cuadro } from '../motor/assets';
 
@@ -28,6 +28,17 @@ export function empezarRelieve(c: CanvasRenderingContext2D) {
   principal = c; activo = true;
 }
 
+/** Los lienzos de relieve y alto del cuadro, si la luz avanzada está pintando sobre `c` (para copiar ahí los trozos del piso). */
+export const lienzosRelieve = (c: CanvasRenderingContext2D): [CanvasRenderingContext2D, CanvasRenderingContext2D] | null => (activo && c === principal && relC ? [relC, altC!] : null);
+let falto = false;
+/** Mientras se pinta un trozo del piso guardado: el gancho dibuja su relieve en los lienzos del trozo. */
+export function desviarRelieve(c: CanvasRenderingContext2D, r: CanvasRenderingContext2D, a: CanvasRenderingContext2D) {
+  const antes = { principal, relC, altC, activo, esHeroe }; principal = c; relC = r; altC = a; activo = true; esHeroe = false; falto = false; return antes;
+}
+/** Vuelve al lienzo de siempre. Devuelve false si algún relieve estaba bajando (el trozo no se guarda). */
+export function devolverRelieve(a: ReturnType<typeof desviarRelieve>): boolean {
+  ({ principal, relC, altC, activo, esHeroe } = a); return !falto;
+}
 let esHeroe = false;
 /** Mientras se pinta el héroe: su silueta va en el azul del lienzo de altura (B no lo usa nada más) y el pase de luz no
  * lo hunde con las luces de atrás (quedaba gris y se perdía, Rick quiere su héroe siempre legible). */
@@ -40,6 +51,7 @@ export function ganchoRelieve(c: CanvasRenderingContext2D, q: Cuadro, im: Canvas
   relC.globalAlpha = altC!.globalAlpha = c.globalAlpha;
   const dx = escala === 1 ? Math.round(x - q.ax) : x - q.ax * escala, dy = escala === 1 ? Math.round(y - q.ay) : y - q.ay * escala, dw = q.w * escala, dh = q.h * escala;
   const n = q.rel ?? relDe(q.atlas + '_n'), a = q.alt ?? relDe(q.atlas + '_h');
+  if ((!n && relBajando(q.atlas + '_n')) || (!a && relBajando(q.atlas + '_h'))) falto = true;
   if (n) {
     relC.drawImage(n, q.x, q.y, q.w, q.h, dx, dy, dw, dh);
     if (a) altC!.drawImage(a, q.x, q.y, q.w, q.h, dx, dy, dw, dh);

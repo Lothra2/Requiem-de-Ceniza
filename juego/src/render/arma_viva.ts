@@ -45,7 +45,11 @@ const H = (n: number) => { const s = Math.sin(n * 12.9898) * 43758.5453; return 
 // ------------------------------------------------------------------ partículas (en pixeles del mundo: quedan atrás)
 type Clase = 'llama' | 'humo' | 'brasa' | 'gota' | 'mancha' | 'vaho' | 'cristal' | 'chispa' | 'burbuja' | 'mota' | 'esquirla' | 'anillo' | 'estrella' | 'miasma';
 interface P { x: number; y: number; vx: number; vy: number; t: number; dur: number; k: Clase; el: ElemArma; piso: number; tam: number; s: number }
-const ps: P[] = [];
+const psMundo: P[] = [];
+let ps = psMundo;
+/** Cambia la bolsa de partículas (el muñeco del inventario lleva la suya: lo que suelta su arma no cae en el mundo).
+ * Sin argumento vuelve a la del mundo. */
+export function pozoArma(p?: unknown[]) { ps = (p as P[] | undefined) ?? psMundo; }
 const MAX = 420;
 function echar(p: P) { if (ps.length < MAX) ps.push(p); }
 const acum = new Map<string, number>();

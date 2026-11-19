@@ -242,6 +242,28 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
 - **Pistas y páginas**: `envolver(texto, ancho, tam, fuente)` mide con la letra con que se dibuja (medir Georgia y dibujar
   Cinzel sacaba el texto del marco). Prueba: `t830_pista.cjs`.
 
+## El muñeco del inventario
+
+- `ui/muneco.ts` (lo dibuja y lo gira) y `motor/muneco.ts` (lo pinta). El héroe del nicho es el mismo motor y el mismo
+  equipo que en el mundo (`equipoVisual`, `firmaVisual`), pintado por los obreros de `pintor.worker.ts` (opción `muneco`)
+  a K veces su alto y a una muestra por punto: pixel art, nada liso. Se pega a la pantalla a puntos enteros del aparato
+  (`getTransform`, sin suavizado): K y d (puntos de pantalla por punto del muñeco) salen del tamaño del nicho en pantalla
+  (720: K 1,4; 1080 nativo: K 2,1; `__munecoKmax` tope 2,2). El reposo en los 8 rumbos, el de frente primero (unos 3 a
+  8 s el primero, los demás detrás, 2 obreros).
+- La luz de retrato (`iluminar`: principal cálida arriba a la izquierda y contraluz fría por la normal y el borde) se
+  calcula UNA vez por cuadro al llegar, con el relieve que trae el pintor. Si se cambia, subir `LUZ_V`. `__munecoLuz = 0`
+  lo pinta sin ella.
+- Guarda en su propia base de IndexedDB (`marca_muneco`, los últimos 4 equipos en `muneco.claves`): la del pintor poda
+  todo lo que no empieza con `R|` y se llevaría los héroes pintados.
+- Mientras se pinta un equipo nuevo se ve el anterior (`previo`); sin nada pintado, el sprite del mundo a escala entera.
+- El arma viva va a la escala del mundo ampliada K (la llama guarda su tamaño respecto del arma), con su propia bolsa de
+  partículas (`pozoArma` en `arma_viva.ts`: lo que suelta no cae en el mundo).
+- Se gira arrastrando en el nicho (ratón o dedo), con las flechas del teclado o con los botoncitos de abajo. Con algo en la
+  mano no se gira. `panelInventario` va con `sinHeroe` (antes el render liso se pintaba en el hilo principal en cada cambio).
+- Pruebas: `t880_muneco.cjs <etiqueta> [vistas] [clases] [base,reliquias,raros,alto] [giros]` (`RAPIDO=1` no espera al
+  pintor del mundo, capturas en `/tmp/requiem-pruebas/muneco`) y `t881_muneco_giro.cjs [pc|movil]` (girar, casillas, mano,
+  cambio de casco). Ganchos: `__muneco()`, `__munecoGirar(n)`, `__rectPanel(lado)`.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`) y se dibuja a puntos enteros, igual que la fogata y

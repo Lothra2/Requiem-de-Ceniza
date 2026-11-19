@@ -2,7 +2,7 @@
 // abierto y sin lluvia, cinco cuadros por habilidad (0,15 0,35 0,55 0,8 y 1,1 s después de pedirla: el golpe de los
 // conjuros cae a eso de 0,3 s). Lo de alrededor se despeja (objetos a 12 casillas, monstruos de la zona, piso que arde)
 // para que nada tape ni se cuele de un poder al siguiente. SOLO=a,b corre solo esos; las capturas van a SALIDA
-// (/tmp/requiem-pruebas/pa por omisión) y t760_lamina.py las junta.
+// (/tmp/requiem-pruebas/pa por omisión) y t760_lamina.py las junta. `VIEJO=1` sin la materia de los poderes (`__sinMateria`).
 const { entrar } = require('./comun_pruebas.cjs');
 const fs = require('fs');
 const SAL = process.env.SALIDA || '/tmp/requiem-pruebas/pa'; fs.mkdirSync(SAL, { recursive: true });
@@ -11,11 +11,11 @@ const TOMAS = [150, 350, 550, 800, 1100];
   const clase = process.argv[2] || 'templario';
   const { b, p, errs } = await entrar('pc', clase, 30);
   await p.evaluate(() => window.__ir('a2_dunas')); await p.waitForTimeout(4500);
-  const ok = await p.evaluate(() => { const j = window.__juego(), z = j.zona, h = j.heroe; window.__sinLluvia = true; window.__sinAmbientePfx = true; let mejor = null, md = 0;
+  const ok = await p.evaluate((viejo) => { const j = window.__juego(), z = j.zona, h = j.heroe; window.__sinLluvia = true; window.__sinAmbientePfx = true; if (viejo) window.__sinMateria = true; let mejor = null, md = 0;
     for (let y = 16; y < z.H - 16; y += 2) for (let x = 16; x < z.W - 16; x += 2) { let libre = true; for (let dy = -5; dy <= 5 && libre; dy++) for (let dx = -5; dx <= 5; dx++) if (z.bloq[(y + dy) * z.W + x + dx]) { libre = false; break; } if (!libre) continue;
       let d = 99; for (const o of z.objetos) d = Math.min(d, Math.hypot(o.cx - x, o.cy - y)); for (const s of z.salidas) d = Math.min(d, Math.hypot(s.cx - x, s.cy - y)); if (d > md) { md = d; mejor = [x, y]; } }
     if (!mejor) return null; h.x = mejor[0] + 0.5; h.y = mejor[1] + 0.5; h.camino = null; window.__sitio = [h.x, h.y];
-    z.objetos = z.objetos.filter((o) => Math.hypot(o.cx + 0.5 - h.x, o.cy + 0.5 - h.y) > 12); return md; });
+    z.objetos = z.objetos.filter((o) => Math.hypot(o.cx + 0.5 - h.x, o.cy + 0.5 - h.y) > 12); return md; }, !!process.env.VIEJO);
   await p.waitForTimeout(1500);
   const ids = await p.evaluate(async () => { const C = await import('/src/datos/clases.ts'); const h = window.__juego().heroe; for (const x of C.HABILIDADES) if (x.clase === h.d.clase) h.d.habs[x.id] = 5; return C.HABILIDADES.filter((x) => x.clase === h.d.clase && x.tipo !== 'pasiva').map((x) => x.id); });
   const solo = process.env.SOLO ? process.env.SOLO.split(',') : null;

@@ -3,6 +3,7 @@
 // Imprime, por habilidad, el peor porcentaje con el orden viejo (efectos encima) y con el nuevo.
 const { entrar } = require('./comun_pruebas.cjs');
 (async () => { const clase = process.argv[2] || 'arcanista'; const { b, p, errs } = await entrar('pc', clase, 30);
+  if (process.env.SIN_MATERIA) await p.evaluate(() => { window.__sinMateria = true; }); // (sin la materia de los poderes, para comparar)
   // escenario controlado: se toma un muro del cementerio y se planta en campo abierto del desierto, de día (ahí no hay
   // velas que parpadeen sobre el muro ni nada alrededor), con el blanco detrás y el héroe a un costado
   await p.evaluate(() => window.__ir('a1_cementerio')); await p.waitForTimeout(4500);

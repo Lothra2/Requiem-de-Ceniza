@@ -76,9 +76,12 @@ export function precargarPfx(ids: string[]) {
   for (const id of ids) { const e = efectoPfx(id); if (e) for (const p of e.paginas) pagina(p); }
 }
 
-let fuerzaAditiva = 1;
+let fuerzaAditiva = 1, noche = 1;
 /** La escena avisa qué tan oscura es la zona (0 pleno día, 1 negro): de eso sale cuánto pesan los efectos de luz. */
-export function claridadPfx(oscuridad: number) { fuerzaAditiva = 0.58 + 0.42 * Math.max(0, Math.min(1, oscuridad / 0.55)); }
+export function claridadPfx(oscuridad: number) { noche = Math.max(0, Math.min(1, oscuridad / 0.55)); fuerzaAditiva = 0.58 + 0.42 * noche; }
+/** Qué tan de noche es la zona (0 pleno día, 1 de 0,55 de oscuridad para arriba): los fogonazos de pantalla y los halos
+ * grandes bajan de día (la Combustión lavaba de naranja la pantalla entera en el desierto). */
+export const nochePfx = () => ((window as any).__fogonazoParejo ? 1 : noche); // (`__fogonazoParejo` vuelve a lo de antes)
 /** Cuadro del efecto a los `seg` segundos (o -1 si ya terminó). */
 export function cuadroPfx(e: EfectoPfx, seg: number) {
   const i = Math.floor((seg * 25) / e.t);

@@ -25,7 +25,7 @@ import { armaViva, moverDerrames, derramesDelMundo, luzPisoArma, golpeVivo, esti
 import { auraEquipo } from '../juego/visual';
 import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from './fuego';
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
-import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx } from './pfx';
+import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx, nochePfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
 import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha, dibujarVeneno } from './electro';
 /** Estados que van encima de la cabeza (se suben a la cabeza de verdad del cuerpo). */
@@ -33,7 +33,7 @@ const ENCIMA = /^fx_(aturdido|confundido|maldito|presa_marcada)$/;
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { pisadaHeroe } from './ambiente';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
-import { seguirPoderes, itemsPoderes, dibujarArcos, dibujarCombustion, poderesVivos } from './poderes_vivos';
+import { seguirPoderes, itemsPoderes, dibujarArcos, dibujarCombustion, poderesVivos, sinHorneado } from './poderes_vivos';
 import { cuerpoArde, seguirSuelo, itemsSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
 let dtCuadro = 1 / 60;
 // bruma de altura: cada cuadro alto se pinta una vez con el degradado del color de la niebla de la zona
@@ -842,7 +842,7 @@ function luzCofre(px0: number, py0: number, t: number, k: number, col: string) {
   ctx.restore();
 }
 function dibujarEfecto(e: Efecto, _t: number) {
-  if (e.id === 'arco_cadena') return;
+  if (e.id === 'arco_cadena' || sinHorneado(e)) return;
   if (e.id === 'combustion') { if (poderesVivos()) { const [px, py] = aPant(e.x, e.y); dibujarCombustion(ctx, e, px, py); } else if (e.t >= 0.2) dibujarEfecto({ ...e, id: 'explosion_fuego', t: e.t - 0.2 } as Efecto, _t); return; }
   if (e.id.startsWith('pfx:')) { const [px, py] = aPant(e.x, e.y);
     // (un efecto cortado antes de su final se apaga en su último cuarto de segundo en vez de desaparecer de golpe)
@@ -1269,7 +1269,7 @@ function dibujarLuz(j: Juego, t: number) {
   ctx.drawImage(luz, 0, 0);
   // (de día el piso ya es claro: el tinte de las luces sumado entero lo quemaba a blanco, así que baja con la claridad)
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (window as any).__sinBrillo ? 0 : 0.45 + 0.55 * Math.min(1, z.oscuridad / 0.6); ctx.drawImage(brillo, 0, 0); ctx.globalAlpha = 1;
-  if (destello > 0.02) { ctx.globalAlpha = destello * 0.16 * acc.destellos; ctx.fillStyle = `rgb(${destelloColor[0]},${destelloColor[1]},${destelloColor[2]})`; ctx.fillRect(0, 0, W, H); }
+  if (destello > 0.02) { ctx.globalAlpha = destello * 0.16 * acc.destellos * (0.2 + 0.8 * nochePfx()); ctx.fillStyle = `rgb(${destelloColor[0]},${destelloColor[1]},${destelloColor[2]})`; ctx.fillRect(0, 0, W, H); }
   ctx.restore();
   // niebla de guerra: lo no explorado se ve negro del todo (salvo las piezas ancla: la catedral no se recorta)
   const conAncla = anclasCuadro.length > 0;

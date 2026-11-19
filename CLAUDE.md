@@ -226,6 +226,39 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     [otra]` (`/tmp/requiem-pruebas/poderes/cerca`, al doble). Con el reloj quieto el héroe sale como silueta blanca (el
     pintor espera temporizadores): es de la prueba. Costo: `t971_poderes_fps.cjs [ids]` lanza el poder cada 0,35 s con doce
     zombis, con y sin lo nuevo (en la nube la diferencia queda dentro del ruido, los arcos cuestan 0,1 a 0,3 ms).
+  - **La materia de cada poder** (segunda pasada, Rick, 19 nov 2026: "cada poder tiene que verse increíble"; la sangre
+    del berserker, el cuerpo a cuerpo y los proyectiles chicos no dejaban casi nada después del golpe). mundo.ts anota de
+    qué poder es cada cosa, solo para el dibujo y sin guardar nada: `habEnCurso` (lo pone `resolverHabilidad`, el final
+    de la carga y el salto, el remolino, cada proyectil y cada área, que lleva `hab`) llega a `efecto` (`e.hab`, `e.de`) y
+    a `danar`, que deja cada golpe del héroe con un poder en `j.golpesPoder` (sitio, rumbo, crítico, si mata, si el blanco
+    sangra hueso). `seguirMateria` en poderes_vivos.ts los consume y suelta la materia del elemento: sangre en abanico con
+    gotas que caen y manchan (`ponerMancha`, forma gota) y pedazos que rebotan, el tajo en media luna del color del poder
+    (cuerpo que tapa y filo blanco sumado, los golpes de un combo alternan el lado), chispas de acero, astillas de flecha,
+    de hueso, de hielo y de vidrio (giran y destellan), el reventón de pixel del proyectil (`puf`, cinco capas por elemento
+    que se enfrían de adentro afuera), estrellas de pixel, el haz de luz que baja con su runa, espinas, púas de hueso y de
+    hielo que brotan (`puas`), la ola de sangre (`ola`, cresta que corre partida por delante y por detrás del héroe y suelta
+    gotas), fuentes de sangre, remolinos de viento, grietas en el piso que brillan mientras están frescas (lava, sangre,
+    rayo) y polvo. La Sangría y la Ejecución beben: hilos de sangre que vuelven al héroe. La carga y el salto dejan polvo
+    (el Torrente un reguero de sangre) y al llegar rajan el piso con un golpe seco de cámara (`patada`, lo baja
+    `acc.temblor`). Los frascos del alquimista estallan en vidrio con lo que traían. Los proyectiles chicos llevan cabeza
+    viva (`cabezaFuego` en racimo de pixel con su cola, `cabezaRayo` que chisporrotea y pica el piso, `cabezaHielo` que
+    destella) y sueltan brasas, escarcha, gotas o polvo de hueso en el vuelo. Las definitivas tienen un golpe propio por
+    elemento (`definitiva`): luz, haces y runas; sangre, dos olas, fuentes y charco; hueso, anillo de púas y grieta morada;
+    bosque, espinas y hojas; frío, púas de hielo; rayo, cinco rayos del cielo; fuego, la bola de la Combustión sin la
+    implosión (`sinImplosion`); tierra (Ira del jarl, Rugido, Cacería), grieta, piedras, polvo y hojas. La salpicadura de
+    sangre horneada no se dibuja si el golpe es de un poder (`sinHorneado`): salía borrosa encima del tajo. Las áreas que
+    pegan cada medio segundo sueltan menos. Topes: 520 piezas y 90 marcas (220 y 40 en táctil, donde todo va a la mitad).
+    Sin lecturas del lienzo y sin cachés nuevos. `__sinMateria` lo apaga (`VIEJO=1` en t760 y `SIN_MATERIA=1` en t970;
+    `CERCA=1` en t970 pone los zombis pegados para el cuerpo a cuerpo).
+    Medidas (19 nov 2026, en la nube): t971 con `CLASE=berserker BANDERA=__sinMateria` lanzando el Río carmesí cada
+    0,35 s sube el tramo `otros` del mundo de unos 2 a 3,6 a 4,5 ms; la Marea roja y el Lamento del osario quedan dentro
+    del ruido. t781 mide con mucho ruido (lo de `(nada)` va de 19 a 32 % entre corridas): el Orbe glacial da 44 a 55 %
+    con y sin la materia, no se movió por esto. `SIN_MATERIA=1` en t781 compara.
+  - **De día los fogonazos no lavan la pantalla** (`nochePfx` en pfx.ts, 0 a pleno día y 1 desde 0,55 de oscuridad): el
+    resplandor de pantalla entera de energia.ts y el destello de luces.ts van de 20 % a pleno día a entero de noche, los
+    fogonazos de impacto al 60 % y el halo grande de la Combustión al 35 % (en el desierto la pantalla quedaba naranja una
+    décima de segundo). Medido con la Combustión en las dunas: el rojo de más en una esquina lejos del estallido bajó de
+    unos 29 a unos 12 niveles (lo que queda es la sacudida de cámara). `__fogonazoParejo` vuelve a lo de antes.
 - **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.

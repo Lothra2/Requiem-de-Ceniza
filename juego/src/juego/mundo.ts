@@ -108,7 +108,7 @@ export interface Proyectil {
   /** Quién lo disparó (para atribuir el golpe, la escarcha que congela al atacante, etc.). */
   fuente?: Ent;
 }
-export interface Area { /** Lo que se dibuja al caer (por omisión explosion_fuego; '' nada, el efecto ya trae su impacto). */ fxCaida?: string; escCaida?: number; x: number; y: number; radio: number; dano: [number, number]; elem: Elemento; t: number; dur: number; tick: number; prox: number; deHeroe: boolean; efecto: string; retraso: number; caida?: boolean; /** Al caer deja la marca quemada de este radio. */ quemar?: number; /** Al caer congela el juego estos segundos (el golpe se siente). */ congela?: number }
+export interface Area { /** Lo que se dibuja al caer (por omisión explosion_fuego; '' nada, el efecto ya trae su impacto). */ fxCaida?: string; escCaida?: number; x: number; y: number; radio: number; dano: [number, number]; elem: Elemento; t: number; dur: number; tick: number; prox: number; deHeroe: boolean; efecto: string; retraso: number; caida?: boolean; /** Al caer deja la marca quemada de este radio. */ quemar?: number; /** Al caer congela el juego estos segundos (el golpe se siente). */ congela?: number; /** El poder que la puso (solo visual: render/poderes_vivos.ts). */ hab?: string }
 export interface Suelo { o: Objeto | null; oro: number; x: number; y: number; t: number; id: number; /** Lo botó el jugador: no se recoge solo (sí con clic). */ botado?: boolean }
 export interface Numero { x: number; y: number; z: number; txt: string; color: string; t: number; grande?: boolean; chico?: boolean; /** Golpe menor de un combo: número un poco más chico. */ menor?: boolean }
 export interface Efecto { id: string; x: number; y: number; t: number; dir: number; escala: number; z?: number; seguir?: Ent; dur?: number }
@@ -533,7 +533,7 @@ export function efecto(j: Juego, id: string, x: number, y: number, dir = 0, esca
   // se parte en dos por la línea de sus pies, atrás por detrás del cuerpo y adelante por delante. Antes todo el efecto se
   // pintaba encima y el arco de atrás le cruzaba la espalda.
   const h = j.heroe, partido = z === 0 && ((!!h && Math.abs(x - h.x) + Math.abs(y - h.y) < 0.05) || RODEA.test(id));
-  j.efectos.push({ id, x, y, t: 0, dir, escala, z, dur, ...(partido ? { partido: true } : {}) } as Efecto);
+  j.efectos.push({ id, x, y, t: 0, dir, escala, z, dur, ...(partido ? { partido: true } : {}), ...(habEnCurso ? { hab: habEnCurso, de: deDonde } : {}) } as Efecto);
   // el relámpago que cae (Tempestad, Furia del firmamento, el lanzar de los poderes de rayo): además del horneado, un
   // rayo de pixel de verdad que baja del cielo, se quiebra y se abre en el piso (el mismo dibujo del Rayo saltarín)
   if (id === 'relampago') j.efectos.push({ id: 'arco_cadena', x: x + (R() - 0.5) * 1.2, y: y - 0.6 - R() * 0.6, x2: x, y2: y, t: 0, dir: 0, escala: 1, z: 0, dur: 0.3, za: 230 + R() * 60, zb: 0, suelo: true, cielo: true, sem: Math.floor(R() * 1e6) } as Efecto);
@@ -722,6 +722,9 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
     if (g.deHeroe && g.fuente === h && total > 0) {
       const S = SENSACION[h.d.clase], dxm = m.x - h.x, dym = m.y - h.y, dm = Math.hypot(dxm, dym) || 1, mata = m.vida <= 0;
       // (solo lo que se ve: el arma viva revienta su materia en el blanco, lo dibuja escena.ts)
+      // (solo lo que se ve: el golpe de un poder, para render/poderes_vivos.ts)
+      if (habEnCurso && habEnCurso !== 'ataque' && ((j as any).golpesPoder?.length ?? 0) < 24) { const o = deDonde ?? [h.x, h.y], ex = m.x - o[0], ey = m.y - o[1], el = Math.hypot(ex, ey) || 1;
+        ((j as any).golpesPoder ??= []).push({ x: m.x, y: m.y, hab: habEnCurso, elem: g.elem, crit, mata, ux: ex / el, uy: ey / el, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40), parte: g.parte, f: Math.min(1, total / Math.max(1, m.vidaMax)), hueso: sangraHueso(m) }); }
       if (g.arma && h.c.vivo && dm < 3.4 && ((j as any).golpesVivos?.length ?? 0) < 8) ((j as any).golpesVivos ??= []).push({ x: m.x, y: m.y, el: h.c.vivo, fuerte: crit || m.vida <= 0, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40) });
       if (S && g.arma && dm < 3.4) {
         const f = (crit ? 1.5 : 1) * (mata ? 1.35 : 1) * (g.parte !== undefined && g.parte < 2 ? 0.5 : 1);
@@ -1386,7 +1389,16 @@ export function repartirCombo(T: number): number[] {
   for (let i = 0; i < n; i++) if (sh[i] < 1) { const d = sh.indexOf(Math.max(...sh)); sh[d]--; sh[i]++; }
   return sh;
 }
+// ------------------------------------------------------------------ de quién es cada golpe (solo visual, no se guarda)
+/** El poder del héroe que está pegando ahora y desde dónde llega el golpe: `efecto` y `danar` lo anotan para que
+ * render/poderes_vivos.ts sepa de qué poder es cada efecto y cada golpe (la sangre del Desgarro, las astillas de la flecha). */
+let habEnCurso: string | null = null, deDonde: [number, number] | null = null;
 function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
+  const a0 = j.areas.length, hab0 = habEnCurso, de0 = deDonde; habEnCurso = j.heroe.habActual; deDonde = [j.heroe.x, j.heroe.y];
+  try { resolverHabilidad0(j, parte, cb); } finally { habEnCurso = hab0; deDonde = de0; }
+  for (let i = a0; i < j.areas.length; i++) j.areas[i].hab ??= j.heroe.habActual;
+}
+function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) {
   const h = j.heroe;
   const id = h.habActual, hb = habilidadDe(id), basico = id === 'ataque';
   const n = basico ? 1 : Math.max(1, nivelHab(h.d, id, h.c));
@@ -2109,9 +2121,10 @@ function actualizarHeroe(j: Juego, dt: number) {
       const hb = s.hab, n = (h as any).saltoN, mult = (h as any).saltoMult;
       const r = hb.radio ?? 1.8;
       const extra = hb.dano ? danoHab(j, hb, n) : undefined;
+      habEnCurso = hb.id; deDonde = [s.x0, s.y0];
       for (const e of enemigosDe(j, true)) if (dist(e.x, e.y, h.x, h.y) <= r + (hb.tipo === 'carga' ? 0.6 : 0)) { const g = golpeArma(j, mult, hb.elem !== 'fisico' ? hb.elem : undefined, extra); if (hb.tipo === 'carga') g.empuje = 1; if (danar(j, e, g) > 0) ganarFuria(j, 4); }
       efecto(j, hb.tipo === 'salto' ? 'onda_aterrizaje' : 'polvo_carga', h.x, h.y, DIRS.indexOf(h.dir));
-      j.sacudida = 0.3; sonar(j, 'golpe_metal');
+      j.sacudida = 0.3; sonar(j, 'golpe_metal'); habEnCurso = null; deDonde = null;
       h.salto = null; h.acc = 'quieto';
     }
     return;
@@ -2121,7 +2134,7 @@ function actualizarHeroe(j: Juego, dt: number) {
     const [tx, ty] = (h as any).torbDir;
     if (moverHacia(j, h, tx, ty, 4.5, dt)) h.torbellino = Math.min(h.torbellino, 0.05);
     h.acc = 'atacar'; h.dir = DIRS[Math.floor(j.t * 16) % 8];
-    if (Math.floor(j.t * 5) !== Math.floor((j.t - dt) * 5)) for (const e of enemigosDe(j, true)) if (dist(e.x, e.y, h.x, h.y) < 2.2) { if (danar(j, e, golpeArma(j, (h as any).torbMult)) > 0) ganarFuria(j, 2); }
+    if (Math.floor(j.t * 5) !== Math.floor((j.t - dt) * 5)) { habEnCurso = 'torbellino'; deDonde = [h.x, h.y]; for (const e of enemigosDe(j, true)) if (dist(e.x, e.y, h.x, h.y) < 2.2) { if (danar(j, e, golpeArma(j, (h as any).torbMult)) > 0) ganarFuria(j, 2); } habEnCurso = null; deDonde = null; }
     if (Math.floor(j.t * 6) !== Math.floor((j.t - dt) * 6)) sonar(j, 'tajo', h.x, h.y, 0.5);
     if (h.torbellino <= 0) { h.acc = 'quieto'; h.destino = null; }
     return;
@@ -2438,6 +2451,7 @@ function golpeMonstruo(j: Juego, m: Monstruo) {
 
 function actualizarProyectiles(j: Juego, dt: number) {
   for (const p of j.proyectiles) {
+    habEnCurso = p.deHeroe ? (p.hab?.id ?? (p as any).habVivo ?? 'ataque') : null; deDonde = habEnCurso ? [p.x - p.vx * 0.06, p.y - p.vy * 0.06] : null;
     p.t += dt; p.vida -= dt;
     if (p.vida <= 0 && !p.arco) { if (p.explota && p.deHeroe) explotar(j, p); else chocar(j, p, false); continue; }
     if (p.arco) {
@@ -2466,7 +2480,7 @@ function actualizarProyectiles(j: Juego, dt: number) {
     if (p.hab?.id === 'tornado' || p.efecto === 'tornado') { const a = Math.atan2(p.vy, p.vx) + Math.sin(p.t * 6) * dt * 3; const v = Math.hypot(p.vx, p.vy); p.vx = Math.cos(a) * v; p.vy = Math.sin(a) * v; }
     // (la chispa zigzagueaba tanto que a 9 casillas fallaba la mitad: ahora tiembla menos y la guía la lleva al blanco)
     if (p.hab?.id === 'chispa') { const a = Math.atan2(p.vy, p.vx) + (R() - 0.5) * dt * 5; const v = Math.hypot(p.vx, p.vy); p.vx = Math.cos(a) * v; p.vy = Math.sin(a) * v; }
-    if (p.hab?.id === 'orbe_glacial' && Math.floor(p.t * 8) !== Math.floor((p.t - dt) * 8)) { const a = R() * Math.PI * 2; j.proyectiles.push({ ...p, x: p.x, y: p.y, vx: Math.cos(a) * 9, vy: Math.sin(a) * 9, hab: undefined, explota: 0, perfora: false, vida: 0.6, golpeados: new Set(), dano: [p.dano[0] * 0.3, p.dano[1] * 0.3], efecto: 'saeta_hielo' }); }
+    if (p.hab?.id === 'orbe_glacial' && Math.floor(p.t * 8) !== Math.floor((p.t - dt) * 8)) { const a = R() * Math.PI * 2; j.proyectiles.push({ ...p, x: p.x, y: p.y, vx: Math.cos(a) * 9, vy: Math.sin(a) * 9, hab: undefined, ...({ habVivo: 'orbe_glacial_esquirla' } as any), explota: 0, perfora: false, vida: 0.6, golpeados: new Set(), dano: [p.dano[0] * 0.3, p.dano[1] * 0.3], efecto: 'saeta_hielo' }); }
     const nx = p.x + p.vx * dt, ny = p.y + p.vy * dt;
     if (nx < 0 || ny < 0 || nx >= j.zona.W || ny >= j.zona.H || tapaTiro(j.zona, nx, ny)) { if (p.explota) explotar(j, p); else chocar(j, p, true); p.vida = 0; continue; }
     p.x = nx; p.y = ny;
@@ -2490,6 +2504,7 @@ function actualizarProyectiles(j: Juego, dt: number) {
       }
     }
   }
+  habEnCurso = null; deDonde = null;
   j.proyectiles = j.proyectiles.filter((p) => p.vida > 0);
 }
 /** Qué efecto suelta un proyectil al pegar: el que sugiere la tabla de luces de la Forja, o uno por elemento. */
@@ -2543,6 +2558,7 @@ function explotar(j: Juego, p: Proyectil) {
 }
 function actualizarAreas(j: Juego, dt: number) {
   for (const a of j.areas) {
+    habEnCurso = a.deHeroe ? a.hab ?? null : null; deDonde = null;
     if (a.retraso > 0) { a.retraso -= dt; if (a.retraso <= 0 && a.caida) { j.sacudida = 0.5; sonar(j, 'explosion', a.x, a.y); const fc = a.fxCaida ?? 'explosion_fuego'; if (fc) efecto(j, fc, a.x, a.y, 0, a.escCaida ?? 1.6, 0, fc.startsWith('pfx:') ? 3.5 : undefined);
       if (a.quemar) ponerMancha(j, { x: a.x, y: a.y, r: a.quemar, color: '#141008', t: 0, tipo: 'quemado' });
       if (a.congela) (j as any).congela = Math.max((j as any).congela ?? 0, a.congela); } if (a.retraso > 0) continue; if (a.efecto && !a.caida) efecto(j, a.efecto, a.x, a.y, 0, a.radio / 2.5, 0, Math.max(0.8, a.dur)); }
@@ -2554,6 +2570,7 @@ function actualizarAreas(j: Juego, dt: number) {
       if (a.elem === 'frio' && a.efecto === 'ventisca') for (let k = 0; k < 6; k++) particulas(j, a.x + entre(-a.radio, a.radio), a.y + entre(-a.radio, a.radio), 1, 'nieve', '#e0f4ff', 0.5, 90);
     }
   }
+  habEnCurso = null;
   j.areas = j.areas.filter((a) => a.retraso > 0 || a.t < a.dur);
 }
 

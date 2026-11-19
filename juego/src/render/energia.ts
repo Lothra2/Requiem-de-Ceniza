@@ -13,6 +13,7 @@ import { rgbLuz, LUZ_EFECTO } from '../../../src/engine/gotico/luz_efectos';
 import { HABILIDADES } from '../datos/clases';
 import { pasable } from '../mundo/zona';
 import { E } from '../nucleo/lienzo';
+import { nochePfx } from './pfx';
 
 type RGB = [number, number, number];
 interface Chispa { x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; d: number; c: RGB; s: number; px?: number; py?: number; reb: number; g?: number }
@@ -167,7 +168,7 @@ export function itemsEnergia(ctx: CanvasRenderingContext2D, aP: (x: number, y: n
     ctx.fillStyle = `rgba(${Math.min(255, q.c[0] + 90)},${Math.min(255, q.c[1] + 90)},${Math.min(255, q.c[2] + 90)},${a})`; ctx.fillRect(Math.round(px - q.s / 2), Math.round(py - q.s / 2), q.s, q.s);
     q.px = px; q.py = py;
     ctx.restore(); } });
-  return out.concat(flashes.map((q) => ({ prof: q.x + q.y + 0.08, draw: () => { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.a * (1 - u) ** 1.5; ctx.drawImage(luzSpr(q.c), px - r, py - q.z - r, r * 2, r * 2); ctx.restore(); } })));
+  return out.concat(flashes.map((q) => ({ prof: q.x + q.y + 0.08, draw: () => { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.a * (1 - u) ** 1.5 * (0.6 + 0.4 * nochePfx()); ctx.drawImage(luzSpr(q.c), px - r, py - q.z - r, r * 2, r * 2); ctx.restore(); } })));
 }
 /** Lo que va en el aire, sumado como luz: estelas, destellos, chispas, las motas del conjuro y el resplandor de pantalla. */
 export function energiaAire(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: number, y: number) => [number, number], W: number, H: number) {
@@ -194,6 +195,7 @@ export function energiaAire(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: num
   // las motas del conjuro: giran y caen hacia las manos
   const [hx, hy] = aP(h.x, h.y);
   for (const q of motas) { const u = q.t / q.d, r = q.r * (1 - u) ** 1.4 * 22.6, a = q.ang + q.giro * u, x = hx + Math.cos(a) * r, y = hy + Math.sin(a) * r * 0.5 - (q.z + (32 - q.z) * u); ctx.fillStyle = `rgba(${Math.min(255, q.c[0] + 70)},${Math.min(255, q.c[1] + 70)},${Math.min(255, q.c[2] + 70)},${Math.min(1, u * 3)})`; ctx.fillRect(Math.round(x), Math.round(y), 2, 2); if (u > 0.5) { ctx.globalAlpha = (u - 0.5) * 0.5; ctx.drawImage(luzSpr(q.c), x - 6, y - 6, 12, 12); ctx.globalAlpha = 1; } }
-  if (pantalla > 0.004) { ctx.fillStyle = `rgba(${pantallaC[0]},${pantallaC[1]},${pantallaC[2]},${pantalla * acc.destellos})`; ctx.fillRect(0, 0, W, H); }
+  // (de día el resplandor de pantalla entera lavaba todo de color: baja con la claridad de la zona)
+  if (pantalla > 0.004) { ctx.fillStyle = `rgba(${pantallaC[0]},${pantallaC[1]},${pantallaC[2]},${pantalla * acc.destellos * (0.2 + 0.8 * nochePfx())})`; ctx.fillRect(0, 0, W, H); }
   ctx.restore();
 }

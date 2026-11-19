@@ -4,6 +4,7 @@ import { ctx, W, H, E, ZM, MW, MH, baseLienzo, enMundo } from '../nucleo/lienzo'
 import { Sonido } from '../audio/sonido';
 import { ZONAS } from '../mundo/actos';
 import { puntoSalida } from '../mundo/zona';
+import { rumboSalida, nombreDestino, verboRumbo, colorUmbral, type Rumbo } from '../mundo/rumbos';
 import { esquivarHud, etiquetasMundo, hud } from '../ui/hud_rects';
 import { NPCS } from '../datos/npcs';
 import { LUZ_EFECTO } from '../../../src/engine/gotico/luz_efectos';
@@ -482,9 +483,9 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const sa of z.salidas) {
     const [wx, wy] = puntoSalida(z, sa), [px, py] = aPant(wx, wy);
     if (px < -120 || px > W + 120 || py < -140 || py > H + 80) continue;
-    const pulso = 0.5 + 0.5 * Math.sin(tiempo * 2.2 + sa.cx);
-    items.push({ prof: wx + wy, draw: () => umbralVivo(px, py, !sa.obj, ZONAS[sa.destino], tiempo, pulso, sa.cx * 7.3 + sa.cy * 3.1, dtCuadro) });
-    halosUmbral.push([px, py, ZONAS[sa.destino], pulso]);
+    const pulso = 0.5 + 0.5 * Math.sin(tiempo * 2.2 + sa.cx), r = rumboSalida(z.id, sa.destino);
+    items.push({ prof: wx + wy, draw: () => umbralVivo(px, py, !sa.obj, ZONAS[sa.destino], tiempo, pulso, sa.cx * 7.3 + sa.cy * 3.1, dtCuadro, r) });
+    halosUmbral.push([px, py, ZONAS[sa.destino], pulso, r, !sa.obj]);
   }
   for (const tr of j.torretas) items.push({ prof: tr.x + tr.y, draw: () => { const [px, py] = aPant(tr.x, tr.y); ctx.fillStyle = '#3a3430'; ctx.fillRect(px - 6, py - 20, 12, 20); ctx.fillStyle = '#80786c'; ctx.fillRect(px - 9, py - 24, 18, 5); ctx.fillStyle = '#ff9040'; ctx.fillRect(px - 1, py - 22, 2, 2); } });
   for (const pf of profFuegosMundo()) items.push({ prof: pf + 0.02, draw: () => dibujarFuegosMundo(ctx, tiempo, cam.x, cam.y, pf) });
@@ -569,9 +570,10 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   etiquetasMundo.length = 0;
   // el halo de los umbrales, sumado sobre la noche: se ven de lejos sin que el portal entero tape a nadie
   { ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const [hx, hy, dest, pul] of halosUmbral) { const fuego = /infierno|lava|fragua|ceniza/.test(dest?.tema ?? ''), c = dest?.tipo === 'pueblo' ? '255,196,110' : fuego ? '255,96,48' : dest?.tipo === 'mazmorra' ? '96,220,204' : '170,198,255';
+    for (const [hx, hy, dest, pul, rb] of halosUmbral) { const c = colorUmbral(dest, rb).join(',');
       const g = ctx.createRadialGradient(hx, hy - 44, 6, hx, hy - 44, 64); g.addColorStop(0, `rgba(${c},${0.26 + pul * 0.1})`); g.addColorStop(0.5, `rgba(${c},0.09)`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(hx, hy - 40, 44, 66, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.restore(); }
+  for (const [hx, hy, dest, , rb, arco] of halosUmbral) if (rb) cheuronesRumbo(hx, hy, !!arco, colorUmbral(dest, rb), rb, tiempo);
   for (const sa of z.salidas) {
     const [px, py] = aPant(...puntoSalida(z, sa));
     if (px < -120 || px > W + 120 || py < -140 || py > H + 80) continue;
@@ -581,12 +583,14 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     const d = Math.hypot(j.heroe.x - sa.cx - 0.5, j.heroe.y - sa.cy - 0.5), kn = E.alt ? 1 : Math.max(0, Math.min(1, 6.5 - d));
     if (kn <= 0) continue;
     ctx.font = '13px Georgia, serif'; ctx.textAlign = 'center';
-    const txt = '» ' + sa.nombre[opciones.idi] + ' «', tw2 = ctx.measureText(txt).width;
+    const rb = rumboSalida(z.id, sa.destino);
+    const txt = (window as any).__sinRumbos ? '» ' + sa.nombre[opciones.idi] + ' «' : '» ' + verboRumbo(rb, opciones.idi) + ' ' + nombreDestino(sa.destino, sa.nombre, opciones.idi) + ' «', tw2 = ctx.measureText(txt).width;
     let lx = Math.max(tw2 / 2 + 6, Math.min(W - tw2 / 2 - 6, px)), ly = Math.max(16, Math.min(H - 130, py - (sa.obj ? 96 : 100)));
     ly = esquivarHud([lx - tw2 / 2, ly - 12, tw2, 16]) + 12;
     etiquetasMundo.push({ txt, r: [lx - tw2 / 2, ly - 12, tw2, 16] });
     ctx.globalAlpha = kn; ctx.fillStyle = 'rgba(0,0,0,0.55)'; ctx.fillRect(lx - tw2 / 2 - 5, ly - 13, tw2 + 10, 18);
-    ctx.fillStyle = '#e8c070'; ctx.fillText(txt, lx, ly); ctx.globalAlpha = 1; ctx.textAlign = 'left';
+    const cr = colorUmbral(ZONAS[sa.destino], rb);
+    ctx.fillStyle = (window as any).__sinRumbos ? '#e8c070' : `rgb(${(cr[0] + 255 * 2) / 3 | 0},${(cr[1] + 255 * 2) / 3 | 0},${(cr[2] + 255 * 2) / 3 | 0})`; ctx.fillText(txt, lx, ly); ctx.globalAlpha = 1; ctx.textAlign = 'left';
   }
   // clima
   tramo('clima');
@@ -601,10 +605,12 @@ const chispasPortal = new Map<number, { x: number; y: number; vx: number; vy: nu
  * que ondula adentro, dos braseros de fuego de Doom en los pies, un haz que sube y motas en espiral. El color dice a
  * dónde lleva: oro al pueblo, verde azulado a las mazmorras, rojo brasa a las tierras de fuego y luna fría al resto.
  */
-const halosUmbral: [number, number, { tipo?: string; tema?: string } | undefined, number][] = [];
-function umbralVivo(px: number, py: number, conArco: boolean, dest: { tipo?: string; tema?: string } | undefined, t: number, pulso: number, sem: number, dt: number) {
-  const fuego = /infierno|lava|fragua|ceniza/.test(dest?.tema ?? '');
-  const [c, pal]: [[number, number, number], 'sagrado' | 'animas' | 'infierno' | 'corona_fria'] = dest?.tipo === 'pueblo' ? [[255, 196, 110], 'sagrado'] : fuego ? [[255, 96, 48], 'infierno'] : dest?.tipo === 'mazmorra' ? [[96, 220, 204], 'animas'] : [[170, 198, 255], 'corona_fria'];
+const halosUmbral: [number, number, { tipo?: string; tema?: string } | undefined, number, Rumbo?, boolean?][] = [];
+function umbralVivo(px: number, py: number, conArco: boolean, dest: { tipo?: string; tema?: string } | undefined, t: number, pulso: number, sem: number, dt: number, rb?: Rumbo) {
+  // el color dice el rumbo (brasa baja, azul frío sube, cielo pálido sale a la superficie): antes la escalera de subir y
+  // la de bajar de una mazmorra tenían el mismo verde azulado
+  const c = colorUmbral(dest, rb), fuego = /infierno|lava|fragua|ceniza/.test(dest?.tema ?? '');
+  const pal: 'sagrado' | 'animas' | 'infierno' | 'corona_fria' = dest?.tipo === 'pueblo' ? 'sagrado' : rb === 'bajar' || rb === 'guarida' || fuego ? 'infierno' : rb === 'subir' || rb === 'superficie' ? 'corona_fria' : dest?.tipo === 'mazmorra' ? 'animas' : 'corona_fria';
   const rgba = (a: number, k = 1) => `rgba(${Math.round(c[0] * k)},${Math.round(c[1] * k)},${Math.round(c[2] * k)},${Math.max(0, Math.min(1, a))})`;
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 1;
   // la luz que se derrama en el piso
@@ -691,6 +697,26 @@ function umbralVivo(px: number, py: number, conArco: boolean, dest: { tipo?: str
   ctx.restore();
 }
 
+/**
+ * El rumbo en el aire: tres cheurones de pixel con canto oscuro que caen (bajar, guarida) o suben (subir, superficie)
+ * sobre el umbral, para que de lejos se sepa si esa escalera baja o sube aunque el sprite quede en la sombra. Van después
+ * de la luz, con los nombres: dentro del orden los tapaba la propia escalera.
+ */
+function cheuronesRumbo(px: number, py: number, conArco: boolean, c: [number, number, number], rb: Rumbo | undefined, t: number) {
+  const baja = rb === 'bajar' || rb === 'guarida', sube = rb === 'subir' || rb === 'superficie';
+  if (!(baja || sube) || (window as any).__sinRumbos) return;
+  ctx.save();
+  const y0 = py - (conArco ? 104 : 84);
+  for (let i = 0; i < 3; i++) {
+    const f = (t * 0.7 + i / 3) % 1, a = Math.sin(f * Math.PI), yy = Math.round(y0 + (baja ? f : 1 - f) * 18), d = baja ? 1 : -1;
+    for (const [col, ex] of [['0,0,0', 1], [`${c[0]},${c[1]},${c[2]}`, 0]] as [string, number][]) {
+      ctx.globalCompositeOperation = ex ? 'source-over' : 'lighter';
+      ctx.fillStyle = `rgba(${col},${(ex ? 0.55 : 1) * a})`;
+      for (let q = 0; q <= 5; q++) { const x1 = Math.round(px - 6 + q), x2 = Math.round(px + 6 - q), y1 = yy + d * q; ctx.fillRect(x1 - ex, y1 - ex, 2 + ex * 2, 2 + ex * 2); ctx.fillRect(x2 - 1 - ex, y1 - ex, 2 + ex * 2, 2 + ex * 2); }
+    }
+  }
+  ctx.restore();
+}
 function dibujarRaw(raw: any[], x: number, y: number) {
   const q: Cuadro = { img: null, atlas: raw[0], x: raw[1], y: raw[2], w: raw[3], h: raw[4], ax: raw[5], ay: raw[6] };
   dibujar(ctx, q, x, y);

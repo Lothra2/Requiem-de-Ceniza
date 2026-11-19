@@ -9,6 +9,7 @@ import { texto, T, TT, IDI, marco, titulo, boton, dentro, icono, iconoThor, line
 import { CLASES, HABILIDADES, habilidadesDe, ATAQUE, TIERS, ESCALA_HECHIZOS, type Habilidad } from '../datos/clases';
 import { NPCS } from '../datos/npcs';
 import { MISIONES, ZONAS, PUEBLO_DE, type Mision, type Premio } from '../mundo/actos';
+import { rumboSalida, nombreDestino, verboRumbo, nivelMazmorra, variosNiveles, type Rumbo } from '../mundo/rumbos';
 import { MONSTRUOS } from '../datos/monstruos';
 import { saludoDe, relatoDe, ofertaDe, entregaDe, activaDe, aceptar, textoHecho, eleccionDe, hist, avanceDe, decidir, finalCompleto, quienDa } from '../juego/historia';
 import { panelCodice } from './codice';
@@ -1389,24 +1390,44 @@ const SIGNO: Record<string, [string[], string, string, string]> = {
   oferta: [['  ###  ', '  #+#  ', '  #+#  ', '  #+#  ', '  ###  ', '  #+#  ', '  ###  '], '#f0c020', '#fff8b0', '#5a3c00'],
   entrega: [[' ####  ', '#+..+# ', '   #+# ', '  #+#  ', '  ###  ', '  #+#  ', '  ###  '], '#f0c020', '#fff8b0', '#5a3c00'],
   heroe: [['   #   ', '  #+#  ', ' #+++# ', '#+++++#', ' #+++# ', '  #+#  ', '   #   '], '#ff3828', '#ffd0c0', '#500000'],
+  // las salidas por su rumbo (9 x 9, Rick, 19 nov 2026: "identificar bien los portales que suben y los que bajan"):
+  // bajar = flecha abajo y escalera que baja a la derecha, en brasa; subir = flecha arriba y escalera que sube, en azul
+  // frío; superficie = arco abierto con la flecha arriba, en cielo pálido; guarida = calavera sobre la escalera que baja
+  bajar: [['   ###   ', '   #+#   ', '   #+#   ', ' ###+### ', '  #+++#  ', '   #+#   ', '+#  #    ', '..+#     ', '....+####'], '#f05a28', '#ffd090', '#4a1000'],
+  subir: [['    #    ', '   #+#   ', '  #+++#  ', ' ###+### ', '   #+#   ', '   #+#   ', '   ### #+', '     #+..', '####+....'], '#3c98ff', '#d8f0ff', '#0c2850'],
+  superficie: [['  #####  ', ' ##...## ', '##..+..##', '#..+++..#', '#.+++++.#', '#...+...#', '#...+...#', '#...+...#', '#########'], '#a8d8f0', '#ffffff', '#102838'],
+  guarida: [['  #####  ', ' #+++++# ', ' #.#+#.# ', ' #+++++# ', '  #+.+#  ', '  #.#.#  ', '+#       ', '..+#     ', '....+####'], '#e02840', '#fff0e0', '#300008'],
 };
+/** Cifras de 3 x 5 para el nivel de la mazmorra junto al signo. */
+const CIFRA: Record<string, string[]> = { 0: ['###', '#.#', '#.#', '#.#', '###'], 1: ['.#.', '##.', '.#.', '.#.', '###'], 2: ['##.', '..#', '.#.', '#..', '###'], 3: ['##.', '..#', '.#.', '..#', '##.'], 4: ['#.#', '#.#', '###', '..#', '..#'], 5: ['###', '#..', '##.', '..#', '##.'], 6: ['.##', '#..', '###', '#.#', '###'], 7: ['###', '..#', '.#.', '.#.', '.#.'], 8: ['###', '#.#', '###', '#.#', '###'], 9: ['###', '#.#', '###', '..#', '##.'] };
+function cifraMapa(n: number, x: number, y: number, k: number, color: string) {
+  const s = String(n), w = s.length * 4 + 1;
+  const c = cacheRaster(`cifra_${s}_${color}`, () => { const r = new Uint8ClampedArray(w * 7 * 4), pon = (px: number, py: number, hex: string) => { const v = parseInt(hex.slice(1), 16), i = (py * w + px) * 4; r[i] = v >> 16; r[i + 1] = (v >> 8) & 255; r[i + 2] = v & 255; r[i + 3] = 255; };
+    [...s].forEach((ch, q) => { const g = CIFRA[ch]; for (let yy = 0; yy < 5; yy++) for (let xx = 0; xx < 3; xx++) if (g[yy][xx] === '#') for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) pon(q * 4 + xx + 1 + dx, yy + 1 + dy, '#000000'); });
+    [...s].forEach((ch, q) => { const g = CIFRA[ch]; for (let yy = 0; yy < 5; yy++) for (let xx = 0; xx < 3; xx++) if (g[yy][xx] === '#') pon(q * 4 + xx + 1, yy + 1, color); });
+    return { w, h: 7, data: r } as any; });
+  const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(c, Math.round(x), Math.round(y), w * k, 7 * k); ctx.imageSmoothingEnabled = su;
+}
 /** Los signos ya puestos en este cuadro: el que cae encima de otro se corre al costado, para que no se amontonen. */
 let signosPuestos: [number, number][] = [];
-function signoMapa(tipo: string, x: number, y: number, k = 1, suelto = false) {
-  const g = SIGNO[tipo]; if (!g) return;
+function signoMapa(tipo: string, x: number, y: number, k = 1, suelto = false): [number, number] {
+  const g = SIGNO[tipo]; if (!g) return [x, y];
   if (!suelto) {
     const paso = 10 * k;
     for (let n = 0; n < 6 && signosPuestos.some(([qx, qy]) => Math.abs(qx - x) < paso - 1 && Math.abs(qy - y) < paso - 1); n++) x += (n % 2 ? -1 : 1) * paso * (n + 1);
     signosPuestos.push([x, y]);
   }
-  const c = cacheRaster(`signo_${tipo}`, () => { const w = 9, r = new Uint8ClampedArray(w * w * 4), pon = (px: number, py: number, hex: string) => { const n = parseInt(hex.slice(1), 16), i = (py * w + px) * 4; r[i] = n >> 16; r[i + 1] = (n >> 8) & 255; r[i + 2] = n & 255; r[i + 3] = 255; };
+  const n = g[0].length, w = n + 2;
+  const c = cacheRaster(`signo_${tipo}`, () => { const r = new Uint8ClampedArray(w * w * 4), pon = (px: number, py: number, hex: string) => { const v = parseInt(hex.slice(1), 16), i = (py * w + px) * 4; r[i] = v >> 16; r[i + 1] = (v >> 8) & 255; r[i + 2] = v & 255; r[i + 3] = 255; };
     const [fil, col, luz, som] = g;
-    for (let yy = 0; yy < 7; yy++) for (let xx = 0; xx < 7; xx++) if (fil[yy][xx] !== ' ') for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) pon(xx + 1 + dx, yy + 1 + dy, '#000000');
-    for (let yy = 0; yy < 7; yy++) for (let xx = 0; xx < 7; xx++) { const q = fil[yy][xx]; if (q !== ' ') pon(xx + 1, yy + 1, q === '+' ? luz : q === '.' ? som : col); }
+    for (let yy = 0; yy < n; yy++) for (let xx = 0; xx < n; xx++) if (fil[yy][xx] !== ' ') for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) pon(xx + 1 + dx, yy + 1 + dy, '#000000');
+    for (let yy = 0; yy < n; yy++) for (let xx = 0; xx < n; xx++) { const q = fil[yy][xx]; if (q !== ' ') pon(xx + 1, yy + 1, q === '+' ? luz : q === '.' ? som : col); }
     return { w, h: w, data: r } as any; });
   const su = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(c, Math.round(x - 4.5 * k), Math.round(y - (tipo === 'heroe' || tipo === 'viaje' || tipo === 'portal' ? 4.5 : 7) * k), 9 * k, 9 * k);
+  ctx.drawImage(c, Math.round(x - (w / 2) * k), Math.round(y - (tipo === 'heroe' || tipo === 'viaje' || tipo === 'portal' ? w / 2 : w - 2) * k), w * k, w * k);
   ctx.imageSmoothingEnabled = su;
+  return [x, y];
 }
 /** Las baldosas vistas del mapa (contorno y relleno), con `q` del mundo al lienzo `g`. */
 function terrenoMapa(g: CanvasRenderingContext2D, z: Juego['zona'], q: (x: number, y: number) => [number, number]) {
@@ -1488,11 +1509,19 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   signosPuestos = [];
   const k = grande ? 2 : 1, visto = (cx: number, cy: number) => !!z.explorado[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)];
   const usados = new Set<string>();
+  // Las salidas van por su rumbo (bajar, subir, superficie, guarida, otra región, campamento, casa) y no por el tipo del
+  // destino: antes, en una mazmorra, la escalera de subir y la de bajar eran la misma boca morada. Las que bajan o suben
+  // dentro de una mazmorra de varios niveles llevan el nivel al que llevan. Solo lo ya visto: nada guía ni revela (Rick
+  // quiere explorar, no que lo lleven).
+  const vistas: { a: number; b: number; s: (typeof z.salidas)[number]; r: Rumbo }[] = [];
+  const COL_ET: Record<Rumbo, string> = { bajar: '#ffa070', guarida: '#ff8090', subir: '#90c8ff', superficie: '#d8f0ff', region: '#a0e080', campamento: '#ffd060', casa: '#d0b090' };
   for (const s of z.salidas) {
     if (!visto(s.cx, s.cy)) continue;
-    const [a, b] = p(s.cx, s.cy), dz = ZONAS[s.destino], tipo = dz?.tipo === 'pueblo' ? 'campamento' : /~c\d/.test(s.destino) ? 'casa' : dz?.tipo === 'mazmorra' ? 'mazmorra' : 'region';
-    signoMapa(tipo, a, b, k); usados.add(tipo);
-    if (grande) etiqueta(TT(s.nombre), a, b - 7 * k - 2, tipo === 'campamento' ? '#ffd060' : tipo === 'mazmorra' ? '#c8a0ff' : tipo === 'region' ? '#a0e080' : '#d0b090', 11);
+    const r = rumboSalida(z.id, s.destino), [a0, b0] = p(s.cx, s.cy);
+    const [a, b] = signoMapa(r, a0, b0, k); usados.add(r);
+    if ((r === 'bajar' || r === 'subir' || r === 'guarida') && variosNiveles(s.destino)) cifraMapa(nivelMazmorra(s.destino), a + 5 * k, b - 6 * k, k, COL_ET[r]);
+    vistas.push({ a, b, s, r });
+    if (grande) etiqueta(nombreDestino(s.destino, s.nombre, IDI), a, b - 10 * k - 2, COL_ET[r], 11);
   }
   for (const m of z.marcas) if (m.tipo === 'viaje' && visto(m.cx, m.cy)) { const [a, b] = p(m.cx, m.cy); signoMapa('viaje', a, b, k); usados.add('viaje'); if (grande) etiqueta(T('Piedra de viaje', 'Travel stone'), a, b - 7 * k - 2, '#90c0ff'); }
   for (const o of z.objetos) { if (o.tag !== 'cofre' && o.tag !== 'santuario') continue; if (!visto(o.cx, o.cy)) continue; const [a, b] = p(o.cx + 0.5, o.cy + 0.5); if (!grande && (Math.abs(a - cx) > 84 || Math.abs(b - cy) > 76)) continue; const t = o.tag === 'cofre' ? 'cofre' : 'altar'; signoMapa(t, a, b, k); usados.add(t); }
@@ -1516,14 +1545,35 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   { const [hx, hy] = p(h.x, h.y), pul = 0.5 + 0.5 * Math.sin(j.t * 5); ctx.save(); ctx.globalAlpha = 0.5 * (1 - pul); ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hx, hy, (4 + pul * 5) * k, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); signoMapa('heroe', hx, hy, k, true); }
   // en el mapa grande, la leyenda de lo que hay a la vista
   if (grande) {
-    const orden = ['heroe', 'campamento', 'portal', 'viaje', 'mazmorra', 'region', 'casa', 'oferta', 'entrega', 'npc', 'cofre', 'altar', 'jefe'].filter((t) => t === 'heroe' || usados.has(t));
-    const NOM: Record<string, [string, string]> = { heroe: ['Tú', 'You'], campamento: ['Al campamento', 'To camp'], portal: ['Tu portal', 'Your portal'], viaje: ['Piedra de viaje', 'Travel stone'], mazmorra: ['Mazmorra', 'Dungeon'], region: ['Otra región', 'Another region'], casa: ['Casa', 'House'], oferta: ['Misión nueva', 'New quest'], entrega: ['Entregar misión', 'Turn in quest'], npc: ['Gente', 'People'], cofre: ['Cofre', 'Chest'], altar: ['Altar', 'Shrine'], jefe: ['Jefe', 'Boss'] };
+    const orden = ['heroe', 'campamento', 'portal', 'viaje', 'bajar', 'subir', 'superficie', 'guarida', 'region', 'casa', 'oferta', 'entrega', 'npc', 'cofre', 'altar', 'jefe'].filter((t) => t === 'heroe' || usados.has(t));
+    const NOM: Record<string, [string, string]> = { heroe: ['Tú', 'You'], campamento: ['Al campamento', 'To camp'], portal: ['Tu portal', 'Your portal'], viaje: ['Piedra de viaje', 'Travel stone'], bajar: ['Bajar (y su nivel)', 'Down (and its level)'], subir: ['Subir (y su nivel)', 'Up (and its level)'], superficie: ['Salir a la superficie', 'Out to the surface'], guarida: ['Bajar a la guarida de un jefe', 'Down to a boss lair'], region: ['Otra región', 'Another region'], casa: ['Casa', 'House'], oferta: ['Misión nueva', 'New quest'], entrega: ['Entregar misión', 'Turn in quest'], npc: ['Gente', 'People'], cofre: ['Cofre', 'Chest'], altar: ['Altar', 'Shrine'], jefe: ['Jefe', 'Boss'] };
+    // cada salida ya vista con su rumbo y su destino
+    const sal = vistas.map((v) => ({ v, t: `${verboRumbo(v.r, IDI)} ${nombreDestino(v.s.destino, v.s.nombre, IDI)}` }));
+    let lw = 170; for (const t of orden) lw = Math.max(lw, ancho(TT(NOM[t]), 11) + 42); for (const q of sal) lw = Math.max(lw, ancho(q.t, 11) + 42);
+    lw = Math.min(lw, 300);
     // (a la derecha y arriba: abajo a la izquierda la tapaban los mensajes)
-    const lx = W - 176, alto = orden.length * 18 + 14, ly = 56;
-    ctx.fillStyle = 'rgba(10,8,7,0.82)'; ctx.fillRect(lx - 10, ly, 170, alto); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(lx - 10.5, ly - 0.5, 171, alto + 1); ctx.strokeStyle = '#7a6236'; ctx.strokeRect(lx - 7.5, ly + 2.5, 165, alto - 5);
-    orden.forEach((t, i) => { signoMapa(t, lx + 8, ly + 20 + i * 18, 2, true); texto(TT(NOM[t]), lx + 26, ly + 20 + i * 18, { tam: 11, color: '#d8c8a0' }); });
+    const fil = 22, lx = W - lw - 6, alto = orden.length * fil + 14 + (sal.length ? 22 + sal.length * fil : 0), ly = 56;
+    ctx.fillStyle = 'rgba(10,8,7,0.82)'; ctx.fillRect(lx - 10, ly, lw, alto); ctx.strokeStyle = '#000'; ctx.lineWidth = 1; ctx.strokeRect(lx - 10.5, ly - 0.5, lw + 1, alto + 1); ctx.strokeStyle = '#7a6236'; ctx.strokeRect(lx - 7.5, ly + 2.5, lw - 5, alto - 5);
+    orden.forEach((t, i) => { signoMapa(t, lx + 8, ly + 22 + i * fil, 2, true); texto(TT(NOM[t]), lx + 26, ly + 20 + i * fil, { tam: 11, color: '#d8c8a0' }); });
+    if (sal.length) {
+      let yy = ly + 20 + orden.length * fil + 4;
+      ctx.fillStyle = '#7a6236'; ctx.fillRect(lx - 2, yy - 6, lw - 22, 1);
+      texto(T('Salidas', 'Exits'), lx - 2, yy + 8, { tam: 11, color: '#c0a060' }); yy += 26;
+      for (const { v, t } of sal) {
+        signoMapa(v.r, lx + 8, yy + 2, 2, true);
+        texto(t, lx + 26, yy, { tam: 11, color: COL_ET[v.r], max: lw - 40 });
+        yy += fil;
+      }
+    }
   }
   ctx.restore();
+  // la pista de cada salida al pasar el ratón (mapa grande y minimapa de PC)
+  const pista = () => { if (!E.tactil || grande) for (const v of vistas) {
+    if (Math.abs(E.x - v.a) > 6 * k || E.y < v.b - 10 * k || E.y > v.b + 3 * k) continue;
+    if (!grande && (E.x < W - 180 || E.y > 160)) continue;
+    const l: [string, string][] = [[`${verboRumbo(v.r, IDI)} ${nombreDestino(v.s.destino, v.s.nombre, IDI)}`, COL_ET[v.r]]];
+    tooltip(l, v.a, v.b - 10 * k); break;
+  } };
   if (mt) { ctx.strokeStyle = '#a08050'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(mt.cx, mt.cy, mt.r, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1; }
   else if (!grande) {
     // el minimapa lleva el canto de hierro de los paneles (solo el canto: el centro queda libre para el mapa) y el
@@ -1536,6 +1586,7 @@ export function dibujarMapa(j: Juego, grande: boolean) {
     texto(nm, W - 92, 154, { alin: 'center', tam: 10, color: '#d8b870', max: 166 });
   }
   else texto(TT(z.nombre), W / 2, 30, { alin: 'center', tam: 18, color: '#c0a060', fuente: TITULO });
+  pista();
 }
 const dist2 = (a: number, b: number, c: number, d: number) => (a - c) ** 2 + (b - d) ** 2;
 void entero; void BASES; void CASILLAS;

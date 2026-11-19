@@ -2,6 +2,7 @@ import { lienzoTrabajo } from '../motor/lienzos';
 // Luces del mundo: cada fuego, proyectil, hechizo y la antorcha del héroe es una luz con color.
 // Sirve para tres cosas: sombras proyectadas de los personajes, reflejo de color en sus cuerpos y destellos.
 import { W, H } from '../nucleo/lienzo';
+import { rumboSalida, COLOR_RUMBO } from '../mundo/rumbos';
 import type { Cuadro } from '../motor/assets';
 import { LUZ_EFECTO, intensidadLuz, rgbLuz } from '../../../src/engine/gotico/luz_efectos';
 import { luzDeArma } from '../../../src/engine/gotico/elementos_arma';
@@ -258,7 +259,7 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     if (pz) L.push({ id: 'portal', x: pz[0], y: pz[1], h: 40, r: 170, c: tp === 'pueblo' ? [255, 174, 85] : tp === 'infierno' ? [224, 64, 26] : [74, 184, 176], k: 0.85 });
   }
   // cada salida con su luz propia, ámbar: tiñe el piso y se ve de lejos
-  j.zona.salidas.forEach((sa, i) => { const [sx, sy] = aPant(...puntoSalida(j.zona, sa)); if (sx < -200 || sx > W + 200 || sy < -200 || sy > H + 200) return; L.push({ id: 'sal' + i, x: sx, y: sy, h: 34, r: 150 + Math.sin(t * 2.2 + sa.cx) * 12, c: [255, 180, 95], k: 0.6, sinSombra: true }); });
+  j.zona.salidas.forEach((sa, i) => { const [sx, sy] = aPant(...puntoSalida(j.zona, sa)); if (sx < -200 || sx > W + 200 || sy < -200 || sy > H + 200) return; L.push({ id: 'sal' + i, x: sx, y: sy, h: 34, r: 150 + Math.sin(t * 2.2 + sa.cx) * 12, c: luzSalida(j.zona.id, sa.destino), k: 0.6, sinSombra: true }); });
   // cerca de un jefe despierto las luces del mapa titubean y a ratos se apagan, como si algo les chupara el aire
   const jf = j.jefe && !j.jefe.muerto && j.jefe.estado === 'perseguir' ? j.jefe : null;
   if (jf) {
@@ -435,4 +436,11 @@ export function reflejos(ctx: CanvasRenderingContext2D, e: Ent, q: Cuadro, px: n
     const su = ctx.imageSmoothingEnabled; ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = filo;
     ctx.drawImage(tmp, 0, 0, q.w, q.h, px - q.ax * esc, py - q.ay * esc, q.w * esc, q.h * esc); ctx.restore(); ctx.imageSmoothingEnabled = su;
   }
+}
+
+/** La luz que el umbral derrama en el piso: cálida de siempre, mezclada con el color de su rumbo (brasa baja, azul sube). */
+function luzSalida(desde: string, destino: string): [number, number, number] {
+  if ((window as any).__sinRumbos) return [255, 180, 95];
+  const r = rumboSalida(desde, destino); if (r === 'region' || r === 'campamento' || r === 'casa') return [255, 180, 95];
+  const c = COLOR_RUMBO[r]; return [(255 + c[0] * 2) / 3 | 0, (180 + c[1] * 2) / 3 | 0, (95 + c[2] * 2) / 3 | 0];
 }

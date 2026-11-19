@@ -21,9 +21,10 @@ def tiras(nombre, quien='m', lado=150):
     filas = []
     for acc, a, b in elegidos:
         paso = 1 if acc in ('atacar', 'lanzar', 'especial', 'herido') or 'muerto' in acc or acc == 'morir' else 2
-        idx = list(range(a, b, paso))[:16]
+        # (la muerte entera: con los intermedios dura 0,8 s, 1,3 el jefe; 16 cuadros la cortaban)
+        idx = list(range(a, b, paso))[:36 if 'muerto' in acc or acc == 'morir' else 16]
         filas.append((acc, a, b, idx))
-    L = Image.new('RGB', (16 * lado, len(filas) * (lado + 12)), (16, 16, 16)); dr = ImageDraw.Draw(L)
+    L = Image.new('RGB', (max([16] + [len(f[3]) for f in filas]) * lado, len(filas) * (lado + 12)), (16, 16, 16)); dr = ImageDraw.Draw(L)
     for r, (acc, a, b, idx) in enumerate(filas):
         dr.text((3, r * (lado + 12)), f'{nombre} {acc} cuadros {a}-{b} ({(b - a) / 25:.2f}s) paso {idx[1] - idx[0] if len(idx) > 1 else 1}', fill=(255, 220, 120))
         for c, i in enumerate(idx):

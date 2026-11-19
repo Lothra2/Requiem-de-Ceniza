@@ -99,6 +99,8 @@ function zancadaDe(e: Ent, acc: string): number {
   const alto = za?.[m.def?.sprite];
   return base * (alto ?? 0.9) * (m.escala ?? 1);
 }
+/** Cuánto tarda en caer un cuerpo horneado con intermedios: el jefe más (su peso se ve en la caída). */
+const durMorir = (e?: Ent) => ((e as any)?.def?.jefe || (e as any)?.def?.sprite?.startsWith?.('jefe_') ? 1.3 : 0.8);
 const fr = (acc: string, t: number, dur: number, e?: Ent, accPies?: string, nReal?: number) => {
   // los cuadros que de verdad tiene la animación (los héroes traen 12 al atacar y correr, los monstruos 8)
   const n = nReal || (CUADROS[acc as keyof typeof CUADROS] ?? 8);
@@ -107,7 +109,10 @@ const fr = (acc: string, t: number, dur: number, e?: Ent, accPies?: string, nRea
   if (acc === 'quieto') return Math.floor((t + (e ? (e.id % 9) * 0.29 : 0)) * (e ? 5.4 + (e.id % 4) * 0.4 : 6)) % n;
   if (acc === 'caminar') return Math.floor(t * 11) % n;
   if (acc === 'correr') return Math.floor(t * 14) % n;
-  if (acc === 'morir') return Math.min(n - 1, Math.floor(t * 14));
+  // morir: las 8 claves de siempre iban a 14 por segundo (0,57 s, a saltos). Horneado con intermedios (19 nov 2026: 22
+  // cuadros, 29 los jefes) dura más y pesa: 0,8 s el común y 1,3 s el jefe. Se cuenta con los cuadros que trae el atlas,
+  // así un atlas viejo de 8 sigue igual que antes.
+  if (acc === 'morir') return Math.min(n - 1, Math.floor(t * (n <= 8 ? 14 : (n - 1) / durMorir(e))));
   // atacar y lanzar: la carga y la salida van al ritmo de cada cuerpo, con el cuadro de impacto justo en el golpe
   if (e && (acc === 'atacar' || acc === 'lanzar') && e.golpeEn > 0 && dur > 0) { const an = e.tipo === 'heroe' ? animClase((e as any).d?.clase, acc) : undefined;
     // un combo (el monje) lleva sus golpes en cuadros fijos: la animación corre pareja para que cada uno caiga en el suyo
@@ -963,7 +968,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   }
   if (!fs.length) return;
   let i: number;
-  if (e.tipo === 'monstruo' && (m as any).surgiendo > 0) i = Math.max(0, fs.length - 1 - Math.floor((1.2 - (m as any).surgiendo) * 7));
+  if (e.tipo === 'monstruo' && (m as any).surgiendo > 0) i = Math.max(0, fs.length - 1 - Math.floor((1.2 - (m as any).surgiendo) * 7 * (fs.length / 8)));
   else if ((e as any).estado === 'surgir') return;
   else i = fr(acc, e.muerto && (e as any).mElem === 'frio' ? Math.max(0, e.t - 0.45) : e.muerto && (e as any).mElem === 'rayo' ? Math.max(0, e.t - 0.55) : e.t, e.dur, e, acc === 'correr' && e.tipo !== 'heroe' && !cuadrosMonstruo(m.def.sprite, 'correr', e.dir).length ? 'caminar' : acc, fs.length);
   if (e.tipo === 'monstruo' && m.estado === 'surgir') return;

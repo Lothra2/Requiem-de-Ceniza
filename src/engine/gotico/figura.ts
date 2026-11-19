@@ -133,6 +133,8 @@ export interface Pose {
   filoAbajo?: number;
   /** La cabeza del arma busca el piso (0..1): golpe contra el suelo, según el largo del arma. */
   pisoArma?: number;
+  /** Cuánto manda `armaD` sobre la dirección que el arma trae del puño (0..1, 1 si falta): el arma que se suelta al morir. */
+  armaMez?: number;
   /** La izquierda toma el mango a esa distancia del puño derecho; pegaI 0..1 cuánto (0 = mano libre). */
   agarreI?: number; pegaI?: number;
   /** Hacia dónde apunta el codo izquierdo cuando la izquierda toma el mango (adelante, derecha, arriba; marco del cuerpo). */
@@ -276,6 +278,48 @@ export const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b
 export const mod1 = (v: number) => ((v % 1) + 1) % 1;
 const grados = (r: number) => (r * 180) / Math.PI;
 const rad = (g: number) => (g * Math.PI) / 180;
+
+// ------------------------------------------------------------------ morir con intermedios
+/**
+ * Valor de una tabla de poses clave (una por cuadro entero) en un cuadro fraccionario: los intermedios de morir que se
+ * hornean entre las 8 claves. En un cuadro entero da la clave exacta (lo horneado de antes no cambia). Entre claves va
+ * una cúbica de Hermite que nunca se pasa de las claves: donde el movimiento sigue para el mismo lado la velocidad pasa
+ * pareja de un tramo al otro (media armónica de las pendientes, Fritsch-Carlson); donde se da vuelta, se detiene o hay un
+ * golpe (`golpes`: las rodillas o el cuerpo que tocan el piso) cada tramo llega y sale con su propia pendiente, como el
+ * corte seco de las 8 claves: el golpe sigue siendo golpe y no se vuelve masa.
+ */
+export function claveSuave(v: readonly number[], f: number, golpes?: readonly number[]): number {
+  const n = v.length;
+  if (!(f > 0)) return v[0];
+  if (f >= n - 1) return v[n - 1];
+  const i = Math.floor(f), t = f - i;
+  if (t === 0) return v[i];
+  const pend = (k: number) => (k >= 0 && k < n - 1 ? v[k + 1] - v[k] : undefined);
+  // la tangente en la clave k: llegando (lado -1, del tramo k-1) o saliendo (lado 1, al tramo k)
+  const tan = (k: number, lado: number) => {
+    const dl = pend(k - 1), dr = pend(k), propia = (lado < 0 ? dl : dr) ?? 0;
+    if (dl === undefined || dr === undefined || dl * dr <= 0 || golpes?.includes(k)) return propia;
+    return (2 * dl * dr) / (dl + dr);
+  };
+  const a = v[i], b = v[i + 1], m0 = tan(i, 1), m1 = tan(i + 1, -1), t2 = t * t, t3 = t2 * t;
+  return (2 * t3 - 3 * t2 + 1) * a + (t3 - 2 * t2 + t) * m0 + (-2 * t3 + 3 * t2) * b + (t3 - t2) * m1;
+}
+/**
+ * Mientras se arma un cuadro de morir de una bestia o un jefe, sus tablas `K` van con `claveSuave` en lugar de la recta
+ * entre claves (lo pone el registro de cada catálogo alrededor de `armar`). En los cuadros enteros es lo mismo.
+ */
+export const MORIR_SUAVE = { activo: false };
+/** La `K` de los catálogos: recta entre claves, o `claveSuave` dentro de un cuadro de morir. */
+export const claveK = (v: number[], f: number): number => {
+  if (MORIR_SUAVE.activo) return claveSuave(v, f);
+  const i = Math.floor(f), t = f - i, a = v[Math.min(i, v.length - 1)], b = v[Math.min(i + 1, v.length - 1)];
+  return a + (b - a) * t;
+};
+/** Arma un cuadro de morir con las tablas suaves (y vuelve a la recta al terminar, aunque falle). */
+export function armarMorir<T>(fn: () => T): T {
+  const antes = MORIR_SUAVE.activo; MORIR_SUAVE.activo = true;
+  try { return fn(); } finally { MORIR_SUAVE.activo = antes; }
+}
 
 // ------------------------------------------------------------------ cuadros clave
 /**
@@ -1539,11 +1583,23 @@ function lanzarBerserker(p: Pose, u: number, arma: ArmaPose) {
  * hacia adelante. En todas: el golpe, las rodillas que ceden, la caída que acelera, el contacto con rebote y el asiento.
  */
 function morir(p: Pose, f: number, arma: ArmaPose, estilo?: Presentacion) {
-  const i = Math.max(0, Math.min(7, Math.floor(f)));
-  const tab = <T>(xs: T[]) => xs[i];
+  // (19 nov 2026) Las 8 tablas son las claves; los monstruos se hornean con intermedios (f fraccionario, ver
+  // `claveSuave`): en los cuadros enteros sale lo mismo de siempre. Los golpes (las rodillas y el cuerpo que tocan el
+  // piso) cortan la curva para que el contacto se lea seco.
+  f = Math.max(0, Math.min(7, f));
+  const i = Math.floor(f), fr = f - i;
+  const modo = estilo === 'rugido' || estilo === 'guardia' ? 'rodillas' : estilo === 'conjuro' || estilo === 'invoca' ? 'espaldas' : estilo === 'apunta' || estilo === 'frasco' ? 'costado' : 'adelante';
+  const golpes = modo === 'rodillas' ? [2, 6] : modo === 'adelante' ? [6] : [5];
+  function tab(xs: number[]): number;
+  function tab<T extends number[]>(xs: T[]): T;
+  function tab(xs: (number | number[])[]): number | number[] {
+    if (!fr) return xs[i];
+    const x0 = xs[0];
+    if (typeof x0 === 'number') return claveSuave(xs as number[], f, golpes);
+    return (x0 as number[]).map((_, e) => claveSuave((xs as number[][]).map((x) => x[e]), f, golpes));
+  }
   const T2 = (xs: [number, number][]) => tab(xs);
   const T3 = (xs: [number, number, number][]) => tab(xs) as AngBrazo;
-  const modo = estilo === 'rugido' || estilo === 'guardia' ? 'rodillas' : estilo === 'conjuro' || estilo === 'invoca' ? 'espaldas' : estilo === 'apunta' || estilo === 'frasco' ? 'costado' : 'adelante';
   p.avanza = tab([-1.2, -0.4, 0, 0, 0, 0, 0, 0]);
   p.capa = [tab([2, 0.5, -0.5, -1.5, -2, -1, 0.6, 0]), 0]; p.pelo = [tab([1.6, -0.6, -1, -1.6, -2, -1, 0.4, 0]), 0];
   if (modo === 'rodillas') {
@@ -1558,12 +1614,6 @@ function morir(p: Pose, f: number, arma: ArmaPose, estilo?: Presentacion) {
     p.hombroD = T3([[35, 35, 50], [6, 16, 18], [4, 14, 14], [2, 12, 10], [30, 22, 20], [70, 40, 24], [18, 52, 30], [12, 48, 26]]);
     p.hombroI = T3([[28, 40, 65], [3, 14, 22], [2, 14, 16], [0, 12, 12], [25, 26, 24], [62, 44, 26], [14, 56, 36], [10, 52, 30]]);
     p.munecaD = tab([-10, 20, 25, 30, 10, -20, 10, 0]);
-    // de rodillas el arma se le cae de punta al piso
-    if (arma !== 'arco' && arma !== 'garras' && arma !== 'nada' && arma !== 'baculo') {
-      if (i === 2 || i === 3) { p.armaD = [150, 20]; p.pisoArma = 1; }
-      // al irse de bruces la suelta: queda casi tendida hacia adelante y al costado
-      if (i === 4) p.armaD = [78, 50];
-    }
   } else if (modo === 'espaldas') {
     // el golpe la echa atrás: da un paso, la barbilla se recoge en la caída y la cabeza golpea al llegar
     p.caidaDir = 180;
@@ -1597,8 +1647,8 @@ function morir(p: Pose, f: number, arma: ArmaPose, estilo?: Presentacion) {
     const arriba = T3([[28, 40, 65], [10, 24, 30], [30, 40, 30], [50, 46, 30], [66, 12, 40], [70, -38, 40], [66, -50, 34], [64, -54, 32]]);
     if (sg > 0) { p.hombroD = abajo; p.hombroI = arriba; } else { p.hombroD = arriba; p.hombroI = abajo; }
     p.munecaD = tab([-10, 10, 20, 10, 0, -10, 0, 0]);
-    // la ballesta se suelta de la izquierda y cae con la mano que la tenía
-    if (arma === 'ballesta' && i >= 4) p.pegaI = 0;
+    // la ballesta se suelta de la izquierda y cae con la mano que la tenía (en los intermedios, de a poco)
+    if (arma === 'ballesta' && f > 3) p.pegaI = Math.max(0, 4 - f);
   } else {
     // se desploma hacia adelante: la caída acelera (gravedad), toca el piso en el 6 y en el 7 se asienta
     p.caida = tab([0, 0, 0.06, 0.22, 0.5, 0.86, 1, 1]);
@@ -1616,8 +1666,18 @@ function morir(p: Pose, f: number, arma: ArmaPose, estilo?: Presentacion) {
   if (arma === 'arco') p.tensa = false;
   if (arma === 'dos') p.pegaI = 0;
   if (arma === 'baculo') p.vara = tab<[number, number]>([[-14, 8], [10, 14], [20, 20], [10, 30], [-10, 40], [-30, 50], [-60, 60], [-70, 62]]);
-  // al tocar el piso el arma queda tendida sobre el suelo (no se clava): de costado va hacia adelante, si no al costado
-  else if (arma !== 'arco' && arma !== 'garras' && arma !== 'nada' && i >= 5) p.armaD = modo === 'costado' ? [90, 0] : tab<[number, number]>([[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [86, 80], [90, 86], [90, 88]]);
+  else if (arma !== 'arco' && arma !== 'garras' && arma !== 'nada') {
+    // El arma por clave: null es la del puño. De rodillas se le cae de punta al piso (2 y 3) y al irse de bruces la suelta,
+    // casi tendida hacia adelante y al costado (4). Al tocar el piso queda tendida sobre el suelo (no se clava): de
+    // costado hacia adelante, si no al costado. [pa, giro, pisoArma]
+    const tendida: ([number, number, number] | null)[] = modo === 'costado' ? [null, null, null, null, null, [90, 0, 0], [90, 0, 0], [90, 0, 0]] : [null, null, null, null, null, [86, 80, 0], [90, 86, 0], [90, 88, 0]];
+    const ks = modo === 'rodillas' ? [null, null, [150, 20, 1], [150, 20, 1], [78, 50, 0], ...tendida.slice(5)] as typeof tendida : tendida;
+    const a = ks[i], b = fr ? ks[i + 1] : null;
+    if (a && b) { p.armaD = [lerp(a[0], b[0], fr), lerp(a[1], b[1], fr)]; if (a[2] || b[2]) p.pisoArma = lerp(a[2], b[2], fr); }
+    else if (a) { p.armaD = [a[0], a[1]]; if (a[2]) p.pisoArma = a[2]; }
+    // entre el puño y la primera clave del arma suelta: la dirección del puño se va hacia la de la clave (armaMez)
+    else if (b) { p.armaD = [b[0], b[1]]; if (b[2]) p.pisoArma = b[2]; p.armaMez = fr; }
+  }
 }
 
 /** Cómo va vestido y armado un personaje. */

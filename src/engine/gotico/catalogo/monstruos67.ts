@@ -1,6 +1,6 @@
 import { registrar } from '../objeto';
 import { MATERIALES } from '../materiales';
-import { DIRS, CUADROS, type Accion, type Dir } from '../figura';
+import { DIRS, CUADROS, claveK, armarMorir, type Accion, type Dir } from '../figura';
 import { personajeEscena, esqueleto, armaduraDeLinea, type Cuerpo, type Equipo, type Esqueleto } from '../cuerpo';
 import { ruido, cilindro, esfera, palo, poliedro, masa, hueso, bulto, type Comp, type Pieza, type V3, type Escena, type OpcComp } from '../render';
 import { transformar, ejeAng, ap, ID, add, sub, esc, len, nor, cruz, mez, dot, rad, TAU, PI } from '../actos45';
@@ -80,7 +80,7 @@ const suav = (t: number) => { const u = clamp(t, 0, 1); return u * u * (3 - 2 * 
 /** Azar fijo por número (igual en todos los cuadros). */
 const hr = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 /** Valor de una tabla de cuadros clave (admite cuadros fraccionarios). */
-const K = (v: number[], f: number) => { const i = Math.floor(f), t = f - i; return lerp(v[Math.min(i, v.length - 1)], v[Math.min(i + 1, v.length - 1)], t); };
+const K = claveK;
 /** Un vector cualquiera perpendicular a `d`. */
 const lat = (d: V3): V3 => nor(Math.abs(d[2]) > 0.9 ? cruz(d, [1, 0, 0]) : cruz(d, [0, 0, 1]));
 /** Elipsoide orientado a mano (eje x a lo largo de `ex`; `ey0` orienta el segundo eje). */
@@ -920,7 +920,7 @@ function bestia67(id: string, nombre: [string, string], descripcion: [string, st
     registrar({
       id: `mon_${id}_${acc}`, nombre: [`${nombre[0]} · ${es}`, `${nombre[1]} · ${en}`], tema: 'monstruos',
       variantes: [...DIRS], cuadros: CUADROS_B[acc], t: acc === 'quieto' ? 6 : 3, huella, bloquea: true,
-      armar: (v, f) => armar(v as Dir, acc, f),
+      armar: (v, f) => (acc === 'morir' ? armarMorir(() => armar(v as Dir, acc, f)) : armar(v as Dir, acc, f)),
     });
   }
 }

@@ -1,7 +1,7 @@
 import '../cuerpo';
 import { registrar } from '../objeto';
 import { MATERIALES } from '../materiales';
-import { DIRS, type Dir } from '../figura';
+import { DIRS, claveK, armarMorir, type Dir } from '../figura';
 import { ruido, cilindro, elipsoide, esfera, palo, poliedro, caja, masa, hueso, bulto, type Comp, type Pieza, type V3, type Escena, type OpcComp } from '../render';
 
 /**
@@ -62,7 +62,7 @@ const TAU = Math.PI * 2;
 /** Azar fijo por número (igual en todos los cuadros). */
 const hr = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 /** Valor de una tabla de cuadros clave (admite cuadros fraccionarios). */
-const K = (v: number[], f: number) => { const i = Math.floor(f), t = f - i; return lerp(v[Math.min(i, v.length - 1)], v[Math.min(i + 1, v.length - 1)], t); };
+const K = claveK;
 
 type M3 = [V3, V3, V3];
 /** Marco rígido: origen y matriz (columnas: adónde van x adelante, y derecha, z arriba). */
@@ -150,7 +150,7 @@ function bestia(id: string, nombre: [string, string], huella: [number, number], 
     registrar({
       id: `mon_${id}_${acc}`, nombre: [`${nombre[0]} · ${es}`, `${nombre[1]} · ${en}`], tema: 'monstruos',
       variantes: [...DIRS], cuadros: CUADROS[acc], t: acc === 'quieto' ? 6 : acc === 'correr' ? 2 : 3, huella, bloquea: true,
-      armar: (v, f) => armar(v as Dir, acc, f),
+      armar: (v, f) => (acc === 'morir' ? armarMorir(() => armar(v as Dir, acc, f)) : armar(v as Dir, acc, f)),
     });
   }
 }

@@ -190,7 +190,7 @@ function armarTomas() {
   // 6: los muertos se levantan bajo la ceniza
   T0(8, [6], (t, k) => {
     const m = escena('cementerio', 4).mapa;
-    camara(() => pintarMapa(m, 20 + t * 7, 320, t, (aP) => [[8, 10], [13, 9], [16, 14], [10, 15]].map(([x, y], i) => { const [px, py] = aP(x, y); const fs = cuadrosMonstruo('zombi', t > 2 + i ? 'caminar' : 'morir', 's'); const f = t > 2 + i ? Math.floor(t * 8) % 8 : Math.max(0, 7 - Math.floor((t - i * 0.5) * 4)); return { prof: x + y, draw: () => dibujar(ctx, fs[Math.max(0, Math.min(fs.length - 1, f))], px, py) }; }), 1.8 + k * 0.15), 1);
+    camara(() => pintarMapa(m, 20 + t * 7, 320, t, (aP) => [[8, 10], [13, 9], [16, 14], [10, 15]].map(([x, y], i) => { const [px, py] = aP(x, y); const fs = cuadrosMonstruo('zombi', t > 2 + i ? 'caminar' : 'morir', 's'); const f = t > 2 + i ? Math.floor(t * 8) % 8 : Math.max(0, fs.length - 1 - Math.floor((t - i * 0.5) * 4 * (fs.length / 8))); return { prof: x + y, draw: () => dibujar(ctx, fs[Math.max(0, Math.min(fs.length - 1, f))], px, py) }; }), 1.8 + k * 0.15), 1);
     oscuridad(0.62); lluviaCeniza(t, 1, 0.15);
   });
   // 7: los sobrevivientes alrededor del fuego

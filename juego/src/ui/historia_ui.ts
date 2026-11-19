@@ -14,7 +14,7 @@ export function dibujarHistoria(j: Juego, tiempo: number) {
     const py = py0 - 4 - Math.sin(tiempo * 1.6 + f.x) * 3;
     const muere = f.estado === 'muere';
     const fs = framesMonstruo(f.sprite, muere ? 'morir' : 'quieto', f.dir);
-    const q = muere ? fs[Math.min(fs.length - 1, Math.floor(f.t * 5))] : fs[Math.floor(tiempo * 5) % Math.max(1, fs.length)];
+    const q = muere ? fs[Math.min(fs.length - 1, Math.floor(f.t * 5 * (fs.length / 8)))] : fs[Math.floor(tiempo * 5) % Math.max(1, fs.length)];
     const a = f.estado === 'espera' ? 0.22 + Math.sin(tiempo * 2.3 + f.y) * 0.08 : f.estado === 'habla' ? Math.min(0.55, 0.25 + f.t * 0.3) : 0.55 * Math.max(0, 1 - f.t / 2.2);
     ctx.save();
     ctx.globalAlpha = a; dibujarTenido(ctx, q, px, py, '#d8e6ff', 0.82);

@@ -49,6 +49,20 @@ con su equipo de salida (los 8 rumbos intermedios y los medios cuadros, 6 min): 
 que `firmaVisual` llama 'base'. Con otro equipo lo pinta el aparato (`motor/pintor.ts`). Los PNG intermedios
 no se suben (están en `.gitignore`): se hace commit recién después de pasar a webp.
 
+- **Morir con intermedios** (Rick, 19 nov 2026: "más sprites en la muerte para que se vea más fluida"). El motor sigue con
+  sus 8 poses clave de morir (`CUADROS.morir`, lo que piden cinemáticas y adornos con un cuadro fijo), pero los enemigos se
+  hornean con dos intermedios entre cada par: 22 cuadros (la clave k en el cuadro 3k) y los jefes tres (29, la clave en
+  4k), `MORIR_N` en `hornear.mts`. Entre claves `claveSuave` (figura.ts): cúbica que no se pasa, pareja donde el movimiento
+  sigue y cortada en los golpes (rodillas y cuerpo contra el piso, `golpes` en `morir`) para que no se vuelvan masa. Las
+  tablas `K` de bestias y jefes van suaves solo dentro de un cuadro de morir (`armarMorir`). El arma que se suelta pasa
+  del puño al piso de a poco (`armaMez` en la pose, el hacha del Rey de Escarcha y la cuchilla del Verdugo caen con
+  gravedad). Los cuadros enteros dan lo mismo que antes. En el juego (`fr` en escena.ts) morir dura 0,8 s y 1,3 el jefe
+  con los cuadros que trae el atlas (uno viejo de 8 sigue a 14 por segundo). Hornear solo una acción:
+  `RELIEVE=1 ACCS=morir GRUPOS=m npx tsx juego/hornear/hornear.mts` (m 22 min, b y j aparte), van a sus propios atlas
+  (`m_<id>_morir_0`) y el resto del manifiesto no se toca. Los cuadros de morir de antes quedan muertos dentro de los
+  atlas viejos hasta el próximo horneado entero del grupo. Lab sin servidor: `npx tsx juego/herramientas/t930_morir_lab.mts
+  <id,...> [dir]` (`N=8` las claves de antes). En el juego: `t770_video.cjs` + `t770_tiras.py` (la tira de muerte va entera).
+
 ## Objetos y ambientación
 
 - **Lo que se ve puesto es lo del ícono**: `src/engine/gotico/apariencia.ts` traduce cada casilla al cuerpo. Los escudos y

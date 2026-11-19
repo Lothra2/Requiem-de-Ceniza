@@ -2,7 +2,7 @@
 // los recorta, los empaca en atlas PNG y escribe el manifiesto. Uso: npx tsx juego/hornear/hornear.mts [GRUPOS=h,m,o,p]
 import { Worker } from 'node:worker_threads';
 import { cpus } from 'node:os';
-import { readdirSync, writeFileSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { readdirSync, writeFileSync, mkdirSync, existsSync, readFileSync, unlinkSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { deflateSync } from 'node:zlib';
@@ -25,6 +25,21 @@ const { PODERES, DIRS_PODER } = await import(join(raiz, 'poderes.ts'));
 const SOLO = process.env.SOLO?.split(',');
 const VARIANTES = process.env.VARIANTES?.split(',');
 const CUADROS_MAX = process.env.CUADROS ? +process.env.CUADROS : 0;
+/**
+ * ACCS=morir hornea solo esas acciones de los grupos m, b y j y las agrega al manifiesto sin tocar las demás: van en sus
+ * propios atlas (`m_<id>_morir_0`...) y reemplazan solo los cuadros de esas acciones. Lo de antes queda en los atlas
+ * viejos sin que nadie lo pida.
+ */
+const ACCS_SOLO = process.env.ACCS?.split(',');
+const accOk = (acc: string) => !ACCS_SOLO || ACCS_SOLO.includes(acc);
+if (ACCS_SOLO && GRUPOS.some((g) => !['m', 'b', 'j'].includes(g))) throw new Error('ACCS va solo con los grupos m, b y j');
+/**
+ * Morir con intermedios (19 nov 2026): las 8 poses clave del motor y dos intermedios entre cada par (22 cuadros, la
+ * clave k cae en el cuadro 3k), y en los jefes tres (29). La última es el cuerpo tendido de siempre. El juego toma los
+ * cuadros que trae el manifiesto (`fr` en escena.ts).
+ */
+const MORIR_N = 22, MORIR_N_JEFE = 29;
+const morirPaso = (claves: number, n: number) => (claves - 1) / (n - 1);
 
 interface Job { id_job: number; grupo: string; clave: string; tipo: string; [k: string]: any }
 const jobs: Job[] = [];
@@ -59,12 +74,14 @@ if (GRUPOS.includes('g')) for (const h of HEROES as any[]) {
 if (GRUPOS.includes('m')) for (const m of [...MONSTRUOS, ...extras.MONSTRUOS_EXTRA]) {
   if (SOLO && !SOLO.includes(m.id)) continue;
   for (const acc of ACCS) {
+    if (!accOk(acc)) continue;
     if (acc === 'lanzar' && !m.magia) continue;
     // correr solo para los humanoides con carrera propia (los demás caminan más rápido con la misma pisada)
     if (acc === 'correr' && !CORREN.has(m.id)) continue;
     // (caminar y correr van al doble de cuadros que el motor trae, con los intermedios: 16 por ciclo en vez de 8)
-    const paso = acc === 'caminar' || acc === 'correr' ? PASO_ANDAR : 1;
-    for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'm', clave: `${m.id}/${acc}/${dir}`, tipo: 'personaje', cuerpo: m.cuerpo, equipo: m.equipo, dir, acc, cuadros: Math.round(CUADROS[acc] / paso), paso });
+    const paso = acc === 'caminar' || acc === 'correr' ? PASO_ANDAR : acc === 'morir' ? morirPaso(CUADROS.morir, MORIR_N) : 1;
+    const n = acc === 'morir' ? MORIR_N : Math.round(CUADROS[acc] / paso);
+    for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'm', clave: `${m.id}/${acc}/${dir}`, tipo: 'personaje', cuerpo: m.cuerpo, equipo: m.equipo, dir, acc, cuadros: n, paso });
   }
 }
 if (GRUPOS.includes('n')) for (const n of Object.values(NPCS) as any[]) {
@@ -80,9 +97,11 @@ const BESTIAS = [...BESTIAS1, ...THOR_MONSTRUOS, ...MONSTRUOS67, ...BESTIAS67];
 if (GRUPOS.includes('b')) for (const bs of BESTIAS as any[]) {
   if (SOLO && !SOLO.includes(bs.id)) continue;
   for (const acc of ['quieto', 'caminar', 'correr', 'atacar', 'lanzar', 'herido', 'morir', 'especial']) {
+    if (!accOk(acc)) continue;
     const id = `mon_${bs.id}_${acc}`; const d = REGISTRO.find((x: any) => x.id === id); if (!d) continue;
-    const paso = andar(acc) ? PASO_ANDAR : 1;
-    for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'b', clave: `${bs.id}/${acc}/${dir}`, tipo: 'bestia', id, v: dir, seed: 1, cuadros: Math.round((d.cuadros ?? 1) / paso), paso });
+    const paso = andar(acc) ? PASO_ANDAR : acc === 'morir' ? morirPaso(d.cuadros ?? 8, MORIR_N) : 1;
+    const n = acc === 'morir' ? MORIR_N : Math.round((d.cuadros ?? 1) / paso);
+    for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'b', clave: `${bs.id}/${acc}/${dir}`, tipo: 'bestia', id, v: dir, seed: 1, cuadros: n, paso });
   }
 }
 // retratos grandes de cada clase en su pose de presentación (selección e intro)
@@ -97,9 +116,11 @@ const JEFES = [...JEFES1, ...JEFES2];
 if (GRUPOS.includes('j')) for (const jf of JEFES as any[]) {
   if (SOLO && !SOLO.includes(jf.id)) continue;
   for (const acc of ['quieto', 'caminar', 'atacar', 'lanzar', 'herido', 'morir', 'especial']) {
+    if (!accOk(acc)) continue;
     const id = `jefe_${jf.id}_${acc}`; const d = REGISTRO.find((x: any) => x.id === id); if (!d) continue;
-    const paso = andar(acc) ? PASO_ANDAR_JEFE : 1;
-    for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'j', clave: `jefe_${jf.id}/${acc}/${dir}`, tipo: 'bestia', id, v: dir, seed: 1, cuadros: Math.round((d.cuadros ?? 1) / paso), paso });
+    const paso = andar(acc) ? PASO_ANDAR_JEFE : acc === 'morir' ? morirPaso(d.cuadros ?? 8, MORIR_N_JEFE) : 1;
+    const n = acc === 'morir' ? MORIR_N_JEFE : Math.round((d.cuadros ?? 1) / paso);
+    for (const dir of DIRS) jobs.push({ id_job: nid++, grupo: 'j', clave: `jefe_${jf.id}/${acc}/${dir}`, tipo: 'bestia', id, v: dir, seed: 1, cuadros: n, paso });
   }
 }
 // el paso fino: caminar (y correr, quien lo tenga) en los ocho rumbos intermedios, 'r22.5', 'r67.5'..., para todo lo que
@@ -204,8 +225,8 @@ const LADO = 2048;
 for (const g of GRUPOS) {
   const js = jobs.filter((j) => j.grupo === g);
   if (!js.length) continue;
-  // borrar lo viejo del grupo si se hornea completo
-  if (!SOLO) {
+  // borrar lo viejo del grupo si se hornea completo (con ACCS solo se reemplazan esas acciones, más abajo)
+  if (!SOLO && !ACCS_SOLO) {
     if (g === 'm') { const ids = new Set(js.map((j) => j.clave.split('/')[0])); for (const k of Object.keys(man.m ?? {})) if (ids.has(k.split('/')[0])) delete man.m[k]; }
     else if (g === 'f') { for (const k of Object.keys(man.m ?? {})) if (/\/r[\d.]+$/.test(k)) delete man.m[k]; }
     else if (g === 'g') { for (const k of Object.keys(man.h ?? {})) if (k.includes('@')) delete man.h[k]; }
@@ -220,7 +241,12 @@ for (const g of GRUPOS) {
   const listas: Record<string, any[]> = {};
   for (const [sk, its] of porSub) {
     its.sort((a, b) => b.c.h - a.c.h);
-    const prefijo = (SOLO ? `${g}${Date.now().toString(36)}_` : `${g}_`) + sk + '_';
+    const prefijo = ACCS_SOLO ? `${g}_${sk}_${ACCS_SOLO.join('-')}_` : (SOLO ? `${g}${Date.now().toString(36)}_` : `${g}_`) + sk + '_';
+    // (con ACCS: los atlas de una horneada anterior de las mismas acciones se van, del manifiesto y del disco)
+    if (ACCS_SOLO) for (const tabla of [man.atlas, man.rel ?? {}]) for (const k of Object.keys(tabla)) if (k.startsWith(prefijo) && /^\d+(_[nh])?$/.test(k.slice(prefijo.length))) {
+      for (const ext of ['.png', '.webp']) { const ruta = join(SALIDA, k + ext); if (existsSync(ruta)) unlinkSync(ruta); }
+      delete tabla[k];
+    }
     let atlas: { nombre: string; buf: Uint8Array; bufN?: Uint8Array; bufH?: Uint8Array; x: number; y: number; filaH: number; usadoH: number; usadoW: number } | null = null;
     let na = 0;
     const cerrar = () => {

@@ -515,7 +515,10 @@ export function esqueleto(cu: Cuerpo, dir: Dir, acc: Accion, f: number, arma: Ti
       const hz = der.mano[2], c = (1.2 * S - hz) / (L * S);
       if (Math.abs(c) <= 1) pa = pa + (((Math.acos(c) * 180) / Math.PI) - pa) * k;
     }
-    der.eje = dirW([Math.sin(rad(pa)) * Math.cos(rad(ya)), Math.sin(rad(pa)) * Math.sin(rad(ya)), Math.cos(rad(pa))]);
+    const ej = dirW([Math.sin(rad(pa)) * Math.cos(rad(ya)), Math.sin(rad(pa)) * Math.sin(rad(ya)), Math.cos(rad(pa))]);
+    // (morir con intermedios: el arma que se suelta va de la dirección del puño a la de la pose)
+    const mz = P.armaMez ?? 1, mzv: V3 = mz >= 1 ? ej : add([der.eje[0] * (1 - mz), der.eje[1] * (1 - mz), der.eje[2] * (1 - mz)], ej, mz);
+    der.eje = mz >= 1 || len(mzv) < 1e-3 ? ej : nor(mzv);
   }
   // la cabeza del arma nunca se mete en el piso: si la punta queda abajo, el arma se levanta en su plano vertical
   const Lw = LARGO_ARMA[arma];

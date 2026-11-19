@@ -1,7 +1,7 @@
 import '../cuerpo';
 import { registrar } from '../objeto';
 import { MATERIALES } from '../materiales';
-import { DIRS, type Dir } from '../figura';
+import { DIRS, claveK, armarMorir, type Dir } from '../figura';
 import { cilindro, esfera, palo, poliedro, masa, hueso, bulto, ruido, type Comp, type Pieza, type V3, type Escena, type OpcComp } from '../render';
 
 /**
@@ -62,7 +62,7 @@ const suave = (t: number) => { const u = clamp(t, 0, 1); return u * u * (3 - 2 *
 const rad = (g: number) => (g * Math.PI) / 180;
 const TAU = Math.PI * 2;
 /** Valor de una tabla de cuadros clave (admite cuadros fraccionarios). */
-const K = (v: number[], f: number) => { const i = Math.floor(f), t = f - i; return lerp(v[Math.min(i, v.length - 1)], v[Math.min(i + 1, v.length - 1)], t); };
+const K = claveK;
 
 type M3 = [V3, V3, V3];
 interface Tr { o: V3; m: M3 }
@@ -564,7 +564,7 @@ for (const n of THOR_NIVELES) for (const a of THOR_ACCIONES) {
   registrar({
     id: `mon_thor_${n.nivel}_${a.acc}`, nombre: [`${n.nombre[0]} · ${a.nombre[0]}`, `${n.nombre[1]} · ${a.nombre[1]}`], tema: 'monstruos',
     variantes: [...DIRS], cuadros: a.cuadros, t: a.t, huella: [1, 1], bloquea: false,
-    armar: (v, f) => boxer(n.nivel, v as Dir, a.acc, f),
+    armar: (v, f) => (a.acc === 'morir' ? armarMorir(() => boxer(n.nivel, v as Dir, a.acc, f)) : boxer(n.nivel, v as Dir, a.acc, f)),
   });
 }
 

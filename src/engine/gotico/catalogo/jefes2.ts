@@ -1,6 +1,6 @@
 import { registrar } from '../objeto';
 import { MATERIALES } from '../materiales';
-import { DIRS, type Dir } from '../figura';
+import { DIRS, claveK, armarMorir, type Dir } from '../figura';
 import { ruido, cilindro, elipsoide, esfera, palo, poliedro, caja, masa, hueso, bulto, girarPiezas, type Comp, type Pieza, type V3, type Escena, type OpcComp } from '../render';
 import { transformar } from '../actos45';
 
@@ -64,7 +64,7 @@ const TAU = Math.PI * 2, PI = Math.PI;
 /** Azar fijo por número (igual en todos los cuadros). */
 const hr = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 /** Valor de una tabla de cuadros clave (admite cuadros fraccionarios). */
-const K = (v: number[], f: number) => { const i = Math.floor(f), t = f - i; return lerp(v[Math.min(i, v.length - 1)], v[Math.min(i + 1, v.length - 1)], t); };
+const K = claveK;
 type M3 = [V3, V3, V3];
 interface Tr { o: V3; m: M3 }
 const I3: M3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
@@ -161,7 +161,7 @@ function jefe(id: string, nombre: [string, string], alto: number, huella: number
       id: `jefe_${id}_${acc}`, nombre: [`${nombre[0]} · ${es}`, `${nombre[1]} · ${en}`], tema: 'monstruos',
       variantes: [...DIRS], cuadros: CUADROS[acc], t: acc === 'quieto' ? 6 : 3, huella: [huella, huella], bloquea: true,
       armar: (v, f) => {
-        const r = armar(acc, acc === 'atacar' ? TIEMPO_ATAQUE[f] : f), g = RUMBO[v as Dir] ?? +String(v).slice(1), c = Math.cos(rad(g)), s = Math.sin(rad(g));
+        const r = acc === 'morir' ? armarMorir(() => armar(acc, f)) : armar(acc, acc === 'atacar' ? TIEMPO_ATAQUE[f] : f), g = RUMBO[v as Dir] ?? +String(v).slice(1), c = Math.cos(rad(g)), s = Math.sin(rad(g));
         const res = r.resplandor ? { ...r.resplandor, c: [r.resplandor.c[0] * c - r.resplandor.c[1] * s, r.resplandor.c[0] * s + r.resplandor.c[1] * c, r.resplandor.c[2]] as V3 } : undefined;
         return { piezas: girarPiezas(r.piezas, g), resplandor: res, sinSombra: r.sinSombra };
       },

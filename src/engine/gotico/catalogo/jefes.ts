@@ -1,6 +1,6 @@
 import { registrar } from '../objeto';
 import { MATERIALES } from '../materiales';
-import { DIRS, type Dir } from '../figura';
+import { DIRS, claveK, armarMorir, type Dir } from '../figura';
 import { encantar } from '../cuerpo';
 import { ruido, cilindro, elipsoide, esfera, palo, poliedro, caja, masa, hueso, bulto, girarPiezas, type Comp, type Pieza, type V3, type Escena, type OpcComp } from '../render';
 
@@ -70,7 +70,7 @@ const TAU = Math.PI * 2;
 /** Azar fijo por número (igual en todos los cuadros). */
 const hr = (n: number) => { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
 /** Valor de una tabla de cuadros clave (admite cuadros fraccionarios). */
-const K = (v: number[], f: number) => { const i = Math.floor(f), t = f - i; return lerp(v[Math.min(i, v.length - 1)], v[Math.min(i + 1, v.length - 1)], t); };
+const K = claveK;
 
 type M3 = [V3, V3, V3];
 /** Marco rígido: origen y matriz (columnas: adónde van x adelante, y izquierda, z arriba). */
@@ -392,7 +392,7 @@ function jefe(id: string, nombre: [string, string], alto: number, huella: number
       id: `jefe_${id}_${acc}`, nombre: [`${nombre[0]} · ${es}`, `${nombre[1]} · ${en}`], tema: 'monstruos',
       variantes: [...DIRS], cuadros: CUADROS[acc], t: acc === 'quieto' ? 6 : 3, huella: [huella, huella], bloquea: true,
       armar: (v, f) => {
-        const r = armar(acc, acc === 'atacar' && id !== 'verdugo' ? TIEMPO_ATAQUE[f] : f), g = RUMBO[v as Dir] ?? +String(v).slice(1), c = Math.cos(rad(g)), s = Math.sin(rad(g));
+        const r = acc === 'morir' ? armarMorir(() => armar(acc, f)) : armar(acc, acc === 'atacar' && id !== 'verdugo' ? TIEMPO_ATAQUE[f] : f), g = RUMBO[v as Dir] ?? +String(v).slice(1), c = Math.cos(rad(g)), s = Math.sin(rad(g));
         if (acc === 'morir') {
           // tendido: el tronco no se mete en el piso (se alza todo el cuerpo, salvo lo que ya está pintado en el piso)
           let lo = Infinity;
@@ -1627,7 +1627,11 @@ function reyEscarcha(acc: Acc, f: number): Res {
     let eje = nor(sub(mB, mA));
     if (acc === 'lanzar') eje = nor(add([0, 0, 1], mv(tor.m, [0.25, -0.2, 0])));
     if (acc === 'morir' && f >= 4) { mA = [16 * S, -18 * S, 2]; eje = nor([0.8, 0.6, 0.02]); }
-    else if (acc === 'morir' && f >= 2) { mA = add(r.mun[0], [0, 0, 0]); eje = nor([0.5, -0.3, 0.8]); }
+    else if (acc === 'morir' && f >= 2) { mA = add(r.mun[0], [0, 0, 0]); eje = nor([0.5, -0.3, 0.8]);
+      // (intermedios) de la mano al piso: cae con gravedad
+      if (f > 3) { const k = (f - 3) ** 2; mA = mez(mA, [16 * S, -18 * S, 2], k); eje = nor(mez(eje, nor([0.8, 0.6, 0.02]), k)); } }
+    // (intermedios) el hacha se va de la guardia a la mano suelta
+    else if (acc === 'morir' && f > 1) eje = nor(mez(eje, nor([0.5, -0.3, 0.8]), f - 1));
     const base = add(mA, eje, -16), cabeza = add(mA, eje, 84);
     ps.push(palo(base, cabeza, 1.7, { mat: 'hierro', r1: 1.5 }));
     for (let k = 0; k < 4; k++) ps.push(cilindro(...add(mA, eje, 10 + k * 7), 2.1, 3.2, { mat: 'cu_cuero_negro', eje }));
@@ -1846,6 +1850,12 @@ function verdugo(acc: Acc, f: number): Res {
         base = add(mu, eje, 1.2 * S);
       }
     } else { base = [26 * S, -14 * S, 2.2]; eje = nor([0.7, -0.7, 0]); filoD = nor([0.7, 0.7, 0]); }
+    // (intermedios de morir) entre el 4 y el 5 la cuchilla se le cae de la mano al piso, con gravedad
+    if (acc === 'morir' && f > 4 && f < 5) {
+      const k = (f - 4) ** 2;
+      base = mez(base, [26 * S, -14 * S, 2.2], k); eje = nor(mez(eje, nor([0.7, -0.7, 0]), k));
+      filoD = mez(filoD, nor([0.7, 0.7, 0]), k); filoD = nor(sub(filoD, esc(eje, pto(filoD, eje))));
+    }
     const lado = nor(cruz(eje, filoD));
     const h0 = add(base, eje, -5), h1 = add(base, eje, 9);
     ps.push(palo(h0, h1, 1.5, { mat: 'madera_vieja' }), esfera(...h0, 2, { mat: 'hierro_oxido' }));

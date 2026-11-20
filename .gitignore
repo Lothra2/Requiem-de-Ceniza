@@ -5,3 +5,7 @@ dist
 # atlas intermedios del horneado (se publican en webp)
 /juego/public/assets/*.png
 .claude/worktrees/
+
+# configuraciones temporales de vite para pruebas en otro puerto
+juego/_vite*.config.ts
+juego/herramientas/_m_*

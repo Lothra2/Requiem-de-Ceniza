@@ -740,3 +740,90 @@ export function veloSangre(nivel: 1 | 2 | 3, w = 960, h = 540, semilla = 7): Ras
   }
   return img;
 }
+
+// ================================================================== el canon en el piso (oleada 2 de los mundos)
+/**
+ * Piezas del relato (Rick: "gore con intención"). Arriba está Aun-Saar, el Dios Sediento: sed, nunca hambre. Lo que él toca
+ * no sangra, queda bebido. Y Vesperio va delante del héroe ablandando guardianes.
+ *   sed_cuerpo_seco   cuerpo bebido: piel pegada al hueso, color de pergamino, la boca abierta, ni una gota de sangre.
+ *                     tendido, boca_abajo, sentado, de_rodillas (así quedan los que se ofrecieron)
+ *   sed_brasa         cráter de una brasa caída: labio de vidrio negro, ceniza y el fondo todavía al rojo (da luz).
+ *                     viva (5 x 5), fria (el vidrio y la ceniza, sin luz)
+ *   ves_rastro        el paso de Vesperio: velas apagadas en fila (hilera, hilera_y), la partitura clavada con un puñal
+ *                     (partitura) y el atril del que cantó (atril)
+ *   sed_sello_roto    losa de uno de los cinco sellos, partida, con las siete muescas de las voces (una vacía): plano, 7 x 7
+ */
+M.sed_piel_seca = { rampa: ['#1c1712', '#2f2820', '#463c30', '#5e5242', '#786a56', '#92836c', '#ab9c84'], ruido: 0.35, escala: 0.5, patron: (p) => (Math.sin(p[0] * 2.1 + p[2] * 1.3) > 0.6 ? -0.18 : 0) };
+M.sed_vidrio_negro = { rampa: ['#020203', '#060608', '#0c0c10', '#15151b', '#22222b', '#3a3a48', '#6a6a80'], ruido: 0.2, escala: 0.6, brillo: 0.9 };
+M.sed_ceniza = { rampa: ['#161514', '#252321', '#363330', '#484541', '#5c5853', '#716c66'], ruido: 0.5, escala: 0.9 };
+M.sed_losa = { rampa: ['#141312', '#22201d', '#33302b', '#46423b', '#5a554c', '#6f695e', '#857e71'], ruido: 0.3, escala: 0.25 };
+LUCES_HORROR.push(luzDe('sed_brasa', ['viva'], BRASA, 170, 0.8, 0.4, 'brasa', [0, 0, 4], 40));
+const seco = (g: G, pose: Pose, o: Parameters<typeof cuerpo>[2] = {}) => cuerpo(g, pose, { piel: 'sed_piel_seca', flaco: 0.6, trapo: 'gore_trapo', heridas: 0, cabeza: 'craneo', ...o });
+reg({
+  id: 'sed_cuerpo_seco', nombre: ['Cuerpo bebido', 'Drained body'], variantes: ['tendido', 'boca_abajo', 'sentado', 'de_rodillas'], huella: [3, 2], bloquea: false,
+  armar: (v, _f, g, a) => {
+    if (v === 'sentado') seco(g.sub(0, 0, -14, a.r() * 40 - 20), POSES.sentado);
+    else if (v === 'de_rodillas') seco(g.sub(0, 0, -15, a.r() * 30 - 15), { brazos: [[35, 25, 70], [30, 30, 85]], piernas: [[10, 6, 150], [14, 8, 150]], columna: 30, cabeza: [-55, 0] });
+    else {
+      const p: Pose = v === 'tendido' ? { brazos: [[60, 70, 20], [140, 40, 60]], piernas: [[8, 14, 20], [20, 6, 55]], columna: 4, cabeza: [-40, 25] } : { brazos: [[160, 30, 30], [150, 45, 70]], piernas: [[5, 10, 10], [12, 12, 30]], columna: -3, cabeza: [10, -50] };
+      seco(acostado(g, 0, 0, 0, a.r() * 360, 1), p, { abajo: ABAJO_ACOSTADO });
+    }
+    // el polvo que deja lo que se secó, y nada más: ni charco ni mancha
+    for (let i = 0; i < 4; i++) g.elip(r2(a, 12), r2(a, 8), 0.2, 3 + a.r() * 3, 2 + a.r() * 2, 0.5, { mat: 'sed_ceniza', tono: r2(a, 0.1), giro: a.r() * 180 });
+  },
+}, {
+  id: 'sed_brasa', nombre: ['Cráter de una brasa', 'Ember crater'], variantes: ['viva', 'fria'], huella: [5, 5], bloquea: true, cuadros: 6, t: 4,
+  armar: (v, f, g, a) => {
+    const viva = v === 'viva', R = 25;
+    // la ceniza derramada y el labio de vidrio negro, en esquirlas desparejas que apuntan hacia afuera
+    g.elip(0, 0, -0.4, R * 1.25, R * 1.15, 1.6, { mat: 'sed_ceniza', tono: -0.1 });
+    for (let i = 0, n = 17; i < n; i++) {
+      const an = (i / n) * TAU + r2(a, 0.12), d = R * (0.82 + a.r() * 0.2), h = 4 + a.r() * 9, w = 5 + a.r() * 4;
+      g.sub(Math.cos(an) * d, Math.sin(an) * d, 0, (an * 180) / Math.PI, 0).caja(0, 0, 0, w * 0.7, w, h, { mat: 'sed_vidrio_negro', incl: -18 - a.r() * 22, inclEje: 'y', tono: r2(a, 0.1) });
+      if (a.r() < 0.5) g.elip(Math.cos(an) * (d + 6), Math.sin(an) * (d + 6), 0.5, 2.5 + a.r() * 2, 2 + a.r() * 2, 1.4, { mat: 'sed_vidrio_negro', giro: a.r() * 180 });
+    }
+    // el cuenco: ceniza que baja y, en el fondo, la brasa que no se apaga (late despacio)
+    g.elip(0, 0, 0.2, R * 0.78, R * 0.74, 1.2, { mat: 'sed_ceniza', tono: -0.22 });
+    if (viva) {
+      const k = tirita(f, 6);
+      g.elip(0, 0, 0.9, R * 0.42 * k, R * 0.4 * k, 1.5, { mat: 'lava' });
+      g.elip(r2(a, 2), r2(a, 2), 1.6, R * 0.2 * k, R * 0.18 * k, 1.8, { mat: 'fuego', tono: 0.1 });
+      for (let i = 0; i < 5; i++) { const an = a.r() * TAU, d = R * (0.3 + a.r() * 0.3); g.elip(Math.cos(an) * d, Math.sin(an) * d, 1.2, 1.6, 1.3, 0.9, { mat: 'lava', tono: -0.15 + 0.1 * onda(f, 6, i) }); }
+      return { piezas: g.ps, resplandor: resplandor('sed_brasa', 'viva', k) };
+    }
+    g.elip(0, 0, 0.9, R * 0.4, R * 0.38, 1.4, { mat: 'sed_vidrio_negro', tono: -0.1 });
+  },
+}, {
+  id: 'ves_rastro', nombre: ['El paso de Vesperio', "Vesperio's passage"], variantes: ['hilera', 'hilera_y', 'partitura', 'atril'], huella: [3, 1], bloquea: false,
+  armar: (v, _f, g, a) => {
+    if (v === 'hilera' || v === 'hilera_y') {
+      // siete velas apagadas en fila (las siete voces), cada una derretida a su altura, con su hilo de pabilo negro
+      for (let i = 0; i < 7; i++) { const u = (i - 3) * 4.6 + r2(a, 0.6), w = r2(a, 1.2), h = 2.5 + a.r() * 5; const [x, y] = v === 'hilera' ? [u, w] : [w, u]; vela(g, x, y, 0, h, 1.1, 0, 1, i, false); g.palo([x, y, h], [x + 0.3, y, h + 1.1], 0.18, { mat: 'mu_hierro' }); }
+    } else if (v === 'partitura') {
+      // la hoja con la canción, clavada al piso con un puñal fino
+      g.caja(0, 0, 0.1, 9, 7, 0.25, { mat: 'mu_cera', giro: a.r() * 40 - 20, tono: 0.12 });
+      for (let i = 0; i < 4; i++) g.caja(0, -2.2 + i * 1.5, 0.3, 7, 0.25, 0.12, { mat: 'mu_hierro', giro: 0 });
+      g.palo([1, 0.5, 0.2], [2.2, 0, 9], 0.45, { mat: 'mu_hierro', r1: 0.3 }); g.caja(2.2, 0, 8.6, 3.4, 0.6, 0.6, { mat: 'mu_hierro', giro: 20 }); g.palo([2.2, 0, 9], [2.5, -0.1, 12], 0.5, { mat: 'mu_madera' });
+      vela(g, -6, 3, 0, 3, 1.1, 0, 1, 1, false); vela(g, 6.5, -3, 0, 4.5, 1.1, 0, 1, 2, false);
+    } else {
+      // el atril de coro, de pie, con la hoja todavía puesta y tres velas muertas al pie
+      g.cil(0, 0, 0, 2.6, 1.2, { mat: 'mu_madera' }); g.palo([0, 0, 1], [0, 0, 26], 0.9, { mat: 'mu_madera' });
+      g.caja(0, 0, 25, 9, 6, 0.9, { mat: 'mu_madera', incl: 35, inclEje: 'y' }); g.caja(-0.4, 0, 26.2, 6.5, 4.6, 0.25, { mat: 'mu_cera', incl: 35, inclEje: 'y', tono: 0.12 });
+      for (let i = 0; i < 3; i++) vela(g, 5 + i * 2.6, -4 + i * 3.6, 0, 2 + a.r() * 4, 1.1, 0, 1, i, false);
+    }
+  },
+}, {
+  id: 'sed_sello_roto', nombre: ['Sello roto', 'Broken seal'], variantes: ['uno', 'dos', 'tres', 'cuatro', 'cinco'], huella: [7, 7], plano: true,
+  armar: (v, _f, g, a) => {
+    // la losa redonda en cinco gajos corridos (el que se soltó, hundido y sin su brillo), aro de siete muescas: seis con su
+    // piedra, una vacía (la voz que se cansó), y la grieta que cruza
+    const R = 42, roto = ['uno', 'dos', 'tres', 'cuatro', 'cinco'].indexOf(v);
+    for (let i = 0; i < 5; i++) {
+      const a0 = (i / 5) * TAU + 0.2, a1 = ((i + 1) / 5) * TAU + 0.2, am = (a0 + a1) / 2, corr = i === roto ? 2.6 : 0.5 + a.r() * 0.6;
+      for (let k = 0; k < 6; k++) { const t = a0 + ((k + 0.5) / 6) * (a1 - a0); for (const [d, w] of [[R * 0.3, R * 0.34], [R * 0.72, R * 0.36]] as const) g.sub(Math.cos(am) * corr + Math.cos(t) * d, Math.sin(am) * corr + Math.sin(t) * d, i === roto ? -0.5 : 0, (t * 180) / Math.PI).caja(0, 0, 0, w, (d * (a1 - a0)) / 6 + 0.9, 1.1, { mat: 'sed_losa', tono: (i === roto ? -0.2 : 0) + r2(a, 0.05) }); }
+      g.sub(Math.cos(am) * (R * 0.5 + corr), Math.sin(am) * (R * 0.5 + corr), 1, (am * 180) / Math.PI).caja(0, 0, 0, 7, 1, 0.4, { mat: i === roto ? 'sed_vidrio_negro' : 'runa', tono: i === roto ? 0 : -0.25 });
+    }
+    for (let i = 0; i < 7; i++) { const t = (i / 7) * TAU; g.elip(Math.cos(t) * R * 0.98, Math.sin(t) * R * 0.98, 0.4, 3.2, 3.2, 1, { mat: 'sed_vidrio_negro' }); if (i !== 4) g.elip(Math.cos(t) * R * 0.98, Math.sin(t) * R * 0.98, 1, 1.9, 1.9, 1.3, { mat: 'mu_cera', tono: -0.1 }); }
+    g.elip(0, 0, 0.6, 5, 5, 1, { mat: 'sed_vidrio_negro' });
+  },
+});

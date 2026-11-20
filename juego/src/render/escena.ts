@@ -258,7 +258,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   const btx = Math.floor(h.x / 5), bty = Math.floor(h.y / 5);
   // (a campo abierto se ve lejos: el radio cubre la pantalla, unas 30 casillas. Con 18 el mundo era una isla alumbrada
   //  en medio de una pantalla negra. Bajo tierra se sigue descubriendo de a poco: 22 casillas)
-  const rv = (window as any).__rv ?? (z.tipo === 'mazmorra' ? 20 : 38);
+  // (bajo tierra 29 casillas desde las salas grandes de la oleada 1 de mundos: con 22 una sala de 35 no se abría entera al entrar)
+  const rv = (window as any).__rv ?? (z.tipo === 'mazmorra' ? 34 : 38);
   for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const X = btx + dx, Y = bty + dy; if (X >= 0 && Y >= 0 && X < z.tw && Y < z.th && dx * dx + dy * dy <= rv) z.explorado[Y * z.tw + X] = 1; }
   // a cielo abierto se ve lo que entra en pantalla, sea del tamaño que sea: en una pantalla grande (1920 de ancho en Lejos)
   // el círculo de seis baldosas dejaba los costados negros, como piso que no existía, hasta caminar hasta allá

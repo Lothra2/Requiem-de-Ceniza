@@ -1620,10 +1620,13 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   });
   if (!z.entradas.arriba) z.entradas.arriba = [p0[0], p0[1] + 2];
   if (def.piedraViaje) { const o = ponerPiedra(k, p0[0], p0[1]); if (o) z.marcas.push({ tipo: 'viaje', cx: o.cx, cy: o.cy }); }
-  colocarInteractivos(k, 2 + Math.floor(area / 3500), 1 + Math.floor(area / 7000), def.tema);
+  // (las salas ahora son más grandes, pero el presupuesto de cofres y de monstruos es el de antes: sale del tamaño de la zona
+  //  como si las salas midieran lo de antes, 6,8 celdas de sala por baldosa del mapa)
+  const areaP = obra || cueva ? def.tam[0] * def.tam[1] * 6.8 : area;
+  colocarInteractivos(k, 2 + Math.floor(areaP / 3500), 1 + Math.floor(areaP / 7000), def.tema);
   // ni la entrada ni la sala del jefe llevan grupos sembrados: la escolta del jefe llega por oleadas
   const enSalaJefe = (x: number, y: number) => !!def.jefe && !abierto && x >= cN[0] * 5 - 2 && y >= cN[1] * 5 - 2 && x < (cN[0] + cN[2]) * 5 + 2 && y < (cN[1] + cN[3]) * 5 + 2;
-  acampar(k, Math.floor(area / 260), def.jefe ? [p0, [pN[0], pN[1] + 2]] : [p0], [...orden].filter((c) => c !== c0 && !(def.jefe && c === cN) && c[2] >= 4 && c[3] >= 4).sort((a, b) => b[2] * b[3] - a[2] * a[3] || a[0] - b[0] || a[1] - b[1]).map((c) => centroDe(c)), def.jefe ? (x, y) => enSalaJefe(x, y) || (!!abierto && Math.hypot(x - pN[0], y - pN[1] - 2) < 22) : undefined);
+  acampar(k, Math.floor(areaP / 260), def.jefe ? [p0, [pN[0], pN[1] + 2]] : [p0], [...orden].filter((c) => c !== c0 && !(def.jefe && c === cN) && c[2] >= 4 && c[3] >= 4).sort((a, b) => b[2] * b[3] - a[2] * a[3] || a[0] - b[0] || a[1] - b[1]).map((c) => centroDe(c)), def.jefe ? (x, y) => enSalaJefe(x, y) || (!!abierto && Math.hypot(x - pN[0], y - pN[1] - 2) < 22) : undefined);
   const regAntes = def.jefe ? regionesLibres(z) : 0, objAntes = z.objetos.length;
   k.capa = 'jefe';
   if (def.jefe) {

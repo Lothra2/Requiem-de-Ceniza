@@ -337,7 +337,7 @@ class Constructor {
     if (!forzar && !this.libre(x0, y0, hw, hh)) return null;
     const z = this.z;
     // dentro de un claro de pelea solo va lo de su escena y lo que pasó ahí (el vacío es parte del diseño)
-    if (!forzar && z.claros && !def.plano && this.capa !== 'escena' && this.capa !== 'horror') for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + hw; x++) if (z.claros[y * z.W + x]) return null;
+    if (!forzar && z.claros && !def.plano && this.capa !== 'escena' && this.capa !== 'horror' && this.capa !== 'jefe') for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + hw; x++) if (z.claros[y * z.W + x]) return null;
     // no tapar las celdas reservadas (caminos, entradas)
     if (!forzar) for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + hw; x++) if (this.reserva[y * z.W + x]) return null;
     const bloquea = !!def.bloquea && !def.plano;
@@ -406,8 +406,18 @@ class Constructor {
   }
 }
 
+/**
+ * El tamaño real de la zona, en baldosas. Las mazmorras crecen sobre lo que dice `tam` para que quepan las salas grandes: 4
+ * baldosas por lado donde hay jefe (su sala mide 40 celdas o más) y 2 donde no. Las islas sobre el vacío y las casas no.
+ */
+export function tamZona(def: DefZona): [number, number] {
+  const t = tematica(def.tema);
+  if (def.tipo !== 'mazmorra' || def.casa || t.islas || (globalThis as any).__salasViejas) return def.tam;
+  const mas = def.jefe ? 4 : 2;
+  return [def.tam[0] + mas, def.tam[1] + mas];
+}
 function nuevaZona(def: DefZona, semilla: number): Zona {
-  const [tw, th] = def.tam, W = tw * 5, H = th * 5;
+  const [tw, th] = tamZona(def), W = tw * 5, H = th * 5;
   const t = tematica(def.tema);
   return {
     id: def.id, nombre: def.nombre, acto: def.acto, nivel: def.nivel, tipo: def.tipo, tw, th, W, H,
@@ -535,6 +545,8 @@ function exterior(def: DefZona, semilla: number): Zona {
       }
       return bd >= 0 ? mejor : null;
     };
+    // el jefe de un mundo abierto pelea en su propio claro, el más grande y sin escena (antes salía en cualquier rincón, con despeje 2)
+    if (def.jefe) { for (const rad of [14, 13, 12]) { const q = elegir(rad, 16, 12); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } } }
     const nClaros = z.W * z.H > 12000 ? 4 : 3;
     for (let i = 0; i < nClaros; i++) { for (const rad of [10 + Math.floor(rl() * 4), 10, 9]) { const q = elegir(rad, 14, 12) ?? elegir(rad, 12, 7); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro' }); break; } } }
     { const q = elegir(6, 14, 8) ?? elegir(5, 10, 5); if (q) lugares.push({ cx: q[0], cy: q[1], r: q ? 6 : 5, papel: 'hito' }); }
@@ -671,8 +683,8 @@ function exterior(def: DefZona, semilla: number): Zona {
   // cofres, santuarios y pozos
   colocarInteractivos(k, 2 + Math.floor(area / 6000), 1 + Math.floor(area / 9000), def.tema);
   // dónde salen los monstruos: lejos de las entradas
-  acampar(k, Math.floor((area / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro').map((l): [number, number] => [l.cx, l.cy]));
-  if (def.jefe) { const p = lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
+  acampar(k, Math.floor((area / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro' && l.escena !== 'jefe').map((l): [number, number] => [l.cx, l.cy]), (x, y) => lugares.some((l) => l.escena === 'jefe' && Math.hypot(x - l.cx, y - l.cy) < l.r + 8));
+  if (def.jefe) { const lj = lugares.find((l) => l.escena === 'jefe'), p = lj ? [lj.cx, lj.cy] : lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
   if (def.tema === 'paramo') sueloParamo(k);
   // la pieza única del acto: una o dos por mundo abierto, lejos de las salidas
   { const hito = REGISTRO.find((d) => d.id === 'acto_hito'), v = hito?.variantes.find((q) => q.startsWith(`a${def.acto}_`)), lh = lugares.find((l) => l.papel === 'hito');
@@ -1001,7 +1013,7 @@ function alcanzable(z: Zona, desde?: [number, number]): Uint8Array {
  * `n` es la cantidad de grupos de antes. El único junta su séquito (1 + 3 + un grupo), los campeones también (3 + un grupo).
  * `sitios`: lugares que piden campamento primero (los claros de un exterior, la sala mayor de una mazmorra).
  */
-function acampar(k: Constructor, n: number, evitar: [number, number][], sitios: [number, number][] = []) {
+function acampar(k: Constructor, n: number, evitar: [number, number][], sitios: [number, number][] = [], prohibido?: (x: number, y: number) => boolean) {
   const z = k.z, r = k.r, { W, H } = z;
   if (n <= 0) return;
   const azar = (x: number) => Math.floor(x) + (r() < x - Math.floor(x) ? 1 : 0);
@@ -1024,13 +1036,13 @@ function acampar(k: Constructor, n: number, evitar: [number, number][], sitios: 
   for (const cmp of lista) {
     let mejor = -1, ms = -1;
     // un sitio que lo pidió, si sigue libre y lejos de los demás
-    while (pedidos.length && mejor < 0) { const [x, y] = pedidos.shift()!, i = Math.floor(y) * W + Math.floor(x); if (i >= 0 && i < W * H && !z.bloq[i] && alc[i] && !puestos.some(([a, b]) => Math.hypot(a - x, b - y) < 16) && !evitar.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) mejor = i; }
+    while (pedidos.length && mejor < 0) { const [x, y] = pedidos.shift()!, i = Math.floor(y) * W + Math.floor(x); if (i >= 0 && i < W * H && !z.bloq[i] && alc[i] && !(prohibido && prohibido(x, y)) && !puestos.some(([a, b]) => Math.hypot(a - x, b - y) < 16) && !evitar.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) mejor = i; }
     // si no, lo más abierto que quede: primero a 24 de los demás y en arena, después se afloja
     for (const [sep, dmin, lejosEnt] of [[24, 4, 20], [19, 4, 18], [19, 3, 16], [15, 2, 16], [12, 1, 14], [9, 0, 12]] as const) {
       if (mejor >= 0) break;
       for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) {
         const i = y * W + x; if (z.bloq[i] || !alc[i] || desp[i] < dmin) continue;
-        const s = Math.min(desp[i], 9) + azarCelda[i] * 2.5; if (s <= ms) continue;
+        const s = Math.min(desp[i], 9) + azarCelda[i] * 2.5; if (s <= ms || (prohibido && prohibido(x, y))) continue;
         if (evitar.some(([a, b]) => Math.hypot(a - x, b - y) < lejosEnt) || puestos.some(([a, b]) => Math.hypot(a - x, b - y) < sep)) continue;
         ms = s; mejor = i;
       }
@@ -1076,16 +1088,18 @@ function cavarCueva(k: Constructor, cuartos: number[][], enlaces: [number[], num
       if (x >= 2 && y >= 2 && x < W - 2 && y < H - 2 && Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= rad) m[y * W + x] = 1;
   };
   const centro = (c: number[]): [number, number] => [(c[0] + c[2] / 2) * 5, (c[1] + c[3] / 2) * 5];
-  const radios = cuartos.map((c, i) => { const jefe = conJefe && i === cuartos.length - 1; return [Math.max(jefe ? 12.5 : 5.5, c[2] * 2.7), Math.max(jefe ? 12.5 : 5.5, c[3] * 2.7)]; });
+  const viejo = !!(globalThis as any).__salasViejas, medio = conJefe || cuartos.length < 3 ? -1 : Math.floor(cuartos.length / 2);
+  // (cámaras de 9 de radio como mínimo, una gran caverna a media cadena y la del jefe con 15: antes 5,5 a 13,5 nominal y 4 a 10 real)
+  const radios = cuartos.map((c, i) => { const jefe = conJefe && i === cuartos.length - 1; if (viejo) return [Math.max(jefe ? 12.5 : 5.5, c[2] * 2.7), Math.max(jefe ? 12.5 : 5.5, c[3] * 2.7)]; const m = jefe ? 17.5 : i === medio ? 15 : 9; return [Math.max(m, c[2] * 3.1), Math.max(m, c[3] * 3.1)]; });
   cuartos.forEach((c, i) => {
     const [cx, cy] = centro(c), [rx, ry] = radios[i], punta = i === 0 || i === cuartos.length - 1;
     for (let y = Math.floor(cy - ry - 3); y <= cy + ry + 3; y++) for (let x = Math.floor(cx - rx - 3); x <= cx + rx + 3; x++) {
       if (x < 2 || y < 2 || x >= W - 2 || y >= H - 2) continue;
       const d = Math.hypot((x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry), n = n1[y * W + x] * 0.65 + n2[y * W + x] * 0.35;
-      if (d < 0.8 + (n - 0.5) * 0.8) ab[y * W + x] = 1;
+      if (d < (viejo ? 0.8 : 0.9) + (n - 0.5) * (viejo ? 0.8 : 0.6)) ab[y * W + x] = 1;
     }
     // el centro (escalera, piedra de viaje, jefe y su tesoro) siempre queda despejado
-    disco(ab, cx, cy + 1, conJefe && i === cuartos.length - 1 ? 10 : punta ? 4.6 : 3.2); disco(nuc, cx, cy + 1, conJefe && i === cuartos.length - 1 ? 10 : punta ? 4.6 : 3.2);
+    const rn = conJefe && i === cuartos.length - 1 ? (viejo ? 10 : 15.5) : viejo ? (punta ? 4.6 : 3.2) : i === medio ? 9 : 5.5; disco(ab, cx, cy + 1, rn); disco(nuc, cx, cy + 1, rn);
   });
   // lazos: algún cuarto se une además con otro cercano que no era su vecino en la cadena
   const unidos = (a: number[], b: number[]) => enlaces.some(([p, q]) => (p === a && q === b) || (p === b && q === a));
@@ -1100,7 +1114,7 @@ function cavarCueva(k: Constructor, cuartos: number[][], enlaces: [number[], num
     const pasos = Math.ceil(L * 2), fase = r() * 6.28, f2 = 5 + r() * 6;
     for (let i = 0; i <= pasos; i++) {
       const t = i / pasos, u = 1 - t, x = u * u * ax + 2 * u * t * mx + t * t * bx, y = u * u * ay + 2 * u * t * my + t * t * by;
-      disco(ab, x, y, 2.8 + 0.9 * Math.sin(t * f2 + fase)); disco(nuc, x, y, 2);
+      disco(ab, x, y, (viejo ? 2.8 : 3.7) + 0.9 * Math.sin(t * f2 + fase)); disco(nuc, x, y, viejo ? 2 : 2.6);
       // nichos y ensanches a los lados del túnel
       if (r() < 0.03) disco(ab, x + (r() - 0.5) * 9, y + (r() - 0.5) * 9, 2.2 + r() * 1.8);
     }
@@ -1246,7 +1260,7 @@ function escenasLugares(k: Constructor, def: DefZona, lugares: Lugar[], centro: 
     ['patibulo', () => [[de('horca'), -0.38, 0.85], [de('horca'), 0.42, 0.88], [de('muerto'), -0.95, 0.75], [de('muerto'), 0.95, 0.7], [de('muerto'), 0.02, 0.6], ['dec_ruina', 1.25, 0.9, `${est}_pila`], ['cofre', 0.05, 0.74]]],
   ];
   const i0 = Math.floor(r() * recetas.length);
-  lugares.filter((l) => l.papel === 'claro').forEach((l, n) => {
+  lugares.filter((l) => l.papel === 'claro' && l.escena !== 'jefe').forEach((l, n) => {
     const [nombre, piezas] = recetas[(i0 + n) % recetas.length];
     // el fondo: del lado contrario al centro del mapa (por donde llega la senda)
     const fondo = Math.atan2(l.cy - centro[1], l.cx - centro[0]);
@@ -1432,18 +1446,33 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   const suelo = new Uint8Array(tw * th);
   const cuartos: [number, number, number, number][] = [];
   // (una casa son cuatro o cinco cuartos chicos pegados; una mazmorra, un cuarto cada 45 baldosas)
-  for (let i = 0; i < (def.casa ? 400 : 80) && cuartos.length < (def.casa ? 5 : Math.floor((tw * th) / 45)); i++) {
-    const w = 2 + Math.floor(r() * (def.casa ? 2 : 4)), h = 2 + Math.floor(r() * (def.casa ? 2 : 4));
-    const x = 1 + Math.floor(r() * (tw - w - 2)), y = 1 + Math.floor(r() * (th - h - 2));
+  // Bajo tierra con aire (Rick, 20 nov 2026): antes salas de 10 a 25 celdas unidas por pasillos de 5 (una de cada tres mazmorras
+  // sin un solo 9 x 9 libre, y ninguna cueva). Ahora, en las mazmorras de obra: menos salas y de 20 a 35 celdas, una sala mayor
+  // por nivel (la del jefe si lo hay, de 40 o más) que se pone primero para que quepa, y pasillos siempre de doble ancho. En las
+  // cuevas: cámaras de 3 a 5 baldosas de semilla que `cavarCueva` abre a 18 o más de ancho. Las islas sobre el vacío y las casas
+  // siguen como estaban (apretado a propósito).
+  const viejo = !!(globalThis as any).__salasViejas, obra = !viejo && !def.casa && !t.organica && !t.islas, cueva = !viejo && !!t.organica && !def.casa;
+  const SALA_MAYOR: Record<string, number> = { senor_demonio: 10, aun_saar: 10, dragon_oseo: 9, campana_ahoga: 9, madre_cienaga: 9, rey_escarcha: 9 };
+  let mayor: [number, number, number, number] | null = null;
+  if (obra) {
+    const lj = def.jefe ? SALA_MAYOR[def.jefe] ?? 8 : 0, w = Math.min(tw - 2, lj || 6 + Math.floor(r() * 2)), h = Math.min(th - 2, lj || 5 + Math.floor(r() * 2));
+    mayor = [1 + Math.floor(r() * Math.max(1, tw - w - 1)), 1 + Math.floor(r() * Math.max(1, th - h - 1)), w, h]; cuartos.push(mayor);
+  }
+  for (let i = 0; i < (def.casa ? 400 : 120) && cuartos.length < (def.casa ? 5 : Math.max(obra ? 4 : 3, Math.floor((tw * th) / (obra ? 80 : cueva ? 62 : 45)))); i++) {
+    const w = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4)), h = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4));
+    const x = 1 + Math.floor(r() * Math.max(1, tw - w - 2)), y = 1 + Math.floor(r() * Math.max(1, th - h - 2));
     if (cuartos.some(([a, b, c, d]) => x < a + c + 1 && x + w + 1 > a && y < b + d + 1 && y + h + 1 > b)) continue;
     cuartos.push([x, y, w, h]);
   }
   // ordenar en cadena (el primero es la entrada, el último el fondo) uniendo cada cuarto con el más cercano ya unido
-  const orden = [cuartos.shift()!];
+  // (la entrada: con sala mayor, el cuarto que le queda más lejos; el jefe pelea en la mayor, que se une al final de la cadena)
+  let ie = 0;
+  if (mayor && cuartos.length > 1) { let bd = -1; cuartos.forEach((c, i) => { if (c === mayor) return; const d = Math.abs(c[0] + c[2] / 2 - mayor![0] - mayor![2] / 2) + Math.abs(c[1] + c[3] / 2 - mayor![1] - mayor![3] / 2); if (d > bd) { bd = d; ie = i; } }); }
+  const orden = [cuartos.splice(ie, 1)[0]];
   const enlaces: [number[], number[]][] = [];
   while (cuartos.length) {
     let bi = 0, bj = 0, bd = Infinity;
-    cuartos.forEach((c, i) => orden.forEach((o, j) => { const d = Math.abs(c[0] + c[2] / 2 - o[0] - o[2] / 2) + Math.abs(c[1] + c[3] / 2 - o[1] - o[3] / 2); if (d < bd) { bd = d; bi = i; bj = j; } }));
+    cuartos.forEach((c, i) => orden.forEach((o, j) => { if (def.jefe && c === mayor && cuartos.length > 1) return; const d = Math.abs(c[0] + c[2] / 2 - o[0] - o[2] / 2) + Math.abs(c[1] + c[3] / 2 - o[1] - o[3] / 2); if (d < bd) { bd = d; bi = i; bj = j; } }));
     const c = cuartos.splice(bi, 1)[0];
     const o = orden[bj];
     enlaces.push([o, c]);
@@ -1452,7 +1481,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
     const X = Math.floor(c[0] + c[2] / 2), Y = Math.floor(c[1] + c[3] / 2);
     const primeroX = r() < 0.5;
     // el pasillo no es siempre una L: la mitad hace una Z (quiebra a medio camino) y uno de cada cuatro es de doble ancho
-    const zeta = r() < 0.5, ancho = !t.islas && !t.rieles && r() < 0.25;
+    const zeta = r() < 0.5, ancho = !t.islas && !t.rieles && (r() < 0.25 || obra);
     const marca = () => { suelo[y * tw + x] = 1; if (ancho) { const x2 = Math.min(tw - 2, x + 1), y2 = Math.min(th - 2, y + 1); suelo[(primeroX ? y2 : y) * tw + (primeroX ? x : x2)] = 1; } };
     const enX = (hasta: number) => { while (x !== hasta) { marca(); x += Math.sign(hasta - x); } }, enY = (hasta: number) => { while (y !== hasta) { marca(); y += Math.sign(hasta - y); } };
     if (primeroX) { if (zeta) enX(Math.round((x + X) / 2)); else enX(X); enY(Y); enX(X); }
@@ -1462,7 +1491,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   }
   // los jefes grandes pelean en una sala con aire: la del fondo crece (en bloques de 5 casillas) alrededor de su centro
   const SALA_JEFE: Record<string, number> = { senor_demonio: 7, aun_saar: 7, dragon_oseo: 6, campana_ahoga: 6, madre_cienaga: 6, rey_escarcha: 6, abadesa: 5, caballero_abismo: 5, verdugo: 5, rey_sin_sombra: 5, gigante_helado: 5 };
-  const lado = def.jefe ? SALA_JEFE[def.jefe] ?? 5 : 0; // (todo jefe pelea en una sala de 5 baldosas por lado como mínimo)
+  const lado = def.jefe ? (obra ? SALA_MAYOR[def.jefe] ?? 8 : SALA_JEFE[def.jefe] ?? 5) : 0; // (todo jefe pelea en una sala de 5 baldosas por lado como mínimo)
   const ar = arenaDe(def);
   if (lado) {
     const c = orden[orden.length - 1], cx = c[0] + c[2] / 2, cy = c[1] + c[3] / 2;
@@ -1481,8 +1510,8 @@ function mazmorra(def: DefZona, semilla: number): Zona {
       const dx = Math.min(i - x, x + w - 1 - i), dy = Math.min(j - y, y + h - 1 - j);
       let fuera = false;
       if (forma === 'chaflan') fuera = dx === 0 && dy === 0;
-      else if (forma === 'cruz') fuera = dx < cw && dy < ch;
-      else if (forma === 'diamante') fuera = dx + dy < Math.max(1, Math.floor(Math.min(w, h) / 3));
+      else if (forma === 'cruz') fuera = arena && obra ? dx < 1 && dy < 1 || (dx < 2 && dy < 2 && dx + dy < 2) : dx < cw && dy < ch;
+      else if (forma === 'diamante') fuera = dx + dy < (arena && obra ? 2 : Math.max(1, Math.floor(Math.min(w, h) / 3)));
       else if (forma === 'ele') { const izq = i - x < Math.floor(w / 2), arr = j - y < Math.floor(h / 2); fuera = (esq === 0 && izq && arr) || (esq === 1 && !izq && arr) || (esq === 2 && izq && !arr) || (esq === 3 && !izq && !arr); if (i === Math.floor(x + w / 2) || j === Math.floor(y + h / 2)) fuera = false; }
       if (fuera && !suelo[j * tw + i]) continue;
       suelo[j * tw + i] = 1; sala[j * tw + i] = 1;
@@ -1515,7 +1544,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   if (t.rieles) rieles(k, suelo, sala);
   // contrafuertes y derrumbes del estilo de la mazmorra, pegados al pie de los muros (cada tanto, no en todos)
   const estMuro = ESCOMBRO_TEMA[def.tema] ?? 'cementerio', dMuro = REGISTRO.find((d) => d.id === 'dec_muro');
-  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > 0.34 || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; k.poner(dMuro, x, y, `${estMuro}_${q < 0.24 ? 'contrafuerte' : 'derrumbe'}`, true); };
+  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) ? 'contrafuerte' : 'derrumbe'}`, true); };
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!suelo[by * tw + bx]) continue;
     if (by === 0 || !suelo[(by - 1) * tw + bx]) if (defX) {
@@ -1539,18 +1568,41 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   const centroDe = (c: [number, number, number, number]): [number, number] => [Math.floor((c[0] + c[2] / 2) * 5), Math.floor((c[1] + c[3] / 2) * 5)];
   const p0 = centroDe(c0), pN = centroDe(cN);
   for (const p of [p0, pN]) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const X = p[0] + dx, Y = p[1] + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; }
+  // el ruedo del jefe: 10 anillos libres alrededor de donde sale (un 21 x 21), reservados antes de decorar. Lo que adorna su
+  // sala (los estorbos de su arena, las rarezas, el tesoro) va por fuera. Antes Aun-Saar peleaba con despeje 1 y once jefes con 0
+  const ruedo = def.jefe && !viejo && !t.islas ? 10 : 0;
+  if (ruedo) for (let dy = -ruedo; dy <= ruedo; dy++) for (let dx = -ruedo; dx <= ruedo; dx++) { const X = pN[0] + dx, Y = pN[1] + 2 + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; }
   // decoración
   const area = orden.reduce((s, c) => s + c[2] * c[3], 0) * 25;
-  for (const c of orden) if (def.casa ? c !== orden[0] && c !== orden[orden.length - 1] : c[2] >= 3 && c[3] >= 3 && r() < 0.6) {
+  for (const c of orden) if (def.casa ? c !== orden[0] && c !== orden[orden.length - 1] : c[2] >= 3 && c[3] >= 3 && (r() < 0.6 || (obra && c === mayor && !def.jefe))) {
     const gs = k.sel(t.grande); if (!gs.length) continue;
     const g = gs[Math.floor(r() * gs.length)];
-    for (const [fx, fy] of [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]]) k.poner(g.d, Math.floor((c[0] + c[2] * fx) * 5), Math.floor((c[1] + c[3] * fy) * 5));
+    // (antes cuatro piezas en los cuartos de la sala, justo donde se pelea. Ahora en la sala mayor dos filas de columnas que dejan
+    //  la nave del medio libre, y en las demás las cuatro esquinas)
+    const pts = !obra ? [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]] : c === mayor ? (c[2] >= c[3] ? [[0.2, 0.17], [0.5, 0.17], [0.8, 0.17], [0.2, 0.83], [0.5, 0.83], [0.8, 0.83]] : [[0.17, 0.2], [0.17, 0.5], [0.17, 0.8], [0.83, 0.2], [0.83, 0.5], [0.83, 0.8]]) : [[0.14, 0.14], [0.86, 0.14], [0.14, 0.86], [0.86, 0.86]];
+    for (const [fx, fy] of pts) k.poner(g.d, Math.floor((c[0] + c[2] * fx) * 5), Math.floor((c[1] + c[3] * fy) * 5));
+  }
+  // el medio de cada sala y de cada cámara queda libre: lo que adorna va en una franja de 3 celdas contra el muro o la roca
+  // (las columnas de arriba ya están puestas; lo del jefe, las piezas de horror y las matanzas sí entran)
+  if ((obra || cueva) && !t.islas) {
+    const dentro = (x: number, y: number) => x >= 0 && y >= 0 && x < z.W && y < z.H && (abierto ? !!abierto[y * z.W + x] : !!suelo[Math.floor(y / 5) * tw + Math.floor(x / 5)]);
+    z.claros = new Uint8Array(z.W * z.H);
+    const F = 3;
+    for (let y = 0; y < z.H; y++) for (let x = 0; x < z.W; x++) {
+      if (!dentro(x, y) || (!abierto && !sala[Math.floor(y / 5) * tw + Math.floor(x / 5)])) continue;
+      let ok = true; for (const [dx, dy] of [[F, 0], [-F, 0], [0, F], [0, -F], [F, F], [-F, F], [F, -F], [-F, -F], [2, 0], [-2, 0], [0, 2], [0, -2]]) if (!dentro(x + dx, y + dy)) { ok = false; break; }
+      if (ok) z.claros[y * z.W + x] = 1;
+    }
   }
   // con islas o vías, los pasillos (puentes y rieles) quedan libres de adornos
   const enSuelo = abierto ? (x: number, y: number) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (!abierto[(Math.floor(y) + dy) * z.W + Math.floor(x) + dx]) return false; return true; }
     : (x: number, y: number) => !!(t.islas || t.rieles ? sala : suelo)[Math.floor(y / 5) * tw + Math.floor(x / 5)];
   const lleno = def.casa ? 3.5 : 1; // (una casa está amoblada: mucho más por metro que una mazmorra)
-  k.regar(t.disperso, Math.floor((area / 160) * lleno), 1, 1, z.W - 1, z.H - 1, enSuelo);
+  // lo disperso de una sala de obra va contra los muros y en los rincones (a 2 celdas del filo de la sala), no por el medio
+  const alFilo = (x: number, y: number) => { const bx = Math.floor(x / 5), by = Math.floor(y / 5), lx = Math.floor(x) - bx * 5, ly = Math.floor(y) - by * 5, s0 = (X: number, Y: number) => X >= 0 && Y >= 0 && X < tw && Y < th && !!suelo[Y * tw + X];
+    return (lx <= 1 && !s0(bx - 1, by)) || (lx >= 3 && !s0(bx + 1, by)) || (ly <= 1 && !s0(bx, by - 1)) || (ly >= 3 && !s0(bx, by + 1)); };
+  if (obra) k.regar(t.disperso, Math.floor(area / 300), 1, 1, z.W - 1, z.H - 1, (x, y) => enSuelo(x, y) && alFilo(x, y));
+  else k.regar(t.disperso, Math.floor((area / (cueva ? 230 : 160)) * lleno), 1, 1, z.W - 1, z.H - 1, enSuelo);
   k.regar(t.luces, Math.floor((area / 500) * lleno), 1, 1, z.W - 1, z.H - 1, enSuelo);
   k.regar(t.deco, Math.floor((area / 2500) * lleno * 2), 1, 1, z.W - 1, z.H - 1, enSuelo);
   // estatuas rotas y piedras con runa del tema, solo dentro de las salas (en un pasillo estorbarían)
@@ -1570,7 +1622,8 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   if (def.piedraViaje) { const o = ponerPiedra(k, p0[0], p0[1]); if (o) z.marcas.push({ tipo: 'viaje', cx: o.cx, cy: o.cy }); }
   colocarInteractivos(k, 2 + Math.floor(area / 3500), 1 + Math.floor(area / 7000), def.tema);
   // ni la entrada ni la sala del jefe llevan grupos sembrados: la escolta del jefe llega por oleadas
-  acampar(k, Math.floor(area / 260), def.jefe ? [p0, [pN[0], pN[1] + 2]] : [p0]);
+  const enSalaJefe = (x: number, y: number) => !!def.jefe && !abierto && x >= cN[0] * 5 - 2 && y >= cN[1] * 5 - 2 && x < (cN[0] + cN[2]) * 5 + 2 && y < (cN[1] + cN[3]) * 5 + 2;
+  acampar(k, Math.floor(area / 260), def.jefe ? [p0, [pN[0], pN[1] + 2]] : [p0], [...orden].filter((c) => c !== c0 && !(def.jefe && c === cN) && c[2] >= 4 && c[3] >= 4).sort((a, b) => b[2] * b[3] - a[2] * a[3] || a[0] - b[0] || a[1] - b[1]).map((c) => centroDe(c)), def.jefe ? (x, y) => enSalaJefe(x, y) || (!!abierto && Math.hypot(x - pN[0], y - pN[1] - 2) < 22) : undefined);
   const regAntes = def.jefe ? regionesLibres(z) : 0, objAntes = z.objetos.length;
   k.capa = 'jefe';
   if (def.jefe) {
@@ -1578,14 +1631,17 @@ function mazmorra(def: DefZona, semilla: number): Zona {
     // la sala del jefe: cosas que no deberían existir
     const mis = ['mis_trono_huesos', 'mis_manos', 'mis_ojos_oscuridad', 'mis_carne_viva', 'mis_estatua_doliente', 'mis_pozo_almas', 'mis_reliquia', 'mis_libro_maldito', 'mis_espejo'];
     // los jefes enormes necesitan la sala despejada: el anillo y el tesoro se abren
-    const g = def.jefe === 'aun_saar' || def.jefe === 'senor_demonio' ? 1.7 : def.jefe === 'campana_ahoga' ? 1.3 : 1;
-    const rarezas = () => { for (let i = 0, nm = ar ? 3 : 9, a0 = r() * 6; i < nm; i++) { const a = (i / nm) * Math.PI * 2 + (ar ? a0 : r()); k.poner(mis[Math.floor(ar ? r() * mis.length : i) % mis.length], pN[0] + Math.cos(a) * ((abierto ? 6.5 : ar ? 10.5 : 8.5) + r() * 2) * g, pN[1] + 2 + Math.sin(a) * ((abierto ? 6 : ar ? 9.5 : 8) + r() * 2) * g); } };
+    const g = ruedo ? (def.jefe === 'aun_saar' || def.jefe === 'senor_demonio' ? 1.25 : def.jefe === 'campana_ahoga' ? 1.1 : 1) : def.jefe === 'aun_saar' || def.jefe === 'senor_demonio' ? 1.7 : def.jefe === 'campana_ahoga' ? 1.3 : 1;
+    // (con el ruedo reservado todo lo de la sala va por fuera de 10 celdas: los radios de antes, 6 a 10, quedaban adentro)
+    const RA = ruedo ? (abierto ? [11.5, 11] : [13, 12.5]) : abierto ? [6, 5.5] : [9.5, 8.5];
+    const fuera = (dx: number, dy: number): [number, number] => { const m = Math.max(Math.abs(dx), Math.abs(dy)), f = ruedo && m < ruedo + 2.5 ? (ruedo + 2.5) / Math.max(0.01, m) : 1; return [dx * f, dy * f]; };
+    const rarezas = () => { for (let i = 0, nm = ar ? 3 : 9, a0 = r() * 6; i < nm; i++) { const a = (i / nm) * Math.PI * 2 + (ar ? a0 : r()); const [qx, qy] = fuera(Math.cos(a) * ((ruedo ? RA[0] + 1.5 : abierto ? 6.5 : ar ? 10.5 : 8.5) + r() * 2) * g, Math.sin(a) * ((ruedo ? RA[1] + 1.5 : abierto ? 6 : ar ? 9.5 : 8) + r() * 2) * g); k.poner(mis[Math.floor(ar ? r() * mis.length : i) % mis.length], pN[0] + qx, pN[1] + 2 + qy); } };
     if (!ar) rarezas();
     // la arena: el centro queda despejado (radio de 7 celdas) y cuatro piedras con runa encendida marcan el ruedo y lo
     // alumbran; son además los únicos estorbos, justo donde sirven para cortar una embestida
     if (ar) {
       // primero se despeja el ruedo: el decorado suelto de la mazmorra no tapa la figura de la arena
-      const qx = (abierto ? 6 : Math.min(9.5 * g, cN[2] * 2.5 - 4.5)) + 1.5, qy = (abierto ? 5.5 : Math.min(8.5 * g, cN[3] * 2.5 - 4.5)) + 1.5;
+      const qx = (abierto ? RA[0] : Math.min(RA[0] * g, cN[2] * 2.5 - 4.5)) + 1.5, qy = (abierto ? RA[1] : Math.min(RA[1] * g, cN[3] * 2.5 - 4.5)) + 1.5;
       for (let i = z.objetos.length - 1; i >= 0; i--) {
         const o = z.objetos[i]; if (o.tag || /muro|pared|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|via|isla|mis_|cofre/.test(o.id)) continue;
         if (((o.cx - pN[0]) / qx) ** 2 + ((o.cy - pN[1] - 2) / qy) ** 2 > 1) continue;
@@ -1595,14 +1651,14 @@ function mazmorra(def: DefZona, semilla: number): Zona {
       }
       // la arena propia del jefe: sus estorbos en su figura; si ninguno alumbra, cada tercero es una piedra con runa encendida
       const estA = abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : ESCOMBRO_TEMA[def.tema] ?? 'cementerio';
-      const rx = abierto ? 6 : Math.min(9.5 * g, cN[2] * 2.5 - 4.5), ry = abierto ? 5.5 : Math.min(8.5 * g, cN[3] * 2.5 - 4.5);
+      const rx = abierto ? RA[0] : Math.min(RA[0] * g, cN[2] * 2.5 - 4.5), ry = abierto ? RA[1] : Math.min(RA[1] * g, cN[3] * 2.5 - 4.5);
       const piezas = ar.piezas.filter((id) => REGISTRO.some((d) => d.id === id)), conLuz = /brasero|fuego|pira|velas|luz|estrella/.test(piezas.join());
-      puntosArena(ar, rx, ry, r).forEach(([dx, dy], i) => {
+      puntosArena(ar, rx, ry, r).map(([dx, dy]) => fuera(dx, dy)).forEach(([dx, dy], i) => {
         if (!piezas.length || (!conLuz && i % 3 === 2)) k.poner('dec_hito', pN[0] + dx, pN[1] + 2 + dy, `${estA}_runa`);
         else k.poner(piezas[i % piezas.length], pN[0] + dx, pN[1] + 2 + dy);
       });
     } else { const estA = abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : ESCOMBRO_TEMA[def.tema] ?? 'cementerio';
-      for (const [dx, dy] of abierto ? [[-5, -4], [5, -4], [-5, 5], [5, 5]] : [[-7, -5], [7, -5], [-7, 6], [7, 6]]) k.poner('dec_hito', pN[0] + dx * g, pN[1] + 2 + dy * g, `${estA}_runa`); }
+      for (const [dx, dy] of ruedo ? [[-11.5, -11], [11.5, -11], [-11.5, 11.5], [11.5, 11.5]] : abierto ? [[-5, -4], [5, -4], [-5, 5], [5, 5]] : [[-7, -5], [7, -5], [-7, 6], [7, 6]]) k.poner('dec_hito', pN[0] + dx * g, pN[1] + 2 + dy * g, `${estA}_runa`); }
     if (ar) rarezas();
     // la sala de Ozmaren: el piso se raja y deja ver la lava
     if (def.jefe === 'senor_demonio') {
@@ -1612,9 +1668,9 @@ function mazmorra(def: DefZona, semilla: number): Zona {
     }
     // y el tesoro que guardaba
     const tesoro: [string, string][] = [['tesoro_pila', 'grande'], ['tesoro_pila', 'chica'], ['saco_monedas', 'derramado'], ['caliz', 'volcado'], ['corona_suelo', 'con_calavera'], ['jarron_oro', 'de_pie'], ['oro_monton', 'mediano'], ['saco_monedas', 'cerrado']];
-    tesoro.forEach(([id, v], i) => { const a = (i / tesoro.length) * Math.PI * 2 + 0.3; k.poner(id, pN[0] + Math.cos(a) * (abierto ? 8 : 10.5) * g, pN[1] + 2 + Math.sin(a) * (abierto ? 7 : 9) * g, v); });
+    tesoro.forEach(([id, v], i) => { const a = (i / tesoro.length) * Math.PI * 2 + 0.3, [qx, qy] = fuera(Math.cos(a) * (ruedo ? RA[0] + 0.8 : abierto ? 8 : 10.5) * g, Math.sin(a) * (ruedo ? RA[1] + 0.8 : abierto ? 7 : 9) * g); k.poner(id, pN[0] + qx, pN[1] + 2 + qy, v); });
     // las mazmorras laterales guardan un cofre de tesoro junto a su mini jefe
-    if (def.lateral) { const c = k.poner(def.tema === 'tumba' || def.tema === 'templo' ? 'cofre_sarcofago_tesoro' : 'cofre_noble', pN[0] + 4, pN[1] + 5, 'cerrado', true, 'cofre'); if (c) z.marcas.push({ tipo: 'cofre', cx: c.cx, cy: c.cy }); }
+    if (def.lateral) { const c = k.poner(def.tema === 'tumba' || def.tema === 'templo' ? 'cofre_sarcofago_tesoro' : 'cofre_noble', pN[0] + (ruedo ? 11 : 4), pN[1] + (ruedo ? 13 : 5), 'cerrado', true, 'cofre'); if (c) z.marcas.push({ tipo: 'cofre', cx: c.cx, cy: c.cy }); }
   }
   if (def.casa) {
     // (el cofre sale siempre: si el centro del cuarto ya está ocupado por otra cosa, va al lado)
@@ -2066,7 +2122,7 @@ function ambientarHorror(z: Zona, def: DefZona) {
   const lista = HORROR_ACTO[def.acto] ?? HORROR_ACTO[1];
   // sala del jefe: 3 a 5 piezas alrededor, nunca encima de él (radio 4 a 9)
   const jf = z.spawns.find((s) => s.tipo === 'jefe');
-  if (jf) { const n = 2 + Math.floor(r() * 2); for (let i = 0; i < n; i++) { const [id, vs] = lista[Math.floor(r() * lista.length)]; poner(id, vs[Math.floor(r() * vs.length)], jf.cx, jf.cy, 9); } }
+  if (jf) { const n = 2 + Math.floor(r() * 2); for (let i = 0; i < n; i++) { const [id, vs] = lista[Math.floor(r() * lista.length)]; poner(id, vs[Math.floor(r() * vs.length)], jf.cx, jf.cy, 15); } }
   // la escena de la misión: cerca del centro de la zona, lejos de la entrada
   const esc = HORROR_MISION[def.id];
   if (esc) { const s = z.spawns.filter((q) => q.tipo !== 'jefe'); const c = s[Math.floor(s.length / 2)] ?? { cx: z.W / 2, cy: z.H / 2 }; for (const [id, v] of esc) poner(id, v, c.cx, c.cy); }
@@ -2086,7 +2142,7 @@ function ambientarVida(z: Zona, def: DefZona) {
   const res = (x: number, y: number, rr: number) => { for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) { const X = Math.round(x) + dx, Y = Math.round(y) + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; } };
   for (const e of Object.values(z.entradas)) res(e[0], e[1], 3);
   for (const s of z.salidas) res(s.cx, s.cy, 3);
-  const jf = z.spawns.find((s) => s.tipo === 'jefe'); if (jf) res(jf.cx, jf.cy, 7);
+  const jf = z.spawns.find((s) => s.tipo === 'jefe'); if (jf) res(jf.cx, jf.cy, 10);
   // los catálogos del tema (los mismos de su decorado), más lo común
   const temas = [...new Set([...(t.disperso ?? []), ...(t.luces ?? []), ...(t.grande ?? [])].flatMap((q) => q.t as string[]))];
   const chico = (d: ObjetoDef) => !d.bloquea && !SIN_AMBIENTE.test(d.id) && (d.huella ?? [1, 1])[0] <= 2 && (d.huella ?? [1, 1])[1] <= 2;
@@ -2175,12 +2231,15 @@ function curarAdornos(z: Zona, def: DefZona) {
   const bajoPlano = new Uint8Array(N);
   for (const o of z.objetos) if (plano(o.id)) { const a = x0De(o), b = y0De(o); for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) bajoPlano[y * W + x] = 1; }
   for (const m of z.marcas) if (m.tipo !== 'cofre') for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const X = Math.round(m.cx) + dx, Y = Math.round(m.cy) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) bajoPlano[Y * W + X] = 1; }
+  let enClaro = false; // (solo las matanzas entran al medio de una sala o de un claro)
+  const jfR = z.spawns.find((s) => s.tipo === 'jefe');
   const cabe = (cx: number, cy: number, hw: number, hh: number, plano0 = false) => {
     const a = Math.round(cx - (hw - 1) / 2), b = Math.round(cy - (hh - 1) / 2), m = plano0 ? 0 : 1;
+    if (jfR && !plano0 && Math.max(Math.abs(cx - jfR.cx), Math.abs(cy - jfR.cy)) < 11 + Math.max(hw, hh) / 2) return false; // (el ruedo del jefe queda libre)
     for (let y = b - m; y < b + hh + m; y++) for (let x = a - m; x < a + hw + m; x++) {
       if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) return false;
       const i = y * W + x, dentro = x >= a && y >= b && x < a + hw && y < b + hh;
-      if (dentro ? z.bloq[i] !== 0 || bajoPlano[i] || !piso(x, y) || !alcanza[i] || puerta[i] || ancho[i] <= 7 : z.bloq[i] !== 0) return false;
+      if (dentro ? z.bloq[i] !== 0 || (!enClaro && z.claros && z.claros[i] && !plano0) || bajoPlano[i] || !piso(x, y) || !alcanza[i] || puerta[i] || ancho[i] <= 7 : z.bloq[i] !== 0) return false;
     }
     return true;
   };
@@ -2229,9 +2288,9 @@ function curarAdornos(z: Zona, def: DefZona) {
   for (const o of riego) if (enPaso(o)) { if (!o.bloquea && (CU_GORE.test(o.id) || CU_VELA.test(o.id))) delPaso.add(o); else sacar(o); }
 
   // 3. dónde pasó algo: las piezas de horror, las escenas, la sala del jefe; y las matanzas nuevas junto a los de élite
-  const anclas: { cx: number; cy: number; n: number }[] = [];
+  const anclas: { cx: number; cy: number; n: number; r0?: number; r1?: number }[] = [];
   for (const o of z.objetos) if (!quitar.has(o) && !CAPA_RIEGO.has(o.capa ?? '') && CU_ANCLA_GORE.test(o.id)) anclas.push({ cx: o.cx, cy: o.cy, n: 0 });
-  const jf = z.spawns.find((s) => s.tipo === 'jefe'); if (jf) anclas.push({ cx: jf.cx, cy: jf.cy, n: 0 });
+  const jf = z.spawns.find((s) => s.tipo === 'jefe'); if (jf) anclas.push({ cx: jf.cx, cy: jf.cy, n: 0, r0: 11.5, r1: 15 });
   if (def.tipo !== 'pueblo') {
     const lista = HORROR_ACTO[def.acto] ?? HORROR_ACTO[1];
     // (una cada 3500 celdas más o menos, de 2 a 5: primero junto a los de élite, después junto a un grupo cualquiera)
@@ -2242,7 +2301,7 @@ function curarAdornos(z: Zona, def: DefZona) {
       if (hechas >= tope || anclas.some((a) => d(a, s) < (obra ? 10 : 14))) continue;
       const [id, vs] = lista[Math.floor(r() * lista.length)], dd = REGISTRO.find((q) => q.id === id); if (!dd) continue;
       const v = vs[Math.floor(r() * vs.length)], [hw, hh] = huellaDe(dd, v), bl = !!dd.bloquea && !dd.plano;
-      const p = lugar(s.cx, s.cy, 3, 7, hw, hh, !!dd.plano, (x, y) => quedan.every((c) => Math.hypot(c.cx - x, c.cy - y) >= 4)); if (!p) continue;
+      enClaro = true; const p = lugar(s.cx, s.cy, z.claros ? 5 : 3, z.claros ? 8.5 : 7, hw, hh, !!dd.plano, (x, y) => quedan.every((c) => Math.hypot(c.cx - x, c.cy - y) >= 4)); enClaro = false; if (!p) continue;
       const o: ObjZ = { id, v, cx: p[0], cy: p[1], hw, hh, bloquea: bl, capa: 'matanza' }; z.objetos.push(o); ocupar(o);
       // la sangre de lo que pasó: charcos y rastros planos alrededor (no tocan el paso)
       for (const sv of ['charco', 'rastro', 'salpicadura'].slice(0, 2 + Math.floor(r() * 2))) {
@@ -2258,11 +2317,11 @@ function curarAdornos(z: Zona, def: DefZona) {
 
   // 4. el gore suelto se junta en esos lugares, las velas junto a lo sagrado, las telarañas contra el muro
   const muroAl = (o: ObjZ) => { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = Math.round(o.cx) + dx, Y = Math.round(o.cy) + dy; if (X < 0 || Y < 0 || X >= W || Y >= H || z.bloq[Y * W + X] === 1 || z.bloq[Y * W + X] === 2) return true; } return false; };
-  const juntar = (o: ObjZ, lug: { cx: number; cy: number; n: number }[], cerca: number, tope: number, r0: number, r1: number) => {
-    const ya = delPaso.has(o) ? null : lug.find((a) => a.n < tope && d(a, o) < cerca); if (ya) { ya.n++; return; }
+  const juntar = (o: ObjZ, lug: { cx: number; cy: number; n: number; r0?: number; r1?: number }[], cerca: number, tope: number, r0: number, r1: number) => {
+    const ya = delPaso.has(o) ? null : lug.find((a) => a.n < tope && d(a, o) < cerca && d(a, o) >= (a.r0 ?? 0)); if (ya) { ya.n++; return; }
     const libres = lug.filter((a) => a.n < tope).sort((a, b) => d(a, o) - d(b, o));
     for (const a of libres) {
-      const p = lugar(a.cx, a.cy, r0, r1, o.hw, o.hh, plano(o.id), (x, y) => !z.objetos.some((q) => q !== o && q.id === o.id && !quitar.has(q) && Math.hypot(q.cx - x, q.cy - y) < 5));
+      const p = lugar(a.cx, a.cy, a.r0 ?? r0, a.r1 ?? r1, o.hw, o.hh, plano(o.id), (x, y) => !z.objetos.some((q) => q !== o && q.id === o.id && !quitar.has(q) && Math.hypot(q.cx - x, q.cy - y) < 5));
       if (p) { mudar(o, p[0], p[1]); a.n++; return; }
     }
     sacar(o);

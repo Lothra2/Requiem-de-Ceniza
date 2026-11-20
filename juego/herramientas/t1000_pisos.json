@@ -1,1 +1,10 @@
-{"familias":{},"jefe":{"*":0}}
+{
+  "nota": "Pisos de regresión de t1000_espacios.mjs (medianas por familia, 3 semillas). Van un poco por debajo de lo logrado el 20 nov 2026; las metas de la auditoría están en CLAUDE.md (Mundos).",
+  "familias": {
+    "exterior": { "arena": [">=", 52], "sinArena": ["<=", 0], "campArena": [">=", 72], "propsPant": ["<=", 85], "legible": [">=", 22], "montados": ["<=", 76] },
+    "cueva": { "arena": [">=", 36], "sinArena": ["<=", 5], "campArena": [">=", 65], "legible": [">=", 8] },
+    "obra": { "arena": [">=", 52], "sinArena": ["<=", 4], "campArena": [">=", 55], "propsPant": ["<=", 36], "legible": [">=", 12] }
+  },
+  "jefe": { "*": 9, "a5_abismo2": 3 },
+  "exterior": { "hito": 0, "escenas": 8 }
+}

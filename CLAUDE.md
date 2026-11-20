@@ -159,6 +159,60 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Prueba: `t990_haz.cjs <etiqueta> [zonas]` (`VISTA=movil`, `VIEJO=1`), fotos en `/tmp/requiem-pruebas/haz`.
 - El servidor de desarrollo se cae seguido: `sh juego/herramientas/servidor.sh &` lo vuelve a levantar solo.
 
+## Mundos: campamentos, lugares y salas (oleada 1, 20 nov 2026)
+
+Rick: los mundos se sentían pegados. "Espacios abiertos y explotables para peleas frenéticas", "no quiero solo ensanchar,
+tiene que haber intención", "que no quede todo montado". La auditoría (20 nov) midió que el problema no era el tamaño: a
+cielo abierto el adorno bajaba la arena de 91 % a 31 %, bajo tierra casi no había un 9 x 9 libre, y los grupos de 3 cada 9
+celdas despertaban de a 3. Definiciones: **despeje** de una celda = anillos libres alrededor (4 = cabe un 9 x 9);
+**arena** = la unión de todos los 9 x 9 libres; **montado** = adorno cuyo rectángulo de sprite se pisa 60 % con otro.
+
+- **`MAPA_V`** (`juego/mundo.ts`): versión del trazado en la clave del mapa descubierto (`zid[~o]~m2`). Se sube cuando una
+  fase mueve el trazado: se pierde SOLO la niebla. Héroe, bolsa, misiones, viajes, casas y restos van por id de zona. Nunca
+  cambiar ids de zona ni nombres de entrada. `t1001_partida_vieja.cjs` arma una partida con las claves de antes y lo revisa.
+- **Campamentos** (`acampar` y `asentarCampamentos` en `zona.ts`, `poblar` y `alertarCampamento` en `juego/mundo.ts`).
+  `sembrar` ya no existe. El presupuesto es el de antes: `n` grupos de los de antes (7 % únicos, 9 % campeones) se juntan
+  en campamentos (`Spawn.grupos`: cuántos grupos de antes vale) de 6 a 10 cuerpos, a 24 celdas uno de otro (se afloja si
+  no hay sitio), en la celda más abierta, primero en los sitios que lo piden (los claros de un exterior, las salas grandes).
+  El único lleva 1 + 3 + un grupo, los campeones 3 + un grupo. Al final de `generarZona`, ya curado el adorno, cada campamento
+  se corre a lo más abierto que tenga a 5 celdas y anota su `frente` (hacia la entrada más cercana). `poblar` tira cada grupo
+  con el dado de antes (no sube la experiencia ni el botín), mete uno de tiro si la zona tiene y no salió, y los para con
+  papeles: el jefe al centro, cuerpo a cuerpo hacia el frente, tiro y conjuro detrás. `Monstruo.camp` es el índice del
+  campamento: al despertar uno (vista 13 a cielo abierto, 11 bajo tierra, 15 y 12 los de élite; el jefe sigue por su sala) o
+  al recibir un golpe, todos los de su campamento se vienen con demora escalonada. `__vistaVieja` vuelve a la vista de 8 y
+  al contagio de antes. El grupo de bienvenida de un héroe nuevo (`primero`) son 2. Un `Spawn` sin `grupos` (casas, lo
+  viejo) sale como antes. Medida: `t1002_presupuesto.cjs <etiqueta> [otra]` entra a las 89 zonas con monstruos y suma
+  cuerpos, experiencia y élites (el dado de `poblar` es al azar por sesión: por zona hay ruido, vale el total).
+- **Lugares de los exteriores** (`exterior`, `escenasLugares`, `gargantaDe`, `Constructor.racimos`). Antes de regar nada,
+  con azar propio, se eligen tres o cuatro **claros** (radio 9 a 13, 4 en mapas de más de 12 000 celdas), el **hito** del
+  acto (`acto_hito`, radio 6) y, si la zona tiene jefe, su claro (radio 12 a 14, sin escena). `z.lugares` y `z.claros` (no se
+  guardan): `Constructor.poner` no deja caer en un claro nada que no sea plano o de capa `escena`, `horror` o `jefe`. Cada
+  claro lleva su **escena** (caravana, guarida, altar, patíbulo) armada contra el fondo (del lado contrario al centro del
+  mapa) en arco, con su cofre, y el medio libre para el campamento (que pone `acampar`: la escena ya no trae guardia). Una
+  **senda** reservada sale de la celda de camino más cercana hasta cada lugar y la más larga lleva la **garganta** (dos
+  frentes del borde que dejan 5 celdas por unas 10). Lo disperso va en **racimos** (3 a 6 piezas de la misma fila del tema,
+  9 celdas entre racimos), lo grande a la mitad, las matas solo como falda (a 2 celdas de algo que bloquea), el borde de
+  árboles a 2 celdas del filo. Cada claro tiene nombre (`NOMBRE_LUGAR`) y `historiaPaso` lo anuncia la primera vez que se
+  pisa. `__sinLugares` vuelve al riego de antes.
+- **Bajo tierra** (`mazmorra`, `cavarCueva`, `tamZona`). Mazmorras de obra: `tamZona` les suma 4 baldosas por lado si hay
+  jefe y 2 si no (islas y casas no), salas de 4 a 6 baldosas (una cada 80), una **sala mayor** que se pone primero (6 a 7 x
+  5 a 6 con dos filas de columnas; con jefe es su sala, de 8 a 10 baldosas) y pasillos siempre de doble ancho. La entrada es
+  el cuarto más lejos de la mayor y el jefe se une al final de la cadena. Cuevas: cámaras de radio 9 o más, una gran
+  caverna a media cadena (15), la del jefe 17,5, túneles de 3,7. En salas y cámaras el medio queda libre (`z.claros`: lo que
+  adorna va en una franja de 3 celdas contra el muro o la roca; las matanzas entran, a 5 a 8,5 del campamento).
+  **Ruedo del jefe**: 10 anillos reservados alrededor de donde sale antes de decorar; los estorbos de su arena, las rarezas
+  y el tesoro van por fuera (`fuera`), y `curarAdornos`, `ambientarVida` y `ambientarHorror` lo respetan. `__salasViejas`
+  vuelve al trazado de antes (ojo: cambia el tamaño). Excepciones a propósito: las islas sobre el vacío (abismo, islas de
+  la Corona) y las casas.
+- **Pruebas**: `node juego/herramientas/t1000_espacios.mjs [etiqueta] [semillas]` genera las 96 zonas SIN navegador (Vite
+  como cargador de módulos, 3 semillas, unos 40 s) y mide por familia arena, arenas de 120, campamentos en arena, adornos
+  por pantalla, montados, piso legible y el ruedo de cada jefe; falla si algo baja de `t1000_pisos.json` (`ANTES=<etiqueta>`
+  imprime contra otra corrida, `ZONAS=1` cada zona, `SOLO=`). Las medidas están en `medir_espacios.mjs`.
+  `t1003_mundos_fotos.cjs <etiqueta> [zonas]` (`VISTA=pc|pc1080|movil`) saca fotos en plena pelea en el campamento más
+  grande, uno típico y el jefe o un élite, y `python3 juego/herramientas/t1003_lamina.py <antes> <ahora> [vista]` arma las
+  láminas y los mapas de despeje en `/tmp/requiem-pruebas/mundos1`. `t920_adornos` compara los campamentos por cantidad y
+  tipo (su sitio se asienta después de curar).
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

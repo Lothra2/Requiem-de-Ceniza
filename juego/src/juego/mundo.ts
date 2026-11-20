@@ -698,6 +698,7 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
     sonar(j, total > h.vidaMax * 0.1 ? 'dolor_heroe' : 'golpe_carne');
     if (R() < 0.06) desgastar(j, elegir(['cabeza', 'torso', 'izq', 'manos', 'pies', 'cinturon']));
     // espinas
+    if (g.fuente && g.fuente.tipo === 'monstruo' && h.d.aura) pulsoAura(j, h.buffs.aura_espinas ? g.fuente.x : h.x, h.buffs.aura_espinas ? g.fuente.y : h.y, h.buffs.aura_espinas ? 'espinas' : 'recibe');
     if (g.fuente && g.fuente.tipo === 'monstruo' && (h.c.espinas || h.buffs.aura_espinas)) {
       const esp = h.c.espinas + (h.buffs.aura_espinas ? total * (h.buffs.aura_espinas.bonos.espinas_pct ?? 0) / 100 : 0);
       if (esp > 0) danar(j, g.fuente, { min: esp, max: esp, elem: 'fisico', deHeroe: true, sinFallo: true });
@@ -726,9 +727,12 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
       if (habEnCurso && habEnCurso !== 'ataque' && ((j as any).golpesPoder?.length ?? 0) < 24) { const o = deDonde ?? [h.x, h.y], ex = m.x - o[0], ey = m.y - o[1], el = Math.hypot(ex, ey) || 1;
         ((j as any).golpesPoder ??= []).push({ x: m.x, y: m.y, hab: habEnCurso, elem: g.elem, crit, mata, ux: ex / el, uy: ey / el, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40), parte: g.parte, f: Math.min(1, total / Math.max(1, m.vidaMax)), hueso: sangraHueso(m) }); }
       if (g.arma && h.c.vivo && dm < 3.4 && ((j as any).golpesVivos?.length ?? 0) < 8) ((j as any).golpesVivos ??= []).push({ x: m.x, y: m.y, el: h.c.vivo, fuerte: crit || m.vida <= 0, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40) });
+      if (h.d.aura && g.arma && (h.d.aura === 'aura_fuerza' || h.d.aura === 'aura_presteza' || h.d.aura === 'aura_conviccion' || h.d.aura === 'aura_llama')) pulsoAura(j, m.x, m.y, 'golpe');
       if (S && g.arma && dm < 3.4) {
         const f = (crit ? 1.5 : 1) * (mata ? 1.35 : 1) * (g.parte !== undefined && g.parte < 2 ? 0.5 : 1);
         j.congela = Math.max(j.congela ?? 0, Math.min(0.12, S.pausa * f));
+        // el crítico de un poder cuerpo a cuerpo se siente siempre, aunque la clase sea liviana (el monje, la cazadora)
+        if (crit && habEnCurso && habEnCurso !== 'ataque') j.congela = Math.max(j.congela, 0.07);
         const ux = dxm / dm, uy = dym / dm;
         j.patada = { dx: (ux - uy) * 0.71, dy: (ux + uy) * 0.35, k: S.patada * f, t: performance.now() };
       }
@@ -1364,9 +1368,13 @@ function crearInvocado(j: Juego, invId: string, n: number, x: number, y: number,
   m.tipo = 'invocado'; m.dueno = true; m.invocaId = invId; m.estado = 'deambular';
   m.vidaMax = m.vida = Math.round(inv.vida * kk * (1 + h.d.nivel * 0.12)); m.dano = [inv.dano[0] * kk * danoInvocadoNivel(h.d.nivel), inv.dano[1] * kk * danoInvocadoNivel(h.d.nivel)];
   m.tinte = inv.tinte; m.escala = inv.escala ?? 1; m.tVida = tVida;
+  // (solo lo que se ve: render/presencias.ts) cuándo nació y de qué poder; los muertos y el gólem suben del piso armándose
+  // (la muerte al revés, como los que surgen), las bestias y los espíritus toman cuerpo
+  (m as any).nace = j.t; (m as any).habInv = habEnCurso ?? undefined;
+  if (/esqueleto|arquero|sabueso|golem/.test(invId)) { (m as any).surgiendo = 0.75; (m as any).surgeT = 0.75; }
   j.monstruos.push(m);
   // cómo aparece: lo que pide la habilidad que lo llama (pixelfx), o el círculo de siempre
-  if (fxInvocar) { const [id, esc, dur, t0] = fxInvocar; j.efectos.push({ id, x, y, t: -(t0 ?? 0) - fxPaso * 0.1, dir: 0, escala: esc, z: 0, dur: (dur ?? 2.5) + (t0 ?? 0) + fxPaso * 0.1 }); fxPaso++; }
+  if (fxInvocar) { const [id, esc, dur, t0] = fxInvocar; j.efectos.push({ id, x, y, t: -(t0 ?? 0) - fxPaso * 0.1, dir: 0, escala: esc, z: 0, dur: (dur ?? 2.5) + (t0 ?? 0) + fxPaso * 0.1, ...(habEnCurso ? { hab: habEnCurso } : {}) } as Efecto); fxPaso++; }
   else efecto(j, 'circulo_invocacion', x, y, 0, 0.8);
   return m;
 }
@@ -1393,6 +1401,8 @@ export function repartirCombo(T: number): number[] {
 /** El poder del héroe que está pegando ahora y desde dónde llega el golpe: `efecto` y `danar` lo anotan para que
  * render/poderes_vivos.ts sepa de qué poder es cada efecto y cada golpe (la sangre del Desgarro, las astillas de la flecha). */
 let habEnCurso: string | null = null, deDonde: [number, number] | null = null;
+/** Un latido del aura activa donde toca a alguien (solo visual: render/presencias.ts). */
+function pulsoAura(j: Juego, x: number, y: number, k: string) { const l = ((j as any).pulsosAura ??= []) as unknown[]; if (l.length < 12) l.push({ x, y, k }); }
 function resolverHabilidad(j: Juego, parte?: number, cb?: { remate: boolean }) {
   const a0 = j.areas.length, hab0 = habEnCurso, de0 = deDonde; habEnCurso = j.heroe.habActual; deDonde = [j.heroe.x, j.heroe.y];
   try { resolverHabilidad0(j, parte, cb); } finally { habEnCurso = hab0; deDonde = de0; }
@@ -1660,7 +1670,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
         for (const m of mios(j, 'arbol')) { m.vida = 0; m.muerto = true; m.acc = 'morir'; m.t = 0; }
         crearInvocado(j, 'arbol', n, tx, ty, val(hb.duracion, n), 1.3);
         efecto(j, 'estallido_enredaderas', h.x, h.y, 0, 2);
-        for (const e of enRadio(j, h.x, h.y, hb.radio ?? 6)) { if (!esJefe(e)) { e.congelado = 1.5; (e as any).preso = 'raices'; } e.maldicion = { amplificar: 0, debilitar: 0, lento: 60, t: 6, res: 0 }; }
+        for (const e of enRadio(j, h.x, h.y, hb.radio ?? 6)) { if (!esJefe(e)) { e.congelado = 1.5; (e as any).preso = 'raices'; } e.maldicion = { amplificar: 0, debilitar: 0, lento: 60, t: 6, res: 0, sinHumo: true } as any; }
         break;
       }
       const max = Math.max(1, Math.floor(val(hb.max, n)));
@@ -1949,13 +1959,18 @@ export function actualizar(j: Juego, dt: number) {
       if (tr.cd <= 0) { tr.cd = 1.5; efecto(j, 'glifo_trampa', tr.x, tr.y, 0, 0.5, 0, 1.5); }
       if (enRadio(j, tr.x, tr.y, 0.9).length) {
         const r = tr.mina, el = tr.elem ?? 'fuego';
-        for (const e of enRadio(j, tr.x, tr.y, r)) { danar(j, e, golpeSimple(j, tr.dano, el)); if (tr.raiz && !esJefe(e)) { e.congelado = Math.max(e.congelado, 2); (e as any).preso = 'raices'; } }
-        efecto(j, tr.efecto ?? 'explosion_fuego', tr.x, tr.y, 0, r / 2); sonar(j, el === 'rayo' ? 'trueno' : el === 'veneno' ? 'veneno' : tr.raiz ? 'golpe_metal' : 'explosion', tr.x, tr.y, 0.8);
+        const blancos = enRadio(j, tr.x, tr.y, r);
+        // (solo lo que se ve: render/presencias.ts revienta la trampa con lo suyo)
+        (tr as any).disparo = true; ((j as any).trampasDisparadas ??= []).push({ x: tr.x, y: tr.y, hab: tr.hab ?? 'torreta', elem: el, r, blancos: blancos.slice(0, 6).map((e) => [e.x, e.y]) });
+        // (de qué poder es el golpe y el efecto: la materia de la trampa en render/poderes_vivos.ts)
+        const hab0 = habEnCurso, de0 = deDonde; habEnCurso = tr.hab ?? null; deDonde = [tr.x, tr.y];
+        for (const e of blancos) { danar(j, e, golpeSimple(j, tr.dano, el)); if (tr.raiz && !esJefe(e)) { e.congelado = Math.max(e.congelado, 2); (e as any).preso = 'raices'; } }
+        efecto(j, tr.efecto ?? 'explosion_fuego', tr.x, tr.y, 0, r / 2); habEnCurso = hab0; deDonde = de0; sonar(j, el === 'rayo' ? 'trueno' : el === 'veneno' ? 'veneno' : tr.raiz ? 'golpe_metal' : 'explosion', tr.x, tr.y, 0.8);
         j.sacudida = Math.max(j.sacudida, 0.2); tr.t = tr.dur;
       }
       continue;
     }
-    if (tr.cd <= 0) { const m = masCercano(j, tr.x, tr.y, 9, new Set()); if (m) { const el = tr.elem ?? 'fisico'; disparar(j, { ...h, x: tr.x, y: tr.y } as Ent, m.x, m.y, golpeSimple(j, tr.dano, el), el === 'fisico' ? 'flecha' : tr.efecto ?? 'chispa_cargada', 15); sonar(j, el === 'rayo' ? 'rayo' : 'virote', tr.x, tr.y, 0.5); } tr.cd = 0.55; }
+    if (tr.cd <= 0) { const m = masCercano(j, tr.x, tr.y, 9, new Set()); if (m) { const el = tr.elem ?? 'fisico'; disparar(j, { ...h, x: tr.x, y: tr.y } as Ent, m.x, m.y, golpeSimple(j, tr.dano, el), el === 'fisico' ? 'flecha' : tr.efecto ?? 'chispa_cargada', 15); (tr as any).ang = Math.atan2(m.y - tr.y, m.x - tr.x); (tr as any).tiro = j.t; sonar(j, el === 'rayo' ? 'rayo' : 'virote', tr.x, tr.y, 0.5); } tr.cd = 0.55; }
   }
   j.torretas = j.torretas.filter((t) => t.t < t.dur);
   // efectos, números, partículas
@@ -2092,8 +2107,8 @@ function actualizarHeroe(j: Juego, dt: number) {
   // aura que daña y aura de sentencia
   if (auraId && auraHb) {
     const n = nivelHab(h.d, auraId, h.c), kp = 1 + pot / 100;
-    if (auraHb.dano && Math.floor(j.t * 2) !== Math.floor((j.t - dt) * 2)) { const dh = danoHab(j, auraHb, n); for (const e of enRadio(j, h.x, h.y, auraHb.radio ?? 5)) danar(j, e, { min: dh[0] * 0.5 * kp, max: dh[1] * 0.5 * kp, elem: auraHb.elem, deHeroe: true, fuente: h, sinFallo: true }); }
-    if (auraId === 'aura_conviccion') for (const e of enRadio(j, h.x, h.y, auraHb.radio ?? 7)) { e.maldicion = { amplificar: 0, debilitar: 0, lento: 0, ...(e.maldicion ?? {}), t: Math.max(0.5, e.maldicion?.t ?? 0), res: val(auraHb.bonos?.enemigo_res, n) * kp }; }
+    if (auraHb.dano && Math.floor(j.t * 2) !== Math.floor((j.t - dt) * 2)) { const dh = danoHab(j, auraHb, n); for (const e of enRadio(j, h.x, h.y, auraHb.radio ?? 5)) { danar(j, e, { min: dh[0] * 0.5 * kp, max: dh[1] * 0.5 * kp, elem: auraHb.elem, deHeroe: true, fuente: h, sinFallo: true }); pulsoAura(j, e.x, e.y, 'dano'); } }
+    if (auraId === 'aura_conviccion') for (const e of enRadio(j, h.x, h.y, auraHb.radio ?? 7)) { e.maldicion = { amplificar: 0, debilitar: 0, lento: 0, ...((e.maldicion ?? { sinHumo: true }) as any), t: Math.max(0.5, e.maldicion?.t ?? 0), res: val(auraHb.bonos?.enemigo_res, n) * kp } as any; }
   }
   // tempestad y huracán
   if (h.tempestad > 0) { h.tempestad -= dt; if (R() < dt * 2.5) { const m = masCercano(j, h.x, h.y, 6, new Set()); if (m) { const hb = habilidadDe('tempestad'), dh = danoHab(j, hb, nivelHab(h.d, 'tempestad', h.c)); efecto(j, 'relampago', m.x, m.y, 0, 1); danar(j, m, { min: dh[0], max: dh[1], elem: 'rayo', deHeroe: true, fuente: h, sinFallo: true }); sonar(j, 'trueno', m.x, m.y, 0.6); } } }

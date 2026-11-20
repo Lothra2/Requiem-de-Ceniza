@@ -29,7 +29,9 @@ export function estadosPfx(e: { congelado: number; frio: number; veneno: number;
   // (la quema ya arde con el fuego de Doom sobre el cuerpo: no se le suma fx_ardiendo)
   if ((e.congelado > 0 && !(e as any).preso) || e.frio > 0) out.push('fx_congelado');
   if (e.veneno > 0) out.push('fx_envenenado');
-  if (e.maldicion) out.push('fx_maldito');
+  // (la Sentencia del templario solo baja resistencias y las raíces del Despertar del bosque solo frenan: su ojo y sus
+  // raíces se dibujan aparte, no el humo morado y la calavera del maldito)
+  if (e.maldicion && !(e.maldicion as any).sinHumo) out.push('fx_maldito');
   if (e.sangrado > 0) out.push('fx_sangrando');
   if (e.aturdido > 0) out.push('fx_aturdido');
   if (e.miedo > 0) out.push('fx_confundido');

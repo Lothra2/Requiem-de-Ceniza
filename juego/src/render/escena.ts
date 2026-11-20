@@ -34,6 +34,11 @@ import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { pisadaHeroe } from './ambiente';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
 import { seguirPoderes, itemsPoderes, dibujarArcos, dibujarCombustion, poderesVivos, sinHorneado } from './poderes_vivos';
+import { seguirPresencias, itemsPresencias, presenciasVivas, alfaInvocado, aroInvocado, rimHeroe, tieneEstilo } from './presencias';
+import { tajoHeroe, torbellinoAro, tajoAplica } from './tajos';
+/** El tajo del héroe de este cuadro: se pinta delante de los que están pegados a él (los tapaban). */
+let tajoPend: [any, Cuadro, number, number, number, number] | null = null;
+import { siluetaCuadro } from '../motor/assets';
 import { cuerpoArde, seguirSuelo, itemsSuelo, ozmarenArde, cometa, llamaViva } from './fuego_especial';
 let dtCuadro = 1 / 60;
 // bruma de altura: cada cuadro alto se pinta una vez con el degradado del color de la niebla de la zona
@@ -237,7 +242,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   if (foco.k > 0) { const k = foco.k * foco.k * (3 - 2 * foco.k); cam.x += ((foco.x - foco.y) * 16 - camS.x) * k; cam.y += ((foco.x + foco.y) * 8 - 60 - camS.y + camAlzada) * k; }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   picks = []; vivasMonstruo = 0;
-  prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); seguirPoderes(j); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
+  prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); seguirPoderes(j); seguirPresencias(j); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
   colorBruma = '96,100,108'; anclasCuadro = []; esAncla = new Set(z.salidas.flatMap((sa) => sa.piezas ?? []));
   recolectar(j, tiempo, aPant, W, H);
   // explorar
@@ -490,7 +495,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     items.push({ prof: wx + wy, draw: () => umbralVivo(px, py, !sa.obj, ZONAS[sa.destino], tiempo, pulso, sa.cx * 7.3 + sa.cy * 3.1, dtCuadro, r) });
     halosUmbral.push([px, py, ZONAS[sa.destino], pulso, r, !sa.obj]);
   }
-  for (const tr of j.torretas) items.push({ prof: tr.x + tr.y, draw: () => { const [px, py] = aPant(tr.x, tr.y); ctx.fillStyle = '#3a3430'; ctx.fillRect(px - 6, py - 20, 12, 20); ctx.fillStyle = '#80786c'; ctx.fillRect(px - 9, py - 24, 18, 5); ctx.fillStyle = '#ff9040'; ctx.fillRect(px - 1, py - 22, 2, 2); } });
+  // (las trampas armadas las dibuja render/presencias.ts: la torreta es una ballesta que apunta, el cepo, la runa, la brasa y el corro)
+  if (!presenciasVivas()) for (const tr of j.torretas) items.push({ prof: tr.x + tr.y, draw: () => { const [px, py] = aPant(tr.x, tr.y); ctx.fillStyle = '#3a3430'; ctx.fillRect(px - 6, py - 20, 12, 20); ctx.fillStyle = '#80786c'; ctx.fillRect(px - 9, py - 24, 18, 5); ctx.fillStyle = '#ff9040'; ctx.fillRect(px - 1, py - 22, 2, 2); } });
   for (const pf of profFuegosMundo()) items.push({ prof: pf + 0.02, draw: () => dibujarFuegosMundo(ctx, tiempo, cam.x, cam.y, pf) });
   // lo que vive en la zona (pixelfx) entra en el orden con todo lo demás: lo tapa lo que tiene delante
   for (const it of itemsAmbiente(ctx, j, aPant, W, H, tiempo)) items.push(it);
@@ -516,6 +522,9 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const it of itemsEnergia(ctx, aPant)) items.push(it);
   for (const it of itemsSuelo(ctx, aPant, dtCuadro)) items.push(it);
   for (const it of itemsPoderes(ctx, aPant)) items.push(it);
+  for (const it of itemsPresencias(ctx, j, aPant, tiempo)) items.push(it);
+  tajoPend = null;
+  items.push({ prof: j.heroe.x + j.heroe.y + 1.6, draw: () => { if (tajoPend) { const [e, q, px, py, esc, t] = tajoPend; tajoHeroe(ctx, j, e, q, px, py, esc, t); torbellinoAro(ctx, j, px, py, t, false); } } });
   tramo('orden');
   // lo que sueltan las armas vivas entra en el orden: las manchas con el piso, las gotas, el miasma y las chispas en la fila
   // del suelo que tienen debajo (antes iban encima de todo y se veían sobre las rocas de delante)
@@ -843,6 +852,8 @@ function luzCofre(px0: number, py0: number, t: number, k: number, col: string) {
 }
 function dibujarEfecto(e: Efecto, _t: number) {
   if (e.id === 'arco_cadena' || sinHorneado(e)) return;
+  // (el glifo horneado de la trampa armada: ahora la trampa misma late, render/presencias.ts)
+  if (e.id === 'glifo_trampa' && presenciasVivas()) return;
   if (e.id === 'combustion') { if (poderesVivos()) { const [px, py] = aPant(e.x, e.y); dibujarCombustion(ctx, e, px, py); } else if (e.t >= 0.2) dibujarEfecto({ ...e, id: 'explosion_fuego', t: e.t - 0.2 } as Efecto, _t); return; }
   if (e.id.startsWith('pfx:')) { const [px, py] = aPant(e.x, e.y);
     // (un efecto cortado antes de su final se apaga en su último cuarto de segundo en vez de desaparecer de golpe)
@@ -861,7 +872,10 @@ function dibujarEfecto(e: Efecto, _t: number) {
   const raw = fs[i];
   const q: Cuadro = { img: null, atlas: raw[0], x: raw[1], y: raw[2], w: raw[3], h: raw[4], ax: raw[5], ay: raw[6] };
   const k = e.dur && meta.bucle ? Math.min(1, (e.dur - e.t) * 3) : 1;
-  ctx.globalAlpha = Math.max(0, k);
+  // (tercera pasada) los horneados grandes de luz y rayo (columnas, castigos, relámpagos) van más tenues de día: en las
+  // dunas las definitivas quemaban a blanco el centro de la pantalla
+  const dia = (meta.elem === 'luz' || meta.elem === 'rayo') && (e.escala ?? 1) >= 1.2 && !(window as any).__fogonazoParejo ? 0.6 + 0.4 * nochePfx() : 1;
+  ctx.globalAlpha = Math.max(0, k) * dia;
   dibujar(ctx, q, px, py - (e.z ?? 0), e.escala);
   ctx.globalAlpha = 1;
 }
@@ -1005,7 +1019,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   }
   if (!fs.length) return;
   let i: number;
-  if (e.tipo === 'monstruo' && (m as any).surgiendo > 0) i = Math.max(0, fs.length - 1 - Math.floor((1.2 - (m as any).surgiendo) * 7 * (fs.length / 8)));
+  if ((e.tipo === 'monstruo' || e.tipo === 'invocado') && (m as any).surgiendo > 0) { const T = (m as any).surgeT ?? 1.2; i = Math.max(0, fs.length - 1 - Math.floor(((T - (m as any).surgiendo) / T) * 1.05 * fs.length)); }
   else if ((e as any).estado === 'surgir') return;
   else i = fr(acc, e.muerto && (e as any).mElem === 'frio' ? Math.max(0, e.t - 0.45) : e.muerto && (e as any).mElem === 'rayo' ? Math.max(0, e.t - 0.55) : e.t, e.dur, e, acc === 'correr' && e.tipo !== 'heroe' && !cuadrosMonstruo(m.def.sprite, 'correr', e.dir).length ? 'caminar' : acc, fs.length);
   if (e.tipo === 'monstruo' && m.estado === 'surgir') return;
@@ -1031,7 +1045,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   if (!e.muerto && (e as any).dueno) {
     // (el collar de Thor se ve: el aro toma el color de su rareza y una gema le brilla al cuello)
     const thor = (e as any).invocaId === 'thor', col = thor ? (j.heroe.d as any).thor?.collar : null, cCol = !col ? null : col.rareza === 'legendario' ? '255,140,40' : col.rareza === 'unico' ? '230,190,90' : col.rareza === 'raro' ? '255,240,110' : '110,170,255';
-    const c = thor ? cCol ?? '255,205,120' : '120,225,150', rr = 13 * Math.max(0.8, esc), kk = 0.5 + 0.2 * Math.sin(tiempo * 3 + e.x);
+    const c = thor ? cCol ?? '255,205,120' : aroInvocado(e) ?? '120,225,150', rr = 13 * Math.max(0.8, esc), kk = 0.5 + 0.2 * Math.sin(tiempo * 3 + e.x);
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const ga = ctx.createRadialGradient(px, py, rr * 0.3, px, py, rr); ga.addColorStop(0, `rgba(${c},0)`); ga.addColorStop(0.75, `rgba(${c},${0.22 * kk})`); ga.addColorStop(1, `rgba(${c},0)`);
     ctx.fillStyle = ga; ctx.beginPath(); ctx.ellipse(px, py, rr, rr / 2, 0, 0, Math.PI * 2); ctx.fill();
@@ -1040,7 +1054,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     ctx.restore();
   }
   // la mitad de atrás del aura va antes del cuerpo
-  if (e.tipo === 'heroe' && !e.muerto) auraHeroe(j, px, py, tiempo, true);
+  if (e.tipo === 'heroe' && !e.muerto) { auraHeroe(j, px, py, tiempo, true); torbellinoAro(ctx, j, px, py, tiempo, true); }
   // la llama del arma viva va detrás del cuerpo (el filo encendido va encima, después)
   if (e.tipo === 'heroe' && !e.muerto && q.hoja && j.heroe.c.vivo && !(window as any).__sinDerrame) { const [ox, oy] = aPant(0, 0); llamaArmaAtras(ctx, e, q, px, py, esc, j.heroe.c.vivo as ElemArma, j.heroe.c.tipoArma, tiempo, dtCuadro, ox, oy); }
   let ok: boolean;
@@ -1049,13 +1063,15 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   // los buffs y el aura del héroe se ven mientras duran: el efecto de lanzador de su habilidad, si es de bucle
   if (e.tipo === 'heroe' && !e.muerto) {
     const hh = j.heroe;
-    for (const id of [...Object.keys(hh.buffs), hh.d.aura ?? '']) { const lz = id && usosPfx.hab.get(id)?.lanzador; if (lz && efectoPfx(lz)?.bucle && !ests.includes(lz) && ests.length < 4) ests.push(lz); }
+    // (las mejoras y auras que dibuja render/presencias.ts llevan su canto, sus motas y su sello: el bucle horneado encima
+    // las tapaba con una burbuja grande del color de otra cosa)
+    for (const id of [...Object.keys(hh.buffs), hh.d.aura ?? '']) { const lz = id && !tieneEstilo(id) && usosPfx.hab.get(id)?.lanzador; if (lz && efectoPfx(lz)?.bucle && !ests.includes(lz) && ests.length < 4) ests.push(lz); }
   }
   const tinteEst = ests.map((id) => efectoPfx(id)?.cuerpo?.tinte).find(Boolean);
   // el rayo sacude su propia silueta (render/electro.ts)
   const fEl = e.muerto || (window as any).__sinElectro ? 0 : fuerzaElectro(e, j.t), tinEl = tinteElectro(e.id, fEl, j.t);
   const pm = (e as any).pfxMuerte as { id: string; t0: number } | undefined;
-  const alfaM = e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1;
+  const alfaM = (e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1) * (e.tipo === 'invocado' ? alfaInvocado(e, j.t) : 1);
   if (alfaM <= 0.01) return;
   // el enemigo que queda delante del héroe y lo tapa se vuelve medio transparente: antes no veías tu propio golpe
   let tapa = 1;
@@ -1063,6 +1079,10 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     const [hx, hy] = aPant(heroeDibujo.x, heroeDibujo.y), dx = Math.abs(px - hx);
     if (dx < 34 && py - hy < 62 && py - hy > -6) tapa = 0.4 + 0.6 * Math.min(1, dx / 34) ** 2;
   }
+  // el canto del cuerpo con una mejora puesta: la silueta de su color corrida un punto a cada lado, detrás del cuerpo
+  if (e.tipo === 'heroe' && !e.muerto) { const rim = rimHeroe(j); if (rim && rim[1] > 0.03) { const sl = siluetaCuadro(q, `rgb(${rim[0][0]},${rim[0][1]},${rim[0][2]})`);
+    if (sl) { ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = rim[1]; const x0 = px - q.ax * esc, y0 = py - q.ay * esc, w = q.w * esc, h2 = q.h * esc;
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.drawImage(sl, 0, 0, q.w, q.h, x0 + dx, y0 + dy, w, h2); ctx.restore(); } } }
   if (alfaM * tapa < 1) ctx.globalAlpha = alfaM * tapa;
   if (!e.muerto) { const cg = (e as any).congelado > 0; const preso = (e as any).preso as string | undefined;
     // (lo que lo sujeta no siempre es hielo: las raíces del druida y la jaula de hueso inmovilizan igual, pero se ven como lo que son)
@@ -1140,7 +1160,11 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     ctx.fillStyle = g; ctx.fillRect(px - 50 * esc, py - 80 * esc, 100 * esc, 100 * esc); ctx.restore();
   }
   // el arco del arma: lo que barre la hoja entre un cuadro y el siguiente queda dibujado un instante
-  if (ok && !e.muerto && q.hoja && !(window as any).__sinEstela) estelaArma(j, e, q, px, py, esc, tiempo);
+  // el héroe con un golpe cuerpo a cuerpo: la media luna ancha del tajo (render/tajos.ts); si no, la estela fina de siempre
+  // (se dibuja después, delante de los enemigos pegados: va como su propio paso en el orden, `tajoPend`)
+  const tajo = ok && !e.muerto && e.tipo === 'heroe' && tajoAplica(j);
+  if (tajo) tajoPend = [e, q, px, py, esc, tiempo];
+  if (ok && !e.muerto && q.hoja && !tajo && !(window as any).__sinEstela) estelaArma(j, e, q, px, py, esc, tiempo);
   // el arma viva: el filo encendido, la forma de su elemento pegada a la hoja, lo que suelta en el vuelo y el orbe de los
   // cetros. Las únicas y legendarias sin elemento llevan el brillo que recorre el filo
   if (ok && e.tipo === 'heroe' && !e.muerto && q.hoja && !(window as any).__sinDerrame) {
@@ -1157,7 +1181,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     if (el) { vivasMonstruo++; const [ox, oy] = aPant(0, 0); armaViva(ctx, e as any, q, px, py, esc, el, '', tiempo, dtCuadro, ox, oy, 0.6, false, mascaraMonstruo(q, px, py, esc, e.dir)); }
   }
   // aura del héroe: la mitad de adelante, encima del cuerpo
-  if (e.tipo === 'heroe' && !e.muerto) auraHeroe(j, px, py, tiempo, false);
+  if (e.tipo === 'heroe' && !e.muerto) { auraHeroe(j, px, py, tiempo, false); if (!tajoPend) torbellinoAro(ctx, j, px, py, tiempo, false); }
   // zona de clic
   // los aliados (Thor, invocados, escoltas) no se eligen con el clic: el clic los atraviesa
   if (!e.muerto && e.tipo !== 'heroe' && !(e as any).dueno) picks.push({ tipo: e.tipo === 'npc' ? 'npc' : 'monstruo', ref: e, x0: px - q.ax * esc + q.w * esc * 0.2, y0: py - q.ay * esc, x1: px - q.ax * esc + q.w * esc * 0.8, y1: py + 6, prof: e.x + e.y });
@@ -1186,8 +1210,8 @@ function auraHeroe(j: Juego, px: number, py: number, tiempo: number, atras: bool
     for (let k = 0; k < 3; k++) { const a = tiempo * 1.7 + k * 2.1; if ((Math.sin(a) < 0) !== atras) continue; ctx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; ctx.fillRect(px + Math.cos(a) * 24, py - 10 - ((tiempo * 30 + k * 23) % 70) + Math.sin(a) * 8, 2, 2); }
     ctx.restore();
   }
-  if (au) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + Math.sin(tiempo * 3) * 0.08; ctx.strokeStyle = '#ffe0a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(px, py, 34, 17, 0, a0, a1); ctx.stroke(); ctx.restore(); }
-  if (j.heroe.escudoHueso > 0) for (let k = 0; k < 4; k++) { const a = tiempo * 3 + k * 1.57; if ((Math.sin(a) < 0) !== atras) continue; ctx.fillStyle = '#e0d8c0'; ctx.fillRect(px + Math.cos(a) * 20, py - 30 + Math.sin(a) * 10, 3, 6); }
+  if (au && !presenciasVivas()) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.25 + Math.sin(tiempo * 3) * 0.08; ctx.strokeStyle = '#ffe0a0'; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(px, py, 34, 17, 0, a0, a1); ctx.stroke(); ctx.restore(); }
+  if (j.heroe.escudoHueso > 0 && !presenciasVivas()) for (let k = 0; k < 4; k++) { const a = tiempo * 3 + k * 1.57; if ((Math.sin(a) < 0) !== atras) continue; ctx.fillStyle = '#e0d8c0'; ctx.fillRect(px + Math.cos(a) * 20, py - 30 + Math.sin(a) * 10, 3, 6); }
 }
 
 function dibujarBotinSuelo(s: any, px: number, py: number, t: number) {

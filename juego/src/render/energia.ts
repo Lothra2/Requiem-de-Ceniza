@@ -25,6 +25,8 @@ const estelas = new Map<Proyectil, { p: [number, number, number][]; c: RGB }>();
 let vistos = new WeakSet<object>();
 let oscuro = 0, definitiva = false;
 let tAnt = -1, zonaAnt = '', pantalla = 0, pantallaC: RGB = [255, 255, 255], conjurando = false, tMota = 0;
+// (pruebas: t760 deja cada poder limpio, sin lo que soltó el anterior)
+((window as any).__limpiadores ??= []).push(() => { chispas.length = anillos.length = flashes.length = motas.length = 0; estelas.clear(); pantalla = 0; });
 
 const POR_NOMBRE: [RegExp, string][] = [
   [/fuego|ignea|magma|meteoro|brasa|llama|ardiente|infern|explosion|combust|sol_negro|lava|incendi/, 'fuego'], [/hielo|escarcha|helad|glacial|ventisca|carambano|nieve|frio|congel/, 'frio'],

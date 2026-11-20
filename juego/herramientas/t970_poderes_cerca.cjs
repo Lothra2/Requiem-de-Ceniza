@@ -18,7 +18,10 @@ const fs = require('fs');
     const C = await import('/src/datos/clases.ts'); for (const x of C.HABILIDADES) if (x.clase === h.d.clase) h.d.habs[x.id] = 5; }, [!!process.env.VIEJO, !!process.env.SIN_MATERIA]);
   await p.waitForTimeout(2500);
   const limpiar = () => p.evaluate(() => { const j = window.__juego(), h = j.heroe; h.x = window.__sitio[0]; h.y = window.__sitio[1]; h.camino = null; h.destino = null; h.acc = 'quieto'; h.vida = h.vidaMax = 1e6; h.mana = h.c.manaMax = 1e5; h.recargas = {}; h.buffs = {}; h.dir = 'se';
-    (h.d.thor ??= {}).descanso = 1e9; j.sacudida = 0; j.congela = 0; j.monstruos = []; j.efectos.length = 0; j.proyectiles.length = 0; j.areas.length = 0; j.particulas.length = 0; j.numeros.length = 0; j.manchas.length = 0; window.__apagarSuelos?.(); });
+    (h.d.thor ??= {}).descanso = 1e9; j.sacudida = 0; j.congela = 0; j.monstruos = []; j.efectos.length = 0; j.proyectiles.length = 0; j.areas.length = 0; j.particulas.length = 0; j.numeros.length = 0; j.manchas.length = 0; window.__apagarSuelos?.();
+    // (lo mismo que t760: nada del poder anterior se cuela)
+    h.d.aura = null; h.escudoHueso = 0; h.tempestad = 0; h.huracan = 0; h.torbellino = 0; h.furia = 100; h.furiaFija = 0; h.frascos = 9; h.salto = null; h.congelado = 0; h.aturdido = 0; h.combo = { paso: 0, t: -9 }; h.cargas = ['fuego', 'frio', 'rayo'];
+    j.torretas.length = 0; j.cuervos.length = 0; if (j.cadenas) j.cadenas.length = 0; if (j.golpesPoder) j.golpesPoder.length = 0; if (j.caidas) j.caidas.length = 0; j.patada = null; for (const f of window.__limpiadores ?? []) f(); });
   // zombis: [dx, dy] desde el héroe
   const poner = (pos) => p.evaluate(async (pos) => { const j = window.__juego(), h = j.heroe, M = window.__mundo, Dm = await import('/src/datos/monstruos.ts');
     window.__ms = pos.map(([dx, dy]) => { const m = M.crearMonstruo(Dm.MONSTRUOS['zombi'], 10, h.x + dx, h.y + dy, 0, 0); m.vida = m.vidaMax = 1e5; m.estado = 'dormido'; j.monstruos.push(m); return m; }); }, pos);
@@ -33,7 +36,9 @@ const fs = require('fs');
     const t0 = await p.evaluate(() => window.__juego().t);
     await p.evaluate(() => { window.__lanzar(); });
     const datos = [];
-    for (let i = 0; i < n; i++) { await p.clock.runFor(40); await p.screenshot({ path: `${D}/${nombre}_${String(i).padStart(2, '0')}.png`, clip: caja });
+    for (let i = 0; i < n; i++) { await p.clock.runFor(40);
+      if (i === 14) await p.evaluate(() => { const q = window.__pisar, m = (window.__ms ?? [])[0]; if (q && m) { m.x = q[0]; m.y = q[1]; } window.__pisar = null; });
+      if (process.env.FIN && i === Math.floor(n * 0.6)) await p.evaluate(() => { for (const b of Object.values(window.__juego().heroe.buffs)) if (b.t < 9000) b.t = 0.02; }); await p.screenshot({ path: `${D}/${nombre}_${String(i).padStart(2, '0')}.png`, clip: caja });
       datos.push(await p.evaluate((t0) => { const j = window.__juego(); return { t: +(j.t - t0).toFixed(2), arcos: j.efectos.filter((e) => e.id === 'arco_cadena').length, dano: (window.__ms ?? []).map((m) => Math.round(m.vidaMax - m.vida)), sac: +j.sacudida.toFixed(2) }; }, t0)); }
     fs.writeFileSync(`${D}/${nombre}.json`, JSON.stringify(datos)); console.log(nombre, JSON.stringify(datos[datos.length - 1]));
   };
@@ -43,9 +48,16 @@ const fs = require('fs');
   if (que.includes('combustion')) await toma('combustion', async () => { await poner([[3.2, 0.4], [3.9, 1.2], [2.8, 1.5]]);
     await p.evaluate(() => { window.__lanzar = () => { const j = window.__juego(), m = window.__ms[0]; window.__mundo.usarHabilidad(j, 'combustion', m.x + 0.2, m.y + 0.4, null, false); }; }); }, 40);
   // cualquier otro poder de cerca: hab:<id> contra tres zombis a tres casillas (CLASE= para otra clase que el arcanista)
+  // FIN=1: a mitad de la toma la mejora se termina (se ve cómo se apaga); las trampas se arman en un sitio libre y un
+  // zombi la pisa en el cuadro 14; los que levantan muertos tienen cadáveres; las formas del druida se ponen antes
   for (const q of que.filter((x) => x.startsWith('hab:'))) { const id = q.slice(4);
     await toma(id, async () => { await poner(process.env.CERCA ? [[1.15, 0.25], [1.7, 0.9], [0.8, 1.3]] : [[3.2, 0.4], [3.9, 1.2], [2.8, 1.5]]);
-      await p.evaluate((id) => { window.__lanzar = () => { const j = window.__juego(), m = window.__ms[0]; window.__mundo.usarHabilidad(j, id, m.x, m.y, m, false); }; }, id); }, 30); }
+      await p.evaluate(async (id) => { const C = await import('/src/datos/clases.ts'), Dm = await import('/src/datos/monstruos.ts'), hb = C.HABILIDADES.find((x) => x.id === id), j = window.__juego(), h = j.heroe, M = window.__mundo;
+        if (hb.forma) h.buffs[hb.forma === 'oso' ? 'forma_oso' : 'forma_lobo'] = { t: 30, bonos: {}, hab: 'x' };
+        if (hb.tipo === 'invocar') for (let i = 0; i < 4; i++) { const c = M.crearMonstruo(Dm.MONSTRUOS['zombi'], 10, h.x + 1.6 + (i % 2) * 0.9, h.y + 1.4 + (i >> 1) * 0.8, 0, 0); c.vida = 0; c.muerto = true; c.acc = 'morir'; c.t = 5; c.tMuerto = 5; j.monstruos.push(c); }
+        window.__lanzar = () => { const j = window.__juego(), m = window.__ms[0], h = j.heroe;
+          if (hb.tipo === 'trampa') { window.__mundo.usarHabilidad(j, id, h.x + 1.6, h.y - 1.4, null, false); window.__pisar = [h.x + 1.6, h.y - 1.4]; for (const q of window.__ms) { q.x += 1.6; q.y += 1.2; } }
+          else window.__mundo.usarHabilidad(j, id, m.x, m.y, m, false); }; }, id); }, +(process.env.CUADROS || 30)); }
   console.log('errores', errs.filter((e) => !/404/.test(e)).slice(0, 3));
   await b.close();
 })();

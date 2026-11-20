@@ -52,6 +52,7 @@ let ps = psMundo;
  * Sin argumento vuelve a la del mundo. */
 export function pozoArma(p?: unknown[]) { ps = (p as P[] | undefined) ?? psMundo; }
 const MAX = 420;
+((window as any).__limpiadores ??= []).push(() => { psMundo.length = 0; });
 function echar(p: P) { if (ps.length < MAX) ps.push(p); }
 const acum = new Map<string, number>();
 /** Cuántas salen este cuadro a razón de `porSeg` (con el resto guardado: no depende de los cuadros por segundo). */

@@ -117,7 +117,13 @@ export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: numbe
   if ((window as any).__pfxAlfa !== undefined) ctx.globalAlpha *= (window as any).__pfxAlfa;
   // los que se suman como luz bajan con la claridad del lugar: de día, sobre arena o nieve, un cuadro de fogonazo
   // quemaba a blanco al héroe y a los enemigos. En lo oscuro van enteros
-  if ((e.mezcla === 'aditiva' || e.mezcla === 'sumar') && e.capa !== 'pantalla') ctx.globalAlpha *= fuerzaAditiva;
+  if ((e.mezcla === 'aditiva' || e.mezcla === 'sumar') && e.capa !== 'pantalla') {
+    ctx.globalAlpha *= fuerzaAditiva;
+    // (tercera pasada) los grandes de luz sumada (las definitivas horneadas: el Lamento del osario, el Puño de dios, las
+    // Espadas votivas) quemaban a blanco medio campo de día aunque bajaran como los chicos: van más abajo cuanto más
+    // grandes y más claro el lugar (a pleno día, uno de 200 puntos de ancho queda a un 45 % de lo de antes)
+    if (!(window as any).__fogonazoParejo) { const ancho = c[3] * Math.min(e.escala * (o.escala ?? 1), Math.max(2, e.escala)), big = Math.max(0, Math.min(1, (ancho - 70) / 130)); ctx.globalAlpha *= 1 - big * (1 - noche) * 0.55; }
+  }
   ctx.globalCompositeOperation = e.mezcla === 'aditiva' || e.mezcla === 'sumar' ? 'lighter' : 'source-over';
   if (e.capa === 'pantalla' && o.tesela) {
     // clima en mosaico: el cuadro a escala 2 (el mismo pixel que el mundo) con la esquina del lienzo del efecto en (x, y).

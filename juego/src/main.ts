@@ -629,7 +629,8 @@ function cuadro(ahora: number) {
   marcarCuadro(ahora); empezarCuadro(ahora);
   cuidarMemoria(ahora);
   // (nunca hacia atrás: si el reloj del sistema retrocede, un paso negativo dejaba el tiempo del juego en negativo)
-  const dt = Math.max(0, Math.min(0.05, (ahora - ultimo) / 1000)); ultimo = ahora;
+  // (`__camaraLenta`: las pruebas de cerca de los poderes corren el juego a una fracción del tiempo, con el pintor vivo)
+  const dt = Math.max(0, Math.min(0.05, (ahora - ultimo) / 1000)) * ((window as any).__camaraLenta ?? 1); ultimo = ahora;
   tiempo += dt; tEstado += dt;
   // si sales del menú antes de que el título termine de forjarse, entra ya la música del menú
   if (musicaMenuEn && estado !== 'menu') { musicaMenuEn = 0; if (estado !== 'intro' && estado !== 'juego') Sonido.musica('menu'); }

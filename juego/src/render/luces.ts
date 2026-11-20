@@ -23,6 +23,8 @@ import { pulsosOzmaren, lucesSuelo } from './fuego_especial';
 import { luzViva } from './arma_viva';
 import { pulsoLuz } from '../../../src/engine/gotico/fuego_doom';
 import { luzCombustion } from './poderes_vivos';
+import { nochePfx } from './pfx';
+import { lucesPresencias } from './presencias';
 
 export interface Luz {
   /** Punto del piso bajo la luz, en pantalla. */
@@ -167,6 +169,8 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     const fuerte = el === 'rayo' || p.elem === 'rayo' ? 1.35 : p.arco ? 0.5 : 1;
     L.push({ id: idDe(p), x: px, y: py, h: Math.max(18, (p.z ?? 0) * 1.2 + 30), r: 200 * fuerte * rk + Math.sin(t * 30 + p.x) * 10, c, k: Math.min(1, 0.85 * fuerte), prio: 1 });
   }
+  // trampas armadas, el aura y los sellos de las invocaciones (render/presencias.ts)
+  for (const lz of lucesPresencias(j, aPant)) if (dentro(lz.x, lz.y, 300)) L.push({ x: lz.x, y: lz.y, h: lz.h, r: lz.r, c: lz.c, k: lz.k, sinSombra: true, prio: 2 });
   // fogonazo en la mano del héroe al lanzar
   for (const fg of ((j as any).fogonazos ?? []) as { t: number; dur: number; r: number; k: number; id: string }[]) {
     const q = Math.max(0, 1 - fg.t / fg.dur); if (q <= 0) continue;
@@ -174,6 +178,7 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   }
   // hechizos y explosiones: luz que se apaga; los impactos dan un destello
   let fl = 0; let flc: [number, number, number] = destelloColor;
+  const L0 = L.length;
   for (const e of j.efectos) {
     const [px, py] = aPant(e.x, e.y);
     if (!dentro(px, py, 300)) continue;
@@ -212,6 +217,9 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     if (!dentro(px, py, 300)) continue;
     L.push({ id: idDe(a), x: px, y: py, h: 20, r: a.radio * 32 + 40, c: COLOR_ELEM[a.elem] ?? COLOR_ELEM.fuego, k: 0.6 + Math.sin(t * 11 + a.x) * 0.08 });
   }
+  // (tercera pasada) de día la luz de los poderes suma menos: las definitivas (el Coro de los sellos, el Juicio, la
+  // Sentencia) encendían a blanco medio campo en las dunas. Las antorchas, el fuego y la lámpara del héroe no cambian
+  if (!(window as any).__fogonazoParejo) { const kd = 0.45 + 0.55 * nochePfx(); for (let i = L0; i < L.length; i++) L[i].k *= kd; }
   // el cuerpo sacudido por el rayo alumbra azul a tirones (render/electro.ts)
   for (const m of [h as any, ...j.monstruos]) {
     const f = m.muerto ? 0 : fuerzaElectro(m, j.t); if (f <= 0) continue;

@@ -187,7 +187,7 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   Nada de rectángulos. Después de tocarla correr `conectividad.cjs 20` y `t370_zonas`.
 
 - **Auditoría de poderes**: `node juego/herramientas/t760_auditoria_poderes.cjs <clase>` lanza cada habilidad contra
-  tres zombis pegados, en campo abierto, cinco cuadros (0,15 a 1,1 s), y `python3 juego/herramientas/t760_lamina.py
+  tres zombis pegados (las trampas en un sitio libre que pisan a los 0,55 s, con cadáveres a mano para las invocaciones), en campo abierto, cinco cuadros (0,15 a 1,1 s), y `python3 juego/herramientas/t760_lamina.py
   <clase> [carpeta]` arma la lámina en `/tmp/requiem-pruebas/pa` (`SALIDA=` otra carpeta, `SOLO=a,b` solo esos). Antes de
   cada poder despeja lo de alrededor: objetos a 12 casillas, los monstruos de la zona, el perro, el remolino de polvo del
   ambiente (`__sinAmbientePfx`) y el piso que arde (`__apagarSuelos`). Hasta el 19 nov 2026 el fuego de un poder pasaba
@@ -259,6 +259,56 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     fogonazos de impacto al 60 % y el halo grande de la Combustión al 35 % (en el desierto la pantalla quedaba naranja una
     décima de segundo). Medido con la Combustión en las dunas: el rojo de más en una esquina lejos del estallido bajó de
     unos 29 a unos 12 niveles (lo que queda es la sacudida de cámara). `__fogonazoParejo` vuelve a lo de antes.
+  - **Tercera pasada: invocaciones, trampas, auras, mejoras y el tajo** (Rick, 19 nov 2026: "nada afuera, nada a
+    medias"). `render/presencias.ts` y `render/tajos.ts`, todo a puntos enteros, en el orden del mundo y sin lecturas del
+    lienzo (en táctil la mitad de motas y el tajo a pasos de 2). mundo.ts solo anota lo que se ve, sin guardar nada:
+    `nace` y `habInv` en cada invocado, `ang` y `tiro` en la torreta, `disparo` y `j.trampasDisparadas` cuando salta una
+    mina (con `habEnCurso` puesto, así la trampa suelta su materia), `j.pulsosAura` (`pulsoAura`) cuando el aura toca a
+    alguien (el fuego de la brasa santa, las púas del zarzal, el golpe con el brío, la presteza, la sentencia o la llama,
+    el golpe recibido con la firmeza) y `sinHumo` en la maldición que solo frena o baja resistencias (la Sentencia y las
+    raíces del Despertar del bosque ya no llevan el humo morado y la calavera de `fx_maldito`).
+    - Invocaciones: los esqueletos, el sabueso y el gólem suben del piso armándose (la muerte al revés, `surgiendo` con
+      `surgeT` 0,75, también para `tipo: 'invocado'` en escena.ts); las bestias, el árbol, el espíritu y el halcón toman
+      cuerpo (`alfaInvocado`). Cada uno llega con lo suyo (grieta con luz morada o de brasa, sello que se dibuja, huesos
+      que asoman y almas que suben; charco que hierve y fuentes el gólem; sello verde, hojas y motas en espiral las
+      bestias; haz el espíritu; picada con plumas el halcón) y se va con lo suyo. De a muchos (la Legión) solo el primero
+      enciende la luz del centro. El aro de los pies toma el color de cada uno (`aroInvocado`).
+    - Trampas: la torreta es una ballesta en trípode que apunta al blanco, retrocede al tirar y se desarma al gastarse; el
+      cepo, un aro de dientes con un brillo que corre y que se cierra de golpe al morder; el pilar de chispas, una púa con
+      su runa y arcos chicos; la mina de brasas, una olla enterrada que respira; el coto, brasas de oro y runas de rayo
+      unidas por un hilo de runas; el corro, seis hongos que sueltan esporas. Saltan con lo suyo (la brasa con la bola de
+      la Combustión chica, la runa con un rayo a cada uno que la pisó, las esporas, las mandíbulas). El glifo horneado
+      `glifo_trampa` y la explosión de piedras del cepo ya no se dibujan.
+    - Auras: un sello bajo los pies (dos aros, seis glifos de su aura que giran, cuatro brazos, sombra oscura debajo para
+      que se lea sobre arena), el borde del campo a trazos que respira, motas del elemento dentro del campo, un latido cada
+      2,4 s y lo propio de cada una (llamitas, púas, viento, hojas). Va en el piso: lo tapan el cuerpo y los muros y no se
+      pinta donde no hay piso.
+    - Mejoras (`BUFF`): un estallido al pedirla (grito, metal con el brillo que baja por el cuerpo, sangre, luz, cura,
+      escarcha, rayo, viento, bestia, vidrio, piedra, hueso), mientras dura el canto del cuerpo de su color (la silueta
+      corrida un punto a cada lado, detrás del cuerpo, `rimHeroe` y `siluetaCuadro` en motor/assets.ts) y pocas motas, y al
+      terminar se apaga. Las que tienen dibujo propio no llevan el bucle horneado del lanzador (`tieneEstilo`): la burbuja
+      de oro del escudo divino salía en el tónico, la piel de yunque, el mantra y la cortina. La armadura de hueso son
+      placas de hueso que giran alrededor del pecho (las calaveras horneadas no van).
+    - El tajo (`TAJO` en tajos.ts, una fila por golpe): la media luna sigue la punta del arma de cada cuadro horneado
+      alrededor del pecho y se abre un poco más allá, a la medida del alcance; solo el golpe (el tramo que gira rápido
+      con la punta bajando), no el levantar del arma. Cuerpo oscuro que tapa, el color del golpe y el filo encendido;
+      gruesa pasando la mitad y fina en la cola. Se pinta como su propio paso del orden, delante de los enemigos pegados
+      (`tajoPend` en escena.ts). Además estocadas (lanza), conos de puño con su anillo de choque (rayo, fuego, piedra,
+      eco), la cuña del escudo, las tres uñas del druida y las fauces de la Mordida, el segundo arco del Hachazo de
+      barrido, las tres rayas del Desgarro, runas en el Corte del sello y el aro de acero del Remolino de hierro. La media
+      luna del blanco sale del mismo estilo, más grande, con chispas de su color, y el crítico de un poder cuerpo a cuerpo
+      congela 0,07 s como mínimo. Las medias lunas grises horneadas (`fx_tajo_espada`, `fx_hachazo`, `fx_zarpazo`...) ya
+      no se dibujan.
+    - De día: los efectos horneados grandes de luz sumada bajan además según su ancho (`dibujarPfx`: uno de 200 puntos
+      queda a pleno día a un 55 % de lo de antes) y la luz de los efectos y las áreas en luces.ts va de 45 % a pleno día a
+      entera de noche. El resplandor del rayo también baja de día. `__fogonazoParejo` vuelve a lo de antes.
+    - `__sinPresencias` y `__sinTajos` apagan lo nuevo. Pruebas: `t975_poderes_lento.cjs <clase> <etiqueta> <ids>` (el
+      juego en cámara lenta con `__camaraLenta` y el pintor vivo, sin la silueta blanca del reloj quieto de t970; `CERCA`,
+      `FIN` termina la mejora a mitad, `ZONA`, `VIEJO`, `FOGONAZO`) y `t975_lamina.py <etiqueta> [otra]` en
+      `/tmp/requiem-pruebas/poderes3/cerca`. t760 y t970 dejan cada poder limpio de verdad (el aura activa, las trampas que
+      seguían tirando, los cuervos, la armadura de hueso, la tempestad, el huracán, el remolino, la furia fija, las cargas y
+      lo que guardan los módulos de dibujo por `window.__limpiadores`), ponen cadáveres para los que levantan muertos (antes
+      salía "Necesito un cadáver" y la lámina vacía) y arman las trampas en un sitio libre que un zombi pisa a mitad.
 - **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.

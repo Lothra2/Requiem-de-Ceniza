@@ -18,6 +18,7 @@ import { lienzoTrabajo } from '../motor/lienzos';
 import { HABILIDADES } from '../datos/clases';
 import { ponerMancha } from '../juego/mundo';
 import { nochePfx } from './pfx';
+import { estiloTajo, tajosVivos } from './tajos';
 
 type P = [number, number];
 /** Azar con semilla (el mismo de electro.ts). */
@@ -90,9 +91,10 @@ function arco(ctx: CanvasRenderingContext2D, e: any, aP: (x: number, y: number) 
   ctx.fillStyle = `rgba(160,190,255,${0.6 * k})`; ctx.beginPath(); trazo(ctx, hebra, 1); for (const q of ramas) trazo(ctx, q, 1); ctx.fill();
   ctx.fillStyle = `rgba(255,255,255,${Math.min(1, k * 1.4)})`; ctx.beginPath(); trazo(ctx, princ, nace ? 2 : 1); for (const q of ramas) trazo(ctx, q, 1, 1, 0, 0.35); ctx.fill();
   // donde nace y donde pega: resplandor y una estrella de pixel que late
-  const hr = haloRayo();
-  ctx.globalAlpha = k * 0.6; ctx.drawImage(hr, a[0] - 8, a[1] - 8, 16, 16);
-  const rb = (nace ? 22 : 11) + r() * 4; ctx.globalAlpha = k * 0.85; ctx.drawImage(hr, b[0] - rb, b[1] - rb, rb * 2, rb * 2);
+  // (de día el resplandor del rayo suma menos: el Puño de dios quemaba a blanco)
+  const hr = haloRayo(), kd = 0.4 + 0.6 * nochePfx();
+  ctx.globalAlpha = k * 0.6 * kd; ctx.drawImage(hr, a[0] - 8, a[1] - 8, 16, 16);
+  const rb = (nace ? 22 : 11) + r() * 4; ctx.globalAlpha = k * 0.85 * kd; ctx.drawImage(hr, b[0] - rb, b[1] - rb, rb * 2, rb * 2);
   ctx.globalAlpha = 1; ctx.fillStyle = `rgba(255,255,255,${k})`;
   const bxr = Math.round(b[0]), byr = Math.round(b[1]), lx = Math.round((nace ? 9 : 4) + r() * 5), ly = Math.round(lx * 0.7);
   ctx.fillRect(bxr - lx, byr, lx * 2 + 1, 1); ctx.fillRect(bxr, byr - ly, 1, ly * 2 + 1);
@@ -289,6 +291,8 @@ const TOPE_P = () => (E.tactil ? 220 : 520);
 let jRef: Juego | null = null;
 const vistosHab = new WeakSet<object>();
 const defHecha = new Map<string, number>();
+// (pruebas: t760 deja cada poder limpio, sin lo que soltó el anterior)
+((window as any).__limpiadores ??= []).push(() => { piezas.length = marcas.length = trozos.length = 0; defHecha.clear(); });
 const rnd = (a: number, b: number) => a + R() * (b - a);
 const elige = <T,>(xs: T[]) => xs[Math.floor(R() * xs.length)];
 
@@ -363,7 +367,11 @@ function materiaGolpe(ev: any, k: number) {
   const fuerte = ev.crit || ev.mata, sub = ev.parte !== undefined && ev.parte < 2, f = (fuerte ? 1.4 : 1) * (sub ? 0.7 : 1) * k;
   const [sx, sy] = enPantalla(ev.ux, ev.uy), col = hb?.color ?? '#e0e0e0';
   // el tajo en media luna, del color del poder (lo dibuja el filo, no un sprite)
-  if (melee && tipo !== 'torbellino') mk({ k: 'tajo', x: ev.x, y: ev.y, d: 0.3, c: el === 'sangre' ? '#e01820' : el === 'luz' ? '#ffe070' : col, c2: el === 'fisico' ? '#f4f0e8' : '#fff4e0', esc: (fuerte ? 1.35 : 1) * (tipo === 'carga' ? 1.25 : 1) * (ev.parte !== undefined ? 1.1 : 1), ang: Math.atan2(sy, sx) + (ev.parte !== undefined ? (ev.parte % 2 ? -1 : 1) : R() < 0.5 ? -1 : 1) * rnd(0.35, 0.8), alto: z - (ev.parte ?? 1) * 4 + 4, r: ev.parte !== undefined ? (ev.parte % 2 ? -1 : 1) : R() < 0.5 ? 1 : -1 });
+  // (tercera pasada: la media luna del blanco es del estilo del golpe, el doble de grande, cuerpo oscuro, color y filo)
+  const et = tajosVivos() ? estiloTajo(ev.hab) : null;
+  if (melee && tipo !== 'torbellino') mk({ k: 'tajo', x: ev.x, y: ev.y, d: et ? Math.max(0.3, et.dur + 0.08) : 0.3, c: et ? et.medio : el === 'sangre' ? '#e01820' : el === 'luz' ? '#ffe070' : col, c2: et ? et.filo : el === 'fisico' ? '#f4f0e8' : '#fff4e0', pal: et?.cuerpo, esc: (fuerte ? 1.35 : 1) * (tipo === 'carga' ? 1.25 : 1) * (ev.parte !== undefined ? 1.1 : 1) * (et ? 0.75 + et.k * 0.45 + et.ancho * 0.012 : 1), ang: Math.atan2(sy, sx) + (ev.parte !== undefined ? (ev.parte % 2 ? -1 : 1) : R() < 0.5 ? -1 : 1) * rnd(0.35, 0.8), alto: z - (ev.parte ?? 1) * 4 + 4, r: ev.parte !== undefined ? (ev.parte % 2 ? -1 : 1) : R() < 0.5 ? 1 : -1, lean: et?.forma === 'garra' ? 3 : et?.extra === 'rasgar' ? 3 : 1 });
+  // las chispas del contacto, del color del golpe, abiertas hacia donde iba el golpe
+  if (et && melee) { const c = hexRgb(et.filo), c2 = hexRgb(et.medio); chispasLibres(Math.round((fuerte ? 12 : 6) * KT() * k), () => { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.7, v = rnd(2.5, 6); return { x: ev.x, y: ev.y, z: z + rnd(-6, 6), vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(30, 150), t: 0, d: rnd(0.18, 0.4), c: R() < 0.4 ? c : c2, s: 2, reb: 1 }; }); if (fuerte) estrella(ev.x, ev.y, z, et.filo, 11, 0.2); }
   if (el === 'sangre' || (hb?.elem === 'sangre')) {
     sangre(ev.x, ev.y, z, ev.ux, ev.uy, 16 * f + (tipo === 'nova' ? -6 : 0), fuerte ? 4 : 2, 1, ev.hueso);
     if (!ev.hueso && !sub) ponerMancha(jRef!, { x: ev.x + ev.ux * 0.7, y: ev.y + ev.uy * 0.7, r: 0.5 + (fuerte ? 0.35 : 0), color: '#6a0a0a', t: 0, tipo: 'sangre', forma: 'salpicadura', ang: Math.atan2(ev.uy, ev.ux), sem: Math.floor(R() * 8), pal: 'rojo' });
@@ -425,7 +433,18 @@ function materiaEfecto(j: Juego, e: Efecto & { hab?: string }) {
   if (/tornado|nova_viento/.test(e.id) && enHeroe && hb.tipo !== 'proyectil' && !hb.definitiva) { mk({ k: 'remolino', x: e.x, y: e.y, d: 0.8, c: '#d8f0ff', r: hb.radio ?? 3 }); return; }
 }
 /** El horneado que la materia reemplaza: la salpicadura de sangre horneada salía borrosa y agrandada encima del tajo. */
-export function sinHorneado(e: Efecto): boolean { return conMateria() && !!(e as any).hab && e.id === 'salpicadura_sangre'; }
+export function sinHorneado(e: Efecto): boolean {
+  const hab = (e as any).hab as string | undefined; if (!conMateria() || !hab) return false;
+  if (e.id === 'salpicadura_sangre') return true;
+  // (la cuadrícula de oro horneada de la Égida del alba: la reemplaza el haz y el sello de render/presencias.ts)
+  if (!(window as any).__sinPresencias && ((hab === 'egida_alba' && e.id === 'pfx:fx_bloqueo_escudo') || (hab === 'piel_hierro' && e.id === 'pfx:fx_parada') || (hab === 'cepo_dientes' && e.id === 'pfx:fx_explosion_tierra') || (hab === 'armadura_hueso' && e.id === 'pfx:fx_calaveras_orbitan') || (hab === 'llamar_halcon' && e.id === 'pfx:fx_plumas')
+    // (la burbuja de oro del escudo divino en mejoras que no son de luz: el tónico, la piel de yunque, el mantra y la cortina)
+    || (/^(tonico_hierro|piel_hierro|mantra_piedra|cortina_viento)$/.test(hab) && /escudo_divino|fx_parada/.test(e.id)))) return true;
+  // (tercera pasada) la media luna gris horneada del tajo y las garras: la reemplaza la de render/tajos.ts, del estilo de
+  // cada golpe (salía igual en todos, gris y punteada). Solo la que cae en el blanco, no lo que nace en el héroe
+  if (!estiloTajo(hab) || !tajosVivos() || !/^(pfx:fx_(tajo_espada|zarpazo|tajo_doble|hachazo|barrido_lanza|estocada|latigazo|rafaga_dagas)|chispas_carne|tajo_garras)$/.test(e.id)) return false;
+  const de = (e as any).de as [number, number] | undefined; return !de || Math.hypot(e.x - de[0], e.y - de[1]) > 0.5;
+}
 function ola(x: number, y: number, radio: number, d: number, retraso = 0) { mk({ k: 'ola', x, y, d: d + retraso, t: -retraso, r: radio, c: '#a80c0c' }); }
 
 /** El golpe propio de cada definitiva, por elemento. */
@@ -590,12 +609,20 @@ function dibMarca(ctx: CanvasRenderingContext2D, m: Mk, aP: (x: number, y: numbe
   ctx.save(); ctx.imageSmoothingEnabled = false;
   switch (m.k) {
     case 'tajo': {
-      // media luna: la cabeza barre en el primer tercio y la cola la sigue; gruesa en el medio y fina en las puntas
+      // media luna: la cabeza barre en el primer tercio y la cola la sigue; gruesa en el medio y fina en las puntas.
+      // Con estilo (pal = el cuerpo oscuro): tres capas, el cuerpo tapa, el color del golpe y el filo encendido; las
+      // garras y el Desgarro son tres rayas paralelas (lean)
       const R0 = Math.round(24 * m.esc), cx = px - Math.cos(m.ang!) * R0 * 0.75, cy = py - m.alto! - Math.sin(m.ang!) * R0 * 0.75, abre = 2.1, cab = Math.min(1, u / 0.25), col = Math.max(0, (u - 0.4) / 0.6);
       const N = Math.ceil(abre * R0 * 1.4), g = 1 + Math.round(3 * m.esc * (1 - u * 0.6));
       const capa = (c: string, a: number, w: (f: number) => number, dr: number) => { ctx.globalAlpha = a; ctx.fillStyle = c; ctx.beginPath();
         for (let i = 0; i <= N; i++) { const f = i / N; if (f > cab || f < col) continue; const th = m.ang! + m.r! * (f - 0.5) * abre, ww = Math.max(1, Math.round(w(f))), rx = Math.round(cx + Math.cos(th) * (R0 + dr)), ry = Math.round(cy + Math.sin(th) * (R0 + dr) * 0.85); ctx.rect(rx, ry, ww, ww); }
         ctx.fill(); };
+      if (m.pal) { const kd = 0.55 + 0.45 * nochePfx(), rayas = m.lean ?? 1;
+        for (let q = 0; q < rayas; q++) { const dr = -q * (g + 3), gg = rayas > 1 ? Math.max(1, g * 0.6) : g;
+          capa(m.pal, 0.8 * (1 - u * u), (f) => (gg + 1.5) * Math.sin(Math.PI * f) ** 1.3 + 1, dr + 1);
+          ctx.globalCompositeOperation = 'lighter'; capa(m.c, (1 - u) * kd, (f) => gg * Math.sin(Math.PI * f) ** 1.8, dr); ctx.globalCompositeOperation = 'source-over';
+          capa(m.c2 ?? '#ffffff', (1 - u) * 0.95, (f) => (f > 0.15 && f < 0.85 ? 1 : 0), dr - 1); }
+        break; }
       // el cuerpo del color del poder tapa (se lee sobre arena y sobre nieve), el filo blanco se suma como luz
       capa(m.c, 0.62 * (1 - u * u), (f) => g * Math.sin(Math.PI * f) ** 1.6 + 1, 1);
       ctx.globalCompositeOperation = 'lighter';
@@ -622,7 +649,8 @@ function dibMarca(ctx: CanvasRenderingContext2D, m: Mk, aP: (x: number, y: numbe
       ctx.globalCompositeOperation = 'lighter'; const n = nochePfx(), kk = 0.55 + 0.45 * n;
       ctx.globalAlpha = 0.22 * vive * kk; ctx.fillStyle = m.c; ctx.fillRect(px - w, top, w * 2 + 1, bot - top);
       ctx.globalAlpha = 0.5 * vive * kk; ctx.fillRect(px - (w >> 1), top, (w >> 1) * 2 + 1, bot - top);
-      ctx.globalAlpha = vive; ctx.fillStyle = '#ffffff'; ctx.fillRect(px - (w > 4 ? 1 : 0), top, w > 4 ? 3 : 1, bot - top);
+      // (de día el alma blanca del haz va a dos tercios: ocho haces juntos quemaban a blanco el centro de la definitiva)
+      ctx.globalAlpha = vive * (0.6 + 0.4 * n); ctx.fillStyle = '#ffffff'; ctx.fillRect(px - (w > 4 ? 1 : 0), top, w > 4 ? 3 : 1, bot - top);
       // motas que suben por el haz
       const r = azar(m.sem + Math.floor(T * 20)); ctx.fillStyle = '#fff4c0'; for (let i = 0; i < 6; i++) ctx.fillRect(px + Math.round((r() - 0.5) * w * 2), Math.round(bot - r() * Hh * 0.7), 1, 1);
       if (baja >= 1) { const rr = Math.round((6 + 16 * (1 - vive)) * m.esc); ctx.globalAlpha = vive * 0.9; ctx.fillStyle = m.c; ctx.beginPath(); for (let i = 0; i < 40; i++) { const an = (i / 40) * 6.283; ctx.rect(Math.round(px + Math.cos(an) * rr), Math.round(py + Math.sin(an) * rr * 0.5), 1, 1); } ctx.fill();
@@ -664,3 +692,13 @@ function dibMarca(ctx: CanvasRenderingContext2D, m: Mk, aP: (x: number, y: numbe
   }
   ctx.restore();
 }
+
+const hexRgb = (c: string): [number, number, number] => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+/** Las recetas sueltas de la materia, para los otros módulos de poderes (render/presencias.ts). */
+export const M = {
+  grieta, puas, polvo, hojas, astillas, burbujas, brasas, estrella, haz, puf, halo,
+  sangre: (x: number, y: number, z: number, ux: number, uy: number, n: number, tr: number, f = 1) => sangre(x, y, z, ux, uy, n, tr, f),
+  remolino: (x: number, y: number, d: number, c: string, r: number) => mk({ k: 'remolino', x, y, d, c, r }),
+  fuente: (x: number, y: number, d: number, retraso = 0) => mk({ k: 'fuente', x, y, d: d + retraso, t: -retraso, c: '#c01414' }),
+  mancha: (j: Juego, m: Parameters<typeof ponerMancha>[1]) => ponerMancha(j, m),
+};

@@ -23,15 +23,28 @@ const TOMAS = [150, 350, 550, 800, 1100];
   for (const id of ids) {
     if (solo && !solo.includes(id)) { n++; continue; }
     await p.evaluate(async (id) => { const j = window.__juego(), h = j.heroe, M = window.__mundo, D = await import('/src/datos/monstruos.ts'), C = await import('/src/datos/clases.ts'); const hb = C.HABILIDADES.find((x) => x.id === id);
-      h.x = window.__sitio[0]; h.y = window.__sitio[1]; h.camino = null; h.destino = null;
-      h.vida = h.vidaMax = 1e6; h.mana = h.c.manaMax = 1e5; h.recargas = {}; h.acc = 'quieto'; h.furia = 100; h.frascos = 9; h.salto = null; h.dir = 'se'; h.buffs = {};
+      // cada poder empieza limpio (antes se colaban de uno al siguiente el aura activa, las trampas y torretas que
+      // seguían tirando, los cuervos, la armadura de hueso, la tempestad, el huracán, el remolino, la furia fija, las
+      // cargas y lo que soltaban los poderes en los módulos de dibujo: chispas, anillos, gotas, tajos y grietas)
+      h.x = window.__sitio[0]; h.y = window.__sitio[1]; h.camino = null; h.destino = null; h.objetivo = null;
+      h.vida = h.vidaMax = 1e6; h.mana = h.c.manaMax = 1e5; h.recargas = {}; h.acc = 'quieto'; h.t = 0; h.furia = 100; h.furiaFija = 0; h.frascos = 9; h.salto = null; h.dir = 'se'; h.buffs = {};
+      h.d.aura = null; h.escudoHueso = 0; h.tempestad = 0; h.huracan = 0; h.torbellino = 0; h.congelado = 0; h.aturdido = 0; h.combo = { paso: 0, t: -9 }; h.cargas = ['fuego', 'frio', 'rayo'];
       if (hb.forma) h.buffs[hb.forma === 'oso' ? 'forma_oso' : 'forma_lobo'] = { t: 30, bonos: {}, hab: 'x' };
+      window.__mundo.recalc?.(j);
       j.monstruos = []; j.manchas && (j.manchas.length = 0); h.quema = 0; h.frio = 0; h.veneno = 0; (h.d.thor ??= {}).descanso = 999; // (el perro también se va: se paraba delante de todo)
-      j.efectos.length = 0; j.proyectiles.length = 0; j.areas.length = 0; j.particulas.length = 0; window.__apagarSuelos?.();
+      j.efectos.length = 0; j.proyectiles.length = 0; j.areas.length = 0; j.particulas.length = 0; j.numeros.length = 0; j.torretas.length = 0; j.cuervos.length = 0;
+      if (j.cadenas) j.cadenas.length = 0; if (j.golpesPoder) j.golpesPoder.length = 0; if (j.golpesVivos) j.golpesVivos.length = 0; if (j.caidas) j.caidas.length = 0;
+      j.sacudida = 0; j.congela = 0; j.patada = null; window.__apagarSuelos?.(); for (const f of window.__limpiadores ?? []) f();
       const ms = [0, 1, 2].map((i) => { const m = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 1.25 + i * 0.75, h.y + 0.35 - i * 0.55, 0, 0); m.vida = m.vidaMax = 50000; m.estado = 'dormido'; j.monstruos.push(m); return m; });
+      // los que levantan muertos necesitan cadáveres (antes avisaban "Necesito un cadáver" y la lámina salía vacía)
+      if (hb.tipo === 'invocar') for (let i = 0; i < 4; i++) { const c = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 1.6 + (i % 2) * 0.9, h.y + 1.4 + (i >> 1) * 0.8, 0, 0); c.vida = 0; c.muerto = true; c.acc = 'morir'; c.t = 5; c.tMuerto = 5; j.monstruos.push(c); }
+      // las trampas se arman en un sitio libre y un zombi la pisa a los 0,6 s: se ve armada y después el disparo
+      if (hb.tipo === 'trampa') { const tx = h.x + 1.6, ty = h.y - 1.4; M.usarHabilidad(j, id, tx, ty, null, false); window.__pisar = [tx, ty]; for (const m of ms) { m.x += 1.6; m.y += 1.2; } return; }
+      window.__pisar = null;
       M.usarHabilidad(j, id, ms[0].x, ms[0].y, ms[0], false); }, id);
     const t0 = Date.now();
-    for (let i = 0; i < TOMAS.length; i++) { await p.waitForTimeout(Math.max(0, TOMAS[i] - (Date.now() - t0))); await p.screenshot({ path: `${SAL}/${clase}_${String(n).padStart(2, '0')}_${i}.png`, clip: { x: 640 - 130, y: 300 - 120, width: 300, height: 220 } }); }
+    for (let i = 0; i < TOMAS.length; i++) { await p.waitForTimeout(Math.max(0, TOMAS[i] - (Date.now() - t0)));
+      if (i === 2) await p.evaluate(() => { const q = window.__pisar, m = window.__juego().monstruos[0]; if (q && m) { m.x = q[0]; m.y = q[1]; } }); await p.screenshot({ path: `${SAL}/${clase}_${String(n).padStart(2, '0')}_${i}.png`, clip: { x: 640 - 130, y: 300 - 120, width: 300, height: 220 } }); }
     await p.waitForTimeout(900); n++;
   }
   fs.writeFileSync(`${SAL}/${clase}.json`, JSON.stringify(ids)); console.log(clase, ok, ids.length, errs.filter((e) => !/404/.test(e)).slice(0, 2));

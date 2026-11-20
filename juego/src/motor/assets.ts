@@ -245,6 +245,16 @@ export function dibujarTenido(c: CanvasRenderingContext2D, q: Cuadro | undefined
   if (gancho) gancho(c, { ...q, atlas: '' }, im, x - 1e-6, y, escala === 1 ? 1.000001 : escala);
   return true;
 }
+/** La silueta del cuadro de un color en un lienzo de la rueda (sin pintarla): para el canto de color de las mejoras. */
+export function siluetaCuadro(q: Cuadro | undefined, color: string): HTMLCanvasElement | null {
+  if (!q) return null;
+  let im = q.img;
+  if (!im) { im = imgs.get(q.atlas) ?? null; if (!im) return null; q.img = im; }
+  const { cv, c } = lienzoTrabajo(q.w, q.h);
+  c.globalCompositeOperation = 'copy'; c.drawImage(im, q.x, q.y, q.w, q.h, 0, 0, q.w, q.h);
+  c.globalCompositeOperation = 'source-in'; c.fillStyle = color; c.fillRect(0, 0, q.w, q.h); c.globalCompositeOperation = 'source-over';
+  return cv;
+}
 /** Silueta para sombras y fantasmas: todo el sprite de un color. */
 export function dibujarSilueta(c: CanvasRenderingContext2D, q: Cuadro | undefined, x: number, y: number, color: string, escala = 1): boolean {
   return dibujarTenido(c, q, x, y, color, 1, escala);

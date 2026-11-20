@@ -303,6 +303,11 @@ const zonasVivas = new Map<string, { z: Zona; monstruos: Monstruo[]; suelo: Suel
 export const olvidarZonas = () => zonasVivas.clear();
 // El mapa descubierto se guarda con el héroe (campo opcional `mapas`: una tira de bits por zona, en base64). Para que
 // sirva al volver, cada zona sale siempre igual para el mismo héroe y ciclo (semilla fija). Partida nueva o ciclo nuevo: se borra.
+/** Versión del trazado de los mundos: va en la clave del mapa descubierto. Se sube cuando una fase mueve el trazado de las zonas
+ * (siluetas, salas, cuevas): la niebla vieja no se pinta sobre el mapa nuevo y se descubre otra vez. Héroe, objetos, misiones,
+ * piedras de viaje, casas y restos van por id de zona y no se enteran. Las claves viejas quedan en el guardado sin usarse. */
+export const MAPA_V = 2;
+const claveMapa = (z: Zona) => z.id + (z.hueco ? '~o' : '') + '~m' + MAPA_V;
 const empacarMapa = (e: Uint8Array) => { const b = new Uint8Array(Math.ceil(e.length / 8)); for (let i = 0; i < e.length; i++) if (e[i]) b[i >> 3] |= 1 << (i & 7); let s = ''; for (const v of b) s += String.fromCharCode(v); return e.length + ':' + btoa(s); };
 function desempacarMapa(t: string, e: Uint8Array) {
   try { const i = t.indexOf(':'); if (+t.slice(0, i) !== e.length) return; const s = atob(t.slice(i + 1)); for (let k = 0; k < e.length; k++) if (s.charCodeAt(k >> 3) & (1 << (k & 7))) e[k] = 1; } catch { /* mapa viejo o roto: se descubre de nuevo */ }
@@ -311,7 +316,7 @@ function desempacarMapa(t: string, e: Uint8Array) {
 export function anotarMapas(j: Juego) {
   const d = j.heroe.d as DatosHeroe & { mapas?: Record<string, string> };
   const m = (d.mapas ??= {});
-  const una = (z: Zona) => { if (z.explorado.some((v) => v)) m[z.id + (z.hueco ? '~o' : '')] = (d.ciclo ?? 0) + '|' + empacarMapa(z.explorado); };
+  const una = (z: Zona) => { if (z.explorado.some((v) => v)) m[claveMapa(z)] = (d.ciclo ?? 0) + '|' + empacarMapa(z.explorado); };
   for (const v of zonasVivas.values()) una(v.z);
   if (j.zona) una(j.zona);
 }
@@ -346,7 +351,7 @@ export function entrarZona(j: Juego, zid: string, entrada: string) {
   if (!viva) {
     const semilla = (hashTxt(j.heroe.d.id + zid) % 100000) + (hashTxt(zid + j.heroe.d.id + (j.heroe.d.ciclo ?? 0)) % 1000);
     const z = generarZona(def, semilla);
-    const visto = (j.heroe.d as any).mapas?.[zid + (z.hueco ? '~o' : '')]; if (typeof visto === 'string' && visto.startsWith((j.heroe.d.ciclo ?? 0) + '|')) desempacarMapa(visto.slice(visto.indexOf('|') + 1), z.explorado);
+    const visto = (j.heroe.d as any).mapas?.[claveMapa(z)]; if (typeof visto === 'string' && visto.startsWith((j.heroe.d.ciclo ?? 0) + '|')) desempacarMapa(visto.slice(visto.indexOf('|') + 1), z.explorado);
     viva = { z, monstruos: poblar(z, j.heroe.d), suelo: [], manchas: [] };
   }
   j.zona = viva.z; j.monstruos = viva.monstruos; j.suelo = viva.suelo; j.manchas = viva.manchas;

@@ -1023,7 +1023,9 @@ function acampar(k: Constructor, n: number, evitar: [number, number][], sitios: 
   const elite: { tipo: Spawn['tipo']; grupos: number }[] = [];
   for (let i = 0; i < u; i++) { const q = g > 0 ? 1 : 0; g -= q; elite.push({ tipo: 'unico', grupos: q }); }
   for (let i = 0; i < c; i++) { const q = g > 0 ? 1 : 0; g -= q; elite.push({ tipo: 'campeon', grupos: q }); }
-  while (g > 0) { let q = Math.min(g, (z.nivel < 6 ? 3 : 2) + (r() < 0.55 ? 1 : 0)); if (g - q === 1) q++; g -= q; campos.push({ tipo: 'grupo', grupos: q }); }
+  // (oleada 2: en las primeras zonas, nivel menor que 6, los grupos son de a dos y el campamento junta 2 o 3: de 4 a 6 cuerpos.
+  //  Con 3 o 4 salían campamentos de 8 a 11 en el páramo, demasiado para un héroe de nivel 2)
+  while (g > 0) { let q = Math.min(g, 2 + (r() < 0.55 ? 1 : 0)); if (g - q === 1 && z.nivel >= 6) q++; g -= q; campos.push({ tipo: 'grupo', grupos: q }); }
   // se alternan: campamento, élite, campamento... (los primeros se llevan los mejores sitios)
   const lista: { tipo: Spawn['tipo']; grupos: number }[] = [];
   while (campos.length || elite.length) { if (campos.length) lista.push(campos.shift()!); if (elite.length) lista.push(elite.shift()!); }

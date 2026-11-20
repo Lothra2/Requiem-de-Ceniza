@@ -354,7 +354,7 @@ export function entrarZona(j: Juego, zid: string, entrada: string) {
     const semilla = (hashTxt(j.heroe.d.id + zid) % 100000) + (hashTxt(zid + j.heroe.d.id + (j.heroe.d.ciclo ?? 0)) % 1000);
     const z = generarZona(def, semilla);
     const visto = (j.heroe.d as any).mapas?.[claveMapa(z)]; if (typeof visto === 'string' && visto.startsWith((j.heroe.d.ciclo ?? 0) + '|')) desempacarMapa(visto.slice(visto.indexOf('|') + 1), z.explorado);
-    viva = { z, monstruos: poblar(z, j.heroe.d), suelo: [], manchas: [] };
+    viva = { z, monstruos: poblar(z, j.heroe.d, entrada), suelo: [], manchas: [] };
   }
   j.zona = viva.z; j.monstruos = viva.monstruos; j.suelo = viva.suelo; j.manchas = viva.manchas;
   j.proyectiles = []; j.areas = []; j.efectos = []; j.particulas = []; j.numeros = []; j.cuervos = []; j.torretas = [];
@@ -449,7 +449,7 @@ function hablarJefe(j: Juego, m: Monstruo) {
   const fr = (m.jefeZona && FRASE_JEFE_ZONA[j.zona.id]) || FRASE_JEFE[m.def.id]; if (!fr) return;
   msg(j, fr, '#ff6040'); m.habla = fr[j.idi]; (m as any).hablaT = Math.max(4, Math.min(9, fr[j.idi].length / 15));
 }
-function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
+function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
   const out: Monstruo[] = [];
   const pool = POBLACION[POBL_ZONA[z.id] ?? ''] ?? [];
   if (!pool.length) return out;
@@ -457,11 +457,18 @@ function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
   const dif = d.dificultad;
   const nivel = nivelEnDificultad(z.nivel, dif);
   // el grupo más cercano a una entrada de una zona de inicio es uno solo, para no recibir al héroe de nivel 1 con una paliza
-  let primero: (typeof z.spawns)[number] | null = null;
+  // (oleada 2: se mide desde la entrada por la que llega, no desde cualquiera, y el segundo campamento más cercano también
+  //  es chico, de dos grupos: un héroe nuevo y descuidado encontraba 6 y después 8 cuerpos en sus dos primeras peleas)
+  let primero: (typeof z.spawns)[number] | null = null, segundo: (typeof z.spawns)[number] | null = null;
+  const mansos = new Set<(typeof z.spawns)[number]>();
   if (z.nivel < 6 && dif === 0 && d.nivel <= 3) {
-    let bd = 1e9;
-    for (const s of z.spawns) if (s.tipo !== 'jefe' && s.tipo !== 'unico' && s.tipo !== 'campeon') for (const e of Object.values(z.entradas)) { const dd = dist(s.cx, s.cy, e[0], e[1]); if (dd < bd) { bd = dd; primero = s; } }
+    const ep = entrada ? z.entradas[entrada] : undefined, ents = ep ? [ep] : Object.values(z.entradas);
+    const cerca = z.spawns.filter((s) => s.tipo !== 'jefe' && s.tipo !== 'unico' && s.tipo !== 'campeon').map((s) => ({ s, d: Math.min(...ents.map((e) => dist(s.cx, s.cy, e[0], e[1]))) })).sort((a, b) => a.d - b.d || a.s.cx - b.s.cx || a.s.cy - b.s.cy);
+    primero = cerca[0]?.s ?? null; segundo = cerca[1]?.s ?? null;
+    // y a un héroe recién llegado no lo esperan campeones ni un único a 40 celdas de la puerta: ahí van como campamento común
+    for (const s of z.spawns) if ((s.tipo === 'unico' || s.tipo === 'campeon') && Math.min(...ents.map((e) => dist(s.cx, s.cy, e[0], e[1]))) < 40) mansos.add(s);
   }
+  // (el dado de `poblar` es por sesión; los mansos solo quitan élites al que empieza)
   for (const s of z.spawns) {
     if (s.tipo === 'jefe') {
       const dm = MONSTRUOS[def.jefe!]; if (!dm) continue;
@@ -493,7 +500,7 @@ function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
       const n = dm.id === 'sediento' ? 5 + Math.floor(R() * 4) : dm.id === 'mano_dorada' ? 2 + Math.floor(R() * 2) : Math.max(1, Math.round((dm.ia === 'enjambre' ? (z.nivel < 6 ? 3 : 5) : dm.ia === 'bruto' ? 2 : z.nivel < 6 ? 2 : 3) * s.fuerza));
       for (let i = 0; i < Math.min(n, tope); i++) { const m = crearMonstruo(i > 0 && R() < 0.3 ? MONSTRUOS[elegir(pool)] : dm, nivel, s.cx + 0.5, s.cy + 0.5, 0, dif); if (lider) m.lider = lider; cuerpos.push(m); }
     };
-    if (s.tipo === 'unico' || s.tipo === 'campeon') {
+    if ((s.tipo === 'unico' || s.tipo === 'campeon') && !mansos.has(s)) {
       let id = R() < 0.55 ? pool[0] : elegir(pool);
       // en la Corona los campeones suelen ser ángeles sedientos (vuelan y escupen luz)
       if (s.tipo === 'campeon' && pool.includes('angel_sediento') && R() < 0.5) id = 'angel_sediento';
@@ -509,9 +516,10 @@ function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
         aplicarMods(m);
         cuerpos.push(m);
       }
-      for (let q = 0; q < (s.grupos ?? 0); q++) tirada();
+      { const n0 = cuerpos.length; for (let q = 0; q < (s.grupos ?? 0); q++) tirada(); for (let i = n0; i < cuerpos.length; i++) (cuerpos[i] as any).escolta = true; }
     } else if (s === primero) tirada(s.grupos != null ? 2 : 1);
-    else for (let q = 0; q < (s.grupos ?? 1); q++) tirada();
+    else if (s === segundo && s.grupos != null) for (let q = 0; q < Math.min(2, s.grupos); q++) tirada();
+    else for (let q = 0; q < (mansos.has(s) ? 2 : s.grupos ?? 1); q++) tirada();
     // el campamento con papeles: si la zona tiene gente de tiro o de conjuro y no salió ninguno, uno de los comunes lo es
     const deTiro = (m: Monstruo) => m.def.ia === 'mago' || m.def.ia === 'distancia' || m.def.ia === 'invocador';
     if (s.grupos != null && cuerpos.length >= 6 && !cuerpos.some(deTiro)) {
@@ -537,9 +545,14 @@ function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
 }
 /** Despierta al campamento de `m` (los de su mismo `camp`) contra `obj`, escalonado: llegan en oleada y no en bloque. */
 function alertarCampamento(j: Juego, m: Monstruo, obj: Ent) {
+  const elite = j.monstruos.some((o) => o.camp === m.camp && !o.muerto && o.calidad >= 1);
   for (const o of j.monstruos) {
     if (o === m || o.camp !== m.camp || o.muerto || o.dueno || (o.estado !== 'dormido' && o.estado !== 'deambular')) continue;
     o.estado = 'perseguir'; o.objetivo = obj; (o as any).alerta = 0.2 + Math.min(0.7, dist(o.x, o.y, m.x, m.y) * 0.09) + entre(0, 0.2);
+    // la escolta de un campamento de élite es la segunda oleada: los campeones (o el único con los suyos) pelean primero y el
+    // grupo que los acompaña entra cuando uno de ellos cae o queda a media vida, si le pegan, o a los 15 s (ver `pelear`).
+    // Medido con t1010: todos juntos, el único pegaba el triple de tiempo y esas peleas daban 4 veces más muertes
+    if (elite && (o as any).escolta && !(globalThis as any).__frenteViejo) { (o as any).alerta += 14 + entre(0, 2); (o as any).espera = true; }
   }
 }
 function aplicarMods(m: Monstruo) {
@@ -742,6 +755,7 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
   if (v.tipo === 'monstruo' && total > 0 && (g.elem === 'fisico' || g.elem === 'sangre' || crit)) salpicar(j, v as Monstruo, g.fuente, total / Math.max(1, v.vidaMax), crit);
   else if (g.elem === 'fisico' || g.elem === 'sangre') particulas(j, v.x, v.y, total > v.vidaMax * 0.2 ? 10 : 5, 'sangre', (v as Monstruo).def?.sonido === 'hueso' ? '#d8d0b8' : '#8a0c0c', 1, 34 * v.escala);
   if (v.tipo === 'heroe') {
+    (globalThis as any).__danoHeroe?.(g, total); // (pruebas: t1010_campamentos reparte el daño recibido por quién lo hizo)
     j.sacudida = Math.max(j.sacudida, total > h.vidaMax * 0.15 ? 0.35 : 0.12);
     if (total > h.vidaMax * 0.1) j.congela = Math.max(j.congela ?? 0, 0.045);
     if (total > h.vidaMax * 0.08 && h.acc !== 'atacar' && h.acc !== 'lanzar') { h.acc = 'herido'; h.t = 0; h.dur = 0.3 / (1 + h.c.vel_recuperar / 100); }
@@ -764,6 +778,7 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
       else if (R() < 0.45) sonar(j, 'chapoteo', v.x, v.y, 0.4 + Math.min(0.4, total / m.vidaMax));
     }
     if (m.estado === 'dormido' || m.estado === 'deambular') { m.estado = 'perseguir'; m.objetivo = g.fuente ?? j.heroe; if (m.camp != null && !(globalThis as any).__vistaVieja) alertarCampamento(j, m, g.fuente ?? j.heroe); }
+    else if ((m as any).alerta > 0.3) { (m as any).alerta = 0.3; (m as any).espera = false; }
     if (total > m.vidaMax * 0.12 && m.acc !== 'atacar' && m.acc !== 'lanzar' && m.calidad < 3) { m.acc = 'herido'; m.t = 0; m.dur = 0.3; }
     if (crit || total > m.vidaMax * 0.3) j.sacudida = Math.max(j.sacudida, 0.1);
     if (g.arma && total > 0 && (g.parte === undefined || g.parte === 2)) efectoLegGolpe(j, m, total, crit);
@@ -2444,6 +2459,11 @@ function efectoProy(p: string) { return p === 'fuego' ? 'saeta_fuego' : p === 'h
 function pelear(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   const d = dist(m.x, m.y, obj.x, obj.y);
   // el sobresalto: al descubrirte se vuelve hacia ti un instante antes de echarse encima (cada uno a su tiempo)
+  if ((m as any).espera) {
+    const q = m as any;
+    if (q.alerta <= 1.2) q.espera = false;
+    else { let sigue = false; for (const o of j.monstruos) if (o.camp === m.camp && o.calidad >= 1) { if (o.muerto || o.vida < o.vidaMax * 0.5) { sigue = false; break; } sigue = true; } if (!sigue) { q.espera = false; q.alerta = 0.2 + R() * 0.8; } }
+  }
   if ((m as any).alerta > 0) { (m as any).alerta -= dt; girarHacia(m, obj.x - m.x, obj.y - m.y, dt, sensacionDe(m).giro); if (m.acc === 'caminar' || m.acc === 'correr') m.acc = 'quieto'; return; }
   // El jefe que también dispara decide si esta vez pelea de lejos o se echa encima, y sostiene esa decisión un rato.
   // Antes la tiraba al azar en cada cuadro: el cuerpo temblaba entre caminar y quedarse quieto (visto cuadro a cuadro,
@@ -2456,13 +2476,88 @@ function pelear(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   const alcance = m.radio + obj.radio + 0.75 + (m.def.area ? 0.2 : 0);
   if (distancia && m.def.rango) {
     const ver = lineaLibre(j.zona, m.x, m.y, obj.x, obj.y);
-    if (d < m.def.rango && ver && m.cd <= 0) { iniciarAtaque(j, m, obj, true); return; }
+    if (d < m.def.rango && ver && m.cd <= 0) {
+      // la andanada: los de tiro de un campamento no sueltan todos en el mismo instante (ver `enFrente`)
+      if (obj === j.heroe && !m.dueno && m.calidad < 1 && !m.def.jefe && !(globalThis as any).__frenteViejo) {
+        const q = j as any, tiros: number[] = (q.tirosFrente ??= []);
+        while (tiros.length && (j.t - tiros[0] > 1.5 || tiros[0] > j.t)) tiros.shift();
+        if (tiros.length >= 1) { m.cd = 0.2 + R() * 0.3; m.acc = 'quieto'; m.dir = dirDe(obj.x - m.x, obj.y - m.y); return; }
+        tiros.push(j.t);
+      }
+      iniciarAtaque(j, m, obj, true); return;
+    }
     if (d < 3.5 && m.def.ia !== 'invocador' && !m.def.jefe) { const a = Math.atan2(m.y - obj.y, m.x - obj.x); moverHacia(j, m, m.x + Math.cos(a) * 2, m.y + Math.sin(a) * 2, m.vel * lento, dt); m.acc = 'caminar'; return; }
     if (d >= m.def.rango - 1 || !ver) { avanzar(j, m, obj, dt, lento); return; }
     m.acc = 'quieto'; return;
   }
-  if (d <= alcance) { m.dir = dirDe(obj.x - m.x, obj.y - m.y); if (m.cd <= 0) iniciarAtaque(j, m, obj, false); else m.acc = 'quieto'; return; }
+  // el frente: contra el héroe solo se echan encima unos cuantos a la vez; el resto del campamento cierra el corro y espera su hueco
+  if (obj === j.heroe && !m.dueno && !enFrente(j, m, d)) { rondar(j, m, obj, d, dt, lento); return; }
+  if (d <= alcance) {
+    m.dir = dirDe(obj.x - m.x, obj.y - m.y);
+    if (m.cd <= 0) {
+      // el turno: los comunes del corro no descargan todos a la vez. Entre el arranque de un golpe y el del siguiente pasa un
+      // respiro (`ritmoFrente`), así los golpes llegan en fila y se pueden leer, esquivar o aguantar, aunque haya diez encima
+      if (obj === j.heroe && !m.dueno && m.calidad < 1 && !m.def.jefe && m.def.ia !== 'jefe' && !(globalThis as any).__frenteViejo) {
+        const q = j as any, ya = q.turnoFrente ?? -9;
+        if (j.t < ya && j.t > ya - 5) { m.cd = 0.12 + R() * 0.2; m.acc = 'quieto'; return; }
+        q.turnoFrente = j.t + ritmoFrente(j) * (m.def.ia === 'bruto' ? 1.5 : 1) * (0.85 + R() * 0.3);
+      }
+      iniciarAtaque(j, m, obj, false);
+    } else m.acc = 'quieto';
+    return;
+  }
   avanzar(j, m, obj, dt, lento);
+}
+/** Segundos entre el arranque de un golpe común y el siguiente contra el héroe (un bruto ocupa turno y medio). */
+export function ritmoFrente(j: Juego) { const n = j.zona.nivel; return ((globalThis as any).__ritmoFrente ?? 1) * (n < 4 ? 1.5 : n < 12 ? 1.35 : n < 24 ? 1.25 : 1.2); }
+/**
+ * El frente de una pelea (oleada 2 de los mundos). Con los campamentos el héroe tenía 8 a 12 cuerpos pegando a la vez con el
+ * daño de cuando eran 3: medido con `t1010_campamentos.mts`, las pociones y las muertes subían al triple desde el nivel 20.
+ * Ahora cuerpo a cuerpo entran `topeFrente` a la vez (2 en las primeras zonas, 3 hasta el nivel 12 y 4 después; un campeón vale por dos y van de a dos, el único siempre): los
+ * demás cierran un corro a 3 o 4 casillas, rondan y entran apenas cae uno o queda un hueco. Los de tiro siguen igual, atrás.
+ * Se ve el campamento entero encima y la pelea es intensa, pero no cae todo el daño en el mismo cuadro.
+ * `__frenteViejo` vuelve a todos encima.
+ */
+export function topeFrente(j: Juego) { const n = j.zona.nivel; return n < 4 ? 2 : n < 12 ? 3 : 4; }
+function enFrente(j: Juego, m: Monstruo, d: number): boolean {
+  if ((globalThis as any).__frenteViejo || m.calidad >= 2 || m.def.jefe || m.def.ia === 'jefe' || d > 6.5) return true;
+  const q = j as any, h = j.heroe;
+  let f = q.frente as { t: number; ids: Set<number> } | undefined;
+  if (!f || j.t - f.t > 0.25 || j.t < f.t) {
+    const antes = f?.ids, cand: { m: Monstruo; s: number }[] = [];
+    let elite = 0;
+    for (const o of j.monstruos) {
+      if (o.muerto || o.dueno || o.estado !== 'perseguir' || o.objetivo !== h || (o as any).surgiendo > 0) continue;
+      if (o.def.ia === 'distancia' || o.def.ia === 'mago' || o.def.ia === 'invocador') continue;
+      const dd = dist(o.x, o.y, h.x, h.y); if (dd > 6.5) continue;
+      if (o.calidad >= 2 || o.def.jefe || o.def.ia === 'jefe') { elite += 2; continue; }
+      // el que ya estaba adentro se queda (no se turnan a cada rato), después el más cercano. Los campeones van primero
+      // (de a dos: el tercero ronda), y cada uno ocupa el sitio de dos comunes
+      cand.push({ m: o, s: dd - (antes?.has(o.id) ? 2.5 : 0) - (o.calidad >= 1 ? 100 : 0) });
+    }
+    cand.sort((a, b) => a.s - b.s || a.m.id - b.m.id);
+    const ids = new Set<number>();
+    let cupo = Math.max(1, topeFrente(j) - elite), camps = 0;
+    for (let i = 0; i < cand.length && cupo > 0; i++) {
+      const o = cand[i].m;
+      // (los pesados, brutos de golpe largo, también valen por dos: uno de ellos y uno o dos livianos a la vez)
+      if (o.calidad >= 1) { if (camps >= 2) continue; camps++; cupo -= 2; } else cupo -= o.def.ia === 'bruto' ? 2 : 1;
+      ids.add(o.id); if (antes && !antes.has(o.id)) o.cd = Math.max(o.cd, 0.15 + R() * 0.45);
+    }
+    f = q.frente = { t: j.t, ids };
+  }
+  return f.ids.has(m.id);
+}
+/** El que espera su hueco: cierra el corro a 3 o 4 casillas del héroe, lo ronda despacio y no le quita la cara. */
+function rondar(j: Juego, m: Monstruo, obj: Ent, d: number, dt: number, lento: number) {
+  const rr = 3.1 + (m.id % 4) * 0.45, giro = (m.id % 2 ? 1 : -1) * 0.22;
+  const a = Math.atan2(m.y - obj.y, m.x - obj.x) + giro;
+  const tx = obj.x + Math.cos(a) * rr, ty = obj.y + Math.sin(a) * rr;
+  if ((d > rr + 0.5 || d < rr - 0.7 || ((m.id + Math.floor(j.t * 0.5)) % 3 === 0)) && lineaPasable(j.zona, m.x, m.y, tx, ty)) {
+    moverHacia(j, m, tx, ty, m.vel * lento * (d > rr + 0.5 ? 0.9 : 0.45), dt); m.acc = 'caminar';
+  } else if (d > rr + 1.5) avanzar(j, m, obj, dt, lento);
+  else { m.acc = 'quieto'; }
+  if (m.acc === 'quieto') m.dir = dirDe(obj.x - m.x, obj.y - m.y);
 }
 /** Cuántos caminos se pueden calcular todavía en este cuadro (con 40 enemigos persiguiendo, de a muchos frenaba). */
 let presCam = { t: -1, n: 0 };

@@ -13,7 +13,7 @@ const ID = process.argv[2] || 'verdugo', ET = process.argv[3] || 'ahora', DIR = 
     const j = window.__juego(), z = j.zona, h = j.heroe, M = window.__mundo, D = await import('/src/datos/monstruos.ts');
     window.__sinLluvia = true; window.__sinAmbiente = true;
     let mejor = null, md = 0;
-    for (let y = 18; y < z.H - 18; y += 2) for (let x = 18; x < z.W - 18; x += 2) { let libre = true; for (let dy = -7; dy <= 7 && libre; dy++) for (let dx = -9; dx <= 9; dx++) if (z.bloq[(y + dy) * z.W + x + dx]) { libre = false; break; } if (!libre) continue; let d = 99; for (const o of z.objetos) d = Math.min(d, Math.hypot(o.cx - x, o.cy - y)); if (d > md) { md = d; mejor = [x, y]; } }
+    for (let y = 18; y < z.H - 18; y += 2) for (let x = 18; x < z.W - 18; x += 2) { let libre = true; for (let dy = -4; dy <= 4 && libre; dy++) for (let dx = -2; dx <= 8; dx++) if (z.bloq[(y + dy) * z.W + x + dx]) { libre = false; break; } if (!libre) continue; let d = 99; for (const o of z.objetos) d = Math.min(d, Math.hypot(o.cx - x, o.cy - y)); if (d > md) { md = d; mejor = [x, y]; } }
     h.x = mejor[0] + 0.5; h.y = mejor[1] + 0.5; h.camino = null; h.vida = h.vidaMax = 1e7;
     j.monstruos = j.monstruos.filter((o) => o.dueno); j.monstruos.forEach((o) => { o.x = h.x - 30; o.vel = 0; }); j.npcs.length = 0;
     const df = D.MONSTRUOS[id]; (h.d.jefesVistos ??= []).push(df.id);

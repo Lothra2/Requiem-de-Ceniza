@@ -8,6 +8,7 @@ import { juncosDeTramo } from '../../../src/engine/gotico/agua';
 import { pisosParamo, estadoEn } from '../../../src/engine/gotico/suelo_paramo';
 import { regarDecalsParamo } from '../../../src/engine/gotico/decals_paramo';
 import { rng, clamp } from '../nucleo/azar';
+import CAJAS_SPRITE from './cajas_sprite.json';
 
 export interface ObjZ { id: string; v: string; cx: number; cy: number; hw: number; hh: number; bloquea: boolean; tag?: string; dato?: any; /** De qué paso de la generación salió (riego, vida, macabro, relleno, escena, horror, jefe...): lo usa `curarAdornos`. No se guarda. */ capa?: string; }
 export interface Salida { cx: number; cy: number; destino: string; entrada: string; nombre: [string, string]; obj?: ObjZ; /** Misión que hay que haber aceptado para pasar (si no, la puerta está sellada). */ sello?: string; /** Misión que, cumplida, deja la pieza herida. */ herida?: string; /** Piezas que cambian de variante con la historia. */ piezas?: ObjZ[] }
@@ -2325,6 +2326,33 @@ const CU_FALSO = /cofre|arcon|baul/;
 const CAPA_RIEGO = new Set(['riego', 'vida', 'macabro']);
 /** Los guardianes de los cinco sellos (actos 1 a 5): donde pelean va el sello roto y el paso de Vesperio. */
 const MONSTRUOS_JEFE = new Set(['abadesa', 'rey_sin_sombra', 'madre_cienaga', 'rey_escarcha', 'senor_demonio']);
+const CAJAS = CAJAS_SPRITE as unknown as Record<string, [number, number, number, number]>;
+const DM_FIJO = /^(arb_macizo|sed_brasa|sed_sello_roto|ves_rastro|acto_hito)$|columna|pilar/;
+function desmontar(z: Zona, quitar: Set<ObjZ>, fijos: Set<ObjZ>, sacar: (o: ObjZ) => void, reubicar: (o: ObjZ, ok: (x: number, y: number) => boolean) => boolean) {
+  const peso = (o: ObjZ) => {
+    if (o.tag || fijos.has(o) || CU_ESTRUCTURA.test(o.id) || DM_FIJO.test(o.id)) return 9;
+    const c = o.capa ?? '';
+    if (c === 'relleno' || c === 'garganta' || c === 'jefe' || c === 'horror' || c === 'escondido' || c === 'interactivo') return 9;
+    return c === 'escena' || c === 'matanza' || c === 'relato' ? 5 : c === 'vineta' ? 3 : c === 'macabro' ? 2 : 1;
+  };
+  type Caja = { o: ObjZ; k: [number, number, number, number]; x0: number; y0: number; x1: number; y1: number; a: number; p: number };
+  const caja = (c: Caja, cx: number, cy: number) => { const sx = (cx - cy) * 16, sy = (cx + cy) * 8; c.x0 = sx - c.k[2]; c.y0 = sy - c.k[3]; c.x1 = c.x0 + c.k[0]; c.y1 = c.y0 + c.k[1]; };
+  const L: Caja[] = [];
+  for (const o of z.objetos) { if (quitar.has(o)) continue; const k = CAJAS[o.id + '|' + o.v]; if (!k) continue; const c: Caja = { o, k, x0: 0, y0: 0, x1: 0, y1: 0, a: k[0] * k[1], p: peso(o) }; caja(c, o.cx, o.cy); L.push(c); }
+  const pisa = (a: Caja, b: Caja) => { const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); return ix <= 0 || iy <= 0 ? 0 : (ix * iy) / Math.min(a.a, b.a); };
+  const prueba: Caja = { o: L[0]?.o, k: [0, 0, 0, 0], x0: 0, y0: 0, x1: 0, y1: 0, a: 0, p: 0 };
+  for (let i = 0; i < L.length; i++) { const a = L[i]; if (quitar.has(a.o)) continue;
+    for (let j = 0; j < L.length; j++) { if (j === i) continue; const b = L[j]; if (quitar.has(b.o) || (a.p === 9 && b.p === 9) || pisa(a, b) < 0.55) continue;
+      const pierde = a.p !== b.p ? (a.p < b.p ? a : b) : a.a < b.a ? a : b;
+      if (pierde.p === 9) continue;
+      // lo que no bloquea primero se corre a un sitio cerca donde no pise a nadie (la densidad no baja); lo que bloquea sale (correrlo
+      // cerraba arena)
+      prueba.k = pierde.k; prueba.a = pierde.a;
+      const ok = (x: number, y: number) => { caja(prueba, x, y); return L.every((q) => q === pierde || quitar.has(q.o) || pisa(prueba, q) < 0.3); };
+      if ((!pierde.o.bloquea || pierde.o.capa === 'escena') && reubicar(pierde.o, ok)) caja(pierde, pierde.o.cx, pierde.o.cy); else if (pierde.o.capa === 'escena') continue; else sacar(pierde.o);  // (la escena se corre pero no se desarma)
+      if (pierde === a) break;
+    } }
+}
 function curarAdornos(z: Zona, def: DefZona) {
   if ((globalThis as any).__sinCurar) return;
   const { W, H, tw } = z, r = rng(z.semilla * 6007 + 1777), N = W * H;
@@ -2569,6 +2597,12 @@ function curarAdornos(z: Zona, def: DefZona) {
     for (let i = 0; i < g.length; i++) for (const q of esc) if (!grupo.has(q) && Math.abs(q.cx - g[i].cx) <= 3 && Math.abs(q.cy - g[i].cy) <= 3) { grupo.set(q, 0); g.push(q); }
     if (g.length < 4) for (const q of g) sacar(q);
   }
+  // 5b. nada montado (oleada 2, Rick: "que no quede todo montado"): dos adornos cuyos sprites se pisan en pantalla 55 % o
+  // más del más chico se leían como uno encima del otro (la mata detrás del árbol, el escombro sobre el escombro, el cofre
+  // tapado por la ruina). Se queda el que cuenta más (lo que tiene tag, la estructura, el relleno, el borde, la garganta, lo
+  // del jefe y el ancla de un relato no se tocan nunca; después escena, matanza y relato; viñeta; macabro; riego y vida) y,
+  // si cuentan igual, el más grande. Las cajas salen de `cajas_sprite.json` (t1013_cajas.mjs). `__montados` lo apaga
+  if (def.tipo !== 'pueblo' && !def.casa && !(globalThis as any).__montados) desmontar(z, quitar, fijos, sacar, (o, ok) => { const p = lugar(o.cx, o.cy, 2, 6, o.hw, o.hh, plano(o.id), ok); if (!p) return false; mudar(o, p[0], p[1]); return true; });
   // 6. se quita lo que sobra y se liberan sus celdas (solo baja: lo que bloqueaba pasa a ocupado o libre, nunca al revés)
   if (!quitar.size && !toca.length) return;
   const cubre = cubreDe();

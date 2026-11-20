@@ -274,6 +274,20 @@ atrás, lo bajo adelante**: un risco del borde con piso detrás va bajo); la ori
 es de roca y hay dos viñetas como mucho. `__sinMacizos` vuelve a lo de antes. Piezas del relato horneadas y todavía sin
 poner en el mundo (`catalogo/horror.ts`): `sed_cuerpo_seco`, `sed_brasa`, `ves_rastro`, `sed_sello_roto`. Hornear una pieza
 suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && python3 juego/hornear/atlas_webp.py` (25 s).
+- **Relatos por campamento** (`curarAdornos` paso 3b, capa `relato`, `__sinRelatos`): el único guarda una ofrenda a la sed
+  (`sed_brasa` con cuerpos bebidos de rodillas), los campeones una última defensa (barricada, muertos del acto, charco),
+  los comunes por turno el campamento que come (fogata, asador, muerto), los bebidos o solo el muerto; un rastro de sangre
+  llega desde el frente. Cada cofre escondido tira un rastro hacia el centro del mapa con su muerto. En la zona de un
+  guardián de los actos 1 a 5: el sello roto bajo el jefe y el paso de Vesperio (atril, hileras de velas, partitura).
+- **Nada montado** (`desmontar`, paso 5b de `curarAdornos`, `__montados` lo apaga): dos adornos cuyas cajas de sprite se
+  pisan 55 % del más chico: queda el que pesa más (tag, estructura, relleno, macizo, garganta, jefe, horror, escondido,
+  interactivo, columnas y las anclas del relato nunca salen; después escena, matanza y relato, viñeta, macabro, riego). Lo
+  que no bloquea primero se corre a 2 a 6 celdas donde no pise a nadie; lo que bloquea sale (correrlo cerraba arena); la
+  escena se corre pero no se desarma. Pueblos y casas no. Las cajas son `juego/src/mundo/cajas_sprite.json`, sacadas del
+  manifiesto con `node juego/herramientas/t1013_cajas.mjs`: **correrlo después de hornear piezas nuevas** (sin caja una
+  pieza no se desmonta). t1000 (3 semillas), exterior antes de la etapa B y ahora: montados 54 a 15 %, adornos por
+  pantalla 55 a 48, arena 62 a 59 (el relato bloquea algo), piso legible 30 a 31; bajo tierra montados 35 a 6 %, adornos
+  por pantalla 30 a 25 (cueva 32 a 29).
 
 ## Armas vivas, cofres, poderes y siluetas
 

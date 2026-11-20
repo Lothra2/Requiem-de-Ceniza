@@ -3,7 +3,7 @@
 import { writeFileSync, mkdirSync } from 'fs';
 import { encode } from 'fast-png';
 import { gargola, doliente, Taller } from '../src/ui/forja_taller';
-const OUT = '/tmp/requiem-pruebas/hud/lab'; mkdirSync(OUT, { recursive: true });
+const OUT = process.env.SALIDA || '/tmp/requiem-pruebas/hud/lab'; mkdirSync(OUT, { recursive: true });
 const K = +(process.argv[2] || 6);
 function guardar(nombre: string, r: { w: number; h: number; data: Uint8ClampedArray | Uint8Array }) {
   const w = r.w * K, h = r.h * K, d = new Uint8Array(w * h * 4);
@@ -30,7 +30,7 @@ console.log('listo', OUT);
 import { geometria, tallarMarco, grabarTeclas } from '../src/ui/forja_panel';
 for (const [w, h, k] of [[1280, 720, 2], [960, 540, 2], [1707, 540, 1]] as [number, number, number][]) {
   const g = geometria(w, h); if (!g) continue;
-  const t0 = Date.now(), tl = tallarMarco(g), l = tl.hornear({ sombraMundo: 7 }); grabarTeclas(l, g);
+  const t0 = Date.now(), tl = tallarMarco(g), l = tl.hornear({ sombraMundo: 14 }); grabarTeclas(l, g);
   console.log(`marco ${w}x${h}: ${Date.now() - t0} ms`);
   const r = l.r, KK = k, ww = r.w * KK, hh = r.h * KK, d = new Uint8Array(ww * hh * 4);
   for (let y = 0; y < hh; y++) for (let x = 0; x < ww; x++) { const i = ((y / KK | 0) * r.w + (x / KK | 0)) * 4, o = (y * ww + x) * 4, a = r.data[i + 3] / 255; const bg = [38, 32, 28]; for (let c = 0; c < 3; c++) d[o + c] = Math.round(r.data[i + c] * a + bg[c] * (1 - a)); d[o + 3] = 255; }

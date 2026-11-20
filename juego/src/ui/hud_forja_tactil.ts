@@ -6,16 +6,22 @@
 //   Por el borde de abajo, la experiencia en una canaleta de latón. Arriba siguen los botones, el minimapa y la misión.
 //   La zona del pulgar izquierdo (el joystick) queda libre entre la casa de la vida y el cinturón.
 // En el teléfono todo es más chico (orbes de 66 pt, rueda de 114) y el marco más magro; los toques siguen de 44 pt o más.
+// Desde el 20 nov 2026 lleva lo mismo que late en el de PC (forja_viva.ts): el rosetón es la brasa de la Marca, la
+// reliquia de la clase va en su nicho sobre el cinturón (forja_reliquia.ts), la vida baja raja la piedra y el vidrio,
+// los estados van en el aro del orbe, el trago sube por el orbe, la racha sangra por la piedra, con un jefe cae ceniza
+// y con el héroe muerto el marco se apaga y la Marca no. Las esculturas no van: en el dedo cada punto cuenta.
 import { ctx, W, H, E, RES, SEGURO, ESCALA } from '../nucleo/lienzo';
 import { rasterACanvas, icono } from './comun';
-import { ui, recursoClase, COLOR_POCION } from './juego_ui';
+import { ui, COLOR_POCION } from './juego_ui';
 import { textoPixel } from './letra_pixel';
 import { hud, type Rect } from './hud_rects';
-import { type Juego } from '../juego/mundo';
-import { cant, tiposCinturon, xpPara, NIVEL_MAX } from '../juego/heroe';
+import { msg, type Juego } from '../juego/mundo';
+import { cant, tiposCinturon } from '../juego/heroe';
 import { dibujarRoseton } from './sello_nivel';
-import { espacio, aumentar, cuadroOrbe, cuadroLiq, nuevoCuadroOrbes, latido, frascoVacio, perla, filasCinturon } from './hud_forja';
-import { Taller, M, enOjiva, altoOjiva, bordeOjiva, cl } from './forja_taller';
+import { espacio, aumentar, cuadroOrbe, cuadroLiq, nuevoCuadroOrbes, frascoVacio, perla, filasCinturon, siluetaNegra } from './hud_forja';
+import { pulsoHud, grietas, enPiedra, grietasLuz, marcaFondo, marcaChispas, sangreRacha, cenizaJefe, estadosOrbe } from './forja_viva';
+import { reliquiaClase, AYUDA_RELIQUIA } from './forja_reliquia';
+import { Taller, M, enOjiva, altoOjiva, bordeOjiva } from './forja_taller';
 
 const L = (pt: number) => pt / Math.max(0.1, ESCALA);
 export const telefono = () => Math.min(innerWidth, innerHeight) < 500;
@@ -40,15 +46,19 @@ export function disposicionForja(m: { l: number; r: number; t: number; b: number
   const mini: Rect = [botones[0], botones[1] + B + L(8), R * 2, R * 2];
   const rastreo: Rect = [m.l, m.t, Math.max(L(230), 190), Math.max(L(34), 30)];
   // (orbes: el rectángulo de arriba a la izquierda que esquivan la barra del jefe y los mensajes: ahora es la misión)
-  const orbes: Rect = [m.l, m.t, rastreo[2], 0];
+  // (el botón del registro va a la derecha de la misión: la barra del jefe lo esquiva también)
+  const registro: Rect = [m.l + rastreo[2] + L(6), m.t, B, B];
+  const orbes: Rect = [m.l, m.t, rastreo[2] + L(6) + B, 0];
+  // el nicho de la reliquia de la clase, sobre el cinturón
+  const reliquia: Rect = [cinturon[0], cinturon[1] - L(tel ? 44 : 50), cinturon[2], L(tel ? 34 : 38)];
   const casaV: Rect = [orbV[0] - O / 2 - L(14), orbV[1] - O / 2 - L(40), O + L(28), H - (orbV[1] - O / 2 - L(40))];
   const casaM: Rect = [orbM[0] - O / 2 - L(14), orbM[1] - O / 2 - L(16), O + L(28), H - (orbM[1] - O / 2 - L(16))];
-  return { m, O, B, gap, orbes, rastreo, botones, mini, R, G, S, A, gx, gy, habs, agresivo, P, cinturon, xp, orbV, orbM, rA, ang, casaV, casaM, tel };
+  return { m, O, B, gap, orbes, rastreo, botones, mini, R, G, S, A, gx, gy, habs, agresivo, P, cinturon, xp, orbV, orbM, rA, ang, casaV, casaM, tel, registro, reliquia };
 }
 export type DispForja = ReturnType<typeof disposicionForja>;
 
 // ------------------------------------------------------------------ el marco del táctil, horneado por tamaño
-let marco: { clave: string; cv: HTMLCanvasElement; y0: number } | null = null;
+let marco: { clave: string; cv: HTMLCanvasElement; y0: number; mat: Uint8Array; w: number; h: number; fisV: [number, number, number][]; apagado: HTMLCanvasElement | null; rel: [number, number, number, number] } | null = null;
 function marcoDe(P: DispForja): typeof marco {
   const e = espacio(), k = RES / e.D, A = (v: number) => v * k;
   const clave = `${e.Wa}x${e.Ha}:${Math.round(P.O)}:${Math.round(P.rA)}:${Math.round(P.cinturon[0])}`;
@@ -87,10 +97,18 @@ function marcoDe(P: DispForja): typeof marco {
     tl.caja(x + 3, y + 3, w - 6, h, M.HUECO, 6, 2, { hundido: true, alto: 4 });
     for (let i = 0; i < 4; i++) { const px = X(cx0) + i * (A(P.P) + g); tl.caja(px - 1, Y(cy0) - 1, A(P.P) + 2, A(P.P) + 2, M.HIERRO, 3, 1, { alto: 1.5, modo: 'set' }); tl.caja(px, Y(cy0), A(P.P), A(P.P), M.HUECO, 4, 1, { hundido: true, alto: 3, modo: 'set' }); }
     void ch; }
+  // el nicho de la reliquia de la clase: una caja de piedra con filete de latón que sube de la bandeja
+  const rel: [number, number, number, number] = [Math.round(X(P.reliquia[0])), Math.round(Y(P.reliquia[1])), Math.round(A(P.reliquia[2])), Math.round(A(P.reliquia[3]))];
+  { const [x, y, w, h] = rel;
+    tl.caja(x - 6, y - 5, w + 12, h + 14, M.PIEDRA, 1, 3, { alto: 3 });
+    tl.caja(x - 2, y - 2, w + 4, h + 4, M.LATON, 5, 1.5, { alto: 2 });
+    tl.caja(x, y, w, h, M.HUECO, 6, 2, { hundido: true, alto: 4, modo: 'set' });
+    for (const [qx, qy] of [[x - 4, y - 3], [x + w + 3, y - 3]]) tl.elipsoide(qx + 0.5, qy + 0.5, 1.5, 1.5, 2, M.LATON, 6, 0); }
   // la canaleta de la experiencia
   { const [x, y, w, h] = P.xp; tl.caja(X(x) - 2, Y(y) - 2, A(w) + 4, A(h) + 4, M.LATON, 3, 1.5, { alto: 2 }); tl.caja(X(x), Y(y), A(w), A(h), M.HUECO, 4, 1, { hundido: true, alto: 2, modo: 'set' }); }
-  const l = tl.hornear({ sombraMundo: 6 });
-  marco = { clave, cv: aumentar(rasterACanvas(l.r), e.D), y0 };
+  const l = tl.hornear({ sombraMundo: 10 });
+  const fisV = enPiedra(grietas(11, R + 2, 8, tel ? 14 : 18), X(P.orbV[0]), Y(P.orbV[1]), tl.mat, tl.w, tl.h, true);
+  marco = { clave, cv: aumentar(rasterACanvas(l.r), e.D), y0, mat: tl.mat, w: tl.w, h: tl.h, fisV, apagado: null, rel };
   return marco;
 }
 
@@ -98,23 +116,46 @@ function marcoDe(P: DispForja): typeof marco {
 export function dibujarBaseForja(j: Juego, P: DispForja, t: number) {
   const e = espacio(), mc = marcoDe(P); if (!mc) return;
   nuevoCuadroOrbes();
+  const h = j.heroe, d = h.d, V = pulsoHud(j, t), kV = V.kV, kM = V.kM, lat = V.lat, f8 = cuadroLiq(t), D = e.D;
+  const dx = (x: number) => e.ox + x * D, dy = (y: number) => e.oy + (mc.y0 + y) * D;
+  // el rosetón (la Marca) en la punta de la casa de la vida
+  const obj = L(34) / 27, esc0 = [1, 1.5, 2, 2.5, 3].reduce((m, q) => (Math.abs(q - obj) < Math.abs(m - obj) ? q : m), 1), esc = Math.max(1, Math.round(esc0 * RES)) / RES;
+  const mx = P.orbV[0], my = P.orbV[1] - P.O / 2 - L(22), Dm = Math.max(1, Math.round(esc * RES));
+  const enDev = (fn: () => void) => { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; try { fn(); } finally { ctx.restore(); } };
+  const marca = () => {
+    enDev(() => marcaFondo(Math.round(mx * RES), Math.round(my * RES), Dm, V, []));
+    dibujarRoseton(d.nivel, V.kxp, mx, my, esc, j.t, true, V.brasa);
+    enDev(() => marcaChispas(Math.round(mx * RES), Math.round(my * RES), Dm, V, true)); };
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(mc.cv, e.ox, e.oy + mc.y0 * e.D);
-  const h = j.heroe, kV = h.vida / Math.max(1, h.vidaMax), kM = h.mana / Math.max(1, h.c.manaMax), lat = latido(kV, t), f8 = cuadroLiq(t);
-  const R = Math.round((P.O / 2) * (RES / e.D)) - 6;
+  ctx.drawImage(mc.cv, e.ox, e.oy + mc.y0 * D);
+  const R = Math.round((P.O / 2) * (RES / D)) - 6;
   for (const [tipo, k, [cx, cy], id] of [[h.veneno > 0 ? 'veneno' : h.frio > 0 ? 'helado' : 'vida', kV, P.orbV, 'v'], ['mana', kM, P.orbM, 'm']] as [string, number, [number, number], string][]) {
     const c = cuadroOrbe(tipo, k, f8, R, ultimo[id]); if (!c) continue; ultimo[id] = c;
-    const dx = Math.round((cx * RES - e.ox) / e.D - c.width / 2) * e.D + e.ox, dy = Math.round((cy * RES - e.oy) / e.D - c.height / 2) * e.D + e.oy;
-    ctx.drawImage(c, dx, dy, c.width * e.D, c.height * e.D);
+    const ox = Math.round((cx * RES - e.ox) / D - c.width / 2) * D + e.ox, oy = Math.round((cy * RES - e.oy) / D - c.height / 2) * D + e.oy;
+    ctx.drawImage(c, ox, oy, c.width * D, c.height * D);
+    const ccx = ox + Math.round(c.width / 2) * D, ccy = oy + Math.round(c.height / 2) * D;
     if (id === 'v' && lat > 0.01) {
       const gx = cx * RES, gy = cy * RES, r0 = (P.O / 2) * RES;
       const gl = ctx.createRadialGradient(gx, gy, r0 * 0.9, gx, gy, r0 * 1.8); gl.addColorStop(0, `rgba(255,30,20,${0.45 * lat})`); gl.addColorStop(1, 'rgba(255,30,20,0)');
       ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gl; ctx.fillRect(gx - r0 * 1.8, gy - r0 * 1.8, r0 * 3.6, r0 * 3.6); ctx.globalCompositeOperation = 'source-over';
     }
+    // la vida baja raja la piedra de la casa: las grietas sangran luz con el latido
+    if (id === 'v' && kV < 0.3 && !h.muerto) { const q = (0.3 - kV) / 0.3; grietasLuz(mc.fisV, ccx, ccy, D, '255,40,24', 0.3 * q + 0.7 * lat, 0.3 + 0.7 * q); }
+    estadosOrbe(j, ccx, ccy, R, D, id as 'v' | 'm', V);
   }
+  // la sangre de la racha por la piedra (las casas, el muro y la bandeja)
+  sangreRacha(j, mc.mat, mc.w, mc.h, mc.clave, 2, mc.w - 2, dx, dy, D, t);
   // la experiencia en la canaleta
-  { const d = h.d, x0 = xpPara(d.nivel), x1 = xpPara(d.nivel + 1), kx = d.nivel >= NIVEL_MAX ? 1 : cl((d.xp - x0) / Math.max(1, x1 - x0)), [x, y, w, hh] = P.xp;
-    ctx.fillStyle = '#b8952f'; ctx.fillRect(Math.round(x * RES), Math.round(y * RES), Math.round(w * kx * RES), Math.max(e.D, Math.round(hh * RES))); ctx.fillStyle = '#f2cc60'; ctx.fillRect(Math.round(x * RES), Math.round(y * RES), Math.round(w * kx * RES), e.D); }
+  { const kx = V.kxp, [x, y, w, hh] = P.xp;
+    ctx.fillStyle = '#b8952f'; ctx.fillRect(Math.round(x * RES), Math.round(y * RES), Math.round(w * kx * RES), Math.max(D, Math.round(hh * RES))); ctx.fillStyle = '#f2cc60'; ctx.fillRect(Math.round(x * RES), Math.round(y * RES), Math.round(w * kx * RES), D);
+    if (V.subio > 0) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,210,110,${0.55 * V.subio})`; ctx.fillRect(Math.round(x * RES), Math.round(y * RES), Math.round(w * RES), Math.max(D, Math.round(hh * RES))); ctx.globalCompositeOperation = 'source-over'; } }
+  // la reliquia de la clase en su nicho
+  // (en el teléfono al doble y sin rótulo: la pieza tiene que leerse con el aparato a un brazo; tocarla dice qué es)
+  { const kR = P.tel ? 2 : 1; reliquiaClase(j, dx(mc.rel[0]), dy(mc.rel[1]), Math.floor(mc.rel[2] / kR), Math.floor(mc.rel[3] / kR), D * kR, t); }
+  // con un jefe despierto cae ceniza y se junta en el canto de la piedra
+  if (V.jefe > 0 || cenizaViva) cenizaViva = cenizaJefe(V, mc.mat, mc.w, mc.h, mc.clave, dx, dy, D, true);
+  // el héroe muerto: el marco se apaga (la Marca no)
+  if (V.muerto > 0.01) { mc.apagado ??= siluetaNegra(mc.cv); ctx.globalAlpha = 0.62 * V.muerto; ctx.drawImage(mc.apagado, e.ox, e.oy + mc.y0 * D); ctx.globalAlpha = 1; }
   ctx.restore();
   // los números de cada orbe, siempre a la vista (en el táctil no hay ratón encima)
   const tn = Math.max(10, Math.round(L(P.tel ? 11 : 12)));
@@ -122,16 +163,14 @@ export function dibujarBaseForja(j: Juego, P: DispForja, t: number) {
   const gr = { alin: 'center' as const, escala: tn / 10 };
   textoPixel(`${Math.ceil(h.vida)}`, P.orbV[0], P.orbV[1] + P.O * 0.36, { ...gr, color: '#ffd0c0' });
   textoPixel(`${Math.floor(h.mana)}`, P.orbM[0], P.orbM[1] + P.O * 0.36, { ...gr, color: '#d0dcff' });
-  // el rosetón en la punta de la casa de la vida
-  { const obj = L(34) / 27, esc0 = [1, 1.5, 2, 2.5, 3].reduce((m, q) => (Math.abs(q - obj) < Math.abs(m - obj) ? q : m), 1), esc = Math.max(1, Math.round(esc0 * RES)) / RES;
-    const d = h.d, a = xpPara(d.nivel), b = xpPara(d.nivel + 1);
-    dibujarRoseton(d.nivel, d.nivel >= NIVEL_MAX ? 1 : (d.xp - a) / Math.max(1, b - a), P.orbV[0], P.orbV[1] - P.O / 2 - L(22), esc, j.t, true); }
-  // el recurso de la clase encima del cinturón
-  recursoClase(j, Math.round(P.cinturon[0]), Math.round(P.cinturon[1] - L(14) - 13), Math.round(P.cinturon[2]), true);
-  hud.orbes = P.orbes; hud.casaVida = P.casaV; hud.casaMana = P.casaM;
+  marca();
+  hud.orbes = P.orbes; hud.casaVida = P.casaV; hud.casaMana = P.casaM; hud.reliquia = P.reliquia;
+  // tocar la reliquia dice qué es (en el dedo no hay ratón que pase por encima)
+  if (dentroR(P.reliquia)) { ui.sobreUI = true; if (E.clicIzq) { E.clicIzq = false; const ay = AYUDA_RELIQUIA[d.clase]; if (ay && t - tAyuda > 3) { tAyuda = t; msg(j, ay, '#e0d0a0'); } } }
   // las casas no son del mundo: un toque ahí no camina
   if (dentroR(P.casaV) || dentroR(P.casaM)) ui.sobreUI = true;
 }
+let cenizaViva = false, tAyuda = -9;
 const dentroR = (r: Rect) => E.x >= r[0] && E.x < r[0] + r[2] && E.y >= r[1] && E.y < r[1] + r[3];
 const ultimo: Record<string, HTMLCanvasElement | null> = {};
 

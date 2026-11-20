@@ -1,6 +1,7 @@
 // Réquiem de Ceniza: arranque, estados (carga, intro, menú, elegir, crear, juego) y el control del héroe.
 import { partidaEnEnlace } from './ui/traslado';
 import { registrar as registrarInstalacion, abrirInstalar } from './nucleo/instalar';
+import { teclasRegistro, panelRegistro } from './ui/registro';
 import { ctx, W, H, E, ZM, ajustar, instalarEntrada, finCuadro, pulso, alPrimerGesto, baseLienzo, enMundo, hudForja, fijarAltoHud } from './nucleo/lienzo';
 import { cargarManifiesto, asegurar, atlasDe, clavesCon, manifiesto, objetoMeta, liberarAtlas, precargar, marcarCuadro } from './motor/assets';
 import * as Assets from './motor/assets';
@@ -289,6 +290,7 @@ function controlar(jj: Juego, dt: number) {
   if (pulso('j')) alternar('codice', 'izq');
   if (pulso('Tab') || pulso('m')) ui.mapa = !ui.mapa;
   if (pulso('r')) h.correr = !h.correr;
+  if (hudForja()) teclasRegistro();
   if (pulso('z')) cambiarAgresivo(jj);
   if (pulso('b')) abrirPortal(jj);
   for (let i = 1; i <= 4; i++) if (pulso(String(i))) usarPocion(jj, i - 1);
@@ -916,6 +918,11 @@ let catedralForzada: string | null = null;
  * manda el aparato (puntero fino) y no el último toque.
  */
 function dibujarHud(jj: Juego, tiempo: number) {
+  dibujarHud0(jj, tiempo);
+  // el registro entero (H, su placa o su botón táctil), encima del HUD
+  if (hudForja()) panelRegistro(jj, aparatoTactil());
+}
+function dibujarHud0(jj: Juego, tiempo: number) {
   delete hud.forjaMsg;
   if (hudForja()) {
     // (pantalla baja con un panel abierto: dibujarBarra borra sus rectángulos y no dibuja nada, como siempre)

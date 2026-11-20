@@ -6,6 +6,7 @@
 //   Abajo a la izquierda: un joystick que aparece donde apoyas el pulgar.
 // Todo en tamaños de dedo (44 pt o más), lejos de los bordes laterales (notch e isla) y respetando el área segura.
 import { ctx, W, H, E, ESCALA, SEGURO, hudForja } from '../nucleo/lienzo';
+import { alternarRegistro } from './registro';
 import { disposicionForja, dibujarBaseForja, pocionForja, type DispForja } from './hud_forja_tactil';
 import { iconoPixel } from './forja_habilidad';
 import { texto, T, TT, dentro, icono, envolver as envolverT, TITULO, cacheRaster } from './comun';
@@ -21,7 +22,7 @@ import { Sonido } from '../audio/sonido';
 
 /** Puntos de pantalla a píxeles del lienzo. */
 const L = (pt: number) => pt / Math.max(0.1, ESCALA);
-const CLAVES = ['casaVida', 'casaMana', 'cartel', 'orbes', 'rastreo', 'botones', 'mini', 'golpe', 'poder', 'hab1', 'hab2', 'hab3', 'agresivo', 'cinturon', 'xp', 'jefe'];
+const CLAVES = ['registroBtn', 'reliquia', 'casaVida', 'casaMana', 'cartel', 'orbes', 'rastreo', 'botones', 'mini', 'golpe', 'poder', 'hab1', 'hab2', 'hab3', 'agresivo', 'cinturon', 'xp', 'jefe'];
 /** Los objetivos de toque de este cuadro, para la auditoría (cada uno debe medir 44 pt o más). */
 export const toques: { id: string; r: Rect }[] = [];
 let joy: { x0: number; y0: number; activo: boolean; repath: number } | null = null;
@@ -218,6 +219,8 @@ export function dibujarHudTactil(j: Juego, t: number) {
     // el HUD forjado: marco, orbes en sus casas, rosetón y recurso (hud_forja_tactil.ts); la misión arriba a la izquierda
     dibujarBaseForja(j, P as DispForja, t);
     misionArriba(j);
+    // el registro entero: un botón junto a la misión (los mensajes se van solos, pero nada se pierde)
+    { const r = (P as DispForja).registro; boton('registroBtn', r, () => { const x0 = Math.round(r[0] + r[2] / 2 - 9), y0 = Math.round(r[1] + r[3] / 2 - 8); ctx.fillStyle = '#d0aa5c'; for (let q = 0; q < 4; q++) ctx.fillRect(x0, y0 + q * 5, q === 3 ? 11 : 18, 2); }, () => { alternarRegistro(); Sonido.efecto('click'); }, false, false, 'registro'); }
   } else {
     const [x, y] = P.orbes;
     orbeHud(h.veneno > 0 ? 'veneno' : h.frio > 0 ? 'helado' : 'vida', h.vida / h.vidaMax, x, y, P.O, f);

@@ -499,14 +499,51 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   HUD (Forjado o Clásico) guarda el campo opcional `opciones.hud = 'clasico'` para volver a la barra de siempre (sin el
   campo es el forjado, `hudForja()` y `fijarHud` en `nucleo/lienzo.ts`). `window.__hudNuevo` (true o false) manda por
   encima, para las pruebas. La red de seguridad sigue: si la pantalla de PC no tiene ancho para el panel va la barra.
-  - PC (`ui/hud_forja.ts`): un panel de piedra de borde a borde, bajo en el medio (88 puntos a 720) y alto en las casas de
-    los orbes (arco apuntado con filete de latón, crestería, florón, radios tallados y un óculo de tres lóbulos). Junto a la
-    vida una gárgola agazapada con brasas en los ojos (laten con la vida baja) y junto al maná una doliente con su vela que
-    tiembla (`gargola` y `doliente` en `ui/forja_taller.ts`). En el medio la bandeja del cinturón con una cuenta por fila
-    apilada (`filasCinturon`, hoy siempre `PILA_CINTURON`: solo se ve, no cambia reglas), los dos poderes en pozos de latón,
-    diez atajos con su tecla en plaquitas, el recurso de la clase, el correr, las placas del menú (y agresivo) y la
-    experiencia por la cornisa hasta el rosetón. Los extremos de pantallas anchas siguen con muro de arquería ciega y el
-    medio no se estira. Si la pantalla no tiene ancho para el núcleo (936 puntos de dibujo) va la barra de siempre.
+  - **Rehecho el 20 nov 2026** (Rick: "un HUD mejor que el de Diablo, con intención"; la crítica: los orbes metidos 160
+    puntos adentro robaban ancho de pelea, seis renglones de mensajes encima de la pelea, piedra muerta en la banda, el
+    recurso de la clase no se entendía y el canto de arriba era un corte recto). Mismo taller, otra disposición y otro
+    sentido. Lo de abajo describe lo de ahora.
+  - PC (`ui/hud_forja.ts`, geometría y talla en `ui/forja_panel.ts`): los orbes anclan las esquinas (centro a 64 puntos
+    del borde a 720, antes 240) en casas de arco apuntado más chicas; la gárgola (vida) y la doliente (maná) se asoman por
+    detrás del riñón de cada casa, sobre su pedestal. El medio es una consola baja (62 puntos a 720, antes 88; 112 a 1080,
+    antes 156): las placas del menú de a dos por dos en las puntas (personaje, inventario, habilidades, mapa | agresivo,
+    correr, registro, menú), los dos poderes en torres que rompen la cornisa con el botón del ratón grabado en la cresta,
+    cinco atajos a cada lado con su tecla, el cinturón partido en dos pares (1 y 2, 3 y 4, cada uno con su tecla y sus
+    cuentas en la misma fila) y en el centro el **altar**: arriba la Marca (el rosetón) en su frontón y abajo el nicho de
+    la reliquia de la clase. La experiencia corre por la cornisa de pozo a pozo. Pináculos en cada pilastra, y la sombra del
+    panel sobre el mundo es larga y suave (`sombraMundo: 14`). Entre cada casa y la consola va un hombro de muro bajo (y
+    más allá de las casas en pantallas de más de 1494 puntos de dibujo). El núcleo pide 924 puntos (antes 936).
+    Lo tallado: 11,1 % de la pantalla a 720 (antes 14,8), 13,4 % a 1080 (antes 17,1): 34 mil y 77 mil puntos más de mundo.
+  - **La Marca es el corazón del HUD** (`ui/forja_viva.ts`, `pulsoHud`): el rosetón del nivel es la brasa que el héroe
+    lleva clavada (`dibujarRoseton(..., brasa)`, solo el forjado: el esmalte es carbón con manchas que arden). Respira con
+    la experiencia hecha, arde al subir de nivel (y la canaleta de la experiencia relumbra), late con aros cuando la voz
+    de la Marca habla (`vozMarca` deja `j.vozMarcaHud`), late más con un jefe despierto, se cubre en los pueblos y con el
+    héroe muerto el panel entero se apaga y ella no (canon: la Marca que no se apaga). Fisuras encendidas en el frontón y
+    chispas que suben.
+  - **El estado hecho cosa**: vida bajo 30 %, las grietas de la casa sangran luz con el latido y bajo 25 % el vidrio del
+    orbe se raja (entero al morir); la vela de la doliente es el maná (se consume, con menos de un cuarto tiembla y humea,
+    sin maná o sin lo que cuesta el poder derecho se apaga); la racha de 3, 5, 8 y 12 muertes (`j.racha`) hace correr
+    sangre por la piedra, que se seca en 12 s y se va en 30; en el aro del orbe de vida el veneno (cuentas verdes y
+    burbujas), la escarcha (agujas hacia adentro), el sangrado (regueros por el vidrio) y el fuego recién recibido
+    (`h.ardeT`, lo pone `danar`); el trago sube por el orbe (`h.bebio`, lo pone `beberPocion`) y la copa relumbra; con un
+    jefe cae ceniza con brasas y se junta en el canto de la piedra. Nada de esto se guarda.
+  - **El jefe** (`ui/forja_jefe.ts`): un dintel de piedra con herrajes que baja colgado de dos cadenas, rebota y queda;
+    la vida es un canal de sangre con el tramo recién quitado en pálido, se sacude con cada golpe y al morir el jefe las
+    cadenas lo sueltan. La frase del jefe sigue debajo. La barra de siempre queda para el Clásico.
+  - **La reliquia de la clase** (`ui/forja_reliquia.ts`, `reliquiaClase`; `recursoClase` queda para el Clásico): arcanista,
+    tres gemas engastadas que se encienden del color del elemento guardado (Rick no entendía las cargas); berserker, un
+    canal de brasa con casquillos que arde al tope; monje, tres cuentas en un cordón que se consume; nigromante, seis
+    calaveras; cazadora, halcón, mira con las marcas y cepo con las trampas; templario, el sol del aura con su nombre y su
+    fuerza; druida, hombre, lobo y oso con el tiempo de la forma; alquimista, sus frascos (el que se llena, a medias).
+    Con su rótulo abajo y la ayuda al pasar el ratón (en el táctil, tocándola).
+  - **El registro** (`ui/registro.ts`): los mensajes son a lo sumo tres renglones en combate (cuatro fuera), cada uno
+    cortado a dos, y se van en 5 s (antes seis renglones largos durante 7 s). Nada se pierde: `msg` guarda todo en
+    `registroDe(j)` (300 líneas, no se guarda en la partida) y el registro entero se abre con H, con su placa en la consola
+    o, en el táctil, con su botón junto a la misión. Rueda, flechas o arrastrar; H, Esc, la X o un clic afuera lo cierran.
+  - Pruebas de lo nuevo: `t955_hud_estados.cjs <etiqueta> [vistas] [estados|recursos|todo] [clases]` fuerza cada estado
+    con ganchos (vida, maná, estados, trago, racha fresca y seca, nivel, voz, mensajes, registro, jefe, pueblo, muerte y
+    la reliquia de cada clase vacía, a medias y llena) y `python3 juego/herramientas/t955_lamina.py <etiqueta> [vistas]`
+    arma las láminas en `/tmp/requiem-pruebas/hud2/estados`. `window.__hudPulso` es el pulso del último cuadro.
   - Todo se esculpe en un mapa de alturas con material (`Taller` en `forja_taller.ts`: formas con bisel por distancia de
     chaflán, elipsoides y cápsulas con unión suave, anillos, pozos, surcos, sillares) y se hornea una vez por tamaño con la
     luz de la barra: normales, sombra que cae, oclusión, contorno y tramado (unos 150 a 400 ms la primera vez, `__hudForjaMs`).
@@ -522,11 +559,13 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     su banda + 10 y el héroe queda en el medio de lo que se ve arriba del panel. Los clics, `__aPant` y el minimapa siguen
     la misma cuenta. Lo tallado (máscara del marco) no deja caminar; lo transparente encima de la banda es del mundo.
   - Táctil (`ui/hud_forja_tactil.ts`, lo llama `hud_tactil.ts` cuando `disposicion()` trae `orbV`): orbes en las esquinas
-    de abajo en sus casas, el rosetón en la punta de la de vida, el cinturón de cuatro en su bandeja al centro con el
-    recurso encima, la rueda (Golpe, Poder y tres atajos) sobre un cuarto de rosetón de piedra alrededor de la casa del
-    maná, y la experiencia en una canaleta por el borde. La misión pasa arriba a la izquierda. El teléfono va más chico.
-    La zona del pulgar izquierdo queda libre. Manda el aparato: un PC con pantalla táctil (puntero fino) lleva el panel
-    de PC, que también se toca (`aparatoTactil` en `main.ts`).
+    de abajo en sus casas, el rosetón (la Marca, con su brasa) en la punta de la de vida, el cinturón de cuatro en su
+    bandeja al centro con el nicho de la reliquia de la clase encima (tocarla dice qué es), la rueda (Golpe, Poder y tres
+    atajos) sobre un cuarto de rosetón de piedra alrededor de la casa del maná, y la experiencia en una canaleta por el
+    borde. La misión pasa arriba a la izquierda, con el botón del registro a su derecha (44 pt). Lleva lo mismo que late
+    en PC (grietas, vidrio, estados, trago, racha, ceniza, dintel del jefe, la muerte) menos las esculturas y la vela. El
+    teléfono va más chico. La zona del pulgar izquierdo queda libre. Manda el aparato: un PC con pantalla táctil (puntero
+    fino) lleva el panel de PC, que también se toca (`aparatoTactil` en `main.ts`).
   - Con el HUD forjado en 2560 × 1080 el lienzo ya no se corta en 1600 de ancho (quedaba una franja negra a la derecha).
   - **Orbes** (`ui/forja_orbe.ts`, Rick: lleno "se lee como una bola de billar"): el orbe es propio del HUD (no el del
     motor, que queda para la barra de siempre y no se toca por `__PINTOR__`). El líquido llega a la vista hasta 0,8 del
@@ -559,13 +598,12 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     (`ui.der === 'elegirHab'`). Los clics siguen iguales.
   - **Letra de pixel** (`ui/letra_pixel.ts`): 5 x 7 con minúsculas, cifras, signos y los acentos (á é í ó ú ü ñ y
     mayúsculas), a puntos enteros del aparato, en relieve (luz arriba, sombra abajo, canto que cae) o grabada (hundida
-    con su labio de luz). `textoPixel`, `anchoPixel`. La usan la placa del correr (latón tallado con remaches y la letra
-    grabada, o hierro con la letra de latón: `placa` en hud_forja.ts), el recurso de la clase (`recursoClase(..., true)`
-    elige el rótulo que entra: la cazadora y el templario tienen versiones cortas), los letreros al pasar por las placas,
-    la experiencia y los orbes (`letrero`) y los números de los orbes del táctil. Las fichas de los poderes y las pistas de
-    los objetos siguen con la letra de siempre (son párrafos).
-  - **Esculturas**: van del tamaño que Rick quiere. A 1080 la gárgola y la doliente quedan en las puntas, lejos del
-    héroe (que va en el medio de lo que se ve arriba del panel).
+    con su labio de luz). `textoPixel`, `anchoPixel`. La usan el rótulo y las cifras de la reliquia de la clase (elige el
+    rótulo que entra), el nombre del jefe en su dintel, los letreros al pasar por las placas, la experiencia y los orbes
+    (`letrero`) y los números de los orbes del táctil. Las fichas de los poderes, las pistas de los objetos, los mensajes y
+    el registro siguen con la letra de siempre (son párrafos).
+  - **Esculturas**: van del tamaño que Rick quiere, medio escondidas tras cada casa. La doliente se talla sin vela
+    (`doliente(f, s, sinVela)`): la vela se dibuja por cuadro (`velaMana`).
   - Opciones: con la fila del HUD son 14 filas y el alto de la fila baja lo que haga falta para que la losa entre.
     `t954_hud_opcion.cjs [pc|movil]` elige Clásico, recarga y vuelve a Forjado (`__hudVisto` dice cuál se dibujó).
   - Prueba: `node juego/herramientas/t950_hud.cjs <etiqueta> [vistas]` (pc, pc1080, ultra, ipad, movil, pctactil;

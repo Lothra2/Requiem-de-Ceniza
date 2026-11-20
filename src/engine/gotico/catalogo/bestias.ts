@@ -39,6 +39,14 @@ M.be_murcielago = { rampa: ['#0d0a09', '#1a1411', '#281f19', '#372b22', '#47382c
 M.be_membrana_murc = { rampa: ['#100b0b', '#1c1314', '#2a1c1d', '#3a2627', '#4b3132', '#5d3d3d'], ruido: 0.35, escala: 0.8 };
 M.be_piedra_ala = { rampa: ['#0b0c0b', '#151715', '#20231f', '#2c302b', '#393e38', '#474d45'], ruido: 0.4, escala: 0.55 };
 M.be_lobo = { rampa: ['#08090b', '#101216', '#191c21', '#23272d', '#2e333a', '#3a4048', '#474e57', '#565e68'], ruido: 0.45, escala: 1.5, patron: (p) => (ruido(p[0] * 3, p[1] * 3, p[2] * 1.2) - 0.5) * 0.25 };
+// las formas del druida (lo pinta el juego en el héroe transformado, `forma_lobo` y `oso_pardo`; el oso también es el
+// Oso espíritu que invoca): el lobo gris plata con el lomo oscuro y el pecho claro, el oso pardo de pelo largo
+M.be_lobo_gris = { rampa: ['#0a0a0a', '#151514', '#21211f', '#2e2e2b', '#3d3c38', '#4e4c46', '#615e56', '#757168', '#8a857a'], ruido: 0.5, escala: 1.4, patron: (p) => (ruido(p[0] * 2.6, p[1] * 2.6, p[2] * 1.4) - 0.5) * 0.3 };
+M.be_lobo_pecho = { rampa: ['#1a1814', '#2a2620', '#3c372e', '#504a3e', '#665e4f', '#7d7462', '#958a75', '#ada188'], ruido: 0.5, escala: 1.4, patron: (p) => (ruido(p[0] * 3, p[1] * 3, p[2] * 1.5) - 0.5) * 0.25 };
+M.be_ojo_druida = { rampa: ['#5a6a10', '#94b020', '#d0e850', '#f6ffc0'], ruido: 0, escala: 1, emite: true };
+M.be_oso = { rampa: ['#070504', '#0f0b08', '#18110c', '#211810', '#2b1f15', '#36271a', '#422f20', '#4f3926', '#5d432d'], ruido: 0.6, escala: 1.6, patron: (p) => (ruido(p[0] * 2.2, p[1] * 2.2, p[2] * 0.9) - 0.5) * 0.34 + (Math.sin(p[2] * 1.7 + ruido(p[0], p[1], p[2]) * 4) > 0.75 ? -0.06 : 0) };
+M.be_oso_hocico = { rampa: ['#140d08', '#24170e', '#362317', '#4a3120', '#5f402b', '#755037', '#8b6144'], ruido: 0.3, escala: 0.9 };
+M.be_garra = { rampa: ['#0a0907', '#191612', '#2b261f', '#403a30', '#585044', '#71685a', '#8c8272'], ruido: 0.1, escala: 0.8, brillo: 0.4 };
 M.be_quitina_negra = { rampa: ['#050505', '#0b0a0a', '#131110', '#1c1917', '#26221f', '#312c28', '#3e3832', '#4c453e'], ruido: 0.22, escala: 0.8, brillo: 0.45 };
 M.be_junta = { rampa: ['#0a0403', '#160807', '#240d0a', '#33120d', '#431810'], ruido: 0.2, escala: 0.8, brillo: 0.3 };
 M.be_caparazon = { rampa: ['#0d0c0b', '#1a1815', '#29251f', '#39342b', '#4a4337', '#5c5344', '#6e6452', '#807561'], ruido: 0.3, escala: 0.7, brillo: 0.3 };
@@ -141,7 +149,7 @@ const NOMBRES: Record<Acc, [string, string]> = { quieto: ['quieto', 'idle'], cam
 type Armado = (d: Dir, acc: Acc, f: number) => Pieza[] | Escena;
 export const BESTIAS: { id: string; nombre: [string, string]; huella: [number, number]; jefe: boolean }[] = [];
 /** Las bestias que el juego lanza a la carrera de lejos (vel de 3 o más): galopan o baten más rápido en 'correr'. */
-export const BESTIAS_QUE_CORREN = ['lobo_sombrio', 'jabali_demonio', 'perro_infernal', 'murcielago_gigante'];
+export const BESTIAS_QUE_CORREN = ['lobo_sombrio', 'jabali_demonio', 'perro_infernal', 'murcielago_gigante', 'lobo_druida', 'oso_pardo'];
 function bestia(id: string, nombre: [string, string], huella: [number, number], armar: Armado, especial?: [string, string]) {
   BESTIAS.push({ id, nombre, huella, jefe: !!especial });
   const acciones: Acc[] = ['quieto', 'caminar', ...(BESTIAS_QUE_CORREN.includes(id) ? ['correr' as Acc] : []), 'atacar', 'herido', 'morir', ...(especial ? ['especial' as Acc] : [])];
@@ -160,9 +168,9 @@ interface Cuad {
   /** Escala general (1 = 30 a la cruz), largo de patas, corpulencia del tronco. */
   S: number; pata: number; gordo: number;
   piel: string; vientre?: string; hocico: string; ojos: string;
-  cabeza: 'perro' | 'lobo' | 'jabali';
+  cabeza: 'perro' | 'lobo' | 'jabali' | 'oso';
   cola: number; colaGruesa?: number;
-  ataque: 'mordida' | 'embestida';
+  ataque: 'mordida' | 'embestida' | 'zarpazo';
   /** Lo propio de cada especie (cuernos, púas, grietas, colmillos, melena). */
   deco: (c: CtxCuad) => Pieza[];
 }
@@ -171,7 +179,8 @@ interface CtxCuad { q: Cuad; W: Tr; cuerpo: Tr; /** El marco de la grupa (sigue 
 /** Pose del tronco y de la cabeza de un cuadrúpedo para una acción y un cuadro. */
 function poseCuad(q: Cuad, acc: Acc, f: number) {
   const S = q.S, ph = f / CUADROS[acc];
-  const p = { av: 0, z: 0, lado: 0, pitch: 0, roll: 0, yaw: 0, flex: 0, cab: 6, cabYaw: 0, mand: 4, cola: 0, colaAlza: 0, flojo: 0, adel: [0, 0], alza: [0, 0], atrasX: 0, muerte: 0 };
+  const p = { av: 0, z: 0, lado: 0, pitch: 0, roll: 0, yaw: 0, flex: 0, cab: 6, cabYaw: 0, mand: 4, cola: 0, colaAlza: 0, flojo: 0, adel: [0, 0], alza: [0, 0], atrasX: 0, muerte: 0,
+    /** (oso) las dos manos adelante y arriba [x, z], y la zarpa derecha [x, z, y] encima de eso */ manos: [0, 0], zarpa: [0, 0, 0] };
   if (acc === 'quieto') {
     const b = Math.sin(ph * TAU);
     p.z = b * 0.35 * S; p.pitch = -b * 0.6; p.cab = 6 + b * 2.5; p.cabYaw = Math.sin(ph * TAU + 1) * 3; p.mand = 7 + b * 4; p.cola = Math.sin(ph * TAU) * 0.6;
@@ -203,11 +212,35 @@ function poseCuad(q: Cuad, acc: Acc, f: number) {
       p.pitch = K([0, 7, 9, -14, 2, 9, 4, 1], f); p.cab = K([6, 18, 22, -4, 14, 20, 10, 6], f); p.mand = K([5, 2, 2, 42, 48, 4, 10, 6], f);
       p.adel = [K([0, 0, 0, 7, 4, -1, 0, 0], f) * S, 0]; p.alza = [K([0, 0, 0, 9, 7, 0, 0, 0], f) * S, 0]; p.cola = K([0, 0.3, 0.5, 1, 0.8, 0.2, 0, 0], f);
       p.colaAlza = K([0, 0.3, 0.4, 0.8, 0.7, 0.3, 0.1, 0], f);
+    } else if (q.ataque === 'zarpazo') {
+      // el oso: se alza sobre las patas de atrás, levanta la zarpa derecha por encima de la cabeza y la descarga en
+      // diagonal hacia el piso de adelante (el golpe en el cuadro 4), cae con todo el peso y vuelve a las cuatro patas
+      p.av = K([0, -1.5, -2.5, -1, 6, 7, 3, 0.5], f) * S; p.z = K([0, 2.5, 6, 6.5, 0, -2.5, -1, 0], f) * S;
+      p.pitch = K([0, -12, -26, -28, 4, 9, 3, 0], f); p.roll = K([0, 2, 5, 6, -6, -4, -1, 0], f); p.yaw = K([0, -3, -8, -10, 10, 8, 3, 0], f);
+      p.cab = K([8, 0, -10, -14, 18, 22, 12, 8], f); p.cabYaw = K([0, 4, 10, 12, -8, -6, -2, 0], f); p.mand = K([6, 14, 30, 36, 18, 10, 8, 6], f);
+      p.manos = [K([0, 2, 4, 3, 6, 2, 0.5, 0], f) * S, K([0, 4, 9, 10, 1, 0, 0, 0], f) * S];
+      p.zarpa = [K([0, 0, -2, -4, 9, 5, 1, 0], f) * S, K([0, 3, 9, 13, 0, 0, 0, 0], f) * S, K([0, 1, 2, 3, -5, -3, -1, 0], f) * S];
+      p.cola = K([0, 0.2, 0.3, 0.3, 0.6, 0.3, 0.1, 0], f);
     } else {
       // embiste: baja la cabeza, carga, cornea hacia arriba con los colmillos
       p.av = K([0, -2.5, -3.5, 4, 10, 9, 4, 1], f) * S; p.z = K([0, -1.5, -2.5, -1, 1.2, 0.8, 0, 0], f) * S;
       p.pitch = K([0, 4, 7, 6, -10, -8, -2, 0], f); p.cab = K([8, 20, 28, 30, -22, -18, 0, 6], f); p.mand = K([4, 6, 8, 10, 22, 14, 6, 4], f);
       p.adel = [K([0, 0, 0, 3, 5, 2, 0, 0], f) * S, 0]; p.alza = [K([0, 0, 0, 5, 3, 0, 0, 0], f) * S, 0]; p.yaw = K([0, 0, 0, 0, 8, 6, 2, 0], f); p.cola = K([0, 0.4, 0.6, 0.5, 0.8, 0.4, 0, 0], f);
+    }
+  } else if (acc === 'especial') {
+    // de pie sobre las patas de atrás con las manos en alto: el aullido del lobo (sentado, la cabeza al cielo) o el
+    // rugido del oso (alzado del todo, las zarpas abiertas). Lo pinta el héroe transformado al lanzar.
+    if (q.cabeza === 'oso') {
+      p.av = K([0, -2, -4, -4.5, -4.5, -4, -2.5, -0.5], f) * S; p.z = K([0, 4, 10, 12, 12.5, 11, 5, 1], f) * S;
+      p.pitch = K([0, -18, -44, -52, -54, -48, -24, -4], f); p.roll = K([0, 1, 2, 1, -1, -2, -1, 0], f);
+      p.cab = K([6, 10, 26, 34, 36, 30, 14, 6], f); p.cabYaw = K([0, 2, 4, -4, 4, -3, 1, 0], f); p.mand = K([6, 14, 38, 46, 48, 40, 16, 6], f);
+      p.manos = [K([0, 3, 7, 8, 8, 7, 3, 0], f) * S, K([0, 6, 15, 19, 20, 17, 7, 1], f) * S];
+      p.zarpa = [K([0, 0, 1, 2, 1, 2, 1, 0], f) * S, K([0, 0, 1, 2, 3, 1, 0, 0], f) * S, K([0, 0, 1, 1.5, 2, 1.5, 0.5, 0], f) * S]; p.cola = 0.2;
+    } else {
+      p.av = K([0, -1.5, -3, -3.5, -3.5, -3.5, -2, -0.5], f) * S; p.z = K([0, -1, -2, -2.5, -2.5, -2.4, -1.5, -0.4], f) * S;
+      p.pitch = K([0, -10, -22, -26, -27, -25, -12, -2], f); p.flex = K([0, 3, 7, 8, 8, 7, 3, 0], f);
+      p.cab = K([6, -6, -30, -42, -46, -40, -16, 4], f); p.cabYaw = K([0, 1, 2, 0, -2, 0, 1, 0], f); p.mand = K([5, 10, 22, 30, 32, 26, 12, 6], f);
+      p.adel = [K([0, 0.5, 1, 1, 1, 1, 0.5, 0], f) * S, 0]; p.cola = K([0, 0.1, 0.2, 0.2, 0.25, 0.2, 0.1, 0], f); p.colaAlza = -0.3;
     }
   } else if (acc === 'morir') {
     // un respingo, se le doblan las patas, cae de costado y queda tendido
@@ -236,6 +269,9 @@ function cuadrupedo(q: Cuad, d: Dir, acc: Acc, f: number): Pieza[] | Escena {
   const S = q.S, g = q.gordo, pt = q.pata;
   const W = mundo(d);
   const P = poseCuad(q, acc, f);
+  const oso = q.cabeza === 'oso';
+  // el oso lleva la cabeza baja y la mece de lado a lado al andar (el peso le cuelga de los hombros)
+  if (oso && (acc === 'quieto' || acc === 'caminar' || acc === 'correr')) { P.cab += acc === 'correr' ? 4 : 10; P.cabYaw *= 1.8; if (acc === 'caminar') P.roll *= 1.6; }
   const zc = (8 + 13 * pt) * S;
   const cuerpo = cmp(W, T([P.av, P.lado, zc + P.z], Rz(P.yaw), Ry(P.pitch), Rx(P.roll)));
   const B = (x: number, y: number, z: number): V3 => [x * S, y * S, z * S];
@@ -257,13 +293,26 @@ function cuadrupedo(q: Cuad, d: Dir, acc: Acc, f: number): Pieza[] | Escena {
     comps.push(bG(cuerpo, B(11.6, s * 5.6 * g, -5), B(4.6, 3 * g, 6.6), [Ry(10)], piel));
     comps.push(bG(grupa, B(-14.5, s * 5.2 * g, -3.2), B(7.6, 3.6 * g, 9), [Ry(18)], piel));
   }
+  // (el oso: la giba de los hombros, la panza que cuelga y las ancas redondas)
+  if (oso) {
+    comps.push(bT(cuerpo, B(7.5, 0, 7.6), B(8.5, 6 * g, 4.6), piel));
+    comps.push(bT(cuerpo, B(-1, 0, -4.2), B(11, 6.6 * g, 5), vientre));
+    comps.push(bT(grupa, B(-15.5, 0, 3.6), B(6.4, 6.6 * g, 6), piel));
+  }
   // ---- cuello y cabeza
-  const nuca = B(jab ? 18 : 20.5, 0, jab ? 5 : 10);
-  comps.push(hT(cuerpo, B(12, 0, 2.5), nuca, (jab ? 8 : 6.4) * g * S, (jab ? 6.5 : 4.4) * S, piel));
+  const nuca = oso ? B(18.5, 0, 5.6) : B(jab ? 18 : 20.5, 0, jab ? 5 : 10);
+  comps.push(hT(cuerpo, B(12, 0, 2.5), nuca, (jab ? 8 : oso ? 7.4 : 6.4) * g * S, (jab ? 6.5 : oso ? 5.6 : 4.4) * S, piel));
   comps.push(hT(cuerpo, B(9, 0, 7), add(nuca, B(-1, 0, 2.5)), 4 * S * g, 3 * S, piel));
   const cab = cmp(cuerpo, T(nuca, Rz(P.cabYaw), Ry(P.cab)));
   const H = (x: number, y: number, z: number) => B(x, y, z);
-  if (q.cabeza === 'jabali') {
+  if (oso) {
+    // cráneo ancho y redondo, la frente que sube sobre el hocico corto, los carrillos de pelo y la nariz
+    comps.push(bT(cab, H(1.2, 0, 1.6), H(6.4, 6, 5.6), piel));
+    comps.push(bT(cab, H(3.4, 0, 3.6), H(3.2, 3.8, 2.2), piel));
+    for (const s of [1, -1]) comps.push(bT(cab, H(1.8, s * 3.9, -0.6), H(3.8, 2.4, 3.2), piel));
+    comps.push(hT(cab, H(4.5, 0, -0.6), H(11.4, 0, -1.9), 3.5 * S, 2.5 * S, { mat: q.vientre ?? q.piel }));
+    comps.push(bT(cab, H(11.7, 0, -1.3), H(1.5, 1.9, 1.4), { mat: q.hocico }));
+  } else if (q.cabeza === 'jabali') {
     comps.push(bT(cab, H(1, 0, 1.5), H(6.5, 5.2, 5.6), piel));
     comps.push(hT(cab, H(4, 0, 0), H(14.5, 0, -3), 4.4 * S, 2.6 * S, piel));
     comps.push(bT(cab, H(5.5, 0, 3.5), H(3, 4.4, 2), piel));
@@ -277,7 +326,7 @@ function cuadrupedo(q: Cuad, d: Dir, acc: Acc, f: number): Pieza[] | Escena {
     for (const s of [1, -1]) comps.push(bT(cab, H(2.6, s * 3.1, -1), H(3.4, 1.6, 2.6), piel));
     comps.push(bT(cab, H(lobo ? 13.7 : 12.8, 0, -0.7), H(1.3, 1.5, 1.2), { mat: q.hocico }));
   }
-  const mand = cmp(cab, T(H(1, 0, jab ? -3.5 : -2.6), Ry(P.mand)));
+  const mand = cmp(cab, T(H(oso ? 2.5 : 1, 0, jab ? -3.5 : oso ? -3 : -2.6), Ry(P.mand)));
   // ---- patas: dos huesos con IK al tobillo y la mano o pezuña en el piso (o colgando al morir)
   const piezas: Pieza[] = [];
   const pasoL = PASO_CUAD * S * pt, alzaL = 6 * S;
@@ -289,6 +338,11 @@ function cuadrupedo(q: Cuad, d: Dir, acc: Acc, f: number): Pieza[] | Escena {
     else if (acc === 'correr') st = paso(f / 8 - (del ? (s > 0 ? GALOPE.dd : GALOPE.di) : (s > 0 ? GALOPE.td : GALOPE.ti)), pasoL * (GALOPE.ritmo * GALOPE.apoyo / APOYO_CUAD), (del ? 8 : 7) * S, GALOPE.apoyo, 0.5);
     let pie: V3 = [(del ? 14.5 : -14.5) * S * (0.6 + 0.4 * pt) + st.x + (del ? P.adel[0] : P.atrasX), s * 5.8 * g * S, st.z + (del ? P.alza[0] : 0)];
     let vuelo = st.vuelo + (del && P.alza[0] > 0 ? 0.8 : 0);
+    // (el oso alzado: las manos adelante y arriba, la derecha con su zarpazo)
+    if (del && (P.manos[1] || P.zarpa[1] || P.zarpa[0])) {
+      pie = add(pie, [P.manos[0] + (s > 0 ? P.zarpa[0] : 0), s > 0 ? P.zarpa[2] : 0, P.manos[1] + (s > 0 ? P.zarpa[1] : 0)]);
+      vuelo = Math.max(vuelo, Math.min(1, (P.manos[1] + (s > 0 ? P.zarpa[1] : 0)) / (6 * S)));
+    }
     if (P.flojo > 0) {
       const colg = ap(cuerpo, del ? B(16, s * 6.5 * g, -zc / S + 2) : B(-11, s * 6 * g, -zc / S + 3));
       pie = mez(ap(W, pie), colg, P.flojo); pie = mv(transp(W.m), sub(pie, W.o));
@@ -303,16 +357,20 @@ function cuadrupedo(q: Cuad, d: Dir, acc: Acc, f: number): Pieza[] | Escena {
     const [rod, tob2] = ik(raiz, tob, l1, l2, del ? atrasW : adelW);
     const pz = add(tob2, sub(pieW, tob), Math.min(1.2, l3 / Math.max(0.1, len(sub(pieW, tob)))));
     anotarPatas?.push({ pie: pieW, pz, del, s, raiz, rod, tob: tob2, adel: adelW });
-    const rM = q.cabeza === 'jabali' ? 1.15 : 1;
+    const rM = q.cabeza === 'jabali' ? 1.15 : oso ? 1.32 : 1;
     comps.push(hueso(raiz, rod, (del ? 3.5 : 4) * S * rM * g, (del ? 2.5 : 2.7) * S * rM, piel));
     const baja: Comp[] = [
       hueso(rod, tob2, (del ? 2.3 : 2.4) * S * rM, 1.5 * S * rM, piel),
       hueso(tob2, pz, 1.45 * S * rM, 1.25 * S * rM, piel),
-      bulto(add(pz, adelW, 0.9 * S), [2.3 * S * rM, 1.6 * S * rM, 1.25 * S], { eje: adelW, mat: jab ? 'be_cuerno' : q.piel }),
+      bulto(add(pz, adelW, oso ? 1.4 * S : 0.9 * S), [(oso ? 2.9 : 2.3) * S * rM, 1.6 * S * rM, (oso ? 1.05 : 1.25) * S], { eje: adelW, mat: jab ? 'be_cuerno' : q.piel }),
     ];
+    // (el oso: el antebrazo de pelo largo que cuelga)
+    if (oso) baja.push(bulto(mez(rod, tob2, 0.4), [4 * S, 3 * S, 3 * S], { eje: sub(tob2, rod), mat: q.piel }));
     if (!del) baja.push(bulto(mez(rod, tob2, 0.3), [3.6 * S, 1.9 * S * rM, 1.9 * S * rM], { eje: sub(tob2, rod), mat: q.piel }));
     piezas.push(masa(baja, { mat: q.piel, suave: 1.3 * S }));
-    if (!jab && q.cabeza !== 'lobo') for (const k of [-1, 0, 1]) piezas.push(pua(add(add(pz, adelW, 2.4 * S), cruz(adelW, [0, 0, 1]), k * 0.8 * S), add(add(add(pz, adelW, 3.6 * S), cruz(adelW, [0, 0, 1]), k * 0.9 * S), [0, 0, -1 * S]), 0.45 * S, 'be_cuerno'));
+    // (el oso: cuatro uñas largas y claras que salen de la mano y se curvan al piso)
+    if (oso) { const ld = cruz(adelW, [0, 0, 1]); for (const k of [-1.5, -0.5, 0.5, 1.5]) { const a = add(add(pz, adelW, 3.6 * S), ld, k * 0.95 * S), b = add(add(add(pz, adelW, (del ? 5.6 : 4.6) * S), ld, k * 1.05 * S), [0, 0, -0.9 * S]); piezas.push(pua(a, b, 0.5 * S, 'be_garra')); } }
+    else if (!jab && q.cabeza !== 'lobo') for (const k of [-1, 0, 1]) piezas.push(pua(add(add(pz, adelW, 2.4 * S), cruz(adelW, [0, 0, 1]), k * 0.8 * S), add(add(add(pz, adelW, 3.6 * S), cruz(adelW, [0, 0, 1]), k * 0.9 * S), [0, 0, -1 * S]), 0.45 * S, 'be_cuerno'));
   }
   // ---- cola
   const cb = ap(grupa, B(-20, 0, 3));
@@ -376,24 +434,25 @@ const PERRO: Cuad = {
 
 const LOBO: Cuad = {
   S: 0.86, pata: 1.34, gordo: 0.8, piel: 'be_lobo', vientre: 'be_lobo', hocico: 'cu_tela_negra', ojos: 'cu_ojo_hielo', cabeza: 'lobo', cola: 1.1, colaGruesa: 2.6, ataque: 'mordida',
-  deco: (c) => {
+  deco: (c) => decoLobo(c),
+};
+function decoLobo(c: CtxCuad): Pieza[] {
     const { cuerpo, cab, S } = c;
     const ps = bocaYOjos(c, { largo: 11.5, lengua: 'be_garganta', ojoX: 5.2, ojoY: 2.3, ojoZ: 1.8, ojoR: 0.75 });
     // orejas paradas
-    for (const s of [1, -1]) ps.push(masa([hT(cab, [0, s * 2.4 * S, 3.6 * S], [-1.6 * S, s * 3.4 * S, 9 * S], 2 * S, 0.3 * S, { mat: 'be_lobo' })], { mat: 'be_lobo' }));
+    for (const s of [1, -1]) ps.push(masa([hT(cab, [0, s * 2.4 * S, 3.6 * S], [-1.6 * S, s * 3.4 * S, 9 * S], 2 * S, 0.3 * S, { mat: c.q.piel })], { mat: c.q.piel }));
     // gorguera de pelo en el cuello y la cruz, y mechones de punta por el lomo
     const pel: Comp[] = [];
-    pel.push(hT(cuerpo, [12 * S, 0, 3 * S], [19 * S, 0, 9 * S], 7.2 * S, 5.6 * S, { mat: 'be_lobo' }));
+    pel.push(hT(cuerpo, [12 * S, 0, 3 * S], [19 * S, 0, 9 * S], 7.2 * S, 5.6 * S, { mat: c.q.piel }));
     for (let i = 0; i < 9; i++) {
       const a = (i / 8) * Math.PI - Math.PI / 2, x = (11 + hr(i) * 6) * S;
       const base: V3 = [x, Math.sin(a) * 6.5 * S, (4 + Math.cos(a) * 5.5) * S], punta = add(base, [-4.5 * S, Math.sin(a) * 2.6 * S, (Math.cos(a) * 2.4 - 0.6) * S]);
-      pel.push(hT(cuerpo, base, punta, 2.2 * S, 0.35 * S, { mat: 'be_lobo', k: 1 }));
+      pel.push(hT(cuerpo, base, punta, 2.2 * S, 0.35 * S, { mat: c.q.piel, k: 1 }));
     }
-    for (let i = 0; i < 6; i++) { const x = (6 - i * 4.5) * S; pel.push(hT(c.lomo(x / S), [x, 0, 7.4 * S], [x - 4 * S, 0, 9.4 * S], 1.8 * S, 0.3 * S, { mat: 'be_lobo', k: 0.8 })); }
-    ps.push(masa(pel, { mat: 'be_lobo', suave: 1.4 * S }));
+    for (let i = 0; i < 6; i++) { const x = (6 - i * 4.5) * S; pel.push(hT(c.lomo(x / S), [x, 0, 7.4 * S], [x - 4 * S, 0, 9.4 * S], 1.8 * S, 0.3 * S, { mat: c.q.piel, k: 0.8 })); }
+    ps.push(masa(pel, { mat: c.q.piel, suave: 1.4 * S }));
     return ps;
-  },
-};
+}
 const JABALI: Cuad = {
   S: 1.08, pata: 0.92, gordo: 1.18, piel: 'be_jabali', hocico: 'be_hocico', ojos: 'cu_ojo_brasa', cabeza: 'jabali', cola: 0.45, colaGruesa: 1.1, ataque: 'embestida',
   deco: (c) => {
@@ -423,9 +482,35 @@ const JABALI: Cuad = {
   },
 };
 
+/** El lobo del druida (la Piel de lobo): más grande que los sombríos, gris plata con el pecho claro y los ojos de ámbar verde. */
+const LOBO_DRUIDA: Cuad = { ...LOBO, S: 1.1, piel: 'be_lobo_gris', vientre: 'be_lobo_pecho', ojos: 'be_ojo_druida' };
+/** El oso pardo (la Piel de oso del druida y el Oso espíritu): pesado, la giba de los hombros, patas cortas y gruesas, uñas largas. */
+const OSO: Cuad = {
+  S: 1.2, pata: 0.8, gordo: 1.3, piel: 'be_oso', vientre: 'be_oso_hocico', hocico: 'cu_tela_negra', ojos: 'be_ojo_druida', cabeza: 'oso', cola: 0.25, colaGruesa: 1.5, ataque: 'zarpazo',
+  deco: (c) => {
+    const { cuerpo, cab, S } = c;
+    const ps = bocaYOjos(c, { largo: 8.4, lengua: 'be_garganta', ojoX: 4.9, ojoY: 2.5, ojoZ: 2.1, ojoR: 0.62, colmillo: 0.5 });
+    // orejas chicas y redondas, separadas, arriba del cráneo
+    for (const s of [1, -1]) ps.push(masa([bG(cab, [-0.4 * S, s * 4 * S, 5.2 * S], [1.3 * S, 1.7 * S, 1.6 * S], [Rx(s * 20)], { mat: 'be_oso' })], { mat: 'be_oso' }));
+    // el pelo largo: la gorguera del cuello y los carrillos, la giba, los flancos y las ancas, con mechones de punta
+    const pel: Comp[] = [];
+    pel.push(hT(cuerpo, [11 * S, 0, 3 * S], [17.5 * S, 0, 6.5 * S], 8.2 * S, 6.6 * S, { mat: 'be_oso' }));
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 11) * Math.PI - Math.PI / 2, x = (10 + hr(i + 7) * 7) * S;
+      const base: V3 = [x, Math.sin(a) * 7.6 * S, (3 + Math.cos(a) * 6.2) * S], punta = add(base, [-4 * S, Math.sin(a) * 2.4 * S, (Math.cos(a) * 1.6 - 1.6) * S]);
+      pel.push(hT(cuerpo, base, punta, 2.3 * S, 0.4 * S, { mat: 'be_oso', k: 1 }));
+    }
+    for (let i = 0; i < 8; i++) { const x = (11 - i * 3.6) * S, L = c.lomo(x / S); pel.push(hT(L, [x, (hr(i + 3) - 0.5) * 2 * S, (10.6 - i * 0.35) * S], [x - 3.6 * S, (hr(i + 9) - 0.5) * 2.4 * S, (11.2 - i * 0.35) * S], 2 * S, 0.4 * S, { mat: 'be_oso', k: 0.8 })); }
+    ps.push(masa(pel, { mat: 'be_oso', suave: 1.5 * S }));
+    return ps;
+  },
+};
 bestia('lobo_sombrio', ['Lobo sombrío', 'Shadow wolf'], [3, 2], (d, acc, f) => cuadrupedo(LOBO, d, acc, f));
 bestia('jabali_demonio', ['Jabalí demonio', 'Demon boar'], [3, 2], (d, acc, f) => cuadrupedo(JABALI, d, acc, f));
 bestia('perro_infernal', ['Perro del infierno', 'Hellhound'], [3, 2], (d, acc, f) => cuadrupedo(PERRO, d, acc, f));
+// las formas del druida: el juego pinta con estos al héroe transformado ('especial' es el aullido o el rugido al lanzar)
+bestia('lobo_druida', ['Lobo del druida', 'Druid wolf'], [3, 2], (d, acc, f) => cuadrupedo(LOBO_DRUIDA, d, acc, f), ['aúlla', 'howl']);
+bestia('oso_pardo', ['Oso pardo', 'Brown bear'], [4, 3], (d, acc, f) => cuadrupedo(OSO, d, acc, f), ['ruge', 'roar']);
 
 // ------------------------------------------------------------------ arácnidos (araña reina, araña de cueva, escorpión)
 interface Pata { cadera: V3; reposo: V3; l1: number; l2: number; fase: number; r: number; alzaExtra?: V3 }
@@ -1440,6 +1525,8 @@ export const ZANCADA_BESTIA: Record<string, number> = {
   lobo_sombrio: (PASO_CUAD * LOBO.S * LOBO.pata) / APOYO_CUAD,
   jabali_demonio: (PASO_CUAD * JABALI.S * JABALI.pata) / APOYO_CUAD,
   perro_infernal: (PASO_CUAD * PERRO.S * PERRO.pata) / APOYO_CUAD,
+  lobo_druida: (PASO_CUAD * LOBO_DRUIDA.S * LOBO_DRUIDA.pata) / APOYO_CUAD,
+  oso_pardo: (PASO_CUAD * OSO.S * OSO.pata) / APOYO_CUAD,
   arana_reina: (PASO_ARANA * REINA.S) / APOYO_ARAC,
   arana_cueva: (PASO_ARANA * CUEVA.S) / APOYO_ARAC,
   cangrejo_cripta: PASO_CANGREJO / APOYO_ARAC,
@@ -1459,9 +1546,11 @@ export const ZANCADA_CORRER_BESTIA: Record<string, number> = {
   lobo_sombrio: ZANCADA_BESTIA.lobo_sombrio * GALOPE.ritmo,
   jabali_demonio: ZANCADA_BESTIA.jabali_demonio * GALOPE.ritmo,
   perro_infernal: ZANCADA_BESTIA.perro_infernal * GALOPE.ritmo,
+  lobo_druida: ZANCADA_BESTIA.lobo_druida * GALOPE.ritmo,
+  oso_pardo: ZANCADA_BESTIA.oso_pardo * GALOPE.ritmo,
 };
 
-const CUAD: Record<string, Cuad> = { lobo_sombrio: LOBO, jabali_demonio: JABALI, perro_infernal: PERRO };
+const CUAD: Record<string, Cuad> = { lobo_sombrio: LOBO, jabali_demonio: JABALI, perro_infernal: PERRO, lobo_druida: LOBO_DRUIDA, oso_pardo: OSO };
 /**
  * Para las pruebas de pisada: dónde queda cada pata de un cuadrúpedo en un cuadro, en el mundo. `pie` es el punto que
  * manda la marcha (apoyado, en el piso) y `pz` la mano o pezuña que alcanzó la IK (si no llega, se separan); `raiz`,

@@ -62,7 +62,8 @@ export function tinteElectro(id: number, f: number, ahora: number): [string, num
   if (f <= 0) return null;
   const r = azar(Math.floor(ahora * 18) * 977 + id * 31);
   const x = r();
-  if (x < 0.12) return ['#eef4ff', 0.55 * f]; // la radiografía: casi blanco un instante
+  // la radiografía: casi blanco un instante (quinta pasada: celeste y a 0,4, el Puño de rayo dejaba al blanco en blanco)
+  if (x < 0.12) return (window as any).__blancoViejo ? ['#eef4ff', 0.55 * f] : ['#c4d2ff', 0.4 * f];
   if (x < 0.32) return null; // ventana apagada: el chisporroteo corta
   return ['#a9b8ff', (0.12 + r() * 0.16) * f];
 }

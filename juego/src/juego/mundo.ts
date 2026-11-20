@@ -725,7 +725,7 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
       const S = SENSACION[h.d.clase], dxm = m.x - h.x, dym = m.y - h.y, dm = Math.hypot(dxm, dym) || 1, mata = m.vida <= 0;
       // (solo lo que se ve: el arma viva revienta su materia en el blanco, lo dibuja escena.ts)
       // (solo lo que se ve: el golpe de un poder, para render/poderes_vivos.ts)
-      if (habEnCurso && habEnCurso !== 'ataque' && ((j as any).golpesPoder?.length ?? 0) < 24) { const o = deDonde ?? [h.x, h.y], ex = m.x - o[0], ey = m.y - o[1], el = Math.hypot(ex, ey) || 1;
+      if (habEnCurso && (habEnCurso !== 'ataque' || h.buffs.forma_lobo || h.buffs.forma_oso) && ((j as any).golpesPoder?.length ?? 0) < 24) { const o = deDonde ?? [h.x, h.y], ex = m.x - o[0], ey = m.y - o[1], el = Math.hypot(ex, ey) || 1;
         ((j as any).golpesPoder ??= []).push({ x: m.x, y: m.y, hab: habEnCurso, elem: g.elem, crit, mata, ux: ex / el, uy: ey / el, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40), parte: g.parte, f: Math.min(1, total / Math.max(1, m.vidaMax)), hueso: sangraHueso(m) }); }
       if (g.arma && h.c.vivo && dm < 3.4 && ((j as any).golpesVivos?.length ?? 0) < 8) ((j as any).golpesVivos ??= []).push({ x: m.x, y: m.y, el: h.c.vivo, fuerte: crit || m.vida <= 0, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40) });
       if (h.d.aura && g.arma && (h.d.aura === 'aura_fuerza' || h.d.aura === 'aura_presteza' || h.d.aura === 'aura_conviccion' || h.d.aura === 'aura_llama')) pulsoAura(j, m.x, m.y, 'golpe');
@@ -1377,6 +1377,9 @@ function crearInvocado(j: Juego, invId: string, n: number, x: number, y: number,
   m.tipo = 'invocado'; m.dueno = true; m.invocaId = invId; m.estado = 'deambular';
   m.vidaMax = m.vida = Math.round(inv.vida * kk * (1 + h.d.nivel * 0.12)); m.dano = [inv.dano[0] * kk * danoInvocadoNivel(h.d.nivel), inv.dano[1] * kk * danoInvocadoNivel(h.d.nivel)];
   m.tinte = inv.tinte; m.escala = inv.escala ?? 1; m.tVida = tVida;
+  // (quinta pasada) el Oso espíritu ya no es el ogro teñido: se pinta con el oso pardo (la ficha, la huella y el golpe
+  // siguen siendo los del ogro, y la escala también: el peso del golpe sale de ella). Con `__sinFormas` vuelve el de antes
+  if (inv.aspecto && !(globalThis as any).__sinFormas) { m.def = { ...m.def, sprite: inv.aspecto }; m.tinte = undefined; }
   // (solo lo que se ve: render/presencias.ts) cuándo nació y de qué poder; los muertos y el gólem suben del piso armándose
   // (la muerte al revés, como los que surgen), las bestias y los espíritus toman cuerpo
   (m as any).nace = j.t; (m as any).habInv = habEnCurso ?? undefined;
@@ -1565,7 +1568,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
       if (hb.id === 'festin_tumba') {
         const cad = cadaveresCerca(j, ax, ay, 4)[0];
         if (!cad) { aviso(j, ['No hay un cadáver cerca.', 'No corpse nearby.']); reembolso(); break; }
-        usarCadaver(cad); (cad as any).revienta = j.t + 0.32; (cad as any).consume = true; cad.tMuerto = 598;
+        usarCadaver(cad); (cad as any).revienta = j.t + ((globalThis as any).__festinViejo ? 0.32 : 0.65); (cad as any).consume = true; cad.tMuerto = 598;
         h.vida = Math.min(h.vidaMax, h.vida + h.vidaMax * val(hb.bonos?.cura_pct, n) / 100);
         h.mana = Math.min(h.c.manaMax, h.mana + h.c.manaMax * val(hb.bonos?.mana_pct_cura, n) / 100);
         efecto(j, 'estallido_cadaver', cad.x, cad.y, 0, 0.6); efecto(j, 'chispas_curacion', h.x, h.y);
@@ -2049,9 +2052,12 @@ function actualizarMecanicas(j: Juego, dt: number) {
   // formas del druida: el cuerpo cambia de tamaño y de tono
   const lobo = !!h.buffs.forma_lobo, oso = !!h.buffs.forma_oso;
   const esc = oso ? 1.15 : lobo ? 1.06 : 1;
-  if (h.escala !== esc) { h.escala = esc; if (esc !== 1) { efecto(j, 'transformacion_bestia', h.x, h.y, 0, 1); particulas(j, h.x, h.y, 16, 'humo', oso ? '#604028' : '#707888', 1.2, 20); } }
-  h.tinte = oso ? '#7a5030' : lobo ? '#8898b0' : undefined;
-  if ((lobo || oso) && R() < dt * 3) particulas(j, h.x + entre(-0.3, 0.3), h.y + entre(-0.3, 0.3), 1, 'ceniza', oso ? '#a07040' : '#a0b0c8', 0.3, 40);
+  // (quinta pasada: el héroe se pinta como la bestia, render/formas.ts, y el cambio lo cuenta presencias.ts; el tono y el
+  // humo de antes quedan solo con `__sinFormas`. La escala sigue igual: la leen los números y lo que se dibuja encima)
+  const viejo = !!(globalThis as any).__sinFormas;
+  if (h.escala !== esc) { h.escala = esc; if (esc !== 1 && viejo) { efecto(j, 'transformacion_bestia', h.x, h.y, 0, 1); particulas(j, h.x, h.y, 16, 'humo', oso ? '#604028' : '#707888', 1.2, 20); } }
+  h.tinte = viejo ? (oso ? '#7a5030' : lobo ? '#8898b0' : undefined) : undefined;
+  if ((lobo || oso) && viejo && R() < dt * 3) particulas(j, h.x + entre(-0.3, 0.3), h.y + entre(-0.3, 0.3), 1, 'ceniza', oso ? '#a07040' : '#a0b0c8', 0.3, 40);
 }
 
 /**

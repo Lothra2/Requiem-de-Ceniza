@@ -17,7 +17,7 @@ import { CUADROS } from '../juego/mundo';
  * apoya cada pie, en el cuadro en que apoya (antes salía cada 0,46 casillas a un costado de la marcha y no coincidía con
  * la pisada: Rick, 19 nov 2026).
  */
-export const pisadaHeroe = { acc: '', dir: '', i: 0, n: 0, resto: 0, vx: 0, vy: 0, esc: 1, listo: false };
+export const pisadaHeroe = { acc: '', dir: '', i: 0, n: 0, resto: 0, vx: 0, vy: 0, esc: 1, listo: false, bestia: '' as string };
 type Pie = { x: number; y: number; ang: number };
 const cachePies = new Map<string, { lado: number; pie: [number, number, number, number] } | null>();
 /** El pie que apoya en este cuadro: lado (0 der, 1 izq) y talón/punta en el piso, en el marco del cuerpo (adelante, derecha). */
@@ -229,14 +229,16 @@ export function ambienteSuelo(j: Juego, dt: number, t: number, aP: AP, bx0: numb
   const DE_PATA = /thor|lobo|perro|chacal|jabali|arana|escorpion|cangrejo|oso|rata|dragon|sabueso|hiena/;
   const marca = (e: Ent) => {
     const spr = (e as any).def?.sprite as string | undefined; if (spr && SIN_PIES.test(spr)) return;
-    const forma: 'bota' | 'pata' | 'pie' = e === (h as Ent) ? 'bota' : spr && DE_PATA.test(spr) ? 'pata' : 'pie';
+    // (el druida transformado pisa con pata, a la distancia de los pasos de la bestia: render/formas.ts)
+    const bestia = e === (h as Ent) && !!pisadaHeroe.bestia;
+    const forma: 'bota' | 'pata' | 'pie' = bestia ? 'pata' : e === (h as Ent) ? 'bota' : spr && DE_PATA.test(spr) ? 'pata' : 'pie';
     const p = pisoEn(j, e.x, e.y); if (!p) return;
     const esH = e === (h as Ent), bl = BLANDO.find((b) => b[0].test(p.id));
     const sangre = esH && pasosSangre > 0, mojado = !bl && z.lluvia && z.tipo !== 'mazmorra', barro = esH && !bl && pasosBarro > 0;
     if (esH && bl) { pasosBarro = 12; barroRgb = bl[1]; barroClaro = /nieve|hielo/.test(p.id); }
     if (!bl && !sangre && !mojado && !barro) { ultPaso.delete(e.id); if (esH) ladoAnt = -1; return; }
     // el héroe: donde apoya el pie de verdad, en el cuadro en que apoya
-    if (esH && !(window as any).__huellaVieja) {
+    if (esH && !bestia && !(window as any).__huellaVieja) {
       const pn = pisadaNueva(h); if (!pn) return;
       const tam = 1, k0 = sangre ? (pasosSangre / 14) : bl ? bl[2] : barro ? 0.35 + 0.65 * pasosBarro / 12 : 0.6;
       const rgb = sangre ? '120,8,6' : bl ? bl[1] : barro ? (barroClaro ? '200,214,230' : barroRgb) : '8,10,14';
@@ -247,7 +249,7 @@ export function ambienteSuelo(j: Juego, dt: number, t: number, aP: AP, bx0: numb
     }
     const u = ultPaso.get(e.id);
     if (!u) { ultPaso.set(e.id, [e.x, e.y, 1]); return; }
-    const d = Math.hypot(e.x - u[0], e.y - u[1]); if (d < (esH ? 0.46 : forma === 'pata' ? 0.3 : 0.55)) return;
+    const d = Math.hypot(e.x - u[0], e.y - u[1]); if (d < (bestia ? (pisadaHeroe.bestia === 'oso' ? 0.42 : 0.34) : esH ? 0.46 : forma === 'pata' ? 0.3 : 0.55)) return;
     if (d < 3) {
       const ang = Math.atan2((e.x + e.y - u[0] - u[1]) / 2, e.x - e.y - u[0] + u[1]), tam = Math.min(1.7, Math.max(0.8, (e as any).escala ?? 1));
       if (sangre) { huellas.push({ x: e.x, y: e.y, t: 0, ang, lado: u[2], clara: false, rgb: '120,8,6', vida: 26, k: (pasosSangre / 14) * tam, f: forma }); pasosSangre--; }

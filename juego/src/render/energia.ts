@@ -53,14 +53,14 @@ function luzSpr(c: RGB): HTMLCanvasElement {
 }
 
 let heroeXY: [number, number] = [-99, -99];
-function estallar(x: number, y: number, z: number, c: RGB, fuerza: number, tras = false) {
-  const tope = E.tactil ? 220 : 420, n = Math.round((E.tactil ? 7 : 12) + fuerza * (E.tactil ? 5 : 10));
+function estallar(x: number, y: number, z: number, c: RGB, fuerza: number, tras = false, suave = 1) {
+  const tope = E.tactil ? 220 : 420, n = Math.round(((E.tactil ? 7 : 12) + fuerza * (E.tactil ? 5 : 10)) * suave);
   for (let i = 0; i < n && chispas.length < tope; i++) { const a = R() * Math.PI * 2, v = (1.6 + R() * 4.2) * (0.7 + fuerza * 0.4); chispas.push({ x, y, z: z + 8 + R() * 14, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 50 + R() * 150 * (0.7 + fuerza * 0.3), t: 0, d: 0.45 + R() * 0.55, c, s: R() < 0.3 ? 3 : 2, reb: 1 }); }
   // el fogonazo: corto y medido. Antes era un disco blanco de hasta 180 puntos por cada efecto, y tres golpes juntos
   // dejaban al héroe y a los enemigos tapados por una bola blanca. Ahora no se apilan (uno por sitio y momento) y
   // el que cae encima del héroe va más bajo todavía
-  if (!flashes.some((q) => q.t < 0.1 && Math.hypot(q.x - x, q.y - y) < 1.6)) flashes.push({ x, y, z: z + 16, t: 0, d: 0.16 + fuerza * 0.04, r: 20 + fuerza * 13, c, a: Math.hypot(x - heroeXY[0], y - heroeXY[1]) < 1.3 ? 0.3 : 0.5, tras });
-  anillos.push({ x, y, t: 0, d: 0.34 + fuerza * 0.08, r0: 0.25, r1: 1.3 + fuerza * 1.15, c, g: 2.5 + fuerza, a: 0.85 });
+  if (!flashes.some((q) => q.t < 0.1 && Math.hypot(q.x - x, q.y - y) < 1.6)) flashes.push({ x, y, z: z + 16, t: 0, d: 0.16 + fuerza * 0.04, r: 20 + fuerza * 13, c, a: (Math.hypot(x - heroeXY[0], y - heroeXY[1]) < 1.3 ? 0.3 : 0.5) * suave, tras });
+  anillos.push({ x, y, t: 0, d: 0.34 + fuerza * 0.08, r0: 0.25, r1: 1.3 + fuerza * 1.15, c, g: 2.5 + fuerza, a: 0.85 * (0.4 + 0.6 * suave) });
   if (fuerza >= 1.35) { anillos.push({ x, y, t: -0.09, d: 0.55, r0: 0.4, r1: 2.2 + fuerza * 1.5, c, g: 1.6, a: 0.5 }); pantalla = Math.max(pantalla, Math.min(0.2, 0.07 * fuerza)); pantallaC = c; }
 }
 
@@ -82,7 +82,10 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
     if (vistos.has(e)) continue; vistos.add(e);
     if (e.t > 0.25 || SIN_ESTALLIDO.test(e.id)) continue;
     const esc = Math.max(0.5, Math.min(2.4, e.escala ?? 1)), meta = LUZ_EFECTO[e.id] as any;
-    estallar(e.x, e.y, e.z ?? 0, colorDe(e.id, meta?.elem), esc * (/meteoro|nova|explosion|estallido|gran_|trueno|castigo|pilar|onda/.test(e.id) ? 1.25 : 0.8));
+    // (quinta pasada: el golpe cuerpo a cuerpo de un poder ya revienta con su materia, la onda del puño o la media luna, en
+    // poderes_vivos.ts: el estallido de energía va a menos de la mitad. Con todo junto el Puño de rayo dejaba blanco al blanco)
+    const hbE = HAB.get((e as any).hab ?? ''), suave = hbE?.tipo === 'golpe' && !(hbE as any).definitiva && !(window as any).__blancoViejo ? 0.4 : 1;
+    estallar(e.x, e.y, e.z ?? 0, colorDe(e.id, meta?.elem), esc * (/meteoro|nova|explosion|estallido|gran_|trueno|castigo|pilar|onda/.test(e.id) ? 1.25 : 0.8), false, suave);
     if (esc >= 1.5 && /meteoro|gran_|sol_negro|edad_hielo|furia|tempestad/.test(e.id)) j.sacudida = Math.max(j.sacudida, 0.35);
   }
   // ---- el héroe conjura: motas que acuden a las manos; al soltar, fogonazo y onda
@@ -98,10 +101,15 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
     while (tMota <= 0 && motas.length < 60) { tMota += E.tactil ? 0.035 : 0.02; motas.push({ ang: R() * Math.PI * 2, r: 1.1 + R() * 1.3, z: R() * 46, t: 0, d: Math.max(0.12, Math.min(0.5, h.golpeEn - h.t)), c: cHab, giro: (R() < 0.5 ? -1 : 1) * (3 + R() * 4) }); }
     if (!conjurando) anillos.push({ x: h.x, y: h.y, t: 0, d: Math.max(0.15, h.golpeEn), r0: 1.9, r1: 0.3, c: cHab, g: 1.6, a: 0.55 });
   } else if (conjurando && h.golpeo && (h.acc === 'lanzar' || h.acc === 'atacar')) {
-    if (oscuro > 0.2) { pantalla = 0.2; pantallaC = cHab; j.sacudida = Math.max(j.sacudida, 0.55); (j as any).congela = Math.max((j as any).congela ?? 0, 0.07);
-      for (const [r1, d, t0] of [[4.2, 0.6, 0], [6.5, 0.85, -0.08], [9, 1.1, -0.18]] as [number, number, number][]) anillos.push({ x: h.x, y: h.y, t: t0, d, r0: 0.4, r1, c: cHab, g: 3.2, a: 0.8 });
-      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: 0.5, tras: true }); /* la definitiva deslumbra un instante detrás del héroe (cuarta pasada: encima lo lavaba a blanco de día) */ estallar(h.x, h.y, 20, cHab, 2.2, true); }
-    flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.14, r: 26, c: cHab, a: 0.45 });
+    // (quinta pasada: la pantalla, los tres anillos y el fogonazo de la definitiva más contenidos; de noche dejaban al
+    // héroe y a los que tenía al lado casi blancos una décima de segundo)
+    const vj = (window as any).__blancoViejo;
+    if (oscuro > 0.2) { pantalla = vj ? 0.2 : 0.13; pantallaC = cHab; j.sacudida = Math.max(j.sacudida, 0.55); (j as any).congela = Math.max((j as any).congela ?? 0, 0.07);
+      for (const [r1, d, t0] of [[4.2, 0.6, 0], [6.5, 0.85, -0.08], [9, 1.1, -0.18]] as [number, number, number][]) anillos.push({ x: h.x, y: h.y, t: t0, d, r0: 0.4, r1, c: cHab, g: 3.2, a: vj ? 0.8 : 0.42 });
+      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: vj ? 0.5 : 0.32, tras: true }); /* la definitiva deslumbra un instante detrás del héroe (cuarta pasada: encima lo lavaba a blanco de día) */ estallar(h.x, h.y, 20, cHab, 2.2, true); }
+    // (quinta pasada: el de la definitiva también va detrás del cuerpo; delante lavaba al héroe a blanco de noche)
+    const gp = h.acc === 'atacar' && !vj; // (el golpe de un poder: el fogonazo del héroe a menos de la mitad y detrás)
+    flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.14, r: 26, c: cHab, a: gp ? 0.2 : 0.45, tras: (oscuro > 0.2 || gp) && !vj });
     anillos.push({ x: h.x, y: h.y, t: 0, d: 0.3, r0: 0.3, r1: 1.7, c: cHab, g: 2.2, a: 0.6 });
     for (let i = 0; i < (E.tactil ? 5 : 9); i++) { const a = R() * Math.PI * 2, v = 1.5 + R() * 2.5; chispas.push({ x: h.x, y: h.y, z: 30 + R() * 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 40 + R() * 90, t: 0, d: 0.35 + R() * 0.3, c: cHab, s: 2, reb: 0 }); }
   }

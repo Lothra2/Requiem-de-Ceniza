@@ -315,13 +315,27 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   si no cabe, un trono en ruinas o un relicario) con capa `jefe`, y hasta cuatro braseros del tema a los lados (no en el
   eje de la entrada) que cierran la arena en luz. 28 de 31 jefes con asiento y 70 braseros (semilla 12345). Faltan
   asiento en a3_inundadas, a4_grieta y a7_boveda (no hay sitio fuera del ruedo). El ruedo sigue en 10.
-- **Hitos de los actos 1 y 2** (`acto_hito` en `catalogo/hitos_acto.ts`, `HITO_ZONA` en `zona.ts`): cada mundo abierto
-  de esos actos tiene el suyo. Se suman al de antes: el campanario caído del camposanto (torre partida, la campana de Santa
-  Oria tumbada con su soga), el roble de las sogas del bosque (tronco hueco, sogas vacías, cerco de piedras raspadas), el
-  pozo del Oasis Muerto (brocal sobre barro rajado, cabria con cadena, palmeras secas) y el obelisco del sol de las Ruinas
-  (base en pie, disco de bronce, la aguja partida en la arena). Siguen la cruz del páramo y el coloso de las dunas. Misma
-  huella 4 x 4. Hornear: `RELIEVE=1 GRUPOS=o SOLO=acto_hito ...` (13 s) y después `t1013_cajas.mjs`. Lab:
-  `t1020_pieza_lab.mts "acto_hito:a1_campanario+a1_roble+a2_pozo+a2_obelisco"`.
+- **Hitos de los actos 1 y 2** (`acto_hito` en `catalogo/hitos_acto.ts`, `HITO_ZONA` en `zona.ts`; el armado de los cuatro
+  nuevos en `catalogo/hitos_mayores.ts`, rehechos el 21 nov 2026 porque los primeros eran primitivas sueltas: Rick vio el
+  obelisco como un bloque con un disco amarillo y dos óvalos de arena planos). Se suman a la cruz del páramo y el coloso de
+  las dunas, misma huella 4 x 4 (2,4 veces). Lo alto va atrás (-x -y) y el relato adelante (+x +y), que es lo que ve la
+  cámara; una persona mide unas 31 unidades adentro. **Campanario de Santa Oria** (camposanto): torre de sillares
+  (`abo_sillar_grueso`) partida en diagonal hilada por hilada (`muroRoto`), vanos ojivales con su moldura, puerta vencida,
+  contrafuertes, hiedra, vigas quemadas del bastidor, derrumbe hacia adelante con un paño entero caído y el pináculo, y la
+  campana tumbada y rajada (`campana`, perfil de verdad, bronce con verdín `hit_bronce_verdin`) con su yugo partido, la soga
+  enrollada y cuervos. **Roble de las sogas** (bosque): tronco de masa con contrafuertes de raíz y musgo, cinco brazos
+  (`ramaM`), el hueco al camino, tres sogas (una cortada con cintas), un muerto que nadie bajó (`muneco` con `colgado`:
+  ojo, `colgado` baja la figura 21 sin escalar), el banquillo pateado, el cerco de piedras con nombres raspados y velas.
+  **Pozo del Oasis Muerto**: estrado de dos gradas, brocal de sillares con la albardilla gastada por las sogas, cabria de
+  piedra con viga, polea y cadena, cubo volcado, abrevadero partido con arena, palmeras secas (`palmaSeca`) y una caída,
+  ánforas rotas, osamenta de camello y el fondo del oasis en barro seco en placas (`hit_barro_seco`) hundido en la arena.
+  **Obelisco del sol** (Ruinas): estrado de tres gradas de sillares, muñón con glifos y la rotura cavada (`resta` con
+  `des2_piedra_pulida`: la cara rota sale lisa), el sol de bronce con ombligo de oro al que le falta un rayo, la aguja caída
+  en dos tramos con el piramidión dorado al final, dunas de masa arrimadas (`duna`) y el saqueador con el rayo en la mano.
+  Hornear: `RELIEVE=1 GRUPOS=o SOLO=acto_hito ...` (13 s) y después `t1013_cajas.mjs`. Lab:
+  `t1020_pieza_lab.mts "acto_hito:a1_campanario+a1_roble+a2_pozo+a2_obelisco"` (láminas en
+  `/tmp/requiem-pruebas/mundos3/hitos`). En el juego: `juego/herramientas/_m_hitos_vista.cjs <etiqueta> [zonas]` (no se sube;
+  `DX`, `DY` ponen al héroe respecto del hito; ojo: con el héroe detrás, el hito se pinta al 45 % como todo lo alto).
 - **Nichos secretos** (`mazmorra`, solo las de obra, `__sinNichos`): una o dos baldosas que se abren en el muro de atrás
   (norte u oeste) de una sala que no es la de entrada ni la del jefe: el muro lo tapa desde el medio y la boca va sin luz.
   Adentro un cofre noble (`escondido`, con su rastro de sangre hacia el centro como los de afuera), huesos y velas. El

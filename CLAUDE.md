@@ -19,13 +19,14 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin). Tanda 1 hecha (campamentos de
   6 a 10, exteriores por lugares, salas y cuevas amplias, arenas de jefe, `MAPA_V = 2`). Tanda 2 en marcha: etapa A
-  (balance con campamentos, atascos en 0, arenas de jefe pendientes, fotos frescas, pruebas) es la llave para publicar
-  la tanda 1; etapa B (menos montado, puertas y cuellos bajo tierra, gore con relato, puesta en escena de jefes, hitos
+  (balance con campamentos, atascos en 0, arenas de jefe pendientes, fotos frescas, pruebas) ya está publicada en main
+  (`bb1cbf2`, con la tanda 1); etapa B (menos montado, puertas y cuellos bajo tierra, gore con relato, puesta en escena de jefes, hitos
   nuevos por acto con los actos 1 y 2 pulidos primero, desvíos y secretos, lugares en el mapa). Auditoría completa en
   `/tmp/requiem-pruebas/auditoria_mundos/informe.md` (se borra al reiniciar la máquina: lo que importa está aquí).
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
   que Diablo 2 pero original; nada montado, todo con intención; respaldar ramas de trabajo en origin está bien.
+- **Agentes**: nunca con el modelo Fable (Rick, 20 nov 2026). Usar opus o sonnet.
 - **Seguir solo**: hay una tarea programada cada hora ("Seguir la reconstrucción de mundos") que reanuda al agente si el
   límite de uso lo frena, revisa, publica y avisa. Se borra sola al terminar.
 - **HUD**: publicado (`9be8834`, `bc0a1e1`). Pendiente que Rick diga si le gusta el cinturón partido en dos pares. Sutiles

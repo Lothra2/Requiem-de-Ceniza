@@ -2421,7 +2421,7 @@ const FOCO_JEFE: Record<string, [string, string | undefined]> = {
   ahogada: ['mon_pulpito', 'piedra'], catedral_ahogada: ['mon_pulpito', 'piedra'], celestial: ['cel_trono_respaldo', 'partido'], celestial_interior: ['cel_trono_respaldo', 'con_halo'], celestial_islas: ['cel_trono_copa', 'volcada'],
 };
 const BRASERO_JEFE: Record<string, string> = {
-  cripta: 'cri_brasero_huesos', catacumbas: 'cri_brasero_huesos', desierto: 'tum_brasero', tumba: 'tum_brasero', templo: 'tem_brasero', selva: 'tem_brasero', nieve: 'nie2_brasero',
+  cueva: 'cue_antorcha', mina: 'cue_antorcha', cripta: 'cri_brasero_huesos', catacumbas: 'cri_brasero_huesos', desierto: 'tum_brasero', tumba: 'tum_brasero', templo: 'tem_brasero', selva: 'tem_brasero', nieve: 'nie2_brasero',
   hielo: 'hie2_brasero', infierno: 'inf2_brasero', santuario: 'for2_brasero', fortaleza: 'for2_brasero', abismo: 'arc_brasero', celestial: 'cel_brasero_blanco', celestial_interior: 'cel_brasero_blanco', celestial_islas: 'cel_brasero_blanco',
 };
 function curarAdornos(z: Zona, def: DefZona) {
@@ -2572,6 +2572,37 @@ function curarAdornos(z: Zona, def: DefZona) {
       if (dd.plano || !bl) for (let y = y0De(o); y < y0De(o) + hh; y++) for (let x = x0De(o); x < x0De(o) + hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) bajoPlano[y * W + x] = 1;
       return o;
     };
+    /** El asiento del jefe donde no cabía: detrás (lo más opuesto a la entrada), a 13 a 19 del jefe, sobre piso que se alcanza,
+     * sin tocar roca ni muro ni nada que no sea adorno suelto; lo suelto que pisa sale y el tesoro se muda a sus pies. */
+    const asientoForzado = (id: string, v: string | undefined, jf: { cx: number; cy: number }, cos: (x: number, y: number) => number): ObjZ | null => {
+      const dd = defDe(id); if (!dd) return null; const vv = v && dd.variantes.includes(v) ? v : dd.variantes[0], [hw, hh] = huellaDe(dd, vv);
+      const TESORO = /^(tesoro_pila|saco_monedas|caliz|corona_suelo|jarron_oro|oro_monton)$/;
+      const suelto = (o: ObjZ) => !o.tag && !fijos.has(o) && o.capa !== 'jefe' && o.capa !== 'escena' && o.capa !== 'umbral' && o.capa !== 'relato' && !/cofre|salida|portal|piedra_viaje/.test(o.id);
+      const cand: [number, number, number][] = [];
+      for (let q = 13; q <= 19; q += 1) for (let k = 0; k < 48; k++) { const a = (k / 48) * Math.PI * 2, x = Math.round(jf.cx + Math.cos(a) * q), y = Math.round(jf.cy + Math.sin(a) * q), c = cos(x, y); if (c < 0.45) cand.push([x, y, c + q * 0.02]); }
+      cand.sort((p, q) => p[2] - q[2]);
+      for (const [x, y] of cand) {
+        const a0 = Math.round(x - (hw - 1) / 2), b0 = Math.round(y - (hh - 1) / 2); let ok = true;
+        for (let yy = b0 - 1; yy < b0 + hh + 1 && ok; yy++) for (let xx = a0 - 1; xx < a0 + hw + 1 && ok; xx++) {
+          if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1) { ok = false; break; }
+          const i = yy * W + xx; if (!piso(xx, yy) || !alcanza[i] || puerta[i] || (z.hueco && z.hueco[i])) ok = false; else if ((z.bloq[i] === 1 || z.bloq[i] === 2) && cubre0[i] < 2) ok = false; // (roca, muro o agua: no)
+        }
+        if (!ok || Math.max(Math.abs(x - jf.cx), Math.abs(y - jf.cy)) < 11 + Math.max(hw, hh) / 2) continue;
+        const pisa = (o: ObjZ) => !quitar.has(o) && x0De(o) < a0 + hw + 1 && x0De(o) + o.hw > a0 - 1 && y0De(o) < b0 + hh + 1 && y0De(o) + o.hh > b0 - 1;
+        const estorban = z.objetos.filter(pisa); if (estorban.some((o) => !suelto(o))) continue;
+        const tesoro = estorban.filter((o) => TESORO.test(o.id));
+        for (const o of estorban) sacar(o);
+        // (las celdas que solo cubría lo que sale quedan libres ya, para que el asiento y el tesoro entren)
+        for (let yy = b0 - 1; yy < b0 + hh + 1; yy++) for (let xx = a0 - 1; xx < a0 + hw + 1; xx++) { const i = yy * W + xx; if (z.bloq[i] === 1 || z.bloq[i] === 3) if (!z.objetos.some((o) => !quitar.has(o) && !plano(o.id) && xx >= x0De(o) && xx < x0De(o) + o.hw && yy >= y0De(o) && yy < y0De(o) + o.hh)) z.bloq[i] = 0; }
+        const o: ObjZ = { id, v: vv, cx: x, cy: y, hw, hh, bloquea: !!dd.bloquea && !dd.plano, capa: 'jefe' }; z.objetos.push(o); ocupar(o);
+        // el tesoro a los pies del asiento, del lado del jefe
+        { const L = Math.hypot(x - jf.cx, y - jf.cy) || 1, tx = -(y - jf.cy) / L, ty = (x - jf.cx) / L, R = Math.max(hw, hh) / 2 + 1.5;
+          tesoro.forEach((t, k) => { const s = k % 2 ? -1 : 1, e = R + Math.floor(k / 2) * 2.2, px = Math.round(x + tx * s * e), py = Math.round(y + ty * s * e);
+            if (piso(px, py) && z.bloq[py * W + px] === 0 && alcanza[py * W + px] && Math.hypot(px - jf.cx, py - jf.cy) >= 11.5) { quitar.delete(t); t.cx = px; t.cy = py; ocupar(t); } }); }
+        return o;
+      }
+      return null;
+    };
     const DIRS = ['e', 'se', 's', 'so', 'o', 'no', 'n', 'ne'];
     /** Rastro plano de `a` hacia `b`: arrastre cerca de donde termina, huellas y gotas más lejos. */
     const rastro = (ax: number, ay: number, bx: number, by: number) => {
@@ -2662,7 +2693,10 @@ function curarAdornos(z: Zona, def: DefZona) {
       const cos = (x: number, y: number) => ((x - jf.cx) * ux + (y - jf.cy) * uy) / (Math.hypot(x - jf.cx, y - jf.cy) || 1);
       const [fi, fv] = FOCO_JEFE[def.tema] ?? FOCO_JEFE.paramo;
       let foco = pon(fi, fv, jf.cx, jf.cy, 12.5, 16, (x, y) => cos(x, y) < -0.6) ?? pon(fi, fv, jf.cx, jf.cy, 12.5, 17, (x, y) => cos(x, y) < -0.2) ?? pon(fi, fv, jf.cx, jf.cy, 12.5, 19, (x, y) => cos(x, y) < 0.5);
-      const foco2 = foco ?? (fi !== 'mue_trono' ? pon('mue_trono', 'ruina', jf.cx, jf.cy, 12.5, 19, (x, y) => cos(x, y) < 0.5) : null) ?? pon('cri_relicario', 'abierto', jf.cx, jf.cy, 12, 19, (x, y) => cos(x, y) < 0.5);
+      let foco2 = foco ?? (fi !== 'mue_trono' ? pon('mue_trono', 'ruina', jf.cx, jf.cy, 12.5, 19, (x, y) => cos(x, y) < 0.5) : null) ?? pon('cri_relicario', 'abierto', jf.cx, jf.cy, 12, 19, (x, y) => cos(x, y) < 0.5);
+      // sin sitio libre (el anillo de 12 a 19 lo llenan el tesoro, los hitos de la sala y el riego): se le hace lugar detrás del
+      // jefe sacando solo lo suelto que estorba, y el tesoro que estaba ahí se junta a los pies del asiento (es su botín)
+      if (!foco2 && !(globalThis as any).__sinAsientoForzado) foco2 = asientoForzado(fi, fv, jf, cos);
       if (foco2) foco2.capa = 'jefe';
       const br = BRASERO_JEFE[def.tema] ?? 'mon_brasero', puestos: ObjZ[] = [];
       for (let i = 0; i < 16 && puestos.length < 4; i++) {

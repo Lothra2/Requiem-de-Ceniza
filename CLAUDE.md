@@ -313,8 +313,13 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
 - **Puesta en escena del jefe** (`curarAdornos` 3b, `FOCO_JEFE` y `BRASERO_JEFE` por tema, `__sinEscenaJefe`): de espaldas
   a la entrada más cercana, al borde del ruedo (12,5 a 19 del jefe), su asiento (trono, altar, ídolo, púlpito, mausoleo;
   si no cabe, un trono en ruinas o un relicario) con capa `jefe`, y hasta cuatro braseros del tema a los lados (no en el
-  eje de la entrada) que cierran la arena en luz. 28 de 31 jefes con asiento y 70 braseros (semilla 12345). Faltan
-  asiento en a3_inundadas, a4_grieta y a7_boveda (no hay sitio fuera del ruedo). El ruedo sigue en 10.
+  eje de la entrada) que cierran la arena en luz. Donde el anillo de 12 a 19 no tiene sitio (lo llenaban el tesoro del jefe,
+  los hitos de la sala y el riego: a3_inundadas, a4_grieta y a7_boveda según la semilla) va `asientoForzado`: el punto más
+  de espaldas a la entrada (hasta un coseno de 0,45) a 13 a 19 del jefe, sobre piso que se alcanza y sin roca, muro ni agua;
+  saca solo lo suelto que pisa (nunca tags, cofres, escena, umbral ni relato) y muda el tesoro que estaba ahí a los costados
+  del asiento (es su botín). `__sinAsientoForzado` lo apaga. Las cuevas y minas llevan `cue_antorcha` (antes `mon_brasero`,
+  de monasterio). 93 de 93 jefes con asiento en 3 semillas y unos 72 braseros por semilla (`_m_asientos.mjs`, no se sube).
+  El ruedo sigue en 10.
 - **Hitos de los actos 1 y 2** (`acto_hito` en `catalogo/hitos_acto.ts`, `HITO_ZONA` en `zona.ts`; el armado de los cuatro
   nuevos en `catalogo/hitos_mayores.ts`, rehechos el 21 nov 2026 porque los primeros eran primitivas sueltas: Rick vio el
   obelisco como un bloque con un disco amarillo y dos óvalos de arena planos). Se suman a la cruz del páramo y el coloso de

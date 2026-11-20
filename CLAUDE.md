@@ -285,6 +285,9 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   vagoneta con sangre y mineros muertos en la mina, poste de cráneos en selva y templo, osamenta y jaula en la nieve,
   cerca de púas y doncella en el infierno, potro y jaula en santuario y fortaleza, y en los actos 6 y 7 la brasa fría con
   bebidos (canon: ahí tira el dios directo). Cuesta 2 a 3 puntos de arena. Piezas sin usar: `_m_nousadas.mjs` (no se sube).
+- **a3_selva** salía oscura: la zona lleva su propia `oscuridad: 0.24` (el tema selva sigue en 0,5 para el Manglar Negro).
+  Brillo medio del mundo en las vistas de t1021 de 27 a 38 a unos 35 a 40 (el páramo da 30). El despeje ya no era el
+  problema: arena 59 a 69 % y 6 a 8 campamentos de 9 a 11 en arena.
 - **Nada montado** (`desmontar`, paso 5b de `curarAdornos`, `__montados` lo apaga): dos adornos cuyas cajas de sprite se
   pisan 55 % del más chico: queda el que pesa más (tag, estructura, relleno, macizo, garganta, jefe, horror, escondido,
   interactivo, columnas y las anclas del relato nunca salen; después escena, matanza y relato, viñeta, macabro, riego). Lo

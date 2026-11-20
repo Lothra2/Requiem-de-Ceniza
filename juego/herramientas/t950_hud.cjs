@@ -10,7 +10,7 @@ const fs = require('fs');
 const URL = process.env.URL || 'http://127.0.0.1:5190/';
 const ET = process.argv[2] || 'x', VS = (process.argv[3] || 'pc,pc1080,ultra,ipad,movil,pctactil').split(',');
 const NUEVO = process.env.HUD !== '0';
-const OUT = '/tmp/requiem-pruebas/hud'; fs.mkdirSync(OUT, { recursive: true });
+const OUT = process.env.SALIDA || '/tmp/requiem-pruebas/hud'; fs.mkdirSync(OUT, { recursive: true });
 const VISTAS = {
   pc: { viewport: { width: 1280, height: 720 } }, pc1080: { viewport: { width: 1920, height: 1080 } }, ultra: { viewport: { width: 2560, height: 1080 } },
   ipad: { viewport: { width: 1024, height: 768 }, hasTouch: true, isMobile: true }, movil: { ...devices['iPhone 13'], viewport: { width: 844, height: 390 } },

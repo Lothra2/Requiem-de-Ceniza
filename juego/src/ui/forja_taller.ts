@@ -187,7 +187,7 @@ export class Taller {
       if (mat[y * w + x]) continue;
       let d = 99;
       for (let k = 1; k <= sm && d === 99; k++) for (let q = -1; q <= 1; q++) { const yy = y + k, xx = x + q; if (yy < h && xx >= 0 && xx < w && mat[yy * w + xx]) { d = k; break; } }
-      if (d < 99) l.px(x, y, [0, 0, 0], 0.55 * (1 - (d - 1) / sm) ** 1.6);
+      if (d < 99) l.px(x, y, [0, 0, 0], (sm > 9 ? 0.62 : 0.55) * (1 - (d - 1) / sm) ** (sm > 9 ? 2.2 : 1.6));
     }
     return l;
   }
@@ -263,7 +263,7 @@ export function gargola(f: number, s = 1): { t: Taller; ojos: [number, number][]
  * La doliente: una figura de pie con capucha, la cabeza gacha hacia adentro (s = -1 mira a la izquierda), las manos
  * juntas sobre el pecho sosteniendo una vela, el manto en pliegues que se abren hacia el ruedo.
  */
-export function doliente(f: number, s = -1): { t: Taller; llama: [number, number]; pie: [number, number] } {
+export function doliente(f: number, s = -1, sinVela = false): { t: Taller; llama: [number, number]; pie: [number, number]; vela: [number, number] } {
   const W0 = Math.ceil(58 * f), H0 = Math.ceil(92 * f), t = new Taller(W0, H0);
   const ox = W0 / 2, oy = H0 - 3 * f;
   // (x positivo es hacia donde mira)
@@ -288,12 +288,12 @@ export function doliente(f: number, s = -1): { t: Taller; llama: [number, number
   E(11, 38, 5.6, 4.6, 6.5, 9);
   // las manos juntas y la vela
   E(13.5, 40, 3, 3.2, 3.6, 12); E(12, 41.5, 2.6, 2.4, 3, 13);
-  C([[14.5, 43, 1.5], [14.5, 50, 1.4]], 14, 1.2, M.CERA, 0.6);
+  if (!sinVela) C([[14.5, 43, 1.5], [14.5, 50, 1.4]], 14, 1.2, M.CERA, 0.6);
   // la cabeza gacha en su capucha: la capucha, su punta atrás y la abertura de la cara en sombra
   E(5, 64, 8.5, 9, 10, 6); C([[-2, 68, 4.2], [-6, 69, 2.6], [-8, 67, 1.4]], 8, 1); E(9, 61, 4.8, 6, 8, 9);
   { const [a, b] = X(10.5, 60.5); for (let yy = Math.floor(b - 5 * f); yy <= b + 5 * f; yy++) for (let xx = Math.floor(a - 3.4 * f); xx <= a + 3.4 * f; xx++) { const d = ((xx + 0.5 - a) / (3.4 * f)) ** 2 + ((yy + 0.5 - b) / (5 * f)) ** 2; if (d < 1 && t.den(xx, yy) && t.mat[yy * t.w + xx]) { const i = yy * t.w + xx; t.alt[i] -= 6 * f * (1 - d); if (d < 0.6) t.mat[i] = M.HUECO; } } }
   // la nariz y el mentón que asoman apenas de la sombra
   E(12.5, 59, 1.2, 1.6, 1.4, 12); E(11.5, 56.5, 1.6, 1.2, 1.2, 11);
   const llama = X(14.5, 52);
-  return { t, llama, pie: [ox, oy] };
+  return { t, llama, pie: [ox, oy], vela: X(14.5, 43) };
 }

@@ -94,7 +94,7 @@ export const PIXELES_CANAL = CANAL.length;
 /**
  * Pinta el rosetón. llenos: pixeles del canal con oro (0..PIXELES_CANAL). calor: 0 en reposo, 1 recién subido de nivel.
  */
-export function rosetonNivel(nivel: number, llenos: number, calor: number): Raster {
+export function rosetonNivel(nivel: number, llenos: number, calor: number, brasa = 0): Raster {
   const l = new Lienzo(LADO, LADO), C = C_SELLO;
   const dist = (x: number, y: number) => Math.hypot(x + 0.5 - C, y + 0.5 - C);
   const enLob = (x: number, y: number) => lobulos.some(([lx, ly]) => Math.hypot(x + 0.5 - lx, y + 0.5 - ly) <= LOBULO_R);
@@ -146,6 +146,11 @@ export function rosetonNivel(nivel: number, llenos: number, calor: number): Rast
     let c = tono(P.sangre, v, x, y);
     c = mez(c, [8, 5, 4], 0.55);
     if (k > 0) c = mez(c, tono(P.fuego, 0.35 + (1 - d / R_ESMALTE) * 0.25, x, y), k * 0.55 * (1 - d / (R_ESMALTE + 2)));
+    // la Marca (HUD forjado): el esmalte es una brasa. Vetas de carbón oscuro y manchas que arden según el calor
+    if (brasa > 0) {
+      const man = hash(x >> 1, y >> 1, 41) * 0.6 + hash(x, y, 42) * 0.4, q = cl(brasa * 1.5 - (1 - man) * 0.9 + (1 - d / R_ESMALTE) * 0.25 * brasa);
+      c = mez(mez(c, [26, 10, 8], 0.6), tono(P.fuego, 0.12 + 0.6 * q + 0.2 * brasa * man, x, y), cl(q * 1.25));
+    }
     l.px(x, y, c);
   }
   // remaches de latón en cada lóbulo
@@ -158,6 +163,7 @@ export function rosetonNivel(nivel: number, llenos: number, calor: number): Rast
   const tinta = new Set(px.map(([x, y]) => (y + oy) * LADO + x + ox));
   const t = (x: number, y: number) => tinta.has(y * LADO + x);
   for (const [qx, qy] of px) { const x = qx + ox, y = qy + oy; if (!t(x + 1, y + 1)) l.px(x + 1, y + 1, [0, 0, 0], 0.85); }
+  if (brasa > 0) for (const [qx, qy] of px) { const x = qx + ox, y = qy + oy; for (const [a, b] of [[-1, 0], [0, -1], [1, 0], [0, 1]]) if (!t(x + a, y + b)) l.px(x + a, y + b, [10, 3, 2], 0.7); }
   for (const [qx, qy] of px) {
     const x = qx + ox, y = qy + oy;
     const luz = !t(x - 1, y) || !t(x, y - 1), sombra = !t(x + 1, y) || !t(x, y + 1);
@@ -178,14 +184,18 @@ export const selloDibujado = { x: 0, y: 0, r: 0 };
  * Al subir de nivel el esmalte se pone al rojo, el oro del canal arde, sale un anillo de luz y unas chispas que suben
  * (todo más suave con Destellos suaves).
  */
-export function dibujarRoseton(nivel: number, kxp: number, cx: number, cy: number, esc: number, t: number, rejilla = false) {
+/** Cuánto arde todavía la subida de nivel (1 a 0 en 3,5 s). */
+export const ardorNivel = (t: number) => Math.max(0, 1 - (t - subioEn) / 3.5);
+/** `brasa` (solo el HUD forjado): el esmalte como la brasa de la Marca, de 0 a 1. */
+export function dibujarRoseton(nivel: number, kxp: number, cx: number, cy: number, esc: number, t: number, rejilla = false, brasa = 0) {
   if (nivelVisto >= 0 && nivel > nivelVisto) subioEn = t;
   if (nivel < nivelVisto) subioEn = -99; // otro héroe: no es una subida
   nivelVisto = nivel;
   const dt = t - subioEn, ard = Math.max(0, 1 - dt / 3.5), fl = acc.destellos;
   const calor = Math.round(Math.pow(ard, 0.6) * 4) / 4;
   const llenos = Math.round(cl(kxp) * PIXELES_CANAL);
-  const img = cacheRaster(`roseton_${nivel}_${llenos}_${calor}`, () => rosetonNivel(nivel, llenos, calor));
+  const br = Math.round(Math.max(0, Math.min(1, brasa)) * 10) / 10;
+  const img = cacheRaster(`roseton_${nivel}_${llenos}_${calor}_${br}`, () => rosetonNivel(nivel, llenos, calor, br));
   // (rejilla: a puntos enteros del lienzo y no del HUD lógico, para el HUD forjado a 1,5 puntos por punto lógico)
   const aR = (v: number) => (rejilla ? Math.round(v * RES) / RES : Math.round(v));
   const x0 = aR(cx - C_SELLO * esc), y0 = aR(cy - C_SELLO * esc), R = R_CANTO * esc;

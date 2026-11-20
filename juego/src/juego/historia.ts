@@ -161,6 +161,8 @@ export function vozMarca(j: Juego, txt: [string, string]) {
   const h = j.heroe;
   ecos(j).push({ x: h.x, y: h.y, txt, t: -1.4, dur: Math.max(6, Math.min(10, txt[j.idi].length / 13)), color: '#ff7a50', sigue: true });
   msg(j, txt, '#ff6a48');
+  // (solo para el HUD: la brasa del rosetón late mientras la Marca habla)
+  (j as any).vozMarcaHud = { t0: j.t + 1.4, dur: Math.max(6, Math.min(10, txt[j.idi].length / 13)) };
   setTimeout(() => Sonido.susurro(), 1400);
 }
 

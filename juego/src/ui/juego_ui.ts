@@ -2,6 +2,9 @@
 // cofre, tiendas, diálogos, piedras de viaje, misiones, mapa y menú.
 import { iconoPintado } from './iconos_hab';
 import { ctx, W, H, E, RES, pulso, ESCALA, hudForja } from '../nucleo/lienzo';
+import { barraJefeForja } from './forja_jefe';
+import { espacio } from './hud_forja';
+import { mensajesForja, alternarRegistro } from './registro';
 import { iconoPixel } from './forja_habilidad';
 import { marcaNpc } from '../juego/historia';
 import { marcoForjado, botonForjado, barraInferior, orbe, zonasBarra, ladoOrbe, barraJefe, cursores, cartelMuerte, panelInventario, EQUIPO as EQUIPO_HUD, CELDA_INV, BOLSA as BOLSA_HUD, type ObjetoInv } from '../../../src/engine/gotico/hud';
@@ -397,11 +400,17 @@ export function dibujarArriba(j: Juego, encima: Monstruo | null) {
   // purga en curso: cuántos faltan y cuánto tiempo queda
   const pu = (j as any).purga;
   if (pu) { const s = Math.max(0, Math.ceil(pu.t)); const falta = Math.max(0, pu.n - (pu.hechos ?? 0)); texto(`${T('Purga', 'Purge')}: ${falta} · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`, W / 2, j.jefe && !j.jefe.muerto ? 64 : 52, { alin: 'center', tam: 16, color: s < 20 ? '#ff6040' : '#ffb060', fuente: TITULO }); }
+  // con el HUD forjado la barra del jefe es un dintel de piedra colgado de cadenas (forja_jefe.ts): también dibuja su caída
+  let dintel: [number, number, number, number] | null = null;
+  if (hudForja()) { const e = espacio(), wl = (320 * e.D) / RES, tac = E.tactil && !hud.forjaMsg, rj = tac ? rectJefeTactil(wl, 10) : null;
+    dintel = barraJefeForja(j, performance.now() / 1000, rj ? rj[0] + rj[2] / 2 : W / 2, rj ? Math.max(0, rj[1] - 6) : 0, rj ? rj[2] : wl); if (dintel) hud.jefe = dintel; }
   if (j.jefe && !j.jefe.muerto) {
+    if (!dintel) {
     const k = Math.round((j.jefe.vida / j.jefe.vidaMax) * 100);
     const c = cacheRaster(`jefe${j.jefe.id}_${k}_${IDI}`, () => barraJefe(TT(j.jefe!.nombre), k / 100));
     if (E.tactil) { const r = rectJefeTactil(c.width, c.height); ctx.drawImage(c, r[0], r[1], r[2], r[3]); hud.jefe = r; }
     else { ctx.drawImage(c, Math.round(W / 2 - c.width / 2), 8); hud.jefe = [Math.round(W / 2 - c.width / 2), 8, c.width, c.height]; }
+    }
     // lo que dice el jefe: debajo de su barra, con fondo oscuro (encima del cuerpo no se leía)
     const habla = (j.jefe as any).habla as string | undefined;
     if (habla) {
@@ -421,6 +430,8 @@ export function dibujarArriba(j: Juego, encima: Monstruo | null) {
   }
   // mensajes
   if (E.tactil && !hud.forjaMsg) { mensajesTactil(j); return; }
+  // el HUD forjado de PC: pocos renglones que se van pronto, sobre la casa de la vida (el registro entero, con H)
+  if (hud.forjaMsg) { mensajesForja(j, ui.izq ? 334 : 14, hud.forjaMsg[1] - 6); return; }
   // encima del botón agresivo, que vive justo sobre la barra a la izquierda
   const ag = hud.agresivo, mx = E.tactil && !hud.forjaMsg ? disposicion().m.l : ui.izq ? 334 : 14;
   // (con el HUD forjado, encima de la gárgola: hud.forjaMsg)
@@ -452,6 +463,7 @@ function mensajesTactil(j: Juego) {
   const mx = P.m.l, tam = Math.max(9, Math.round(Lp(11))), lh = Math.round(tam * 1.3);
   const anchoMax = Math.min(Lp(300), P.mini[0] - mx - Lp(12));
   let y = (hud.rastreo ? hud.rastreo[1] + hud.rastreo[3] : P.orbes[1] + P.orbes[3] + Lp(22)) + Lp(8) + tam;
+  if (hud.registroBtn) y = Math.max(y, hud.registroBtn[1] + hud.registroBtn[3] + Lp(6) + tam);
   const y0 = y - tam; let anchoM = 0;
   const ultimos = j.mensajes.slice(-3);
   // la placa oscura detrás (con la caja del cuadro anterior: el texto se mide al dibujarlo)
@@ -485,6 +497,7 @@ export function rectPanel(lado: 'izq' | 'der'): [number, number, number, number]
 }
 /** Cierre común de todo lo que abre un NPC o un objeto: tienda, diálogo, baúl, piedra de viaje, página, misiones, menú. */
 export function cerrarPaneles() {
+  alternarRegistro(false);
   ui.izq = ui.der = null; ui.mapa = false; ui.npc = null; ui.dialogoTexto = null;
   const u = ui as any; u.oferta = null; u.eleccion = null; u.origen = null; u.paginaPanel = undefined; u.paginaSub = undefined;
 }

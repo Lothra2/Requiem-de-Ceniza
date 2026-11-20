@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
     await p.addInitScript((v) => { localStorage.setItem('marca.intro', '1'); localStorage.setItem('marca.opciones', JSON.stringify({ general: 0, musica: 0, efectos: 0, horror: 0, idioma: 0, brillo: 1, vista: v })); }, vista);
     if (process.env.HUD === '0') await p.addInitScript(() => { window.__hudNuevo = false; }); // HUD=0: la barra de siempre (el forjado es el de por omisión)
     const aMenu = async () => { for (let i = 0; i < 80; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
-    await p.goto('http://127.0.0.1:5190/'); await aMenu(); await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });
+    await p.goto(process.env.URL || 'http://127.0.0.1:5190/'); await aMenu(); await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });
     await p.evaluate(() => { const d = window.__T.H.nuevoHeroe('berserker', 'Rick'); d.nivel = 20; d.misiones = { m1_hambre: 3 }; localStorage.setItem('marca.heroes', JSON.stringify([d])); });
     await p.reload(); await aMenu(); await p.waitForTimeout(5000);
     const L = await p.evaluate(() => { const c = document.getElementById('juego'); const r = c.getBoundingClientRect(); const v = window.__vista(); return { k: r.width / v.W, l: r.left, t: r.top, ...v, f: window.__menuFilas }; });

@@ -559,7 +559,14 @@ function aplicarMods(m: Monstruo) {
 // ------------------------------------------------------------------ utilidades
 export const vivos = (j: Juego) => j.monstruos.filter((m) => !m.muerto);
 const enemigosDe = (j: Juego, deHeroe: boolean): Ent[] => (deHeroe ? j.monstruos.filter((m) => !m.muerto && !m.dueno && m.estado !== 'surgir') : [j.heroe, ...j.monstruos.filter((m) => m.dueno && !m.muerto)]);
-export function msg(j: Juego, txt: [string, string], color = '#e0d0a0') { j.mensajes.push({ txt, t: 0, color }); if (j.mensajes.length > 6) j.mensajes.shift(); }
+/** El registro entero de lo dicho en la sesión (no se guarda): los mensajes se van de la pantalla pero no se pierden (ui/registro.ts). */
+export interface LineaRegistro { txt: [string, string]; color: string; t: number }
+export const registroDe = (j: Juego): LineaRegistro[] => ((j as any).registro ??= []);
+export function msg(j: Juego, txt: [string, string], color = '#e0d0a0') {
+  j.mensajes.push({ txt, t: 0, color }); if (j.mensajes.length > 6) j.mensajes.shift();
+  const r = registroDe(j), u = r[r.length - 1];
+  if (!(u && u.txt[0] === txt[0] && j.t - u.t < 1.5)) { r.push({ txt, color, t: j.t }); if (r.length > 300) r.splice(0, r.length - 300); }
+}
 function numero(j: Juego, e: Ent, v: number, color: string, grande = false, menor = false) { j.numeros.push({ x: e.x + (menor ? (R() - 0.5) * 0.5 : 0), y: e.y, z: 60 * e.escala, txt: String(Math.round(v)), color, t: 0, grande, menor }); }
 /** Un letrero corto que flota sobre alguien (por qué no salió un poder, 'Aturdido'...). Uno por clave cada 1,2 s. */
 function letrero(j: Juego, e: Ent, txt: [string, string], color: string) {
@@ -714,6 +721,8 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
   }
   total = Math.max(0, total);
   if (v.tipo === 'heroe' && total > 0) ganarFuria(j, 3);
+  // (solo para el HUD: el fuego que acaba de recibir el héroe lame el borde del orbe de vida un momento)
+  if (v.tipo === 'heroe' && total > 0 && partes.some(([e, c]) => e === 'fuego' && c > 0)) (h as any).ardeT = j.t;
   // la armadura de Thor: cada tramo le quita daño
   if ((v as any).invocaId === 'thor') total *= 1 - Math.min(45, ((v as any).tramoThor ?? 0) * 8) / 100;
   // el golpe se siente en el cuerpo: un retroceso corto (solo visual) lejos de quien pega
@@ -2707,6 +2716,8 @@ export function beberPocion(j: Juego, o: Objeto) {
   if (o.pocion === 'vida') { const tc = h.d.nivel <= 5 ? 2 : 4; (h as any).curando = { t: tc, v: v / tc }; efecto(j, 'pfx:fx_curacion', h.x, h.y, 0, 1, 0, 1.8); }
   else if (o.pocion === 'mana') { (h as any).cargando = { t: 3, v: v / 3 }; }
   else { h.vida = Math.min(h.vidaMax, h.vida + h.vidaMax * v / 100); h.mana = Math.min(h.c.manaMax, h.mana + h.c.manaMax * v / 100); }
+  // (solo para el HUD: el trago se ve en el orbe)
+  (h as any).bebio = { t: j.t, tipo: o.pocion }; (h as any).bebioCol = -1;
   sonar(j, 'pocion');
   particulas(j, h.x, h.y, 10, 'chispa', o.pocion === 'mana' ? '#6080ff' : o.pocion === 'vida' ? '#ff4040' : '#c040ff', 0.6, 40);
 }
@@ -2717,7 +2728,7 @@ export function noRellenar(j: Juego, i: number) { pendientes(j.heroe)[i] = false
 export function usarPocion(j: Juego, i: number) {
   const h = j.heroe; if (h.muerto) return;
   const o = h.d.cinturon[i]; if (!o) return;
-  beberPocion(j, o);
+  beberPocion(j, o); (h as any).bebioCol = i;
   if (cant(o) > 1) o.cantidad = cant(o) - 1; else h.d.cinturon[i] = null;
   // la misma columna se rellena desde la bolsa con su tipo
   pendientes(h)[i] = true;

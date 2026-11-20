@@ -142,6 +142,15 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
   y además compara cada zona contra la misma sin curar: tamaño, pisos, entradas, salidas, grupos y lo que se alcanza). Fotos:
   `t921_adornos_fotos.cjs <etiqueta> [zonas]` (héroe de id fijo, mismos puntos en `puntos.json`) y
   `python3 juego/herramientas/t921_lamina.py antes ahora` (láminas en `/tmp/requiem-pruebas/adornos`).
+- **Haces de luz del techo** (`haces` en `render/ambiente.ts`, Rick, 20 nov 2026: "muy geométrica, cortada"). En criptas,
+  catacumbas, abadías, templos, tumbas, cuevas y minas. Antes era un trapecio con degradé a lo largo y los cantos a
+  cuchillo, y se pintaba también sobre lo no explorado (cuñas en el negro). Ahora es un cono con volumen horneado una vez
+  por color en dos texturas (`texturaHaz`): campana de lado a lado con el borde que respira, hebras claras y oscuras que
+  no llegan parejas al piso, aire con ruido, nace de a poco arriba y se funde abajo en un charco moteado (`charcoHaz`). Las
+  dos texturas se funden despacio y una nube pasa (la fuerza sube y baja). Va en un solo drawImage inclinado (sin
+  costuras). Polvo que deriva adentro, más claro en el centro, y alguna mota destella. Solo sobre piso ya explorado, y el
+  charco pierde fuerza si delante hay muro (va en la capa del aire). `__hazViejo` vuelve al de antes, `__hazFuerza` ajusta.
+  Prueba: `t990_haz.cjs <etiqueta> [zonas]` (`VISTA=movil`, `VIEJO=1`), fotos en `/tmp/requiem-pruebas/haz`.
 - El servidor de desarrollo se cae seguido: `sh juego/herramientas/servidor.sh &` lo vuelve a levantar solo.
 
 ## Armas vivas, cofres, poderes y siluetas

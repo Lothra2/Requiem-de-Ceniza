@@ -360,20 +360,9 @@ export function ambienteAire(j: Juego, dt: number, t: number, aP: AP) {
   }
   // ---- haces de luz: por las grietas del techo entra un rayo inclinado, con polvo que flota adentro
   if (z.tipo === 'mazmorra' && HAZ.test(tema)) {
-    const x0 = Math.floor(h.x) - 26, y0 = Math.floor(h.y) - 26;
-    ctx.globalCompositeOperation = 'lighter';
     const frio = /cueva|catedral_ahogada|mina/.test(tema), c = frio ? '170,205,235' : '255,226,170';
-    for (let cy = y0; cy < y0 + 52; cy++) for (let cx = x0; cx < x0 + 52; cx++) {
-      if (cx < 0 || cy < 0 || cx >= z.W || cy >= z.H || hc(cx * 1.7 + 11, cy * 2.3 + 5) > 0.0042 || z.bloq[cy * z.W + cx]) continue;
-      const [px, py] = aP(cx + 0.5, cy + 0.5); if (px < -80 || px > W + 80 || py < -20 || py > H + 220) continue;
-      const k = 0.75 + 0.25 * Math.sin(t * 0.8 + cx), alto = 190, corr = -62;
-      const g = ctx.createLinearGradient(px + corr, py - alto, px, py); g.addColorStop(0, `rgba(${c},0)`); g.addColorStop(0.35, `rgba(${c},${0.1 * k})`); g.addColorStop(1, `rgba(${c},${0.2 * k})`);
-      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(px + corr - 9, py - alto); ctx.lineTo(px + corr + 9, py - alto); ctx.lineTo(px + 24, py + 3); ctx.lineTo(px - 24, py - 3); ctx.closePath(); ctx.fill();
-      const gp = ctx.createRadialGradient(px, py, 0, px, py, 30); gp.addColorStop(0, `rgba(${c},${0.2 * k})`); gp.addColorStop(1, `rgba(${c},0)`);
-      ctx.save(); ctx.translate(px, py); ctx.scale(1, 0.5); ctx.translate(-px, -py); ctx.fillStyle = gp; ctx.beginPath(); ctx.arc(px, py, 30, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-      if (!poco) for (let i = 0; i < 7; i++) { const f = (t * (0.05 + hc(cx + i, cy) * 0.05) + hc(cx, cy + i)) % 1, x = px + corr * (1 - f) + (hc(cx + i * 3, cy) - 0.5) * 26 * (0.4 + f * 0.6), y = py - alto * (1 - f); ctx.fillStyle = `rgba(${c},${0.5 * Math.sin(f * Math.PI)})`; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); }
-    }
-    ctx.globalCompositeOperation = 'source-over';
+    if ((window as any).__hazViejo) hacesViejos(z, h, t, aP, c, poco);
+    else haces(z, h, t, aP, c, frio, poco);
   }
   // ---- motas del mundo: brasas que suben, polvo que flota, oro que asciende, escarcha que brilla
   const tipo = /infierno|santuario|abismo/.test(tema) ? 'brasa' : /celestial/.test(tema) ? 'oro' : /hielo/.test(tema) ? 'escarcha' : z.tipo === 'mazmorra' && /tumba|cripta|catacumbas|abadia|mina|templo/.test(tema) ? 'polvo' : '';
@@ -395,4 +384,124 @@ export function ambienteAire(j: Juego, dt: number, t: number, aP: AP) {
     ctx.globalCompositeOperation = 'source-over';
   }
   ctx.restore();
+}
+
+/** El haz de antes (un trapecio con degradé a lo largo y los bordes cortados), solo para comparar con `__hazViejo`. */
+function hacesViejos(z: Juego['zona'], h: Ent, t: number, aP: AP, c: string, poco: boolean) {
+
+    const x0 = Math.floor(h.x) - 26, y0 = Math.floor(h.y) - 26;
+    ctx.globalCompositeOperation = 'lighter';
+    for (let cy = y0; cy < y0 + 52; cy++) for (let cx = x0; cx < x0 + 52; cx++) {
+      if (cx < 0 || cy < 0 || cx >= z.W || cy >= z.H || hc(cx * 1.7 + 11, cy * 2.3 + 5) > 0.0042 || z.bloq[cy * z.W + cx]) continue;
+      const [px, py] = aP(cx + 0.5, cy + 0.5); if (px < -80 || px > W + 80 || py < -20 || py > H + 220) continue;
+      const k = 0.75 + 0.25 * Math.sin(t * 0.8 + cx), alto = 190, corr = -62;
+      const g = ctx.createLinearGradient(px + corr, py - alto, px, py); g.addColorStop(0, `rgba(${c},0)`); g.addColorStop(0.35, `rgba(${c},${0.1 * k})`); g.addColorStop(1, `rgba(${c},${0.2 * k})`);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(px + corr - 9, py - alto); ctx.lineTo(px + corr + 9, py - alto); ctx.lineTo(px + 24, py + 3); ctx.lineTo(px - 24, py - 3); ctx.closePath(); ctx.fill();
+      const gp = ctx.createRadialGradient(px, py, 0, px, py, 30); gp.addColorStop(0, `rgba(${c},${0.2 * k})`); gp.addColorStop(1, `rgba(${c},0)`);
+      ctx.save(); ctx.translate(px, py); ctx.scale(1, 0.5); ctx.translate(-px, -py); ctx.fillStyle = gp; ctx.beginPath(); ctx.arc(px, py, 30, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+      if (!poco) for (let i = 0; i < 7; i++) { const f = (t * (0.05 + hc(cx + i, cy) * 0.05) + hc(cx, cy + i)) % 1, x = px + corr * (1 - f) + (hc(cx + i * 3, cy) - 0.5) * 26 * (0.4 + f * 0.6), y = py - alto * (1 - f); ctx.fillStyle = `rgba(${c},${0.5 * Math.sin(f * Math.PI)})`; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+/* ---- Haces de luz del techo (Rick, 20 nov 2026: "parece muy geométrica, cortada").
+ * El haz es un cono de luz con volumen: el perfil de lado a lado es una campana (sin canto), adentro corren hebras más
+ * claras y más oscuras que no llegan parejas al piso, la densidad del aire varía (ruido de valor), nace de a poco arriba y
+ * se posa en un charco de luz moteado. Todo eso se hornea una vez por color en dos texturas (dos juegos de hebras) que se
+ * funden despacio, y el cono entero va en un solo drawImage con una transformación que lo inclina: sin costuras. El polvo
+ * flota adentro, más brillante en el centro del haz, y algunas motas destellan al cruzar una hebra. Solo se ve el haz que
+ * cae sobre piso ya explorado (antes se pintaban cuñas sobre el negro de lo no visto). */
+const HAZ_TW = 64, HAZ_TH = 224, HAZ_ALTO = 190, HAZ_CORR = -62, HAZ_ARRIBA = 18, HAZ_ABAJO = 58;
+type TexHaz = { a: HTMLCanvasElement; b: HTMLCanvasElement; charco: HTMLCanvasElement };
+const texHaces = new Map<string, TexHaz>();
+function ruido1(x: number, sem: number) { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return hc(i + sem, sem * 0.37) * (1 - u) + hc(i + 1 + sem, sem * 0.37) * u; }
+function ruido2(x: number, y: number, sem: number) {
+  const i = Math.floor(x), j = Math.floor(y), fx = x - i, fy = y - j, ux = fx * fx * (3 - 2 * fx), uy = fy * fy * (3 - 2 * fy);
+  const a = hc(i + sem, j), b = hc(i + 1 + sem, j), cc = hc(i + sem, j + 1), d = hc(i + 1 + sem, j + 1);
+  return (a * (1 - ux) + b * ux) * (1 - uy) + (cc * (1 - ux) + d * ux) * uy;
+}
+const suave = (a: number, b: number, x: number) => { const k = Math.max(0, Math.min(1, (x - a) / (b - a))); return k * k * (3 - 2 * k); };
+function texturaHaz(c: string, sem: number): HTMLCanvasElement {
+  const cv = document.createElement('canvas'); cv.width = HAZ_TW; cv.height = HAZ_TH;
+  const g = cv.getContext('2d')!, img = g.createImageData(HAZ_TW, HAZ_TH), [r, gg, bb] = c.split(',').map(Number);
+  // las hebras: cada una con su sitio, su ancho, su fuerza y su largo (unas se cortan antes del piso)
+  const hebras: { u: number; w: number; k: number; f: number }[] = [];
+  for (let i = 0; i < 7; i++) hebras.push({ u: (hc(sem + i, 3.1) - 0.5) * 1.3, w: 0.035 + hc(sem + i, 7.7) * 0.12, k: (hc(sem + i, 9.3) < 0.3 ? -0.45 : 0.4 + hc(sem + i, 1.9) * 0.6), f: i * 1.7 + sem });
+  for (let y = 0; y < HAZ_TH; y++) {
+    const v = (y + 0.5) / HAZ_TH, ancho = (HAZ_ARRIBA + (HAZ_ABAJO - HAZ_ARRIBA) * v) / HAZ_ABAJO;
+    // nace de a poco arriba (no hay un corte donde empieza) y al llegar al piso se abre en el charco
+    const nace = suave(0, 0.42, v) * (0.75 + 0.25 * ruido1(v * 3, sem + 40)), llega = 1 - suave(0.7, 1, v);
+    for (let x = 0; x < HAZ_TW; x++) {
+      const u = (((x + 0.5) / HAZ_TW) * 2 - 1) / ancho;
+      if (Math.abs(u) > 1.25) continue;
+      // campana de lado a lado, con el borde que respira (ruido) en vez de una raya
+      const borde = 1 + (ruido1(v * 7 + (u > 0 ? 50 : 0), sem + 11) - 0.5) * 0.35;
+      let campana = Math.exp(-(u * u) * 2.6 / (borde * borde)) * (1 - suave(0.8 * borde, 1.2 * borde, Math.abs(u)));
+      let hebra = 0;
+      for (const q of hebras) { const largo = 0.55 + 0.45 * ruido1(v * 2.2 + q.f, sem + 70); hebra += q.k * Math.exp(-(((u - q.u) / q.w) ** 2)) * largo; }
+      const aire = 0.72 + 0.5 * ruido2(u * 2.4 + 10, v * 7 - sem, sem + 5) - 0.12 * ruido2(u * 6, v * 18, sem + 9);
+      const a = Math.max(0, campana * (0.55 + 0.45 * Math.max(-0.6, hebra)) * aire * nace * llega);
+      const o = (y * HAZ_TW + x) * 4; img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = bb; img.data[o + 3] = Math.min(255, Math.round(a * 255));
+    }
+  }
+  g.putImageData(img, 0, 0); return cv;
+}
+function charcoHaz(c: string): HTMLCanvasElement {
+  const Wc = 112, Hc = 56, cv = document.createElement('canvas'); cv.width = Wc; cv.height = Hc;
+  const g = cv.getContext('2d')!, img = g.createImageData(Wc, Hc), [r, gg, bb] = c.split(',').map(Number);
+  for (let y = 0; y < Hc; y++) for (let x = 0; x < Wc; x++) {
+    const dx = (x + 0.5 - Wc / 2) / (Wc / 2), dy = (y + 0.5 - Hc / 2) / (Hc / 2), d = Math.sqrt(dx * dx + dy * dy);
+    const borde = 1 + (ruido1(Math.atan2(dy, dx) * 2.5 + 9, 3) - 0.5) * 0.3;
+    if (d > borde) continue;
+    const k = (1 - suave(0, borde, d)) ** 1.6, mota = 0.78 + 0.4 * ruido2(dx * 4 + 3, dy * 8, 21);
+    const o = (y * Wc + x) * 4; img.data[o] = r; img.data[o + 1] = gg; img.data[o + 2] = bb; img.data[o + 3] = Math.min(255, Math.round(k * mota * 255));
+  }
+  g.putImageData(img, 0, 0); return cv;
+}
+function texDe(c: string): TexHaz { let q = texHaces.get(c); if (!q) { q = { a: texturaHaz(c, 13), b: texturaHaz(c, 57), charco: charcoHaz(c) }; texHaces.set(c, q); } return q; }
+
+function haces(z: Juego['zona'], h: Ent, t: number, aP: AP, c: string, frio: boolean, poco: boolean) {
+  const x0 = Math.floor(h.x) - 26, y0 = Math.floor(h.y) - 26, tx = texDe(c), fuerza = (window as any).__hazFuerza ?? 1;
+  const nPolvo = poco ? 0 : E.tactil ? 9 : 22, cm = frio ? '214,232,248' : '255,240,212';
+  ctx.save(); ctx.globalCompositeOperation = 'lighter';
+  let n = 0;
+  for (let cy = y0; cy < y0 + 52; cy++) for (let cx = x0; cx < x0 + 52; cx++) {
+    if (cx < 0 || cy < 0 || cx >= z.W || cy >= z.H || hc(cx * 1.7 + 11, cy * 2.3 + 5) > 0.0042 || z.bloq[cy * z.W + cx]) continue;
+    if (!z.explorado[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)]) continue;
+    const [px, py] = aP(cx + 0.5, cy + 0.5); if (px < -100 || px > W + 100 || py < -20 || py > H + 220) continue;
+    n++;
+    const s = cx * 0.61 + cy * 0.37;
+    // pasa una nube: la fuerza sube y baja despacio, con un temblor apenas
+    const k = (0.78 + 0.22 * Math.sin(t * 0.23 + s)) * (0.94 + 0.06 * Math.sin(t * 1.3 + s * 2)) * fuerza;
+    const fa = 0.5 + 0.5 * Math.sin(t * 0.31 + s * 1.7);
+    // el cono: la textura ya trae el ancho que crece; la transformación lo inclina (arriba corrido HAZ_CORR)
+    const sx = (HAZ_ABAJO * 2) / HAZ_TW, sy = (HAZ_ALTO + 4) / HAZ_TH, sh = -HAZ_CORR / HAZ_TH;
+    ctx.save();
+    ctx.transform(sx, 0, sh, sy, px + HAZ_CORR - HAZ_ABAJO, py - HAZ_ALTO);
+    ctx.globalAlpha = 0.42 * k * (1 - fa * 0.5); ctx.drawImage(tx.a, 0, 0);
+    ctx.globalAlpha = 0.42 * k * (0.5 + fa * 0.5); ctx.drawImage(tx.b, 0, 0);
+    ctx.restore();
+    // el charco de luz en el piso, moteado y sin borde. Va encima de todo (capa del aire): si delante hay muro, el charco
+    // quedaría pintado sobre el muro, así que pierde fuerza según cuánto de lo de delante está tapado
+    let libre = 0, total = 0;
+    for (let dy = 0; dy <= 2; dy++) for (let dx = 0; dx <= 2; dx++) { if (!dx && !dy) continue; const X = cx + dx, Y = cy + dy; total++; if (X < z.W && Y < z.H && !z.bloq[Y * z.W + X]) libre++; }
+    const kc = k * (libre / total) ** 2;
+    ctx.globalAlpha = 0.3 * kc; ctx.drawImage(tx.charco, px - 56, py - 24, 112, 52);
+    ctx.globalAlpha = 0.22 * kc; ctx.drawImage(tx.charco, px - 26, py - 10, 52, 22);
+    // polvo: cada mota deriva despacio dentro del cono; brilla más en el centro y destella al cruzar una hebra
+    for (let i = 0; i < nPolvo; i++) {
+      const a1 = hc(cx + i * 3.1, cy + 1.3), a2 = hc(cx - i * 1.7, cy + 9.1), a3 = hc(cx + i, cy - i);
+      const v = 0.12 + 0.86 * (0.5 + 0.5 * Math.sin(t * (0.05 + a1 * 0.07) + a2 * 6.28));
+      const u = Math.sin(t * (0.11 + a3 * 0.12) + a1 * 6.28) * 0.75 + Math.sin(t * 0.7 + i) * 0.06;
+      const ancho = HAZ_ARRIBA + (HAZ_ABAJO - HAZ_ARRIBA) * v, X = px + HAZ_CORR * (1 - v) + u * ancho * 0.6, Y = py - HAZ_ALTO * (1 - v);
+      const centro = Math.exp(-u * u * 2.4) * suave(0.05, 0.4, v), tw = 0.5 + 0.5 * Math.sin(t * (1.2 + a2 * 2.5) + a3 * 6.28);
+      const al = centro * (0.25 + 0.6 * tw * tw) * k; if (al < 0.04) continue;
+      ctx.globalAlpha = Math.min(1, al); ctx.fillStyle = `rgb(${cm})`;
+      const Xr = Math.round(X), Yr = Math.round(Y);
+      ctx.fillRect(Xr, Yr, 1, 1);
+      if (a2 > 0.82 && tw > 0.86 && centro > 0.5) { ctx.globalAlpha = Math.min(1, al * 0.55); ctx.fillRect(Xr - 1, Yr, 3, 1); ctx.fillRect(Xr, Yr - 1, 1, 3); }
+    }
+  }
+  ctx.restore();
+  ((window as any).__amb ??= {}).haces = n;
 }

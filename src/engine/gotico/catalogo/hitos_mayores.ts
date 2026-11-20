@@ -270,9 +270,9 @@ function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = f
 export function pozoOasis(a: Arma): Pieza[] {
   const ps: Pieza[] = [], g = new G(a, ps), P = 'des2_piedra_pulida';
   // el suelo: arena que se arrima, y adelante el fondo del oasis hundido, barro seco en placas
-  { const cs: Comp[] = [g.bu([-6, -6, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -2], [11 + a.r() * 6, 9 + a.r() * 5, 2.6])); } g.masa(cs, { mat: 'des2_arena', suave: 6 }); }
-  disco(a, ps, 16, 18, -0.4, 23, 16, 1.2, 'des2_arena_osc', { giro: 40, ruido: 0.18, n: 22, tono: -0.15 });
-  disco(a, ps, 17, 18.5, -0.3, 20, 13.5, 1.15, 'hit_barro_seco', { giro: 40, ruido: 0.22, n: 30 });
+  { const cs: Comp[] = [g.bu([-6, -6, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -1.9], [11 + a.r() * 6, 9 + a.r() * 5, 2.3])); } g.masa(cs, { mat: 'des2_arena', suave: 6, tono: -0.07 }); }
+  disco(a, ps, 17, 18.5, -0.9, 19, 12.5, 1.5, 'hit_barro_seco', { giro: 40, ruido: 0.26, n: 32, tono: -0.06 });
+  for (let i = 0; i < 7; i++) { const t = a.r() * TAU, d = 0.82 + a.r() * 0.25; g.elip(17 + Math.cos(t) * 19 * d * 0.8, 18.5 + Math.sin(t) * 12.5 * d, 0, 4 + a.r() * 4, 2.6 + a.r() * 2, 1.1, { mat: 'des2_arena', giro: 40 + (a.r() - 0.5) * 60, tono: -0.05 }); }
   // el estrado: dos gradas de losas, la de abajo comida por la arena
   const C: V3 = [-8, -8, 0];
   for (const [r, z, h] of [[20, 0, 3.6], [16, 3.6, 3.4]] as [number, number, number][]) {
@@ -316,7 +316,7 @@ export function pozoOasis(a: Arma): Pieza[] {
  * piramidión con su capa de oro gastada al final, y el que se llevó el rayo, que no llegó lejos. */
 export function obeliscoSol(a: Arma): Pieza[] {
   const ps: Pieza[] = [], g = new G(a, ps), P = 'des2_piedra_pulida', J = 'des2_glifos';
-  { const cs: Comp[] = [g.bu([-4, -4, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -2], [11 + a.r() * 6, 9 + a.r() * 5, 2.6])); } g.masa(cs, { mat: 'des2_arena', suave: 6 }); }
+  { const cs: Comp[] = [g.bu([-4, -4, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -1.9], [11 + a.r() * 6, 9 + a.r() * 5, 2.3])); } g.masa(cs, { mat: 'des2_arena', suave: 6, tono: -0.07 }); }
   const C: V3 = [-14, -12, 0];
   // el estrado: tres gradas de sillares, con esquinas desportilladas
   let z = 0;

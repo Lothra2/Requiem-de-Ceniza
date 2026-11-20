@@ -1129,15 +1129,18 @@ function asentarJefe(z: Zona) {
   // 1) quitar el adorno suelto del ruedo
   const SUELTO = new Set(['riego', 'vida', 'macabro', 'relleno', 'vineta', 'horror', 'matanza']);
   const cx0 = Math.floor(sp.cx), cy0 = Math.floor(sp.cy);
+  const abiertas = new Set<number>();
   for (let i = z.objetos.length - 1; i >= 0; i--) {
     const o = z.objetos[i]; if (!o.bloquea || o.tag || !o.capa || !SUELTO.has(o.capa)) continue;
     if (Math.max(Math.abs(o.cx - cx0) - o.hw / 2, Math.abs(o.cy - cy0) - o.hh / 2) > RUEDO + 3) continue;
     const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2);
-    for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 1) z.bloq[y * W + x] = 0;
+    for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 1) { z.bloq[y * W + x] = 0; abiertas.add(y * W + x); }
     z.objetos.splice(i, 1);
   }
   // (lo que otro objeto que se queda seguía tapando vuelve a bloquear)
-  for (const o of z.objetos) if (o.bloquea) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 0) z.bloq[y * W + x] = 1; }
+  // (solo las celdas recién abiertas: volver a bloquear la huella de todo cerraba pasos que otros arreglos habían abierto a
+  //  propósito, y en una semilla de 1920 dejaba al jefe del Relicario aislado)
+  if (abiertas.size) for (const o of z.objetos) if (o.bloquea) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (abiertas.has(y * W + x)) z.bloq[y * W + x] = 1; }
   desp = despejeZona(z); m = mejorCerca(desp, 4);
   if (m[2] >= RUEDO) { sp.cx = m[0]; sp.cy = m[1]; return; }
   // 2) el terreno no da: al punto con ruedo más cercano que se alcance (si no hay ninguno con 10, el más abierto)

@@ -363,6 +363,21 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
         `h.escala` en mundo.ts). El lobo se podría pintar con el atlas de `lobo_sombrio` (quieto, caminar, correr, atacar,
         herido y morir en 8 rumbos) sin hornear, pero el oso no tiene cuerpo propio (el oso invocado es el ogro teñido) y
         hay que armarlo en el motor y hornear `b` y `f`.
+- **Arreglos del 20 nov 2026** (video de Rick en una cripta):
+  - **Luces que saltaban** (`recolectar` en `luces.ts`): con más de 18 luces el tope elegía por peso, y el peso tiembla (radio
+    con azar, fuego de Doom que late): las del borde entraban y salían cuadro a cuadro. La que ya está adentro pesa 1,8
+    veces más y la que entra o sale se funde en 0,25 s (`presencia` por id, hasta 6 de más mientras se apagan).
+    `__lucesSaltan` vuelve a lo de antes. `t996_luces_saltan.cjs` (`VIEJO=1`): 174 saltos en 960 cuadros antes, 2 ahora.
+  - **Enemigos contra los muros** (`avanzar` en `mundo.ts`): van directo solo si pasa el cuerpo entero (`lineaPasable`, la
+    línea de un punto se pegaba a las esquinas), el camino dura hasta gastarse o 0,7 s, se pide otro si en medio segundo no
+    avanzó (8 caminos por cuadro como mucho) y `apartarDeMuros` no deja el centro a menos de 0,3 de un muro.
+    `__atascoViejo` vuelve a lo de antes. `t995_atascos.cjs` (`VIEJO=1`): 6 atascados de 168 antes, 0 de 160 ahora. Ojo: Thor
+    atrae a los enemigos, la prueba solo cuenta los que van por el héroe. No editar código mientras corre (Vite recarga).
+  - **Embestida que se deslizaba** (`avanzarManiobra`): movía el cuerpo sin sumar `recorrido`, de donde sale el cuadro de
+    caminar y correr: el jefe o el bruto se corría con la imagen congelada. Suma lo recorrido y el rumbo (también en el paso
+    atrás del aviso). `__embestidaVieja` compara. `t997_embestida.cjs [id] [etiqueta]` (lámina en `/tmp/requiem-pruebas/embestida`).
+  - **Descarga prismática**: sin cargas dispara un rayo simple al 80 % (antes se negaba con un aviso y parecía rota).
+  - **Pozos**: avisan "está seco" o cuánto llenaron (antes nada en ninguno de los dos casos).
 - **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.

@@ -24,14 +24,14 @@ const ID = process.argv[2] || 'verdugo', ET = process.argv[3] || 'ahora', DIR = 
   // la embestida: solo esa maniobra, ya
   await p.evaluate(() => { const m = window.__m, h = window.__juego().heroe; m.x = h.x + 6; m.y = h.y - 0.5; m.man = undefined; m.manCd = 0; m.def = { ...m.def, proyectil: undefined, ia: 'bruto' }; window.__camaraLenta = 0.15; });
   const datos = [];
-  for (let i = 0; i < 60 && datos.length < 14; i++) {
+  for (let i = 0; i < 160 && datos.length < 14; i++) {
     const s = await p.evaluate(() => { const m = window.__m; return { fase: m.man?.fase, tipo: m.man?.tipo, acc: m.acc, vis: m.accVis, rec: +(m.recorrido ?? 0).toFixed(2), x: +m.x.toFixed(2), p: window.__aPant(m.x, m.y) }; });
     if (s.fase === 'accion' && s.tipo === 'embestida') {
       const [px, py] = s.p;
       await p.screenshot({ path: `${DIR}/f${String(datos.length).padStart(2, '0')}.png`, clip: { x: Math.max(0, px - 110), y: Math.max(0, py - 200), width: 220, height: 230 } });
       datos.push(s);
-    } else if (s.tipo && s.tipo !== 'embestida') await p.evaluate(() => { window.__m.man = undefined; window.__m.manCd = 0; });
-    await p.waitForTimeout(90);
+    } else if (!s.tipo || s.tipo !== 'embestida') await p.evaluate(() => { const m = window.__m, h = window.__juego().heroe; m.man = undefined; m.manCd = 0; m.alerta = 0; if (Math.hypot(m.x - h.x, m.y - h.y) < 4.5) { m.x = h.x + 6; m.y = h.y - 0.5; } });
+    if (process.env.DBG) console.log(JSON.stringify(s)); await p.waitForTimeout(90);
   }
   console.log(JSON.stringify(datos.map((d) => [d.acc, d.vis, d.rec, d.x])));
   try { execSync(`python3 -c "

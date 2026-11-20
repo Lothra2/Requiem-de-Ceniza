@@ -43,7 +43,9 @@ const OUT = '/tmp/requiem-pruebas/adornos'; fs.mkdirSync(OUT, { recursive: true 
         if (JSON.stringify(z0.pisos) !== JSON.stringify(z.pisos)) mal.push('pisos');
         if (JSON.stringify(z0.entradas) !== JSON.stringify(z.entradas)) mal.push('entradas');
         if (JSON.stringify(z0.salidas.map((q) => [q.cx, q.cy, q.destino])) !== JSON.stringify(z.salidas.map((q) => [q.cx, q.cy, q.destino]))) mal.push('salidas');
-        if (JSON.stringify(z0.spawns) !== JSON.stringify(z.spawns)) mal.push('grupos');
+        // (desde los campamentos, `asentarCampamentos` corre cada uno a lo más abierto que tenga a 5 celdas DESPUÉS de curar: el
+        //  sitio exacto puede cambiar con el curado. Lo que no puede cambiar: cuántos son, de qué tipo, y que queden a 5 de donde estaban)
+        { const q = (sp) => sp.map((s) => s.tipo + (s.grupos ?? '')).join(); if (q(z0.spawns) !== q(z.spawns) || z.spawns.some((s, i) => Math.hypot(s.cx - z0.spawns[i].cx, s.cy - z0.spawns[i].cy) > 10.5)) mal.push('grupos'); }
         const alc = (zz) => { const v = new Uint8Array(W * H), e = zz.entradas.arriba ?? Object.values(zz.entradas)[0]; const i0 = Math.floor(e[1]) * W + Math.floor(e[0]); if (zz.bloq[i0]) return v; const pila = [i0]; v[i0] = 1; while (pila.length) { const i = pila.pop(), x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (!v[j] && !zz.bloq[j]) { v[j] = 1; pila.push(j); } } } return v; };
         const a0 = alc(z0), a1 = alc(z), pas = (b) => b === 0 || b === 3;
         let cerradas = 0, abiertas = 0, perdidas = 0;

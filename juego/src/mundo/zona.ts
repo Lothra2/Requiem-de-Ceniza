@@ -16,8 +16,12 @@ export interface Spawn { cx: number; cy: number; tipo: 'grupo' | 'jefe' | 'unico
   grupos?: number;
   /** Hacia dónde mira el frente del campamento (de donde suele llegar el héroe): los de cuerpo a cuerpo delante, los de tiro detrás. */
   frente?: [number, number] }
+/** Un lugar de un mundo abierto: un claro de pelea (con su campamento y su escena), el hito del acto o una garganta. Se genera, no se guarda. */
+export interface Lugar { cx: number; cy: number; r: number; papel: 'claro' | 'hito' | 'garganta'; escena?: string; nombre?: [string, string] }
 export interface Zona {
   id: string;
+  /** Los lugares de un mundo abierto (ver `Lugar`) y las celdas de sus claros (ahí no se riega nada que no sea de su escena). */
+  lugares?: Lugar[]; claros?: Uint8Array;
   /** Puentes sobre el río (centro del tablero, que corre en x): el juego sube al que pasa por encima. */
   puentes?: { cx: number; cy: number }[];
   nombre: [string, string];
@@ -332,6 +336,8 @@ class Constructor {
     const x0 = Math.round(cx - (hw - 1) / 2), y0 = Math.round(cy - (hh - 1) / 2);
     if (!forzar && !this.libre(x0, y0, hw, hh)) return null;
     const z = this.z;
+    // dentro de un claro de pelea solo va lo de su escena y lo que pasó ahí (el vacío es parte del diseño)
+    if (!forzar && z.claros && !def.plano && this.capa !== 'escena' && this.capa !== 'horror') for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + hw; x++) if (z.claros[y * z.W + x]) return null;
     // no tapar las celdas reservadas (caminos, entradas)
     if (!forzar) for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + hw; x++) if (this.reserva[y * z.W + x]) return null;
     const bloquea = !!def.bloquea && !def.plano;
@@ -362,6 +368,30 @@ class Constructor {
       if (this.z.bloq[clamp(y, 0, this.z.H - 1) * this.z.W + clamp(x, 0, this.z.W - 1)]) continue;
       if (separar && this.z.objetos.some((q) => q.id === o.d.id && Math.abs(q.cx - x) + Math.abs(q.cy - y) < separar)) continue;
       if (this.poner(o.d, x, y, vs[Math.floor(this.r() * vs.length)])) i++;
+    }
+    this.capa = c0;
+  }
+  /**
+   * Riega en racimos: de 3 a 6 piezas del mismo relato (una sola fila de `ss`, una o dos piezas distintas) en una huella
+   * compacta, con vacío hasta el racimo siguiente. Antes cada pieza caía suelta y pareja como confeti.
+   */
+  racimos(ss: Sel[] | undefined, n: number, x0: number, y0: number, x1: number, y1: number, aparte = 9) {
+    if (!ss?.length) return;
+    const c0 = this.capa; this.capa ??= 'riego';
+    const z = this.z, centros: [number, number][] = [];
+    for (let i = 0, k = 0; i < n && k < n * 14; k++) {
+      const fila = ss[Math.floor(this.r() * ss.length)], op = this.sel([fila]); if (!op.length) continue;
+      const x = x0 + Math.floor(this.r() * (x1 - x0)), y = y0 + Math.floor(this.r() * (y1 - y0)), ci = clamp(y, 0, z.H - 1) * z.W + clamp(x, 0, z.W - 1);
+      if (z.bloq[ci] || this.reserva[ci] || (z.claros && z.claros[ci])) continue;
+      if (centros.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < aparte)) continue;
+      const a = op[Math.floor(this.r() * op.length)], b = op[Math.floor(this.r() * op.length)], m = 3 + Math.floor(this.r() * 4);
+      let puestos = 0;
+      for (let q = 0, t = 0; q < m && t < m * 5; t++) {
+        const o = this.r() < 0.7 ? a : b, vs = o.d.variantes.filter(o.v); if (!vs.length) continue;
+        const ang = this.r() * Math.PI * 2, d = 0.6 + this.r() * 2.8;
+        if (this.poner(o.d, Math.round(x + Math.cos(ang) * d), Math.round(y + Math.sin(ang) * d), vs[Math.floor(this.r() * vs.length)])) { q++; puestos++; }
+      }
+      if (puestos) { centros.push([x, y]); i++; }
     }
     this.capa = c0;
   }
@@ -477,9 +507,43 @@ function exterior(def: DefZona, semilla: number): Zona {
   for (const s of def.salidas) if (s.lado !== 'abajo' && s.lado !== 'casa') puntos.push(enLado(s.lado)); else puntos.push([-999, -999]);
   def.salidas.forEach((s, i) => { if (s.lado === 'abajo' || s.lado === 'casa') puntos[i] = enInterior(); });
   const centro: [number, number] = [Math.floor(z.W / 2), Math.floor(z.H / 2)];
-  const camino = (a: [number, number], b: [number, number]) => {
+  // ---- los lugares (Rick, 20 nov 2026: "no quiero solo ensanchar, tiene que haber intención en los mundos"). Antes todo se
+  // regaba por densidad pareja sobre el mapa y las escenas armadas pedían un rectángulo libre al final: salían 1 de 54 veces.
+  // Ahora la zona se piensa primero como tres o cuatro claros de pelea y el hito del acto, con su propio azar: cada claro
+  // queda reservado (nada del riego cae adentro), lleva su escena armada contra el fondo y su campamento en el medio, y una
+  // senda sale del camino hasta cada uno. Entre dos de ellos, una garganta.
+  const lugares: Lugar[] = []; z.lugares = lugares; z.claros = new Uint8Array(z.W * z.H);
+  const sinLugares = !!(globalThis as any).__sinLugares || !ESTILO_BORDE[def.tema];
+  if (!sinLugares) {
+    const rl = rng((semilla ^ 0x2c1b3f ^ hz) >>> 0);
+    const cabe = (x: number, y: number, rad: number) => {
+      if (x - rad < 4 || y - rad < 4 || x + rad >= z.W - 4 || y + rad >= z.H - 4) return false;
+      for (let a = 0; a < 12; a++) for (const f of [1.15, 0.6]) { const X = Math.floor((x + Math.cos(a * 0.5236) * rad * f) / 5), Y = Math.floor((y + Math.sin(a * 0.5236) * rad * f) / 5); if (X < 0 || Y < 0 || X >= tw || Y >= th || !z.pisos[Y * tw + X]) return false; }
+      return true;
+    };
+    const elegir = (rad: number, lejosSalida: number, lejosLugar: number): [number, number] | null => {
+      let mejor: [number, number] | null = null, bd = -1;
+      for (let i = 0; i < 260; i++) {
+        const x = 8 + Math.floor(rl() * (z.W - 16)), y = 8 + Math.floor(rl() * (z.H - 16));
+        if (!cabe(x, y, rad)) continue;
+        if (def.rio && Math.abs(x - z.W / 2) < z.W * 0.19 + rad) continue;
+        let d = 1e9;
+        for (const [a, b] of puntos) d = Math.min(d, Math.hypot(a - x, b - y) - lejosSalida);
+        for (const l of lugares) d = Math.min(d, Math.hypot(l.cx - x, l.cy - y) - l.r - rad - lejosLugar);
+        d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ? 36 : 12) - rad);
+        if (d > bd) { bd = d; mejor = [x, y]; }
+      }
+      return bd >= 0 ? mejor : null;
+    };
+    const nClaros = z.W * z.H > 12000 ? 4 : 3;
+    for (let i = 0; i < nClaros; i++) { for (const rad of [10 + Math.floor(rl() * 4), 10, 9]) { const q = elegir(rad, 14, 12) ?? elegir(rad, 12, 7); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro' }); break; } } }
+    { const q = elegir(6, 14, 8) ?? elegir(5, 10, 5); if (q) lugares.push({ cx: q[0], cy: q[1], r: q ? 6 : 5, papel: 'hito' }); }
+    for (const l of lugares) { const rr = l.r + 0.5; for (let y = Math.floor(l.cy - rr); y <= l.cy + rr; y++) for (let x = Math.floor(l.cx - rr); x <= l.cx + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - l.cx, y - l.cy) <= rr) z.claros[y * z.W + x] = 1; }
+  }
+  const camino = (a: [number, number], b: [number, number], traza?: [number, number][]) => {
     let x = a[0], y = a[1];
     for (let paso = 0; paso < 2000; paso++) {
+      traza?.push([x, y]);
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H && z.bloq[Y * z.W + X] !== 2) k.reserva[Y * z.W + X] = 1; }
       if (t.camino && r() < 0.5) k.piso(t.camino, Math.floor(x / 5), Math.floor(y / 5));
       if (Math.abs(x - b[0]) + Math.abs(y - b[1]) < 2) break;
@@ -519,7 +583,15 @@ function exterior(def: DefZona, semilla: number): Zona {
     if (anclaObj && anc.cerca) k.regar(anc.cerca, 18, ax - 20, ay - 22, ax + 20, ay + 16, undefined, 5);
   }
   for (const p of puntos) camino(anclaObj && ia >= 0 && p === puntos[ia] ? [p[0], p[1] + 1] : p, anclaObj && ia >= 0 && p === puntos[ia] ? [p[0], p[1] + 8] : centro);
+  // una senda del camino a cada lugar (hasta la celda de camino más cercana) y, en la más larga, la garganta
+  const sendas: { l: Lugar; t: [number, number][] }[] = [];
+  for (const l of lugares) {
+    let bx = centro[0], by = centro[1], bd = Math.hypot(centro[0] - l.cx, centro[1] - l.cy);
+    for (let y = 2; y < z.H - 2; y += 2) for (let x = 2; x < z.W - 2; x += 2) if (k.reserva[y * z.W + x] && !z.claros![y * z.W + x]) { const d = Math.hypot(x - l.cx, y - l.cy); if (d < bd) { bd = d; bx = x; by = y; } }
+    const t: [number, number][] = []; camino([l.cx, l.cy], [bx, by], t); sendas.push({ l, t });
+  }
   if (def.rio) rioDeLava(k, r, def.rio === 'arroyo');
+  if (lugares.length) { escenasLugares(k, def, lugares, centro); gargantaDe(k, t, sendas); }
   // viñetas: paisajes del motor estampados donde haya lugar
   const vin = def.vinetas ?? t.vinetas ?? [];
   const usadas: [number, number, number, number][] = [];
@@ -551,15 +623,21 @@ function exterior(def: DefZona, semilla: number): Zona {
   if (bordes.length) for (let cy = 1; cy < z.H - 1; cy += 2) for (let cx = 1; cx < z.W - 1; cx += 2) {
     if (z.bloq[cy * z.W + cx] === 2) continue;
     let cercaVacio = false;
-    for (let dy = -4; dy <= 4 && !cercaVacio; dy++) for (let dx = -4; dx <= 4; dx++) { const X = cx + dx, Y = cy + dy; if (X < 0 || Y < 0 || X >= z.W || Y >= z.H || z.bloq[Y * z.W + X] === 2) { cercaVacio = true; break; } }
+    const fr = sinLugares ? 4 : 2; for (let dy = -fr; dy <= fr && !cercaVacio; dy++) for (let dx = -fr; dx <= fr; dx++) { const X = cx + dx, Y = cy + dy; if (X < 0 || Y < 0 || X >= z.W || Y >= z.H || z.bloq[Y * z.W + X] === 2) { cercaVacio = true; break; } }
     if (cercaVacio && r() < 0.55) { const o = bordes[Math.floor(r() * bordes.length)]; const vs = o.d.variantes.filter(o.v); if (vs.length) k.poner(o.d, cx, cy, vs[Math.floor(r() * vs.length)]); }
   }
   // grandes y dispersos
   const area = z.W * z.H, dens = def.densidad ?? 1;
-  k.regar(t.grande, Math.floor((area / 900) * dens), 3, 3, z.W - 3, z.H - 3, undefined, 26);
-  k.regar(t.disperso, Math.floor((area / 260) * dens), 2, 2, z.W - 2, z.H - 2);
+  if (sinLugares) {
+    k.regar(t.grande, Math.floor((area / 900) * dens), 3, 3, z.W - 3, z.H - 3, undefined, 26);
+    k.regar(t.disperso, Math.floor((area / 260) * dens), 2, 2, z.W - 2, z.H - 2);
+  } else {
+    // lo grande, la mitad y más separado (son hitos menores); lo disperso, en racimos con vacío entre uno y otro
+    k.regar(t.grande, Math.floor((area / 1500) * dens), 3, 3, z.W - 3, z.H - 3, undefined, 30);
+    k.racimos(t.disperso, Math.floor((area / 1900) * dens), 3, 3, z.W - 3, z.H - 3);
+  }
   k.regar(t.luces, Math.floor(area / 2600), 4, 4, z.W - 4, z.H - 4);
-  if (def.extra) k.regar(def.extra, Math.floor((area / 1100) * dens), 4, 4, z.W - 4, z.H - 4, undefined, 12);
+  if (def.extra) k.regar(def.extra, Math.floor((area / (sinLugares ? 1100 : 1700)) * dens), 4, 4, z.W - 4, z.H - 4, undefined, 12);
   if (def.tipo === 'exterior') k.regar([{ t: ['misterio' as Tema], p: ['arbol_rostros', 'manos', 'ojos', 'estatua', 'pozo'] }], 2 + Math.floor(area / 5000), 4, 4, z.W - 4, z.H - 4);
   // salidas reales
   def.salidas.forEach((s, i) => {
@@ -586,24 +664,30 @@ function exterior(def: DefZona, semilla: number): Zona {
     const o = ponerPiedra(k, cx, cy);
     if (o) z.marcas.push({ tipo: 'viaje', cx: o.cx, cy: o.cy });
   }
-  escenasMundo(k, def, puntos);
+  if (!lugares.length) escenasMundo(k, def, puntos);
   // dos cofres escondidos donde no pasa ningún camino: el premio de quien explora los rincones
   { const lejosDe = [...puntos]; for (let i = 0; i < 2; i++) { const q = lejos(k, lejosDe); lejosDe.push(q); const o = k.poner('cofre_noble', q[0], q[1], 'cerrado', false, 'cofre'); if (o) { o.dato = { escondido: true }; o.capa = 'escondido'; z.marcas.push({ tipo: 'cofre', cx: q[0], cy: q[1] }); } } }
   relieveMundo(k, def.tema, 0.2);
   // cofres, santuarios y pozos
   colocarInteractivos(k, 2 + Math.floor(area / 6000), 1 + Math.floor(area / 9000), def.tema);
   // dónde salen los monstruos: lejos de las entradas
-  acampar(k, Math.floor((area / 700) * dens), puntos);
+  acampar(k, Math.floor((area / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro').map((l): [number, number] => [l.cx, l.cy]));
   if (def.jefe) { const p = lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
   if (def.tema === 'paramo') sueloParamo(k);
   // la pieza única del acto: una o dos por mundo abierto, lejos de las salidas
-  { const hito = REGISTRO.find((d) => d.id === 'acto_hito'), v = hito?.variantes.find((q) => q.startsWith(`a${def.acto}_`));
-    if (hito && v) for (let n = z.W * z.H > 12000 ? 2 : 1, i = 0; n > 0 && i < 300; i++) {
+  { const hito = REGISTRO.find((d) => d.id === 'acto_hito'), v = hito?.variantes.find((q) => q.startsWith(`a${def.acto}_`)), lh = lugares.find((l) => l.papel === 'hito');
+    // la pieza única del acto es el hito mayor de la zona: su lugar está reservado desde el principio (antes buscaba sitio al final y faltaba en 22 de 54)
+    if (hito && v && lh) { const c0 = k.capa; k.capa = 'escena'; if (!k.poner(hito, lh.cx, lh.cy, v)) k.poner(hito, lh.cx, lh.cy, v, true); k.capa = c0; }
+    else if (hito && v) for (let n = z.W * z.H > 12000 ? 2 : 1, i = 0; n > 0 && i < 300; i++) {
       const x = 14 + Math.floor(r() * (z.W - 28)), y = 14 + Math.floor(r() * (z.H - 28));
       if (puntos.some(([a, b]) => Math.hypot(a - x, b - y) < 20) || z.objetos.some((o) => o.id === 'acto_hito' && Math.hypot(o.cx - x, o.cy - y) < 40)) continue;
       if (k.poner(hito, x, y, v)) n--;
     } }
-  decorarMundo(k, ESTILO_BORDE[def.tema], Math.floor((z.W * z.H) / 230), Math.floor((z.W * z.H) / 2400), Math.floor((z.W * z.H) / 5000));
+  // las matas: antes 1 cada 230 celdas por todo el mapa. Ahora menos y solo como falda de algo (a 2 celdas de una roca, un árbol o el borde)
+  const falda = (x: number, y: number) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= z.W || Y >= z.H) return true; const b = z.bloq[Y * z.W + X]; if (b === 1 || b === 2) return true; } return false; };
+  if (sinLugares) decorarMundo(k, ESTILO_BORDE[def.tema], Math.floor((z.W * z.H) / 230), Math.floor((z.W * z.H) / 2400), Math.floor((z.W * z.H) / 5000));
+  else { decorarMundo(k, ESTILO_BORDE[def.tema], 0, Math.floor((z.W * z.H) / 2800), Math.floor((z.W * z.H) / 5000)); decorarMundo(k, ESTILO_BORDE[def.tema], Math.floor((z.W * z.H) / 420), 0, 0, falda); }
+  if (!lugares.length) { delete z.lugares; delete z.claros; }
   costa(k, def.tema);
   return z;
 }
@@ -1136,6 +1220,65 @@ function escenasMundo(k: Constructor, def: DefZona, puntos: [number, number][]) 
     recetas[orden[q++ % orden.length]](x, y); hechas.push([x, y]); n--;
   }
   k.capa = undefined;
+}
+
+/** Nombre de cada claro según lo que pasó ahí (se anuncia al entrar, `historiaPaso`). */
+const NOMBRE_LUGAR: Record<string, [string, string][]> = {
+  caravana: [['La caravana que no llegó', 'The caravan that never arrived'], ['El paso de los carros', 'Cart Crossing']],
+  guarida: [['La fogata de los que comen', 'The eaters\' fire'], ['El campamento de la hondonada', 'Hollow Camp']],
+  altar: [['El altar de la sed', 'The altar of thirst'], ['El claro de la ofrenda', 'Offering Glade']],
+  patibulo: [['El escarmiento', 'The Warning'], ['El claro de las sogas', 'Rope Glade']],
+};
+/**
+ * La escena de cada claro, armada PRIMERO (antes de regar nada): las piezas van contra el fondo del claro (del lado contrario
+ * a por donde llega la senda), en arco, y el medio queda libre para la pelea. El campamento lo pone `acampar` en el centro:
+ * la escena ya no trae su propia guardia (así no sube el presupuesto de monstruos de la zona).
+ */
+function escenasLugares(k: Constructor, def: DefZona, lugares: Lugar[], centro: [number, number]) {
+  const z = k.z, r = k.r, est = ESTILO_BORDE[def.tema]; if (!est) return;
+  const c0 = k.capa; k.capa = 'escena';
+  const de = (clase: string) => { const ids = PIEZA_ESCENA[clase][est] ?? []; return ids[Math.floor(r() * ids.length)]; };
+  type P = [string, number, number, string?];
+  const recetas: [string, () => P[]][] = [
+    ['caravana', () => [[de('carro'), 0, 0.84], [de('carro'), 0.8, 0.8], [de('muerto'), -0.55, 0.7], [de('muerto'), 1.35, 0.74], [de('muerto'), -1.25, 0.8], [de('muerto'), 0.3, 0.6], ['camp_cajas', -0.9, 0.9], ['camp_sacos', 0.45, 0.95], ['cofre', 0.22, 0.72]]],
+    ['guarida', () => [[de('tienda'), -0.7, 0.88], [de('tienda'), 0, 0.92], [de('tienda'), 0.7, 0.88], ['camp_fogata', 0, 0.5, 'grande'], ['par_empalizada_bandidos', -1.3, 0.95], ['par_empalizada_bandidos', 1.3, 0.95], ['camp_asador', 0.35, 0.64], ['camp_cajas', -0.42, 0.7], ['cofre', -0.2, 0.78]]],
+    ['altar', () => [['dec_hito', 0, 0.9, `${est}_estatua`], ['dec_ruina', -0.62, 0.9, `${est}_columnas`], ['dec_ruina', 0.62, 0.9, `${est}_columnas`], [de('altar'), 0, 0.66], ['dec_planta', -0.95, 0.82, `${est}_a`], ['dec_planta', 0.95, 0.82, `${est}_b`], ['cofre', 0.3, 0.93]]],
+    ['patibulo', () => [[de('horca'), -0.38, 0.85], [de('horca'), 0.42, 0.88], [de('muerto'), -0.95, 0.75], [de('muerto'), 0.95, 0.7], [de('muerto'), 0.02, 0.6], ['dec_ruina', 1.25, 0.9, `${est}_pila`], ['cofre', 0.05, 0.74]]],
+  ];
+  const i0 = Math.floor(r() * recetas.length);
+  lugares.filter((l) => l.papel === 'claro').forEach((l, n) => {
+    const [nombre, piezas] = recetas[(i0 + n) % recetas.length];
+    // el fondo: del lado contrario al centro del mapa (por donde llega la senda)
+    const fondo = Math.atan2(l.cy - centro[1], l.cx - centro[0]);
+    for (const [id, da, fr, v] of piezas()) {
+      if (!id) continue;
+      for (let t = 0; t < 5; t++) {
+        const a = fondo + da + (t ? (r() - 0.5) * 0.3 : 0), d = l.r * Math.min(0.97, fr + t * 0.03), x = Math.round(l.cx + Math.cos(a) * d), y = Math.round(l.cy + Math.sin(a) * d);
+        if (id === 'cofre') { const o = k.poner(cofresDe(z, def.tema)[Math.floor(r() * 2)], x, y, 'cerrado', false, 'cofre'); if (o) { z.marcas.push({ tipo: 'cofre', cx: x, cy: y }); break; } }
+        else if (k.poner(id, x, y, v)) break;
+      }
+    }
+    l.escena = nombre; l.nombre = NOMBRE_LUGAR[nombre][Math.floor(r() * NOMBRE_LUGAR[nombre].length)];
+  });
+  k.capa = c0;
+}
+/**
+ * La garganta: en la senda más larga, a medio camino, dos frentes de roca o de árboles del borde aprietan el paso (queda el
+ * ancho de la senda, 5 celdas) por unas 10 celdas. Es el apretón antes del claro. No cierra nada: la senda está reservada.
+ */
+function gargantaDe(k: Constructor, t: Tematica, sendas: { l: Lugar; t: [number, number][] }[]) {
+  const z = k.z, r = k.r, bordes = k.sel(t.borde); if (!bordes.length) return;
+  const s = sendas.filter((q) => q.l.papel === 'claro').sort((a, b) => b.t.length - a.t.length || a.l.cx - b.l.cx)[0];
+  if (!s || s.t.length < 34) return;
+  const m = Math.floor(s.t.length / 2), tramo = s.t.slice(m - 7, m + 7), c0 = k.capa; k.capa = 'garganta';
+  const cerca = (x: number, y: number) => { let d = 99; for (const [a, b] of tramo) d = Math.min(d, Math.max(Math.abs(a - x), Math.abs(b - y))); return d; };
+  let n = 0;
+  for (let y = tramo[0][1] - 12; y <= tramo[0][1] + 12; y++) for (let x = tramo[0][0] - 12; x <= tramo[0][0] + 12; x++) {
+    if (x < 2 || y < 2 || x >= z.W - 2 || y >= z.H - 2 || (x + y) % 2) continue; const d = cerca(x, y); if (d < 3 || d > 5 || r() > 0.75) continue;
+    const o = bordes[Math.floor(r() * bordes.length)], vs = o.d.variantes.filter(o.v); if (vs.length && k.poner(o.d, x, y, vs[Math.floor(r() * vs.length)])) n++;
+  }
+  k.capa = c0;
+  if (n >= 6) z.lugares!.push({ cx: tramo[7][0], cy: tramo[7][1], r: 4, papel: 'garganta' });
 }
 
 // ------------------------------------------------------------------ la costa de los mundos abiertos
@@ -1948,7 +2091,7 @@ function ambientarVida(z: Zona, def: DefZona) {
   const temas = [...new Set([...(t.disperso ?? []), ...(t.luces ?? []), ...(t.grande ?? [])].flatMap((q) => q.t as string[]))];
   const chico = (d: ObjetoDef) => !d.bloquea && !SIN_AMBIENTE.test(d.id) && (d.huella ?? [1, 1])[0] <= 2 && (d.huella ?? [1, 1])[1] <= 2;
   const vida = buscar(temas, PAL_VIDA).filter(chico), macabro = def.tipo === 'pueblo' ? [] : buscar([...temas, 'horror'], PAL_MACABRO).filter(chico);
-  const area = z.W * z.H, nV = Math.floor(area / (def.tipo === 'mazmorra' ? 520 : def.tipo === 'pueblo' ? 700 : 300)), nM = Math.floor(area / (def.tipo === 'mazmorra' ? 300 : 620));
+  const area = z.W * z.H, nV = Math.floor(area / (def.tipo === 'mazmorra' ? 520 : def.tipo === 'pueblo' ? 700 : z.lugares ? 560 : 300)), nM = Math.floor(area / (def.tipo === 'mazmorra' ? 300 : z.lugares ? 950 : 620));
   const regar = (op: ObjetoDef[], n: number) => {
     if (!op.length) return;
     for (let i = 0, q = 0; i < n && q < n * 12; q++) {

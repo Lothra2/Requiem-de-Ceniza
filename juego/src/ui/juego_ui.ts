@@ -1599,6 +1599,16 @@ export function dibujarMapa(j: Juego, grande: boolean) {
     vistas.push({ a, b, s, r });
     if (grande) etiqueta(nombreDestino(s.destino, s.nombre, IDI), a, b - 10 * k - 2, COL_ET[r], 11);
   }
+  // Los lugares con nombre (oleada 2 de los mundos): cada claro ya pisado o visto lleva su rombo de hueso y, en el mapa
+  // grande, su nombre; el hito del acto, un rombo de brasa. Solo lo explorado: nada anuncia lo que falta por encontrar.
+  for (const l of z.lugares ?? []) {
+    if (l.papel === 'garganta' || !visto(l.cx, l.cy)) continue;
+    const [a, b] = p(l.cx, l.cy), X = Math.round(a), Y = Math.round(b), q = l.papel === 'hito' ? 3 * k : 2 * k;
+    if (!grande && (Math.abs(a - cx) > 84 || Math.abs(b - cy) > 76)) continue;
+    for (let i = -q - 1; i <= q + 1; i++) { ctx.fillStyle = '#000'; ctx.fillRect(X - (q + 1 - Math.abs(i)), Y + i, (q + 1 - Math.abs(i)) * 2 + 1, 1); }
+    for (let i = -q; i <= q; i++) { ctx.fillStyle = l.papel === 'hito' ? '#e08840' : '#c8b890'; ctx.fillRect(X - (q - Math.abs(i)), Y + i, (q - Math.abs(i)) * 2 + 1, 1); }
+    if (grande && l.nombre) etiqueta(TT(l.nombre), a, b - q - 5, '#d8c8a0', 10);
+  }
   for (const m of z.marcas) if (m.tipo === 'viaje' && visto(m.cx, m.cy)) { const [a, b] = p(m.cx, m.cy); signoMapa('viaje', a, b, k); usados.add('viaje'); if (grande) etiqueta(T('Piedra de viaje', 'Travel stone'), a, b - 7 * k - 2, '#90c0ff'); }
   for (const o of z.objetos) { if (o.tag !== 'cofre' && o.tag !== 'santuario') continue; if (!visto(o.cx, o.cy)) continue; const [a, b] = p(o.cx + 0.5, o.cy + 0.5); if (!grande && (Math.abs(a - cx) > 84 || Math.abs(b - cy) > 76)) continue; const t = o.tag === 'cofre' ? 'cofre' : 'altar'; signoMapa(t, a, b, k); usados.add(t); }
   // tu portal al campamento (o, en el campamento, el de vuelta): late para que se encuentre de un vistazo

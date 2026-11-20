@@ -2323,6 +2323,8 @@ const CU_ANCLA_GORE = /^hor_|horca|empal|jaula|pila_cad|tortura|crucific|picas|c
 const CU_ESTRUCTURA = /muro|pared|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina/;
 const CU_FALSO = /cofre|arcon|baul/;
 const CAPA_RIEGO = new Set(['riego', 'vida', 'macabro']);
+/** Los guardianes de los cinco sellos (actos 1 a 5): donde pelean va el sello roto y el paso de Vesperio. */
+const MONSTRUOS_JEFE = new Set(['abadesa', 'rey_sin_sombra', 'madre_cienaga', 'rey_escarcha', 'senor_demonio']);
 function curarAdornos(z: Zona, def: DefZona) {
   if ((globalThis as any).__sinCurar) return;
   const { W, H, tw } = z, r = rng(z.semilla * 6007 + 1777), N = W * H;
@@ -2447,6 +2449,80 @@ function curarAdornos(z: Zona, def: DefZona) {
         for (let y = q[1]; y < q[1] + 2; y++) for (let x = q[0]; x < q[0] + 2; x++) bajoPlano[y * W + x] = 1;
       }
       anclas.push({ cx: p[0], cy: p[1], n: 0 }); hechas++;
+    }
+  }
+  // 3b. el relato de cada campamento (oleada 2, Rick: "gore con intención", "que cada claro cuente qué pasó"). Antes la matanza
+  // era una pieza de horror con dos charcos junto a 2 a 5 grupos y nada llevaba a ella. Ahora cada campamento tiene su
+  // escena, compuesta contra el fondo (del lado contrario a por donde llega el héroe) y con un rastro que la anuncia desde
+  // el frente: el único guarda una OFRENDA A LA SED (una brasa caída, `sed_brasa`, con cuerpos bebidos de rodillas
+  // alrededor: lo que Aun-Saar toca no sangra, queda seco); los campeones, una ÚLTIMA DEFENSA (barricada, los muertos del
+  // acto detrás, la sangre); los comunes, por turno, el CAMPAMENTO QUE COME (fogata, asador y lo arrastrado hasta ahí), los
+  // BEBIDOS (dos o tres cuerpos secos sin una gota) o solo el RASTRO. Y en la zona de un guardián de los actos 1 a 5, EL PASO
+  // DE VESPERIO: velas apagadas en fila, la partitura clavada y su atril en el camino a la sala, y el sello roto bajo el
+  // jefe. Capa 'relato': lo que bloquea va al borde del claro (7,5 a 11 del centro), los cuerpos se pisan, respeta cofres y entradas. `__sinRelatos` lo apaga.
+  if (def.tipo !== 'pueblo' && !def.casa && !(globalThis as any).__sinRelatos) {
+    const defDe = (id: string) => REGISTRO.find((q) => q.id === id);
+    const sup = def.tema === 'nieve' || def.tema === 'hielo' ? 'nieve' : def.tipo === 'mazmorra' ? 'piedra' : 'tierra';
+    const libreEnt = (x: number, y: number) => !Object.values(z.entradas).some(([ex, ey]) => Math.hypot(ex - x, ey - y) < 7) && quedan.every((c) => Math.hypot(c.cx - x, c.cy - y) >= 3);
+    const pon = (id: string, v: string | undefined, cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean): ObjZ | null => {
+      const dd = defDe(id); if (!dd) return null; const vv = v && dd.variantes.includes(v) ? v : dd.variantes[Math.floor(r() * dd.variantes.length)];
+      const [hw, hh] = huellaDe(dd, vv), bl = !!dd.bloquea && !dd.plano;
+      enClaro = true; const p = lugar(cx, cy, r0, r1, hw, hh, !!dd.plano, (x, y) => libreEnt(x, y) && (!donde || donde(x, y))); enClaro = false; if (!p) return null;
+      // (los cuerpos y lo bajo del relato se pisan: no ocupan la arena. Solo cuenta lo que bloquea de verdad)
+      const o: ObjZ = { id, v: vv, cx: p[0], cy: p[1], hw, hh, bloquea: bl, capa: 'relato' }; z.objetos.push(o); if (bl) ocupar(o);
+      if (dd.plano || !bl) for (let y = y0De(o); y < y0De(o) + hh; y++) for (let x = x0De(o); x < x0De(o) + hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) bajoPlano[y * W + x] = 1;
+      return o;
+    };
+    const DIRS = ['e', 'se', 's', 'so', 'o', 'no', 'n', 'ne'];
+    /** Rastro plano de `a` hacia `b`: arrastre cerca de donde termina, huellas y gotas más lejos. */
+    const rastro = (ax: number, ay: number, bx: number, by: number) => {
+      const L = Math.hypot(bx - ax, by - ay); if (L < 5) return; const dir = DIRS[((Math.round(Math.atan2(by - ay, bx - ax) / (Math.PI / 4)) % 8) + 8) % 8];
+      for (let t = 2.5, k = 0; t < L - 2; t += 4.6, k++) {
+        const x = Math.round(ax + ((bx - ax) * t) / L), y = Math.round(ay + ((by - ay) * t) / L), falta = L - t;
+        const [id, v] = falta < 7 ? ['gore_rastro', `${sup}_${dir}`] : k % 2 ? ['gore_gotas', `${sup}_dispersas`] : ['gore_huellas', `${sup}_${dir}`];
+        const dd = defDe(id); if (!dd || !dd.variantes.includes(v)) continue;
+        let ok = true; for (let yy = y - 1; yy <= y + 1 && ok; yy++) for (let xx = x - 1; xx <= x + 1; xx++) if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1 || !piso(xx, yy) || z.bloq[yy * W + xx] === 1 || z.bloq[yy * W + xx] === 2 || bajoPlano[yy * W + xx]) { ok = false; break; }
+        if (!ok) continue;
+        z.objetos.push({ id, v, cx: x, cy: y, hw: 3, hh: 3, bloquea: false, capa: 'relato' });
+        for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) bajoPlano[yy * W + xx] = 1;
+      }
+    };
+    const MUERTO: Record<number, [string, string[]]> = { 1: ['par_cadaver', ['campesino', 'soldado', 'flechado']], 2: ['par_cadaver', ['soldado', 'esqueleto', 'flechado']], 3: ['sel2_cadaver', []], 4: ['nie2_cadaver', []], 5: ['for2_cadaver', []], 6: ['for2_cadaver', []], 7: ['for2_cadaver', []] };
+    const FOGATA: Record<number, string> = { 1: 'par_fogata_bandidos', 2: 'des2_fogata', 3: 'sel2_fogata_tribal', 4: 'nie2_hoguera', 5: 'camp_fogata', 6: 'camp_fogata', 7: 'camp_fogata' };
+    const muerto = (cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean) => { const [id, vs] = MUERTO[def.acto] ?? MUERTO[1]; return pon(id, vs.length ? vs[Math.floor(r() * vs.length)] : undefined, cx, cy, r0, r1, donde); };
+    let turno = 0;
+    for (const s of grupos) {
+      // el fondo del campamento: del lado contrario a la entrada más cercana (de donde llega el héroe)
+      let fx = 0, fy = 1, bd = 1e9; for (const [ex, ey] of Object.values(z.entradas)) { const dd = Math.hypot(ex - s.cx, ey - s.cy); if (dd < bd && dd > 0.5) { bd = dd; fx = (ex - s.cx) / dd; fy = (ey - s.cy) / dd; } }
+      const fondo = (x: number, y: number) => ((x - s.cx) * fx + (y - s.cy) * fy) / (Math.hypot(x - s.cx, y - s.cy) || 1) < -0.2;
+      let ancla: ObjZ | null = null;
+      if (s.tipo === 'unico') {
+        ancla = pon('sed_brasa', 'viva', s.cx, s.cy, 8, 11, fondo) ?? pon('sed_brasa', 'viva', s.cx, s.cy, 8, 11.5);
+        if (ancla) { const A = ancla; for (let i = 0, n = 4 + Math.floor(r() * 2); i < n; i++) pon('sed_cuerpo_seco', i < 3 ? 'de_rodillas' : i === 3 ? 'sentado' : 'tendido', A.cx, A.cy, 3.6, 5.2); }
+      } else if (s.tipo === 'campeon') {
+        ancla = pon(def.tema === 'nieve' ? 'nie_barricada' : 'for2_barricada', undefined, s.cx, s.cy, 7.5, 10.5, (x, y) => !fondo(x, y)) ?? pon('for2_barricada', undefined, s.cx, s.cy, 7.5, 11);
+        if (ancla) { const A = ancla; for (let i = 0; i < 3; i++) muerto(A.cx - fx * 2.5, A.cy - fy * 2.5, 0.5, 3.2); pon('gore_charco', sup, A.cx - fx * 2, A.cy - fy * 2, 0, 2.5); }
+      } else {
+        const k = turno++ % 3;
+        if (k === 0) { ancla = pon(FOGATA[def.acto] ?? 'camp_fogata', undefined, s.cx, s.cy, 7.5, 10.5, fondo); if (ancla) { const A = ancla; pon('camp_asador', 'con_carne', A.cx, A.cy, 2.2, 3.4); muerto(A.cx, A.cy, 2.4, 4); } }
+        else if (k === 1) { ancla = pon('sed_cuerpo_seco', 'tendido', s.cx, s.cy, 6, 9.5, fondo); if (ancla) { const A = ancla; pon('sed_cuerpo_seco', 'boca_abajo', A.cx, A.cy, 2, 3.6); if (r() < 0.6) pon('sed_cuerpo_seco', 'sentado', A.cx, A.cy, 2, 4); } }
+        else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
+      }
+      // el rastro que lo anuncia: desde el frente (12 a 16 celdas hacia la entrada) hasta la escena. Los bebidos no sangran
+      if (ancla && !(ancla.id === 'sed_cuerpo_seco' || ancla.id === 'sed_brasa')) rastro(s.cx + fx * (12 + r() * 4), s.cy + fy * (12 + r() * 4), ancla.cx, ancla.cy);
+      if (ancla) anclas.push({ cx: ancla.cx, cy: ancla.cy, n: 0 });
+    }
+    // el secreto se anuncia: un rastro de sangre sale de cada cofre escondido hacia el centro del mapa (por donde se pasa).
+    // Quien lo ve de reojo y lo sigue, lo encuentra: antes el cofre estaba "en lo más lejos de todo" y nada llevaba a él
+    for (const c of z.objetos.filter((o) => o.capa === 'escondido')) { const dx = W / 2 - c.cx, dy = H / 2 - c.cy, L = Math.hypot(dx, dy) || 1, n = 14 + r() * 6; rastro(c.cx + (dx / L) * n, c.cy + (dy / L) * n, c.cx, c.cy); muerto(c.cx, c.cy, 1.5, 3); }
+    // el paso de Vesperio y el sello: donde pelea un guardián de los actos 1 a 5
+    if (jf && def.acto <= 5 && MONSTRUOS_JEFE.has(def.jefe ?? '')) {
+      const o = defDe('sed_sello_roto'); if (o) { const v = o.variantes[def.acto - 1] ?? o.variantes[0]; z.objetos.push({ id: 'sed_sello_roto', v, cx: jf.cx, cy: jf.cy, hw: 7, hh: 7, bloquea: false, capa: 'relato' }); }
+      let ex = jf.cx, ey = jf.cy + 1, bd = -1; for (const [x, y] of Object.values(z.entradas)) { const dd = Math.hypot(x - jf.cx, y - jf.cy); if (dd > bd) { bd = dd; ex = x; ey = y; } }
+      const ux = (ex - jf.cx) / (bd || 1), uy = (ey - jf.cy) / (bd || 1), hacia = (x: number, y: number) => ((x - jf.cx) * ux + (y - jf.cy) * uy) / (Math.hypot(x - jf.cx, y - jf.cy) || 1) > 0.55;
+      pon('ves_rastro', 'atril', jf.cx, jf.cy, 12, 15.5, hacia);
+      pon('ves_rastro', Math.abs(ux) > Math.abs(uy) ? 'hilera_y' : 'hilera', jf.cx, jf.cy, 13, 17, hacia); pon('ves_rastro', Math.abs(ux) > Math.abs(uy) ? 'hilera_y' : 'hilera', jf.cx, jf.cy, 16, 21, hacia);
+      pon('ves_rastro', 'partitura', jf.cx, jf.cy, 11.5, 14, hacia);
     }
   }
   const ritos: { cx: number; cy: number; n: number }[] = [];

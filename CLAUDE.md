@@ -279,6 +279,12 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   los comunes por turno el campamento que come (fogata, asador, muerto), los bebidos o solo el muerto; un rastro de sangre
   llega desde el frente. Cada cofre escondido tira un rastro hacia el centro del mapa con su muerto. En la zona de un
   guardián de los actos 1 a 5: el sello roto bajo el jefe y el paso de Vesperio (atril, hileras de velas, partitura).
+  Los comunes van por turno castigo, fogata, castigo, bebidos. El **castigo** (`CASTIGO` por tema, a 9 a 12,5 del centro
+  del campamento, contra el fondo) usa piezas horneadas que no salían en ningún mapa: árbol de ahorcados y empalados en el
+  páramo, tumba abierta y doliente en cementerio y abadía, mesa de embalsamar y amortajados en catacumbas y cripta,
+  vagoneta con sangre y mineros muertos en la mina, poste de cráneos en selva y templo, osamenta y jaula en la nieve,
+  cerca de púas y doncella en el infierno, potro y jaula en santuario y fortaleza, y en los actos 6 y 7 la brasa fría con
+  bebidos (canon: ahí tira el dios directo). Cuesta 2 a 3 puntos de arena. Piezas sin usar: `_m_nousadas.mjs` (no se sube).
 - **Nada montado** (`desmontar`, paso 5b de `curarAdornos`, `__montados` lo apaga): dos adornos cuyas cajas de sprite se
   pisan 55 % del más chico: queda el que pesa más (tag, estructura, relleno, macizo, garganta, jefe, horror, escondido,
   interactivo, columnas y las anclas del relato nunca salen; después escena, matanza y relato, viñeta, macabro, riego). Lo

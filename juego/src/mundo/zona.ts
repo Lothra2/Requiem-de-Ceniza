@@ -2548,6 +2548,32 @@ function curarAdornos(z: Zona, def: DefZona) {
     const MUERTO: Record<number, [string, string[]]> = { 1: ['par_cadaver', ['campesino', 'soldado', 'flechado']], 2: ['par_cadaver', ['soldado', 'esqueleto', 'flechado']], 3: ['sel2_cadaver', []], 4: ['nie2_cadaver', []], 5: ['for2_cadaver', []], 6: ['for2_cadaver', []], 7: ['for2_cadaver', []] };
     const FOGATA: Record<number, string> = { 1: 'par_fogata_bandidos', 2: 'des2_fogata', 3: 'sel2_fogata_tribal', 4: 'nie2_hoguera', 5: 'camp_fogata', 6: 'camp_fogata', 7: 'camp_fogata' };
     const muerto = (cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean) => { const [id, vs] = MUERTO[def.acto] ?? MUERTO[1]; return pon(id, vs.length ? vs[Math.floor(r() * vs.length)] : undefined, cx, cy, r0, r1, donde); };
+    // el castigo de cada tierra: un ancla y lo que se ve alrededor (piezas horneadas que no salían en ningún mapa)
+    const CASTIGO: Record<string, [string, string | undefined][]> = {
+      paramo: [['par_arbol_ahorcados', undefined], ['campo_empalado', 'ensangrentado'], ['campo_empalado', 'solo_estaca'], ['cem2_pala_clavada', 'pala']],
+      cementerio: [['cri_tumba_abierta', 'con_cadaver'], ['cem2_doliente', 'arrodillada'], ['cem2_pala_clavada', 'pala_farol']],
+      abadia: [['cri_tumba_abierta', 'losa_corrida'], ['cem2_doliente', 'monje'], ['cri_cuerpo_amortajado', 'mortaja']],
+      catacumbas: [['cri_mesa_embalsamar', 'sangrienta'], ['cri_cuerpo_amortajado', 'mortaja'], ['cat2_carretilla_huesos', 'llena']],
+      cripta: [['cri_mesa_embalsamar', 'con_cuerpo'], ['cri_cuerpo_amortajado', 'putrefacto'], ['cat_monton_huesos', 'de_calaveras']],
+      mina: [['min_vagoneta_volcada', 'sangre'], ['min_minero_muerto', 'aplastado'], ['min_minero_muerto', 'tendido'], ['min_pico_clavado', 'sangre']],
+      cueva: [['cue_costillar', 'con_craneo'], ['cat_monton_huesos', 'grande'], ['clo_nido_ratas', 'nido']],
+      desierto: [['nie2_osamenta', 'completa'], ['campo_empalado', 'envuelto'], ['cat_monton_huesos', 'de_calaveras']],
+      tumba: [['cri_tumba_abierta', 'escalones'], ['cri_cuerpo_amortajado', 'momia'], ['cat_monton_huesos', 'chico']],
+      templo: [['sel_poste_craneos', 'craneos'], ['cri_cuerpo_amortajado', 'momia'], ['cat_monton_huesos', 'de_calaveras']],
+      selva: [['sel_poste_craneos', 'cornamenta'], ['campo_empalado', 'ensangrentado'], ['cat_monton_huesos', 'de_calaveras']],
+      nieve: [['nie2_osamenta', 'costillar'], ['par_jaula_colgante', 'esqueleto'], ['campo_empalado', 'envuelto']],
+      hielo: [['par_jaula_colgante', 'preso'], ['nie2_osamenta', 'craneo'], ['cat_monton_huesos', 'chico']],
+      infierno: [['inf_cerca_pinchos', 'torcida'], ['campo_empalado', 'ensangrentado'], ['mue_doncella_hierro', 'abierta']],
+      santuario: [['for2_potro', 'rueda'], ['mue_doncella_hierro', 'oxidada'], ['mue_jaula_colgante', 'esqueleto']],
+      fortaleza: [['for2_potro', 'potro'], ['mue_potro', 'cadenas'], ['mue_jaula_colgante', 'esqueleto']],
+      abismo: [['mue_jaula_colgante', 'vacia'], ['hor_manos', 'muchas'], ['cat_monton_huesos', 'grande']],
+      ahogada: [['par_jaula_colgante', 'esqueleto'], ['cue_costillar', 'hundido'], ['cat_monton_huesos', 'chico']],
+      catedral_ahogada: [['cri_cadenas_pared', 'con_esqueleto'], ['cri_cuerpo_amortajado', 'putrefacto'], ['cat_monton_huesos', 'chico']],
+      // (en los actos 6 y 7 el dios tira directo: lo que dejó es la sed)
+      celestial: [['sed_brasa', 'fria'], ['sed_cuerpo_seco', 'de_rodillas'], ['sed_cuerpo_seco', 'sentado'], ['cel_corona_caida', undefined]],
+      celestial_interior: [['sed_brasa', 'fria'], ['sed_cuerpo_seco', 'tendido'], ['cel_trono_copa', undefined]],
+      celestial_islas: [['sed_brasa', 'fria'], ['sed_cuerpo_seco', 'de_rodillas'], ['sed_cuerpo_seco', 'boca_abajo']],
+    };
     let turno = 0;
     for (const s of grupos) {
       // el fondo del campamento: del lado contrario a la entrada más cercana (de donde llega el héroe)
@@ -2561,8 +2587,14 @@ function curarAdornos(z: Zona, def: DefZona) {
         ancla = pon(def.tema === 'nieve' ? 'nie_barricada' : 'for2_barricada', undefined, s.cx, s.cy, 7.5, 10.5, (x, y) => !fondo(x, y)) ?? pon('for2_barricada', undefined, s.cx, s.cy, 7.5, 11);
         if (ancla) { const A = ancla; for (let i = 0; i < 3; i++) muerto(A.cx - fx * 2.5, A.cy - fy * 2.5, 0.5, 3.2); pon('gore_charco', sup, A.cx - fx * 2, A.cy - fy * 2, 0, 2.5); }
       } else {
-        const k = turno++ % 3;
-        if (k === 0) { ancla = pon(FOGATA[def.acto] ?? 'camp_fogata', undefined, s.cx, s.cy, 7.5, 10.5, fondo); if (ancla) { const A = ancla; pon('camp_asador', 'con_carne', A.cx, A.cy, 2.2, 3.4); muerto(A.cx, A.cy, 2.4, 4); } }
+        // (castigo, fogata, castigo, bebidos: lo que dejaron los de este campamento, con las piezas de su tierra)
+        const k = [3, 0, 3, 1][turno++ % 4];
+        if (k === 3) {
+          const c = CASTIGO[def.tema] ?? CASTIGO.paramo, [ia, va] = c[0];
+          ancla = pon(ia, va, s.cx, s.cy, 9, 12.5, fondo) ?? pon(ia, va, s.cx, s.cy, 8.5, 13);
+          if (ancla) { const A = ancla; for (const [id, v] of c.slice(1)) pon(id, v, A.cx, A.cy, 2.2, 4.2); }
+          else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
+        } else if (k === 0) { ancla = pon(FOGATA[def.acto] ?? 'camp_fogata', undefined, s.cx, s.cy, 7.5, 10.5, fondo); if (ancla) { const A = ancla; pon('camp_asador', 'con_carne', A.cx, A.cy, 2.2, 3.4); muerto(A.cx, A.cy, 2.4, 4); } }
         else if (k === 1) { ancla = pon('sed_cuerpo_seco', 'tendido', s.cx, s.cy, 6, 9.5, fondo); if (ancla) { const A = ancla; pon('sed_cuerpo_seco', 'boca_abajo', A.cx, A.cy, 2, 3.6); if (r() < 0.6) pon('sed_cuerpo_seco', 'sentado', A.cx, A.cy, 2, 4); } }
         else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
       }

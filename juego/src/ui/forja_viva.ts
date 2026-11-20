@@ -128,7 +128,7 @@ export function sangreRacha(j: Juego, mat: Uint8Array, w: number, hh: number, cl
   if (clave !== claveSangre) { gotas.length = 0; claveSangre = clave; }
   if ((o.rachaT ?? -9) !== rachaVista) {
     rachaVista = o.rachaT ?? -9;
-    const r = o.racha ?? 0, n = r >= 12 ? 8 : r >= 8 ? 6 : r >= 5 ? 4 : r >= 3 ? 3 : 0;
+    const r = o.racha ?? 0, n = r >= 12 ? 14 : r >= 8 ? 10 : r >= 5 ? 7 : r >= 3 ? 5 : 0; // (Rick, 20 nov 2026: regueros de 1 a 2 puntos no gritaban matanza: más, más gruesos y con su salpicón)
     for (let i = 0; i < n; i++) {
       const x = Math.floor(x0 + hash(i, Math.floor(t * 60), 61) * (x1 - x0)); let y = 0;
       while (y < hh && !mat[y * w + x]) y++;
@@ -140,7 +140,7 @@ export function sangreRacha(j: Juego, mat: Uint8Array, w: number, hh: number, cl
       // el camino: de vez en cuando se corre un punto hacia un lado (si ahí también hay talla)
       const xs = new Int8Array(y1 - y + 1); let o2 = 0;
       for (let q = 3; q < xs.length; q++) { if (hash(x + q, i, 63) < 0.16) { const d2 = hash(x, q, 64) < 0.5 ? -1 : 1; if (Math.abs(o2 + d2) <= 2 && mat[(y + q) * w + x + o2 + d2]) o2 += d2; } xs[q] = o2; }
-      gotas.push({ x, y0: y, y1, t0: t + i * 0.1, xs }); if (gotas.length > 26) gotas.shift();
+      gotas.push({ x, y0: y, y1, t0: t + i * 0.1, xs }); if (gotas.length > 44) gotas.shift();
     }
   }
   for (let i = gotas.length - 1; i >= 0; i--) {
@@ -148,12 +148,14 @@ export function sangreRacha(j: Juego, mat: Uint8Array, w: number, hh: number, cl
     const tot = g.y1 - g.y0, len = Math.min(tot, Math.floor(e * 26)), corre = len < tot, k = cl(e / 12), a = e > 22 ? 1 - (e - 22) / 8 : 1, ancho = Math.ceil(len * 0.4);
     ctx.fillStyle = `rgba(${Math.round(206 - 136 * k)},${Math.round(18 + 2 * k)},14,${a * (0.96 - 0.2 * k)})`;
     // el reguero: grueso arriba, fino abajo, con su mancha donde nació
-    ctx.beginPath(); ctx.rect(dx(g.x - 2), dy(g.y0), 6 * D, D); ctx.rect(dx(g.x - 1), dy(g.y0 + 1), 4 * D, D);
-    for (let q = 0; q <= len; q++) ctx.rect(dx(g.x + g.xs[q]), dy(g.y0 + q), (q < ancho ? 2 : 1) * D, D);
+    ctx.beginPath(); ctx.rect(dx(g.x - 5), dy(g.y0), 12 * D, D); ctx.rect(dx(g.x - 4), dy(g.y0 + 1), 10 * D, D); ctx.rect(dx(g.x - 2), dy(g.y0 + 2), 7 * D, D);
+    // (salpicón al lado de donde nació, distinto en cada una)
+    ctx.rect(dx(g.x - 8 + (g.x % 3)), dy(g.y0 + 1 + (g.x % 2)), 2 * D, D); ctx.rect(dx(g.x + 8 - (g.x % 4)), dy(g.y0 + (g.x % 3)), 2 * D, D);
+    for (let q = 0; q <= len; q++) { const an = q < ancho ? 4 : q < ancho * 2 ? 3 : 2; ctx.rect(dx(g.x + g.xs[q] - (an >> 1) + 1), dy(g.y0 + q), an * D, D); }
     // la gota de la punta, gorda mientras corre; seca queda un coágulo
-    const hx = g.x + g.xs[len]; ctx.rect(dx(hx - (corre ? 1 : 0)), dy(g.y0 + len), (corre ? 3 : 2) * D, 2 * D); if (corre) ctx.rect(dx(hx), dy(g.y0 + len + 2), D, D);
+    const hx = g.x + g.xs[len]; ctx.rect(dx(hx - (corre ? 1 : 0)), dy(g.y0 + len), (corre ? 4 : 3) * D, (corre ? 3 : 2) * D); if (corre) ctx.rect(dx(hx), dy(g.y0 + len + 3), 2 * D, D);
     ctx.fill();
-    if (k < 0.5) { ctx.fillStyle = `rgba(255,150,130,${0.8 * a * (1 - k * 2)})`; ctx.fillRect(dx(hx), dy(g.y0 + len), D, D); ctx.fillRect(dx(g.x), dy(g.y0), 2 * D, D); }
+    if (k < 0.5) { ctx.fillStyle = `rgba(255,150,130,${0.8 * a * (1 - k * 2)})`; ctx.fillRect(dx(hx), dy(g.y0 + len), 2 * D, D); ctx.fillRect(dx(g.x - 1), dy(g.y0), 4 * D, D); }
   }
 }
 (window as any).__hudGotas = () => gotas.length;

@@ -17,8 +17,12 @@ const mezcla = (a: C3, b: C3, t: number): C3 => [a[0] + (b[0] - a[0]) * t, a[1] 
 const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 const bayer = (x: number, y: number) => BAYER[(y & 3) * 4 + (x & 3)];
 
-/** Hasta dónde llega el líquido a la vista: lleno es 0,8 del alto (queda la cúpula de vidrio y se ve la superficie). */
-export const nivelVisto = (k: number) => (k <= 0 ? 0 : 0.03 + 0.77 * cl(k));
+/**
+ * Hasta dónde llega el líquido a la vista. Lleno es 0,93 del alto: queda un casquete fino de vidrio donde se ve la
+ * superficie, pero se lee lleno. (Con 0,8, Rick, 20 nov 2026: "tengo la vida full pero no parece": la cúpula oscura de
+ * arriba se leía como un quinto de vida perdida. Con 1 era la bola de billar de antes.)
+ */
+export const nivelVisto = (k: number) => (k <= 0 ? 0 : 0.03 + 0.9 * cl(k));
 
 /**
  * Un cuadro del orbe. k de 0 (vacío) a 1 (lleno), cuadro de 0 a CUADROS_LIQ - 1 (cierra el ciclo), r el radio del vidrio.

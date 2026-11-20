@@ -636,8 +636,9 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     fino) lleva el panel de PC, que también se toca (`aparatoTactil` en `main.ts`).
   - Con el HUD forjado en 2560 × 1080 el lienzo ya no se corta en 1600 de ancho (quedaba una franja negra a la derecha).
   - **Orbes** (`ui/forja_orbe.ts`, Rick: lleno "se lee como una bola de billar"): el orbe es propio del HUD (no el del
-    motor, que queda para la barra de siempre y no se toca por `__PINTOR__`). El líquido llega a la vista hasta 0,8 del
-    alto (`nivelVisto`): lleno queda la cúpula de vidrio y siempre se ve la lámina, con su canto de adelante claro, la
+    motor, que queda para la barra de siempre y no se toca por `__PINTOR__`). El líquido llega a la vista hasta 0,93 del
+    alto (`nivelVisto`; con 0,8 Rick lo vio el 20 nov como vida que faltaba: "tengo la vida full pero no parece"): lleno
+    queda un casquete fino de vidrio y siempre se ve la lámina, con su canto de adelante claro, la
     cara de arriba vista de canto con destellos que corren, el canto de atrás que cierra la elipse, el menisco que trepa
     por el vidrio y olas que no se quedan quietas ni llenas. Adentro volutas de ruido torcido que dan la vuelta en 16
     cuadros a 10 por segundo (`CUADROS_LIQ`, `cuadroLiq`), hilos de luz, más claro al frente y hundido hacia el borde y

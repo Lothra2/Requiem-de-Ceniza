@@ -719,7 +719,9 @@ function exterior(def: DefZona, semilla: number): Zona {
   if (def.jefe) { const lj = lugares.find((l) => l.escena === 'jefe'), p = lj ? [lj.cx, lj.cy] : lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
   if (def.tema === 'paramo') sueloParamo(k);
   // la pieza única del acto: una o dos por mundo abierto, lejos de las salidas
-  { const hito = REGISTRO.find((d) => d.id === 'acto_hito'), v = hito?.variantes.find((q) => q.startsWith(`a${def.acto}_`)), lh = lugares.find((l) => l.papel === 'hito');
+  // (oleada 2: los actos 1 y 2 tienen un hito por mundo: la cruz del páramo, el roble de las sogas del bosque, el campanario
+  //  caído del camposanto, el coloso de las dunas, el pozo del oasis muerto y el obelisco del sol de las ruinas)
+  { const hito = REGISTRO.find((d) => d.id === 'acto_hito'), propio = HITO_ZONA[def.id], v = propio && hito?.variantes.includes(propio) ? propio : hito?.variantes.find((q) => q.startsWith(`a${def.acto}_`)), lh = lugares.find((l) => l.papel === 'hito');
     // la pieza única del acto es el hito mayor de la zona: su lugar está reservado desde el principio (antes buscaba sitio al final y faltaba en 22 de 54)
     if (hito && v && lh) { const c0 = k.capa; k.capa = 'escena'; if (!k.poner(hito, lh.cx, lh.cy, v)) k.poner(hito, lh.cx, lh.cy, v, true); k.capa = c0; }
     else if (hito && v) for (let n = z.W * z.H > 12000 ? 2 : 1, i = 0; n > 0 && i < 300; i++) {
@@ -736,6 +738,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   return z;
 }
 
+const HITO_ZONA: Record<string, string> = { a1_bosque: 'a1_roble', a1_cementerio: 'a1_campanario', a2_oasis_muerto: 'a2_pozo', a2_ruinas: 'a2_obelisco' };
 /** Islas sobre el vacío: cada cuarto es una isla con su borde de precipicio y cada pasillo un puente; en el vacío flota lo que vive ahí. */
 function islas(k: Constructor, o: NonNullable<Tematica['islas']>, suelo: Uint8Array, sala: Uint8Array) {
   const z = k.z, { tw, th } = z, r = k.r;

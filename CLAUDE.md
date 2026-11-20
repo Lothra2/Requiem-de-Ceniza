@@ -314,6 +314,13 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   si no cabe, un trono en ruinas o un relicario) con capa `jefe`, y hasta cuatro braseros del tema a los lados (no en el
   eje de la entrada) que cierran la arena en luz. 28 de 31 jefes con asiento y 70 braseros (semilla 12345). Faltan
   asiento en a3_inundadas, a4_grieta y a7_boveda (no hay sitio fuera del ruedo). El ruedo sigue en 10.
+- **Hitos de los actos 1 y 2** (`acto_hito` en `catalogo/hitos_acto.ts`, `HITO_ZONA` en `zona.ts`): cada mundo abierto
+  de esos actos tiene el suyo. Se suman al de antes: el campanario caído del camposanto (torre partida, la campana de Santa
+  Oria tumbada con su soga), el roble de las sogas del bosque (tronco hueco, sogas vacías, cerco de piedras raspadas), el
+  pozo del Oasis Muerto (brocal sobre barro rajado, cabria con cadena, palmeras secas) y el obelisco del sol de las Ruinas
+  (base en pie, disco de bronce, la aguja partida en la arena). Siguen la cruz del páramo y el coloso de las dunas. Misma
+  huella 4 x 4. Hornear: `RELIEVE=1 GRUPOS=o SOLO=acto_hito ...` (13 s) y después `t1013_cajas.mjs`. Lab:
+  `t1020_pieza_lab.mts "acto_hito:a1_campanario+a1_roble+a2_pozo+a2_obelisco"`.
 
 ## Armas vivas, cofres, poderes y siluetas
 

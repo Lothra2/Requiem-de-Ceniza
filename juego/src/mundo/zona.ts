@@ -8,6 +8,7 @@ import { juncosDeTramo } from '../../../src/engine/gotico/agua';
 import { pisosParamo, estadoEn } from '../../../src/engine/gotico/suelo_paramo';
 import { regarDecalsParamo } from '../../../src/engine/gotico/decals_paramo';
 import { rng, clamp } from '../nucleo/azar';
+import CAJAS_SPRITE from './cajas_sprite.json';
 
 export interface ObjZ { id: string; v: string; cx: number; cy: number; hw: number; hh: number; bloquea: boolean; tag?: string; dato?: any; /** De qué paso de la generación salió (riego, vida, macabro, relleno, escena, horror, jefe...): lo usa `curarAdornos`. No se guarda. */ capa?: string; }
 export interface Salida { cx: number; cy: number; destino: string; entrada: string; nombre: [string, string]; obj?: ObjZ; /** Misión que hay que haber aceptado para pasar (si no, la puerta está sellada). */ sello?: string; /** Misión que, cumplida, deja la pieza herida. */ herida?: string; /** Piezas que cambian de variante con la historia. */ piezas?: ObjZ[] }
@@ -1534,6 +1535,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   const viejo = !!(globalThis as any).__salasViejas, obra = !viejo && !def.casa && !t.organica && !t.islas, cueva = !viejo && !!t.organica && !def.casa;
   const SALA_MAYOR: Record<string, number> = { senor_demonio: 10, aun_saar: 10, dragon_oseo: 9, campana_ahoga: 9, madre_cienaga: 9, rey_escarcha: 9 };
   let mayor: [number, number, number, number] | null = null;
+  const viejoCuello = !!(globalThis as any).__pasillosLargos;
   // (oleada 2: en las islas sobre el vacío el jefe también tiene su isla mayor, de 6 x 6 baldosas: Orvan peleaba en una de 23
   //  celdas con los obeliscos, el tesoro y el portal adentro, ruedo libre de 4)
   const islaJefe = !viejo && !!t.islas && !!def.jefe && !def.casa;
@@ -1543,7 +1545,15 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   }
   for (let i = 0; i < (def.casa ? 400 : 120) && cuartos.length < (def.casa ? 5 : Math.max(obra ? 4 : 3, Math.floor((tw * th) / (obra ? 80 : cueva ? 62 : 45)))); i++) {
     const w = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4)), h = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4));
-    const x = 1 + Math.floor(r() * Math.max(1, tw - w - 2)), y = 1 + Math.floor(r() * Math.max(1, th - h - 2));
+    let x = 1 + Math.floor(r() * Math.max(1, tw - w - 2)), y = 1 + Math.floor(r() * Math.max(1, th - h - 2));
+    // (oleada 2, Rick: "puertas y cuellos cortos, no pasillos eternos"): en las de obra tres de cada cuatro salas nacen junto a
+    // otra, a una o dos baldosas y con los centros alineados: se unen por un cuello corto que se lee como puerta
+    if (obra && !viejoCuello && cuartos.length && r() < 0.75) {
+      const R = cuartos[Math.floor(r() * cuartos.length)], lado = Math.floor(r() * 4), g = r() < 0.7 ? 1 : 2, d = Math.round((r() - 0.5) * 2);
+      if (lado < 2) { x = lado === 0 ? R[0] - g - w : R[0] + R[2] + g; y = R[1] + Math.floor((R[3] - h) / 2) + d; }
+      else { y = lado === 2 ? R[1] - g - h : R[1] + R[3] + g; x = R[0] + Math.floor((R[2] - w) / 2) + d; }
+      if (x < 1 || y < 1 || x + w > tw - 1 || y + h > th - 1) continue;
+    }
     if (cuartos.some(([a, b, c, d]) => x < a + c + 1 && x + w + 1 > a && y < b + d + 1 && y + h + 1 > b)) continue;
     cuartos.push([x, y, w, h]);
   }
@@ -1564,7 +1574,9 @@ function mazmorra(def: DefZona, semilla: number): Zona {
     const X = Math.floor(c[0] + c[2] / 2), Y = Math.floor(c[1] + c[3] / 2);
     const primeroX = r() < 0.5;
     // el pasillo no es siempre una L: la mitad hace una Z (quiebra a medio camino) y uno de cada cuatro es de doble ancho
-    const zeta = r() < 0.5, ancho = !t.islas && !t.rieles && (r() < 0.25 || obra);
+    // (oleada 2: entre dos salas a una o dos baldosas el paso es un cuello de una baldosa de ancho: se lee como puerta)
+    const hueco = Math.max(0, Math.max(o[0], c[0]) - Math.min(o[0] + o[2], c[0] + c[2])) + Math.max(0, Math.max(o[1], c[1]) - Math.min(o[1] + o[3], c[1] + c[3]));
+    const zeta = r() < 0.5, ancho = !t.islas && !t.rieles && (r() < 0.25 || obra) && !(obra && !viejoCuello && hueco <= 2);
     const marca = () => { suelo[y * tw + x] = 1; if (ancho) { const x2 = Math.min(tw - 2, x + 1), y2 = Math.min(th - 2, y + 1); suelo[(primeroX ? y2 : y) * tw + (primeroX ? x : x2)] = 1; } };
     const enX = (hasta: number) => { while (x !== hasta) { marca(); x += Math.sign(hasta - x); } }, enY = (hasta: number) => { while (y !== hasta) { marca(); y += Math.sign(hasta - y); } };
     if (primeroX) { if (zeta) enX(Math.round((x + X) / 2)); else enX(X); enY(Y); enX(X); }
@@ -1646,6 +1658,25 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // en las minas los túneles rectos llevan derrubio a los dos lados (queda libre el centro, por donde van los rieles)
   if (t.rieles && !abierto) orillaTunel(k, suelo, sala);
   if (!abierto && !t.islas && !(globalThis as any).__sinEscombro) escombroFrente(k, sala, ESCOMBRO_TEMA[def.tema] ?? 'cementerio'); // (solo en las salas: en un pasillo podría cerrar el paso)
+  // las puertas (oleada 2): donde un cuello de una baldosa entra a una sala, dos luces del tema a los lados, contra el muro,
+  // hacen de jambas. Se leen de lejos como umbral y alumbran el paso. Capa 'umbral': nada las quita ni las desmonta
+  if (obra && !viejoCuello && !(globalThis as any).__sinPuertas) {
+    const luz = k.sel(t.luces).filter((q) => /brasero|antorcha/.test(q.d.id)), dl = luz.length ? luz[Math.floor(r() * luz.length)] : null;
+    const S = (x: number, y: number) => x >= 0 && y >= 0 && x < tw && y < th && !!suelo[y * tw + x], Sa = (x: number, y: number) => S(x, y) && !!sala[y * tw + x];
+    const c0 = k.capa; k.capa = 'umbral';
+    if (dl) for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
+      if (!S(bx, by) || sala[by * tw + bx]) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const rx = bx + dx, ry = by + dy; if (!Sa(rx, ry)) continue;
+        // (solo cuellos de una baldosa: a los lados del cuello no hay piso)
+        if (dx ? S(bx, by - 1) || S(bx, by + 1) : S(bx - 1, by) || S(bx + 1, by)) continue;
+        const vs = dl.d.variantes.filter(dl.v), v = vs.length ? vs[Math.floor(r() * vs.length)] : undefined;
+        if (dx) { const x = dx > 0 ? rx * 5 + 1 : rx * 5 + 3; if (Sa(rx, by - 1)) k.poner(dl.d, x, by * 5 - 1, v); if (Sa(rx, by + 1)) k.poner(dl.d, x, by * 5 + 5, v); }
+        else { const y = dy > 0 ? ry * 5 + 1 : ry * 5 + 3; if (Sa(bx - 1, ry)) k.poner(dl.d, bx * 5 - 1, y, v); if (Sa(bx + 1, ry)) k.poner(dl.d, bx * 5 + 5, y, v); }
+      }
+    }
+    k.capa = c0;
+  }
   // entrada (primer cuarto) y fondo (último)
   const c0 = orden[0], cN = orden[orden.length - 1];
   const centroDe = (c: [number, number, number, number]): [number, number] => [Math.floor((c[0] + c[2] / 2) * 5), Math.floor((c[1] + c[3] / 2) * 5)];
@@ -2323,6 +2354,35 @@ const CU_ANCLA_GORE = /^hor_|horca|empal|jaula|pila_cad|tortura|crucific|picas|c
 const CU_ESTRUCTURA = /muro|pared|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina/;
 const CU_FALSO = /cofre|arcon|baul/;
 const CAPA_RIEGO = new Set(['riego', 'vida', 'macabro']);
+/** Los guardianes de los cinco sellos (actos 1 a 5): donde pelean va el sello roto y el paso de Vesperio. */
+const MONSTRUOS_JEFE = new Set(['abadesa', 'rey_sin_sombra', 'madre_cienaga', 'rey_escarcha', 'senor_demonio']);
+const CAJAS = CAJAS_SPRITE as unknown as Record<string, [number, number, number, number]>;
+const DM_FIJO = /^(arb_macizo|sed_brasa|sed_sello_roto|ves_rastro|acto_hito)$|columna|pilar/;
+function desmontar(z: Zona, quitar: Set<ObjZ>, fijos: Set<ObjZ>, sacar: (o: ObjZ) => void, reubicar: (o: ObjZ, ok: (x: number, y: number) => boolean) => boolean) {
+  const peso = (o: ObjZ) => {
+    if (o.tag || fijos.has(o) || CU_ESTRUCTURA.test(o.id) || DM_FIJO.test(o.id)) return 9;
+    const c = o.capa ?? '';
+    if (c === 'relleno' || c === 'umbral' || c === 'garganta' || c === 'jefe' || c === 'horror' || c === 'escondido' || c === 'interactivo') return 9;
+    return c === 'escena' || c === 'matanza' || c === 'relato' ? 5 : c === 'vineta' ? 3 : c === 'macabro' ? 2 : 1;
+  };
+  type Caja = { o: ObjZ; k: [number, number, number, number]; x0: number; y0: number; x1: number; y1: number; a: number; p: number };
+  const caja = (c: Caja, cx: number, cy: number) => { const sx = (cx - cy) * 16, sy = (cx + cy) * 8; c.x0 = sx - c.k[2]; c.y0 = sy - c.k[3]; c.x1 = c.x0 + c.k[0]; c.y1 = c.y0 + c.k[1]; };
+  const L: Caja[] = [];
+  for (const o of z.objetos) { if (quitar.has(o)) continue; const k = CAJAS[o.id + '|' + o.v]; if (!k) continue; const c: Caja = { o, k, x0: 0, y0: 0, x1: 0, y1: 0, a: k[0] * k[1], p: peso(o) }; caja(c, o.cx, o.cy); L.push(c); }
+  const pisa = (a: Caja, b: Caja) => { const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); return ix <= 0 || iy <= 0 ? 0 : (ix * iy) / Math.min(a.a, b.a); };
+  const prueba: Caja = { o: L[0]?.o, k: [0, 0, 0, 0], x0: 0, y0: 0, x1: 0, y1: 0, a: 0, p: 0 };
+  for (let i = 0; i < L.length; i++) { const a = L[i]; if (quitar.has(a.o)) continue;
+    for (let j = 0; j < L.length; j++) { if (j === i) continue; const b = L[j]; if (quitar.has(b.o) || (a.p === 9 && b.p === 9) || pisa(a, b) < 0.55) continue;
+      const pierde = a.p !== b.p ? (a.p < b.p ? a : b) : a.a < b.a ? a : b;
+      if (pierde.p === 9) continue;
+      // lo que no bloquea primero se corre a un sitio cerca donde no pise a nadie (la densidad no baja); lo que bloquea sale (correrlo
+      // cerraba arena)
+      prueba.k = pierde.k; prueba.a = pierde.a;
+      const ok = (x: number, y: number) => { caja(prueba, x, y); return L.every((q) => q === pierde || quitar.has(q.o) || pisa(prueba, q) < 0.3); };
+      if ((!pierde.o.bloquea || pierde.o.capa === 'escena') && reubicar(pierde.o, ok)) caja(pierde, pierde.o.cx, pierde.o.cy); else if (pierde.o.capa === 'escena') continue; else sacar(pierde.o);  // (la escena se corre pero no se desarma)
+      if (pierde === a) break;
+    } }
+}
 function curarAdornos(z: Zona, def: DefZona) {
   if ((globalThis as any).__sinCurar) return;
   const { W, H, tw } = z, r = rng(z.semilla * 6007 + 1777), N = W * H;
@@ -2449,6 +2509,112 @@ function curarAdornos(z: Zona, def: DefZona) {
       anclas.push({ cx: p[0], cy: p[1], n: 0 }); hechas++;
     }
   }
+  // 3b. el relato de cada campamento (oleada 2, Rick: "gore con intención", "que cada claro cuente qué pasó"). Antes la matanza
+  // era una pieza de horror con dos charcos junto a 2 a 5 grupos y nada llevaba a ella. Ahora cada campamento tiene su
+  // escena, compuesta contra el fondo (del lado contrario a por donde llega el héroe) y con un rastro que la anuncia desde
+  // el frente: el único guarda una OFRENDA A LA SED (una brasa caída, `sed_brasa`, con cuerpos bebidos de rodillas
+  // alrededor: lo que Aun-Saar toca no sangra, queda seco); los campeones, una ÚLTIMA DEFENSA (barricada, los muertos del
+  // acto detrás, la sangre); los comunes, por turno, el CAMPAMENTO QUE COME (fogata, asador y lo arrastrado hasta ahí), los
+  // BEBIDOS (dos o tres cuerpos secos sin una gota) o solo el RASTRO. Y en la zona de un guardián de los actos 1 a 5, EL PASO
+  // DE VESPERIO: velas apagadas en fila, la partitura clavada y su atril en el camino a la sala, y el sello roto bajo el
+  // jefe. Capa 'relato': lo que bloquea va al borde del claro (7,5 a 11 del centro), los cuerpos se pisan, respeta cofres y entradas. `__sinRelatos` lo apaga.
+  if (def.tipo !== 'pueblo' && !def.casa && !(globalThis as any).__sinRelatos) {
+    const defDe = (id: string) => REGISTRO.find((q) => q.id === id);
+    const sup = def.tema === 'nieve' || def.tema === 'hielo' ? 'nieve' : def.tipo === 'mazmorra' ? 'piedra' : 'tierra';
+    const libreEnt = (x: number, y: number) => !Object.values(z.entradas).some(([ex, ey]) => Math.hypot(ex - x, ey - y) < 7) && quedan.every((c) => Math.hypot(c.cx - x, c.cy - y) >= 3) && grupos.every((g) => Math.hypot(g.cx - x, g.cy - y) >= 6.5); // (nada del relato en el medio de otro campamento)
+    const pon = (id: string, v: string | undefined, cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean, suelto = false): ObjZ | null => {
+      const dd = defDe(id); if (!dd) return null; const vv = v && dd.variantes.includes(v) ? v : dd.variantes[Math.floor(r() * dd.variantes.length)];
+      const [hw, hh] = huellaDe(dd, vv), bl = !!dd.bloquea && !dd.plano && !suelto;
+      enClaro = true; const p = lugar(cx, cy, r0, r1, hw, hh, !!dd.plano, (x, y) => libreEnt(x, y) && (!donde || donde(x, y))); enClaro = false; if (!p) return null;
+      // (los cuerpos y lo bajo del relato se pisan: no ocupan la arena. Solo cuenta lo que bloquea de verdad)
+      const o: ObjZ = { id, v: vv, cx: p[0], cy: p[1], hw, hh, bloquea: bl, capa: 'relato' }; z.objetos.push(o); if (bl) ocupar(o);
+      if (dd.plano || !bl) for (let y = y0De(o); y < y0De(o) + hh; y++) for (let x = x0De(o); x < x0De(o) + hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) bajoPlano[y * W + x] = 1;
+      return o;
+    };
+    const DIRS = ['e', 'se', 's', 'so', 'o', 'no', 'n', 'ne'];
+    /** Rastro plano de `a` hacia `b`: arrastre cerca de donde termina, huellas y gotas más lejos. */
+    const rastro = (ax: number, ay: number, bx: number, by: number) => {
+      const L = Math.hypot(bx - ax, by - ay); if (L < 5) return; const dir = DIRS[((Math.round(Math.atan2(by - ay, bx - ax) / (Math.PI / 4)) % 8) + 8) % 8];
+      for (let t = 2.5, k = 0; t < L - 2; t += 4.6, k++) {
+        const x = Math.round(ax + ((bx - ax) * t) / L), y = Math.round(ay + ((by - ay) * t) / L), falta = L - t;
+        const [id, v] = falta < 7 ? ['gore_rastro', `${sup}_${dir}`] : k % 2 ? ['gore_gotas', `${sup}_dispersas`] : ['gore_huellas', `${sup}_${dir}`];
+        const dd = defDe(id); if (!dd || !dd.variantes.includes(v)) continue;
+        let ok = true; for (let yy = y - 1; yy <= y + 1 && ok; yy++) for (let xx = x - 1; xx <= x + 1; xx++) if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1 || !piso(xx, yy) || z.bloq[yy * W + xx] === 1 || z.bloq[yy * W + xx] === 2 || bajoPlano[yy * W + xx]) { ok = false; break; }
+        if (!ok) continue;
+        z.objetos.push({ id, v, cx: x, cy: y, hw: 3, hh: 3, bloquea: false, capa: 'relato' });
+        for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) bajoPlano[yy * W + xx] = 1;
+      }
+    };
+    const MUERTO: Record<number, [string, string[]]> = { 1: ['par_cadaver', ['campesino', 'soldado', 'flechado']], 2: ['par_cadaver', ['soldado', 'esqueleto', 'flechado']], 3: ['sel2_cadaver', []], 4: ['nie2_cadaver', []], 5: ['for2_cadaver', []], 6: ['for2_cadaver', []], 7: ['for2_cadaver', []] };
+    const FOGATA: Record<number, string> = { 1: 'par_fogata_bandidos', 2: 'des2_fogata', 3: 'sel2_fogata_tribal', 4: 'nie2_hoguera', 5: 'camp_fogata', 6: 'camp_fogata', 7: 'camp_fogata' };
+    const muerto = (cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean) => { const [id, vs] = MUERTO[def.acto] ?? MUERTO[1]; return pon(id, vs.length ? vs[Math.floor(r() * vs.length)] : undefined, cx, cy, r0, r1, donde); };
+    // el castigo de cada tierra: un ancla y lo que se ve alrededor (piezas horneadas que no salían en ningún mapa)
+    const CASTIGO: Record<string, [string, string | undefined][]> = {
+      paramo: [['par_arbol_ahorcados', undefined], ['campo_empalado', 'ensangrentado'], ['campo_empalado', 'solo_estaca'], ['cem2_pala_clavada', 'pala']],
+      cementerio: [['cri_tumba_abierta', 'con_cadaver'], ['cem2_doliente', 'arrodillada'], ['cem2_pala_clavada', 'pala_farol']],
+      abadia: [['cri_tumba_abierta', 'losa_corrida'], ['cem2_doliente', 'monje'], ['cri_cuerpo_amortajado', 'mortaja']],
+      catacumbas: [['cri_mesa_embalsamar', 'sangrienta'], ['cri_cuerpo_amortajado', 'mortaja'], ['cat2_carretilla_huesos', 'llena']],
+      cripta: [['cri_mesa_embalsamar', 'con_cuerpo'], ['cri_cuerpo_amortajado', 'putrefacto'], ['cat_monton_huesos', 'de_calaveras']],
+      mina: [['min_vagoneta_volcada', 'sangre'], ['min_minero_muerto', 'aplastado'], ['min_minero_muerto', 'tendido'], ['min_pico_clavado', 'sangre']],
+      cueva: [['cue_costillar', 'con_craneo'], ['cat_monton_huesos', 'grande'], ['clo_nido_ratas', 'nido']],
+      desierto: [['nie2_osamenta', 'completa'], ['campo_empalado', 'envuelto'], ['cat_monton_huesos', 'de_calaveras']],
+      tumba: [['cri_tumba_abierta', 'escalones'], ['cri_cuerpo_amortajado', 'momia'], ['cat_monton_huesos', 'chico']],
+      templo: [['sel_poste_craneos', 'craneos'], ['cri_cuerpo_amortajado', 'momia'], ['cat_monton_huesos', 'de_calaveras']],
+      selva: [['sel_poste_craneos', 'cornamenta'], ['campo_empalado', 'ensangrentado'], ['cat_monton_huesos', 'de_calaveras']],
+      nieve: [['nie2_osamenta', 'costillar'], ['par_jaula_colgante', 'esqueleto'], ['campo_empalado', 'envuelto']],
+      hielo: [['par_jaula_colgante', 'preso'], ['nie2_osamenta', 'craneo'], ['cat_monton_huesos', 'chico']],
+      infierno: [['inf_cerca_pinchos', 'torcida'], ['campo_empalado', 'ensangrentado'], ['mue_doncella_hierro', 'abierta']],
+      santuario: [['for2_potro', 'rueda'], ['mue_doncella_hierro', 'oxidada'], ['mue_jaula_colgante', 'esqueleto']],
+      fortaleza: [['for2_potro', 'potro'], ['mue_potro', 'cadenas'], ['mue_jaula_colgante', 'esqueleto']],
+      abismo: [['mue_jaula_colgante', 'vacia'], ['hor_manos', 'muchas'], ['cat_monton_huesos', 'grande']],
+      ahogada: [['par_jaula_colgante', 'esqueleto'], ['cue_costillar', 'hundido'], ['cat_monton_huesos', 'chico']],
+      catedral_ahogada: [['cri_cadenas_pared', 'con_esqueleto'], ['cri_cuerpo_amortajado', 'putrefacto'], ['cat_monton_huesos', 'chico']],
+      // (en los actos 6 y 7 el dios tira directo: lo que dejó es la sed)
+      celestial: [['sed_brasa', 'fria'], ['sed_cuerpo_seco', 'de_rodillas'], ['sed_cuerpo_seco', 'sentado'], ['cel_corona_caida', undefined]],
+      celestial_interior: [['sed_brasa', 'fria'], ['sed_cuerpo_seco', 'tendido'], ['cel_trono_copa', undefined]],
+      celestial_islas: [['sed_brasa', 'fria'], ['sed_cuerpo_seco', 'de_rodillas'], ['sed_cuerpo_seco', 'boca_abajo']],
+    };
+    let turno = 0;
+    for (const s of grupos) {
+      // el fondo del campamento: del lado contrario a la entrada más cercana (de donde llega el héroe)
+      let fx = 0, fy = 1, bd = 1e9; for (const [ex, ey] of Object.values(z.entradas)) { const dd = Math.hypot(ex - s.cx, ey - s.cy); if (dd < bd && dd > 0.5) { bd = dd; fx = (ex - s.cx) / dd; fy = (ey - s.cy) / dd; } }
+      const fondo = (x: number, y: number) => ((x - s.cx) * fx + (y - s.cy) * fy) / (Math.hypot(x - s.cx, y - s.cy) || 1) < -0.2;
+      let ancla: ObjZ | null = null;
+      if (s.tipo === 'unico') {
+        ancla = pon('sed_brasa', 'viva', s.cx, s.cy, 8, 11, fondo) ?? pon('sed_brasa', 'viva', s.cx, s.cy, 8, 11.5);
+        if (ancla) { const A = ancla; for (let i = 0, n = 4 + Math.floor(r() * 2); i < n; i++) pon('sed_cuerpo_seco', i < 3 ? 'de_rodillas' : i === 3 ? 'sentado' : 'tendido', A.cx, A.cy, 3.6, 5.2); }
+      } else if (s.tipo === 'campeon') {
+        ancla = pon(def.tema === 'nieve' ? 'nie_barricada' : 'for2_barricada', undefined, s.cx, s.cy, 7.5, 10.5, (x, y) => !fondo(x, y)) ?? pon('for2_barricada', undefined, s.cx, s.cy, 7.5, 11);
+        if (ancla) { const A = ancla; for (let i = 0; i < 3; i++) muerto(A.cx - fx * 2.5, A.cy - fy * 2.5, 0.5, 3.2); pon('gore_charco', sup, A.cx - fx * 2, A.cy - fy * 2, 0, 2.5); }
+      } else {
+        // (castigo, fogata, castigo, bebidos: lo que dejaron los de este campamento, con las piezas de su tierra)
+        const k = [3, 0, 3, 1][turno++ % 4];
+        if (k === 3) {
+          const c = CASTIGO[def.tema] ?? CASTIGO.paramo, [ia, va] = c[0];
+          ancla = pon(ia, va, s.cx, s.cy, 9, 12.5, fondo) ?? pon(ia, va, s.cx, s.cy, 8.5, 13);
+          if (ancla) { const A = ancla; for (const [id, v] of c.slice(1)) pon(id, v, A.cx, A.cy, 2.2, 4.2, undefined, true); } // (lo de alrededor no tranca el paso: se pisa)
+          else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
+        } else if (k === 0) { ancla = pon(FOGATA[def.acto] ?? 'camp_fogata', undefined, s.cx, s.cy, 7.5, 10.5, fondo); if (ancla) { const A = ancla; pon('camp_asador', 'con_carne', A.cx, A.cy, 2.2, 3.4); muerto(A.cx, A.cy, 2.4, 4); } }
+        else if (k === 1) { ancla = pon('sed_cuerpo_seco', 'tendido', s.cx, s.cy, 6, 9.5, fondo); if (ancla) { const A = ancla; pon('sed_cuerpo_seco', 'boca_abajo', A.cx, A.cy, 2, 3.6); if (r() < 0.6) pon('sed_cuerpo_seco', 'sentado', A.cx, A.cy, 2, 4); } }
+        else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
+      }
+      // el rastro que lo anuncia: desde el frente (12 a 16 celdas hacia la entrada) hasta la escena. Los bebidos no sangran
+      if (ancla && !(ancla.id === 'sed_cuerpo_seco' || ancla.id === 'sed_brasa')) rastro(s.cx + fx * (12 + r() * 4), s.cy + fy * (12 + r() * 4), ancla.cx, ancla.cy);
+      if (ancla) anclas.push({ cx: ancla.cx, cy: ancla.cy, n: 0 });
+    }
+    // el secreto se anuncia: un rastro de sangre sale de cada cofre escondido hacia el centro del mapa (por donde se pasa).
+    // Quien lo ve de reojo y lo sigue, lo encuentra: antes el cofre estaba "en lo más lejos de todo" y nada llevaba a él
+    for (const c of z.objetos.filter((o) => o.capa === 'escondido')) { const dx = W / 2 - c.cx, dy = H / 2 - c.cy, L = Math.hypot(dx, dy) || 1, n = 14 + r() * 6; rastro(c.cx + (dx / L) * n, c.cy + (dy / L) * n, c.cx, c.cy); muerto(c.cx, c.cy, 1.5, 3); }
+    // el paso de Vesperio y el sello: donde pelea un guardián de los actos 1 a 5
+    if (jf && def.acto <= 5 && MONSTRUOS_JEFE.has(def.jefe ?? '')) {
+      const o = defDe('sed_sello_roto'); if (o) { const v = o.variantes[def.acto - 1] ?? o.variantes[0]; z.objetos.push({ id: 'sed_sello_roto', v, cx: jf.cx, cy: jf.cy, hw: 7, hh: 7, bloquea: false, capa: 'relato' }); }
+      let ex = jf.cx, ey = jf.cy + 1, bd = -1; for (const [x, y] of Object.values(z.entradas)) { const dd = Math.hypot(x - jf.cx, y - jf.cy); if (dd > bd) { bd = dd; ex = x; ey = y; } }
+      const ux = (ex - jf.cx) / (bd || 1), uy = (ey - jf.cy) / (bd || 1), hacia = (x: number, y: number) => ((x - jf.cx) * ux + (y - jf.cy) * uy) / (Math.hypot(x - jf.cx, y - jf.cy) || 1) > 0.55;
+      pon('ves_rastro', 'atril', jf.cx, jf.cy, 12, 15.5, hacia);
+      pon('ves_rastro', Math.abs(ux) > Math.abs(uy) ? 'hilera_y' : 'hilera', jf.cx, jf.cy, 13, 17, hacia); pon('ves_rastro', Math.abs(ux) > Math.abs(uy) ? 'hilera_y' : 'hilera', jf.cx, jf.cy, 16, 21, hacia);
+      pon('ves_rastro', 'partitura', jf.cx, jf.cy, 11.5, 14, hacia);
+    }
+  }
   const ritos: { cx: number; cy: number; n: number }[] = [];
   for (const o of z.objetos) if (!quitar.has(o) && !CU_VELA.test(o.id) && (CU_RITO.test(o.id) || o.tag === 'santuario')) ritos.push({ cx: o.cx, cy: o.cy, n: 0 });
 
@@ -2493,6 +2659,12 @@ function curarAdornos(z: Zona, def: DefZona) {
     for (let i = 0; i < g.length; i++) for (const q of esc) if (!grupo.has(q) && Math.abs(q.cx - g[i].cx) <= 3 && Math.abs(q.cy - g[i].cy) <= 3) { grupo.set(q, 0); g.push(q); }
     if (g.length < 4) for (const q of g) sacar(q);
   }
+  // 5b. nada montado (oleada 2, Rick: "que no quede todo montado"): dos adornos cuyos sprites se pisan en pantalla 55 % o
+  // más del más chico se leían como uno encima del otro (la mata detrás del árbol, el escombro sobre el escombro, el cofre
+  // tapado por la ruina). Se queda el que cuenta más (lo que tiene tag, la estructura, el relleno, el borde, la garganta, lo
+  // del jefe y el ancla de un relato no se tocan nunca; después escena, matanza y relato; viñeta; macabro; riego y vida) y,
+  // si cuentan igual, el más grande. Las cajas salen de `cajas_sprite.json` (t1013_cajas.mjs). `__montados` lo apaga
+  if (def.tipo !== 'pueblo' && !def.casa && !(globalThis as any).__montados) desmontar(z, quitar, fijos, sacar, (o, ok) => { const p = lugar(o.cx, o.cy, 2, 6, o.hw, o.hh, plano(o.id), ok); if (!p) return false; mudar(o, p[0], p[1]); return true; });
   // 6. se quita lo que sobra y se liberan sus celdas (solo baja: lo que bloqueaba pasa a ocupado o libre, nunca al revés)
   if (!quitar.size && !toca.length) return;
   const cubre = cubreDe();

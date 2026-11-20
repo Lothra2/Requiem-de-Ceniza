@@ -275,6 +275,41 @@ atrás, lo bajo adelante**: un risco del borde con piso detrás va bajo); la ori
 es de roca y hay dos viñetas como mucho. `__sinMacizos` vuelve a lo de antes. Piezas del relato horneadas y todavía sin
 poner en el mundo (`catalogo/horror.ts`): `sed_cuerpo_seco`, `sed_brasa`, `ves_rastro`, `sed_sello_roto`. Hornear una pieza
 suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && python3 juego/hornear/atlas_webp.py` (25 s).
+- **Relatos por campamento** (`curarAdornos` paso 3b, capa `relato`, `__sinRelatos`): el único guarda una ofrenda a la sed
+  (`sed_brasa` con cuerpos bebidos de rodillas), los campeones una última defensa (barricada, muertos del acto, charco),
+  los comunes por turno el campamento que come (fogata, asador, muerto), los bebidos o solo el muerto; un rastro de sangre
+  llega desde el frente. Cada cofre escondido tira un rastro hacia el centro del mapa con su muerto. En la zona de un
+  guardián de los actos 1 a 5: el sello roto bajo el jefe y el paso de Vesperio (atril, hileras de velas, partitura).
+  Los comunes van por turno castigo, fogata, castigo, bebidos. El **castigo** (`CASTIGO` por tema, a 9 a 12,5 del centro
+  del campamento, contra el fondo) usa piezas horneadas que no salían en ningún mapa: árbol de ahorcados y empalados en el
+  páramo, tumba abierta y doliente en cementerio y abadía, mesa de embalsamar y amortajados en catacumbas y cripta,
+  vagoneta con sangre y mineros muertos en la mina, poste de cráneos en selva y templo, osamenta y jaula en la nieve,
+  cerca de púas y doncella en el infierno, potro y jaula en santuario y fortaleza, y en los actos 6 y 7 la brasa fría con
+  bebidos (canon: ahí tira el dios directo). Lo de alrededor del ancla no bloquea (se pisa) y nada del relato cae a menos
+  de 6,5 celdas del centro de otro campamento (le quitaba el despeje). Cuesta 1 a 2 puntos de arena. Piezas sin usar: `_m_nousadas.mjs` (no se sube).
+- **a3_selva** salía oscura: la zona lleva su propia `oscuridad: 0.24` (el tema selva sigue en 0,5 para el Manglar Negro).
+  Brillo medio del mundo en las vistas de t1021 de 27 a 38 a unos 35 a 40 (el páramo da 30). El despeje ya no era el
+  problema: arena 59 a 69 % y 6 a 8 campamentos de 9 a 11 en arena.
+- **Lugares en el mapa** (`dibujarMapa` en `ui/juego_ui.ts`): cada claro visto lleva su rombo de hueso y en el mapa grande
+  su nombre (el hito, rombo de brasa). Solo lo explorado. Los signos de salidas, piedras, cofres y altares se apartan
+  antes que cualquier nombre, y una etiqueta que choca prueba arriba, abajo y a los lados antes de no ponerse (antes la
+  piedra de viaje y los cofres caían encima de los nombres). Se mira con `MAPA=1 t1021_vistas.cjs`.
+- **Nada montado** (`desmontar`, paso 5b de `curarAdornos`, `__montados` lo apaga): dos adornos cuyas cajas de sprite se
+  pisan 55 % del más chico: queda el que pesa más (tag, estructura, relleno, macizo, garganta, jefe, horror, escondido,
+  interactivo, columnas y las anclas del relato nunca salen; después escena, matanza y relato, viñeta, macabro, riego). Lo
+  que no bloquea primero se corre a 2 a 6 celdas donde no pise a nadie; lo que bloquea sale (correrlo cerraba arena); la
+  escena se corre pero no se desarma. Pueblos y casas no. Las cajas son `juego/src/mundo/cajas_sprite.json`, sacadas del
+  manifiesto con `node juego/herramientas/t1013_cajas.mjs`: **correrlo después de hornear piezas nuevas** (sin caja una
+  pieza no se desmonta). t1000 (3 semillas), exterior antes de la etapa B y ahora: montados 54 a 15 %, adornos por
+  pantalla 55 a 48, arena 62 a 59 (el relato bloquea algo), piso legible 30 a 31; bajo tierra montados 35 a 6 %, adornos
+  por pantalla 30 a 25 (cueva 32 a 29).
+- **Puertas y cuellos** (`mazmorra`, solo las de obra; `__pasillosLargos` vuelve a la siembra de antes, `__sinPuertas` quita
+  las jambas): tres de cada cuatro salas nacen junto a otra (a 1 o 2 baldosas, centros alineados), y entre dos salas a 2
+  baldosas o menos el paso es de una baldosa de ancho. Donde un cuello de una baldosa entra a una sala van dos braseros o
+  antorchas del tema a los lados, contra el muro (capa `umbral`, no se quitan ni se desmontan). Baldosas de pasillo por
+  enlace (93 mazmorras x 3 semillas): mediana 3,3 a 2 (las de doble ancho cuentan 2), p90 8,7 a 3,75. t1000 obra: arena
+  57 a 60, campamentos en arena 77 a 83, adornos por pantalla 25 a 33. Medida: `juego/herramientas/_m_pasillo.mjs` no se
+  sube (los `_m_` están en .gitignore): contar `suelo && !sala` por enlace en `mazmorra`.
 
 ## Armas vivas, cofres, poderes y siluetas
 

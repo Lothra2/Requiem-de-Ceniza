@@ -1564,12 +1564,12 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   const cx = grande ? W / 2 : mt ? mt.cx : W - 90, cy = grande ? (H - BAR_H) / 2 + 10 : mt ? mt.cy : 80;
   const ox = grande ? z.W / 2 : h.x, oy = grande ? z.H / 2 : h.y;
   const p = (x: number, y: number): [number, number] => [cx + (x - ox - (y - oy)) * esc * 0.5, cy + (x - ox + (y - oy)) * esc * 0.25];
-  // etiquetas que no se encimen: si chocan con otra se corren hacia abajo, y si no hay lugar no se ponen
+  // etiquetas que no se encimen ni tapen un signo: si chocan se corren arriba o abajo, y si no hay lugar no se ponen
   const puestas: [number, number, number, number][] = [];
   const etiqueta = (t: string, x: number, y: number, color: string, tam = 10) => {
     const w = ancho(t, tam) + 6;
-    for (let k = 0; k < 4; k++) { const yy = y + k * (tam + 3), r: [number, number, number, number] = [x - w / 2, yy - tam, w, tam + 3];
-      if (!puestas.some((q) => r[0] < q[0] + q[2] && r[0] + r[2] > q[0] && r[1] < q[1] + q[3] && r[1] + r[3] > q[1])) { puestas.push(r); texto(t, x, yy, { alin: 'center', tam, color }); return; } }
+    for (const [k, l] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], [-2, 0], [2, 0], [3, 0]]) { const yy = y + k * (tam + 3), xx = x + l * (w / 2 + 12), r: [number, number, number, number] = [xx - w / 2, yy - tam, w, tam + 3];
+      if (!puestas.some((q) => r[0] < q[0] + q[2] && r[0] + r[2] > q[0] && r[1] < q[1] + q[3] && r[1] + r[3] > q[1])) { puestas.push(r); texto(t, xx, yy, { alin: 'center', tam, color }); return; } }
   };
   ctx.save();
   if (mt) { ctx.beginPath(); ctx.arc(mt.cx, mt.cy, mt.r, 0, Math.PI * 2); ctx.clip(); ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(mt.cx - mt.r, mt.cy - mt.r, mt.r * 2, mt.r * 2); }
@@ -1585,6 +1585,9 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   signosPuestos = [];
   const k = grande ? 2 : 1, visto = (cx: number, cy: number) => !!z.explorado[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)];
   const usados = new Set<string>();
+  // (oleada 2: los signos se apartan primero, así ningún nombre cae encima de un cofre, una piedra o una salida)
+  if (grande) for (const [x0, y0] of [...z.salidas.filter((s) => visto(s.cx, s.cy)).map((s) => [s.cx, s.cy]), ...z.marcas.filter((m) => m.tipo === 'viaje' && visto(m.cx, m.cy)).map((m) => [m.cx, m.cy]),
+    ...z.objetos.filter((o) => (o.tag === 'cofre' || o.tag === 'santuario') && visto(o.cx, o.cy)).map((o) => [o.cx + 0.5, o.cy + 0.5])]) { const [a, b] = p(x0, y0); puestas.push([a - 5 * k, b - 5 * k, 10 * k, 10 * k]); }
   // Las salidas van por su rumbo (bajar, subir, superficie, guarida, otra región, campamento, casa) y no por el tipo del
   // destino: antes, en una mazmorra, la escalera de subir y la de bajar eran la misma boca morada. Las que bajan o suben
   // dentro de una mazmorra de varios niveles llevan el nivel al que llevan. Solo lo ya visto: nada guía ni revela (Rick
@@ -1601,6 +1604,16 @@ export function dibujarMapa(j: Juego, grande: boolean) {
   }
   for (const m of z.marcas) if (m.tipo === 'viaje' && visto(m.cx, m.cy)) { const [a, b] = p(m.cx, m.cy); signoMapa('viaje', a, b, k); usados.add('viaje'); if (grande) etiqueta(T('Piedra de viaje', 'Travel stone'), a, b - 7 * k - 2, '#90c0ff'); }
   for (const o of z.objetos) { if (o.tag !== 'cofre' && o.tag !== 'santuario') continue; if (!visto(o.cx, o.cy)) continue; const [a, b] = p(o.cx + 0.5, o.cy + 0.5); if (!grande && (Math.abs(a - cx) > 84 || Math.abs(b - cy) > 76)) continue; const t = o.tag === 'cofre' ? 'cofre' : 'altar'; signoMapa(t, a, b, k); usados.add(t); }
+  // Los lugares con nombre (oleada 2 de los mundos): cada claro ya pisado o visto lleva su rombo de hueso y, en el mapa
+  // grande, su nombre; el hito del acto, un rombo de brasa. Solo lo explorado: nada anuncia lo que falta por encontrar.
+  for (const l of z.lugares ?? []) {
+    if (l.papel === 'garganta' || !visto(l.cx, l.cy)) continue;
+    const [a, b] = p(l.cx, l.cy), X = Math.round(a), Y = Math.round(b), q = l.papel === 'hito' ? 3 * k : 2 * k;
+    if (!grande && (Math.abs(a - cx) > 84 || Math.abs(b - cy) > 76)) continue;
+    for (let i = -q - 1; i <= q + 1; i++) { ctx.fillStyle = '#000'; ctx.fillRect(X - (q + 1 - Math.abs(i)), Y + i, (q + 1 - Math.abs(i)) * 2 + 1, 1); }
+    for (let i = -q; i <= q; i++) { ctx.fillStyle = l.papel === 'hito' ? '#e08840' : '#c8b890'; ctx.fillRect(X - (q - Math.abs(i)), Y + i, (q - Math.abs(i)) * 2 + 1, 1); }
+    if (grande && l.nombre) etiqueta(TT(l.nombre), a, b - q - 5, '#d8c8a0', 10);
+  }
   // tu portal al campamento (o, en el campamento, el de vuelta): late para que se encuentre de un vistazo
   if (j.portal && ((j as any).portalZona === z.id || z.tipo === 'pueblo')) {
     const [qx, qy] = z.tipo === 'pueblo' && z.entradas.portal ? [z.entradas.portal[0] + 0.5, z.entradas.portal[1] - 1] : [j.portal.x, j.portal.y], [a, b] = p(qx, qy);

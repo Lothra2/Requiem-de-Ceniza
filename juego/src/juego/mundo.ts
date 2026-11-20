@@ -2431,7 +2431,8 @@ function actualizarMonstruo2(j: Juego, m: Monstruo, dt: number) {
     m.fase = 1; m.vel *= 1.15; m.cd = 0; (m as any).manCd = 0.6; efecto(j, 'grito_guerra', m.x, m.y, 0, 1.6); j.sacudida = Math.max(j.sacudida, 0.5); sonar(j, 'rugido_jefe', m.x, m.y);
     msg(j, [`¡${m.nombre[0]} se enfurece!`, `${m.nombre[1] || m.nombre[0]} grows enraged!`], '#ff6040');
   }
-  if (m.objetivo && !m.dueno && m.estado === 'perseguir' && intentarManiobra(j, m, m.objetivo, dt)) return;
+  // (las maniobras, embestidas y saltos, son del que tiene turno en el frente: el que ronda no se mete así)
+  if (m.objetivo && !m.dueno && m.estado === 'perseguir' && (m.objetivo !== h || m.calidad >= 1 || enFrente(j, m, dist(m.x, m.y, h.x, h.y))) && intentarManiobra(j, m, m.objetivo, dt)) return;
   if (m.objetivo) pelear(j, m, m.objetivo, dt, lento);
 }
 
@@ -2537,11 +2538,15 @@ function enFrente(j: Juego, m: Monstruo, d: number): boolean {
     }
     cand.sort((a, b) => a.s - b.s || a.m.id - b.m.id);
     const ids = new Set<number>();
-    let cupo = Math.max(1, topeFrente(j) - elite), camps = 0;
+    let cupo = Math.max(1, topeFrente(j) - elite), camps = 0, brutos = 0;
     for (let i = 0; i < cand.length && cupo > 0; i++) {
       const o = cand[i].m;
       // (los pesados, brutos de golpe largo, también valen por dos: uno de ellos y uno o dos livianos a la vez)
-      if (o.calidad >= 1) { if (camps >= 2) continue; camps++; cupo -= 2; } else cupo -= o.def.ia === 'bruto' ? 2 : 1;
+      // (y de los brutos comunes, uno solo a la vez: con los campamentos salían de a seis carceleros o gigantes, y dos o tres
+      //  pegando juntos con su golpe en área era lo que mataba a las clases de tiro en las Llanuras y el Trono Helado)
+      if (o.calidad >= 1) { if (camps >= (o.def.ia === 'bruto' ? 1 : 2)) continue; camps++; cupo -= 2; }
+      else if (o.def.ia === 'bruto') { if (brutos >= 1) continue; brutos++; cupo -= 2; }
+      else cupo--;
       ids.add(o.id); if (antes && !antes.has(o.id)) o.cd = Math.max(o.cd, 0.15 + R() * 0.45);
     }
     f = q.frente = { t: j.t, ids };

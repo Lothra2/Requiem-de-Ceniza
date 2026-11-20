@@ -140,8 +140,9 @@ function limpiar(d: any, zid: string, entrada: string, tope: number, tMax: numbe
     out.t = t;
     if (h.muerto && DIAG) console.log('MUERTE', d.clase, zid, 't', t.toFixed(0), j.monstruos.filter((m: any) => !m.muerto && !m.dueno && m.estado === 'perseguir' && Math.hypot(m.x - h.x, m.y - h.y) < 9).map((m: any) => m.def.id + (m.calidad ? '*' + m.calidad + '[' + m.mods.join(',') + ']' : '') + '@' + Math.hypot(m.x - h.x, m.y - h.y).toFixed(1)).join(' '));
     if (h.muerto) { out.muertes++; if (tr) tr.muertes++; h.muerto = false; h.vida = h.vidaMax; h.acc = 'quieto'; h.camino = null; tPocion = t;
-      // como en el juego: vuelve a la entrada, lo que lo mató se calma y se cura; el jugador no vuelve de cabeza al mismo élite
-      for (const m of j.monstruos) if (!m.muerto && !m.dueno && (m.estado === 'perseguir' || Math.hypot(m.x - h.x, m.y - h.y) < 12)) { m.estado = 'dormido'; m.objetivo = null; m.vida = m.vidaMax; m.camino = null; m.x = m.ox; m.y = m.oy; if (m.calidad >= 1 || m.lider) { vetados.add(m); m.muerto = true; m.tMuerto = 999; } }
+      // como en el juego: vuelve a la entrada. El jugador no vuelve de cabeza a lo que lo acaba de matar: ese campamento se deja
+      // (si no, el muñeco entra en un ciclo de morir contra el mismo grupo y una sola corrida decide toda la tabla)
+      for (const m of j.monstruos) if (!m.muerto && !m.dueno && (m.estado === 'perseguir' || Math.hypot(m.x - h.x, m.y - h.y) < 12)) { m.estado = 'dormido'; m.objetivo = null; m.vida = m.vidaMax; m.camino = null; m.x = m.ox; m.y = m.oy; { vetados.add(m); m.muerto = true; m.tMuerto = 999; } }
       h.x = x0; h.y = y0; }
     const umbral = descuidado ? 0.3 : 0.45;
     if (h.vida < h.vidaMax * umbral && t - tPocion > 2.5) { tPocion = t; h.vida = Math.min(h.vidaMax, h.vida + h.vidaMax * 0.45); out.pociones++; if (tr) tr.pociones++; }

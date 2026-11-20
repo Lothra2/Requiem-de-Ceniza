@@ -16,6 +16,7 @@ import { E } from '../nucleo/lienzo';
 import { nochePfx } from './pfx';
 import { HABILIDADES } from '../datos/clases';
 import { poderesVivos } from './poderes_vivos';
+import { formaDe, formasVivas, bocaForma, type Forma as FormaDruida } from './formas';
 
 type Forma = 'arco' | 'estocada' | 'garra' | 'mordida' | 'puno' | 'escudo';
 export interface EstTajo { forma: Forma; cuerpo: string; medio: string; filo: string; k: number; ancho: number; dur: number; extra?: 'barrido' | 'runas' | 'rasgar' | 'rayo' | 'fuego' | 'piedra' | 'eco' | 'doble' }
@@ -41,7 +42,7 @@ export const TAJO: Record<string, EstTajo> = {
   estocada: T('estocada', '#2a2418', '#dccca4', '#ffffff', 2.5, 9, 0.26),
   furia_lanza: T('estocada', '#3a1a08', '#ffb060', '#fff4d8', 2.5, 9, 0.24, 'doble'),
   // monje: puños
-  puno_rayo: T('puno', '#1a2a74', '#8ab0ff', '#ffffff', 1, 6, 0.2, 'rayo'),
+  puno_rayo: T('puno', '#1a2a74', '#5a86f0', '#e8f0ff', 1, 6, 0.2, 'rayo'),
   rafaga_golpes: T('puno', '#3a2a1a', '#e8d8b0', '#ffffff', 1, 5, 0.16, 'doble'),
   codo_piedra: T('puno', '#3a3024', '#c8b48e', '#fff4e0', 1.1, 7, 0.22, 'piedra'),
   palma_dragon: T('puno', '#6a1606', '#ff7a20', '#fff0b0', 1.2, 8, 0.24, 'fuego'),
@@ -53,6 +54,11 @@ export const TAJO: Record<string, EstTajo> = {
   zarpazo_oso: T('garra', '#2a1a0a', '#c89a5a', '#fff0d0', 1.6, 3, 0.26),
   frenesi_luna: T('garra', '#18264a', '#b8d0ff', '#ffffff', 1.35, 2, 0.2, 'doble'),
 };
+/** El druida transformado no pega con el arma: el lobo muerde y el oso desgarra (también sin poder, y los golpes sin estilo propio). */
+const TAJO_FORMA: Record<FormaDruida, EstTajo> = { lobo: T('mordida', '#2a0806', '#d8ccb0', '#ffffff', 1, 4, 0.2), oso: T('garra', '#24160a', '#b08a5a', '#fff0d0', 1.5, 3, 0.24) };
+const formaJ = (j?: Juego | null) => (j && formasVivas() ? formaDe(j) : null);
+/** El estilo del golpe del héroe con este poder, contando la forma del druida. */
+export function estiloTajoDe(id: string, j?: Juego | null): EstTajo | null { const f = formaJ(j); if (f && (id === 'ataque' || !TAJO[id])) { const hb = HABS.get(id); if (id === 'ataque' || hb?.tipo === 'golpe') return TAJO_FORMA[f]; } return TAJO[id] ?? null; }
 const HABS = new Map(HABILIDADES.map((h) => [h.id, h]));
 export const tajosVivos = () => poderesVivos() && !(window as any).__sinTajos;
 /** El estilo del tajo de un poder (o del golpe con el arma), si es cuerpo a cuerpo. */
@@ -99,20 +105,20 @@ function mediaLuna(est: EstTajo, pts: { cx: number; cy: number; an: number; r: n
 }
 
 /** Si el héroe pega cuerpo a cuerpo con estilo propio (entonces no va la estela fina de siempre). */
-export function tajoAplica(j: Juego): boolean { if (!tajosVivos()) return false; const h = j.heroe, id = h.habActual, hb = HABS.get(id); if (h.c.distancia && (id === 'ataque' || !hb)) return false;
+export function tajoAplica(j: Juego): boolean { if (!tajosVivos()) return false; const h = j.heroe, id = h.habActual, hb = HABS.get(id); if (formaJ(j)) return true; if (h.c.distancia && (id === 'ataque' || !hb)) return false;
   // (el golpe de puño del monje sin poder sigue con sus líneas de velocidad de siempre)
   if (id === 'ataque' && h.d.clase === 'monje') return false; return !!(TAJO[id] ?? (hb && hb.tipo === 'golpe')) || ((h as any).torbellino > 0); }
 /** El golpe cuerpo a cuerpo del héroe con un poder (o con el arma). Devuelve false si no le toca (sigue la estela de siempre). */
 export function tajoHeroe(ctx: CanvasRenderingContext2D, j: Juego, e: any, q: Cuadro, px: number, py: number, esc: number, tiempo: number): boolean {
   if (!tajosVivos()) return false;
-  const h = j.heroe, id = h.habActual, hb = HABS.get(id);
-  if (h.c.distancia && (id === 'ataque' || !hb)) return false;
-  const est = TAJO[id] ?? (hb && (hb.tipo === 'golpe') ? T('arco', '#2c2e38', hb.color, '#ffffff', 1.35, 10) : null); if (!est) return false;
+  const h = j.heroe, id = h.habActual, hb = HABS.get(id), fm = formaJ(j);
+  if (h.c.distancia && !fm && (id === 'ataque' || !hb)) return false;
+  const est = (fm ? estiloTajoDe(id, j) : TAJO[id]) ?? (hb && (hb.tipo === 'golpe') ? T('arco', '#2c2e38', hb.color, '#ffffff', 1.35, 10) : null); if (!est) return false;
   let st = estados.get(e); if (!st) { st = { s: [], ult: '', atq: -1, hab: id }; estados.set(e, st); }
   const pegando = e.acc === 'atacar';
   if (pegando && e.t < 0.05 && st.atq !== Math.floor(tiempo * 4)) { st.s.length = 0; st.atq = Math.floor(tiempo * 4); st.hab = id; }
   if (pegando && st.hab !== id) { st.s.length = 0; st.hab = id; }
-  const e2 = TAJO[st.hab] ?? est;
+  const e2 = (fm ? estiloTajoDe(st.hab, j) : TAJO[st.hab]) ?? est;
   if (!pegando && (!st.s.length || tiempo - st.s[st.s.length - 1][4] > e2.dur)) { st.s.length = 0; return st.hab !== 'ataque' || !!TAJO.ataque; }
   const hj = q.hoja; let fx: number, fy: number;
   [fx, fy] = frente(e.dir);
@@ -128,8 +134,11 @@ export function tajoHeroe(ctx: CanvasRenderingContext2D, j: Juego, e: any, q: Cu
     else arcoBarrido(ctx, e2, s, px, py, tiempo, Math.round(q.ay * esc * 0.5));
   } else if (e2.forma === 'puno') puno(ctx, e2, e, hj ?? null, px, py, fx, fy, prog, tiempo, esc);
   else if (e2.forma === 'escudo') cunaEscudo(ctx, e2, px, py, fx, fy, prog);
-  else if (e2.forma === 'garra' || e2.forma === 'mordida') garras(ctx, e2, px, py, fx, fy, prog, e.dir, esc);
-  capas.pintar(ctx, (c) => c === e2.medio, kdia());
+  else if (e2.forma === 'garra' || e2.forma === 'mordida') garras(ctx, e2, px, py, fx, fy, prog, e.dir, esc, fm);
+  // (quinta pasada: los puños pintan el color del golpe tapando, y solo el alma encendida se suma, con tope: el Puño de rayo
+  // lavaba a blanco al héroe y al blanco pegados, 63 y 68 % de puntos casi blancos de noche)
+  if (e2.forma === 'puno' && !(window as any).__blancoViejo) capas.pintar(ctx, (c) => c === e2.filo, kdia() * 0.7);
+  else capas.pintar(ctx, (c) => c === e2.medio, kdia());
   ctx.restore();
   return true;
 }
@@ -193,10 +202,11 @@ function puno(ctx: CanvasRenderingContext2D, est: EstTajo, e: any, hj: number[] 
   // rayas de velocidad: siete líneas paralelas detrás del puño, largas al salir y que se recogen
   const largo = (14 + 22 * est.k) * (1 - Math.max(0, u - 0.35) * 1.3);
   if (largo > 2) for (let l = 0; l < 7; l++) { const off = (l - 3) * (2 + est.ancho * 0.25), L = largo * (1 - Math.abs(l - 3) * 0.16) * (0.75 + 0.25 * ((l * 7) % 3)), x0 = hx + nx * off - fx * 3, y0 = hy + ny * off * 0.8 - fy * 3;
-    for (let q = 0; q < L; q += paso) { const f = q / L, x = Math.round(x0 - fx * q), y = Math.round(y0 - fy * q * 0.86); capas.add(est.cuerpo, a * 0.8 * (1 - f), x, y + 1, paso, paso); capas.add(Math.abs(l - 3) < 2 && f < 0.4 ? est.filo : est.medio, a * (1 - f) * 0.95, x, y, paso, paso); } }
+    for (let q = 0; q < L; q += paso) { const f = q / L, x = Math.round(x0 - fx * q), y = Math.round(y0 - fy * q * 0.86); capas.add(est.cuerpo, a * 0.8 * (1 - f), x, y + 1, paso, paso); capas.add(l === 3 && f < 0.3 ? est.filo : est.medio, a * (1 - f) * 0.95, x, y, paso, paso); } }
   // el puño encendido: una bola de su color con el filo blanco, grande al pegar
   const rb = Math.round((2 + 3 * est.k) * (u < 0.5 ? sale : a));
-  for (let yy = -rb - 1; yy <= rb + 1; yy++) for (let xx = -rb - 1; xx <= rb + 1; xx++) { const d = Math.hypot(xx, yy); if (d > rb + 1) continue; capas.add(d > rb ? est.cuerpo : d > rb * 0.55 ? est.medio : est.filo, a, Math.round(hx + xx), Math.round(hy + yy)); }
+  const nucleo = (window as any).__blancoViejo ? 0.55 : 0.3;
+  for (let yy = -rb - 1; yy <= rb + 1; yy++) for (let xx = -rb - 1; xx <= rb + 1; xx++) { const d = Math.hypot(xx, yy); if (d > rb + 1) continue; capas.add(d > rb ? est.cuerpo : d > rb * nucleo ? est.medio : est.filo, a, Math.round(hx + xx), Math.round(hy + yy)); }
   // el aro de choque en el puño (el Puño del eco tira tres, uno detrás de otro)
   const anillos = est.extra === 'eco' ? 3 : 1;
   for (let k = 0; k < anillos; k++) { const v = u * 1.7 - 0.35 - k * 0.3; if (v <= 0 || v > 1) continue; const rr = (5 + v * 15) * est.k, aa = (1 - v) * Math.max(a, 0.6), g = Math.max(1, Math.round(3 * (1 - v)));
@@ -204,7 +214,7 @@ function puno(ctx: CanvasRenderingContext2D, est: EstTajo, e: any, hj: number[] 
       const x = Math.round(hx + fx * (v * 12 + ox) + nx * oy), y = Math.round(hy + fy * (v * 12 + ox) * 0.86 + ny * oy * 0.86); capas.add(est.cuerpo, aa * 0.8, x, y + 1, g, g); capas.add(i % 3 ? est.medio : est.filo, aa, x, y, g, Math.max(1, g - 1)); } }
   // lo del elemento en el puño
   const r = (k: number) => { const s = Math.sin((Math.floor(tiempo * 24) + k) * 12.9898) * 43758.5453; return s - Math.floor(s); };
-  if (est.extra === 'rayo') for (let b = 0; b < 3; b++) { let x = hx, y = hy; for (let i = 0; i < 12; i++) { x += (r(i + b * 31) - 0.5) * 7 + fx * 2.4; y += (r(i + 20 + b * 31) - 0.5) * 7 + fy * 1.5; capas.add(i % 3 ? est.medio : est.filo, a, Math.round(x), Math.round(y)); capas.add(est.cuerpo, a * 0.6, Math.round(x), Math.round(y) + 1); } }
+  if (est.extra === 'rayo') for (let b = 0; b < 3; b++) { let x = hx, y = hy; for (let i = 0; i < 12; i++) { x += (r(i + b * 31) - 0.5) * 7 + fx * 2.4; y += (r(i + 20 + b * 31) - 0.5) * 7 + fy * 1.5; capas.add(i % 5 ? est.medio : est.filo, a, Math.round(x), Math.round(y)); capas.add(est.cuerpo, a * 0.6, Math.round(x), Math.round(y) + 1); } }
   if (est.extra === 'fuego') for (let i = 0; i < 34; i++) { const an = Math.atan2(fy, fx) + (r(i) - 0.5) * 1.3, d = r(i + 40) * 16 * sale, x = Math.round(hx + Math.cos(an) * d), y = Math.round(hy + Math.sin(an) * d * 0.8 - r(i + 70) * 7 * u); capas.add(d < 5 ? est.filo : d < 10 ? est.medio : '#c03008', a, x, y, 2, 1); }
   if (est.extra === 'piedra') for (let i = 0; i < 14; i++) { const an = r(i) * 6.283, d = 4 + r(i + 30) * 12 * u; capas.add(i % 2 ? '#8a7a62' : '#5a4e40', a, Math.round(hx + Math.cos(an) * d), Math.round(hy + Math.sin(an) * d * 0.6), 2, 2); capas.add('#2a2018', a * 0.7, Math.round(hx + Math.cos(an) * d), Math.round(hy + Math.sin(an) * d * 0.6) + 2, 2, 1); }
 }
@@ -218,9 +228,10 @@ function cunaEscudo(ctx: CanvasRenderingContext2D, est: EstTajo, px: number, py:
     for (let q = -w; q <= w; q += 1) { const back = Math.abs(q) * 0.6, x = Math.round(cx + fx * (d - back) + nx * q), y = Math.round(cy + fy * (d - back) * 0.86 + ny * q * 0.86); capas.add(est.cuerpo, a * 0.85, x, y + 1, g, g); capas.add(Math.abs(q) < 2 ? est.filo : est.medio, a, x, y, g, Math.max(1, g - 1)); } }
 }
 
-function garras(ctx: CanvasRenderingContext2D, est: EstTajo, px: number, py: number, fx: number, fy: number, prog: number, dir: string, esc: number) {
-  // las bestias no tienen hoja: el barrido sale del pecho, del lado de la zarpa al otro (o las fauces que se cierran)
-  if (prog < 0.2) return; const u = Math.min(1, (prog - 0.2) / 0.4), fin = prog > 0.6 ? Math.max(0, 1 - (prog - 0.6) / 0.4) : 1, z = 26 * esc, cx = px + fx * 10, cy = py - z + fy * 5;
+function garras(ctx: CanvasRenderingContext2D, est: EstTajo, px: number, py: number, fx: number, fy: number, prog: number, dir: string, esc: number, fm?: FormaDruida | null) {
+  // las bestias no tienen hoja: el barrido sale del pecho, del lado de la zarpa al otro (o las fauces que se cierran). El
+  // druida transformado: de la boca del lobo o de la zarpa del oso, delante y a su altura
+  if (prog < 0.2) return; const bo = fm ? bocaForma[fm] : null, u = Math.min(1, (prog - 0.2) / 0.4), fin = prog > 0.6 ? Math.max(0, 1 - (prog - 0.6) / 0.4) : 1, z = (bo ? bo.alto : 26) * esc, cx = px + fx * (bo ? bo.frente : 10), cy = py - z + fy * (bo ? bo.frente * 0.5 : 5);
   const base = Math.atan2(fy, fx);
   if (est.forma === 'mordida') {
     // dos fauces: una baja y otra sube hasta cerrarse delante de la boca, con colmillos

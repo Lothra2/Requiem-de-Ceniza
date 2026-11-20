@@ -35,6 +35,7 @@ import { pisadaHeroe } from './ambiente';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
 import { seguirPoderes, itemsPoderes, dibujarArcos, dibujarCombustion, poderesVivos, sinHorneado } from './poderes_vivos';
 import { seguirPresencias, itemsPresencias, presenciasVivas, alfaInvocado, aroInvocado, rimHeroe, tieneEstilo } from './presencias';
+import { vistaForma, cuadrosForma, accForma, zancadaForma, ESC_FORMA, type Forma } from './formas';
 import { tajoHeroe, torbellinoAro, tajoAplica } from './tajos';
 /** El tajo del héroe de este cuadro: se pinta delante de los que están pegados a él (los tapaban). */
 let tajoPend: [any, Cuadro, number, number, number, number] | null = null;
@@ -94,6 +95,7 @@ function zancadaDe(e: Ent, acc: string): number {
   const base = acc === 'correr' ? ZANCADA.correr : ZANCADA.caminar;
   const za = manifiesto().za as Record<string, number> | undefined;
   // el héroe: la zancada de su clase (cada estilo pisa distinto) por su alto
+  if (e.tipo === 'heroe' && formaVista) return zancadaForma(formaVista, acc);
   if (e.tipo === 'heroe') { const cl = (e as any).d?.clase; return (zancadaClase(cl, acc === 'correr' ? 'correr' : 'caminar') ?? base) * (za?.[cl] ?? ALTO_CLASE[cl] ?? 1); }
   const m = e as Monstruo;
   // Thor trota a la cintura del héroe: su zancada es más corta que la de un humanoide de su alto
@@ -166,6 +168,12 @@ export function framesMonstruo(sprite: string, acc: string, dir: string): Cuadro
 
 
 let camAlzada = 0, camJefe = 0, vivasMonstruo = 0;
+/** La forma que se está pintando en el héroe en este cuadro (la lee zancadaDe). */
+let formaVista: Forma | null = null;
+/** (la columna que nace en el héroe se pinta más tenue: ver colDetras) */
+let alfaEf = 1;
+/** De día lo sumado se nota menos: la luz del cambio de forma baja a la mitad a pleno sol. */
+const nocheLuz = () => 0.5 + 0.5 * nochePfx();
 /** La puerta abierta de la catedral: un cono de luz roja que sale sobre el piso hacia +y y brasas y ceniza que salen y suben. */
 function puertaCatedral(j: Juego, dt: number, t: number) {
   for (const sa of j.zona.salidas) {
@@ -478,7 +486,9 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     } else if (partido) {
       const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); pinta(); ctx.restore(); };
       items.push({ prof: e.x + e.y - 0.03, t: 'efectos', draw: mitad(true) }, { prof: e.x + e.y + 0.03, t: 'efectos', draw: mitad(false) });
-    } else items.push({ prof: e.x + e.y + (colDetras(j, e) ? -0.05 : 0.06), t: 'efectos', draw: () => { ctx.save(); pinta(); ctx.restore(); } });
+    } else { const cd = colDetras(j, e);
+      // (quinta pasada: la columna horneada que nace en el héroe va a dos tercios, menos de noche: se veía como un muro blanco)
+      items.push({ prof: e.x + e.y + (cd ? -0.05 : 0.06), t: 'efectos', draw: () => { ctx.save(); alfaEf = cd && !(window as any).__blancoViejo ? 0.45 - 0.08 * nochePfx() : 1; pinta(); alfaEf = 1; ctx.restore(); } }); }
   }
   // Lo que está parado en el mundo y antes se pintaba al final, encima de todo: el portal del héroe, los umbrales de
   // salida, las torretas y las llamas de las fogatas sin fuego vivo. Ahora van en el orden de pintado: lo que tienen
@@ -895,7 +905,7 @@ function dibujarEfecto(e: Efecto, _t: number) {
   // (tercera pasada) los horneados grandes de luz y rayo (columnas, castigos, relámpagos) van más tenues de día: en las
   // dunas las definitivas quemaban a blanco el centro de la pantalla
   const dia = (meta.elem === 'luz' || meta.elem === 'rayo') && (e.escala ?? 1) >= 1.2 && !(window as any).__fogonazoParejo ? 0.6 + 0.4 * nochePfx() : 1;
-  ctx.globalAlpha = Math.max(0, k) * dia;
+  ctx.globalAlpha = Math.max(0, k) * dia * alfaEf;
   dibujar(ctx, q, px, py - (e.z ?? 0), e.escala);
   ctx.globalAlpha = 1;
 }
@@ -985,7 +995,10 @@ function sobrePuente(j: Juego, e: Ent): number {
   return 0;
 }
 // (luz avanzada: lo que se pinta del héroe se marca para que la luz de atrás no lo hunda; ver luz_gpu.ts)
-function dibujarEnt(j: Juego, e: Ent, tiempo: number) { marcarHeroe(e.tipo === 'heroe'); try { dibujarEnt0(j, e, tiempo); } finally { marcarHeroe(false); } }
+function dibujarEnt(j: Juego, e: Ent, tiempo: number) {
+  // (pruebas: `__poseHeroe` = { acc, t, dur, dir, recorrido } pinta al héroe en esa pose sin tocar la lógica, ver t995_formas.cjs)
+  const pose = e.tipo === 'heroe' ? (window as any).__poseHeroe : null; if (pose) e = Object.assign(Object.create(Object.getPrototypeOf(e)), e, pose);
+  marcarHeroe(e.tipo === 'heroe'); try { dibujarEnt0(j, e, tiempo); } finally { marcarHeroe(false); } }
 function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   // reventado por exceso de daño: no queda cuerpo (los gibs de la Forja irán en su lugar)
   if (e.muerto && (e as any).reventado) return;
@@ -1016,7 +1029,11 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   let fs: Cuadro[];
   let acc = e.acc;
   const m = e as Monstruo;
-  if (e.tipo === 'heroe') fs = framesHeroe(j, acc, e.dir);
+  // el druida transformado es la bestia: sus cuadros, su ritmo de patas y su tamaño (render/formas.ts)
+  const vf = e.tipo === 'heroe' ? vistaForma(j, j.t) : null;
+  formaVista = vf?.cuerpo ?? null;
+  if (e.tipo === 'heroe' && formaVista) { acc = accForma(acc) as any; fs = cuadrosForma(formaVista, acc, e.dir, (e as any).rumbo); }
+  else if (e.tipo === 'heroe') fs = framesHeroe(j, acc, e.dir);
   else if (e.tipo === 'npc') fs = cuadrosMonstruo(NPCS[(e as any).npc]?.sprite ?? (e as any).npc, 'quieto', e.dir);
   else {
     // el monstruo se dibuja con su estado visible (con tiempo mínimo entre quieto y caminar)
@@ -1043,7 +1060,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   else if ((e as any).estado === 'surgir') return;
   else i = fr(acc, e.muerto && (e as any).mElem === 'frio' ? Math.max(0, e.t - 0.45) : e.muerto && (e as any).mElem === 'rayo' ? Math.max(0, e.t - 0.55) : e.t, e.dur, e, acc === 'correr' && e.tipo !== 'heroe' && !cuadrosMonstruo(m.def.sprite, 'correr', e.dir).length ? 'caminar' : acc, fs.length);
   if (e.tipo === 'monstruo' && m.estado === 'surgir') return;
-  if (e.tipo === 'heroe') { const P = pisadaHeroe; P.acc = acc; P.dir = e.dir; P.i = i; P.n = fs.length; P.resto = 0; P.esc = e.escala ?? 1; const ru = (e as any).rumbo as number | undefined, [ux, uy] = ru !== undefined ? [Math.cos(ru), Math.sin(ru)] : DIR_VEC[e.dir] ?? [0, 0], ul = Math.hypot(ux, uy) || 1; P.vx = ux / ul; P.vy = uy / ul; P.listo = true; }
+  if (e.tipo === 'heroe') pisadaHeroe.bestia = formaVista ?? '';
+  if (e.tipo === 'heroe' && !formaVista) { const P = pisadaHeroe; P.acc = acc; P.dir = e.dir; P.i = i; P.n = fs.length; P.resto = 0; P.esc = e.escala ?? 1; const ru = (e as any).rumbo as number | undefined, [ux, uy] = ru !== undefined ? [Math.cos(ru), Math.sin(ru)] : DIR_VEC[e.dir] ?? [0, 0], ul = Math.hypot(ux, uy) || 1; P.vx = ux / ul; P.vy = uy / ul; P.listo = true; }
   // los pies clavados: un cuadro de paso vale para un punto exacto del recorrido, pero se muestra mientras el cuerpo sigue
   // avanzando (hasta 6 píxeles) y el pie apoyado se corría con él, para volver de un salto en el cuadro siguiente. El
   // cuerpo se dibuja donde corresponde al cuadro que se ve (a lo sumo media zancada de cuadro atrás o adelante de donde
@@ -1058,7 +1076,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     }
   }
   const q = fs[Math.min(fs.length - 1, i)];
-  const esc = e.escala;
+  const esc = vf && vf.cuerpo ? ESC_FORMA[vf.cuerpo] * vf.k : vf && vf.u < 1 ? (e.escala ?? 1) * vf.k : e.escala;
 
   if (!e.muerto) sombras(ctx, e, q, px, py, esc);
   // los aliados llevan un aro en los pies (Thor dorado, invocados verdes): de noche un lobo enemigo se confundía con Thor
@@ -1097,7 +1115,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   // se come el Festín de tumba se seca y se hunde (solo lo que se ve, `revienta` lo pone mundo.ts)
   const rv = e.muerto && poderesVivos() ? ((e as any).revienta as number | undefined) : undefined;
   if (rv !== undefined && j.t >= rv) return;
-  const consume = !!(e as any).consume, hin = rv !== undefined ? Math.max(0, Math.min(1, 1 - (rv - j.t) / (consume ? 0.32 : 0.18))) : 0;
+  const consume = !!(e as any).consume, fv0 = !!(window as any).__festinViejo, hin = rv !== undefined ? Math.max(0, Math.min(1, 1 - (rv - j.t) / (consume ? (fv0 ? 0.32 : 0.65) : 0.18))) : 0;
   // el enemigo que queda delante del héroe y lo tapa se vuelve medio transparente: antes no veías tu propio golpe
   let tapa = 1;
   if (e.tipo === 'monstruo' && !e.muerto && !(e as any).dueno && heroeDibujo && e.x + e.y > heroeDibujo.x + heroeDibujo.y) {
@@ -1129,14 +1147,23 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   else if (mE === 'luz') { tinM = ['#fff2c8', tm < 0.5 ? 0.85 : Math.max(0.3, 0.85 - (tm - 0.5) * 0.5)]; brM = ['#ffe9a0', 0.6 * Math.max(0, 1 - tm / 1.5)]; alM = Math.max(0.35, 1 - Math.max(0, tm - 0.5) * 0.55); }
   if (mE === 'frio') brM = ['#bfe8ff', 0.22 * Math.max(0, 1 - tm / 4)];
   if (mE === 'rayo' && tm >= 0.55) brM = ['#9ab8ff', 0.3 * Math.max(0, 1 - (tm - 0.55) / 0.8)];
-  if (hin > 0) { tinM = consume ? ['#1e0606', 0.3 + 0.45 * hin] : ['#8a1010', (0.12 + 0.3 * hin) * (0.6 + 0.4 * Math.sin(tiempo * 45))]; brM = consume ? ['#ff2a1a', 0.2 * (1 - hin)] : ['#ff5a2a', 0.28 * hin * hin * (0.6 + 0.4 * Math.sin(tiempo * 45))];
+  // (quinta pasada: el Festín se lo bebe de verdad, 0,65 s: late rojo por las venas mientras le sacan la sangre, se pone
+  // gris ceniza, se aplasta y se ensancha a tirones, y lo último que queda es una cáscara chata)
+  if (hin > 0 && consume && !fv0) { const late = 0.5 + 0.5 * Math.sin(tiempo * 38); tinM = hin < 0.55 ? ['#3a0606', 0.25 + 0.5 * hin] : ['#2e2a24', 0.5 + 0.35 * (hin - 0.55) / 0.45]; brM = ['#ff2a1a', 0.35 * (1 - hin) * late];
+    alM = 1 - 0.25 * Math.max(0, hin - 0.7) / 0.3; px += Math.round(Math.sin(tiempo * 55 + e.id) * (hin < 0.8 ? 1.2 : 0.4));
+    const esY = 1 - 0.62 * (hin ** 0.8) - 0.04 * late * (1 - hin), esX = 1 + 0.2 * hin;
+    ctx.save(); if (!(window as any).__sinHincha) { ctx.translate(px, py); ctx.scale(esX, esY); ctx.translate(-px, -py); } }
+  else if (hin > 0) { tinM = consume ? ['#1e0606', 0.3 + 0.45 * hin] : ['#8a1010', (0.12 + 0.3 * hin) * (0.6 + 0.4 * Math.sin(tiempo * 45))]; brM = consume ? ['#ff2a1a', 0.2 * (1 - hin)] : ['#ff5a2a', 0.28 * hin * hin * (0.6 + 0.4 * Math.sin(tiempo * 45))];
     alM = consume ? 1 - 0.55 * hin : 1; px += Math.round(Math.sin(tiempo * 70 + e.id) * hin * (consume ? 0.6 : 1.6));
     ctx.save(); if (!(window as any).__sinHincha) { ctx.translate(px, py); ctx.scale(consume ? 1 + 0.12 * hin : 1 + 0.3 * hin * hin, consume ? 1 - 0.5 * hin : 1 + 0.22 * hin * hin); ctx.translate(-px, -py); } }
   if (escY !== 1) { ctx.save(); ctx.translate(px, py); ctx.scale(1 + (1 - escY) * 0.35, escY); ctx.translate(-px, -py); }
   const cambio = e.tipo === 'heroe' ? performance.now() / 1000 - cambioVisible : 9;
   // nunca una silueta en lugar del sprite: el brillo de equipo nuevo es un velo de 25 % que se apaga, y el destello del
   // golpe un blanco de 30 % como mucho en los primeros 70 ms (destello arranca en 0.12 s), para todos los monstruos
-  if (cambio < 0.45) ok = dibujarTenido(ctx, q, px, py, '#fff2d0', 0.25 * (1 - cambio / 0.45), esc);
+  // (el cambio de forma: la silueta se enciende de verde musgo y se apaga en el cuerpo nuevo)
+  if (vf && vf.tinte > 0.02) { ok = dibujarTenido(ctx, q, px, py, '#7ac850', vf.tinte, esc);
+    if (ok && vf.brillo > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = vf.brillo * nocheLuz(); dibujarTenido(ctx, q, px, py, '#a8f070', 1, esc); ctx.restore(); } }
+  else if (cambio < 0.45) ok = dibujarTenido(ctx, q, px, py, '#fff2d0', 0.25 * (1 - cambio / 0.45), esc);
   else if (e.destello > 0.05) ok = dibujarTenido(ctx, q, px, py, '#ffffff', 0.3 * Math.min(1, (e.destello - 0.05) / 0.07), esc);
   // los estados tiñen sin tapar el sprite: como mucho 40 % (salvo petrificado, que es piedra)
   else if (tinM) { if (alM < 1) ctx.globalAlpha = alM; ok = dibujarTenido(ctx, q, px, py, tinM[0], tinM[1], esc); ctx.globalAlpha = 1;

@@ -252,5 +252,29 @@
    "especial": 8
   },
   "impacto": 4
+ },
+ "lobo_druida": {
+  "acciones": {
+   "quieto": 4,
+   "caminar": 8,
+   "correr": 8,
+   "atacar": 8,
+   "herido": 4,
+   "morir": 8,
+   "especial": 8
+  },
+  "impacto": 4
+ },
+ "oso_pardo": {
+  "acciones": {
+   "quieto": 4,
+   "caminar": 8,
+   "correr": 8,
+   "atacar": 8,
+   "herido": 4,
+   "morir": 8,
+   "especial": 8
+  },
+  "impacto": 4
  }
 }

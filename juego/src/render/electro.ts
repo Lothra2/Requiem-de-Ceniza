@@ -210,3 +210,36 @@ export function dibujarVeneno(ctx: CanvasRenderingContext2D, id: number, q: Cuad
   }
   ctx.restore();
 }
+
+// El aturdido (cuarta pasada, Rick: las cruces negras horneadas de `fx_aturdido` se veían como manchas sobre la cabeza
+// en el Codo de piedra). Cuatro estrellitas de oro de pixel que dan vuelta sobre la cabeza de verdad, con su canto oscuro
+// para que se lean sobre arena y nieve; las de atrás más chicas y apagadas.
+export function dibujarAturdido(ctx: CanvasRenderingContext2D, id: number, px: number, cab: number, k: number, ahora: number) {
+  const rx = Math.round(8 + 3 * k), ry = Math.round(2 + k), y0 = Math.round(cab - 5 - 2 * k), gir = ahora * 3.4 + id;
+  const est: [number, number, number][] = [];
+  for (let i = 0; i < 4; i++) { const an = gir + (i / 4) * 6.283; est.push([Math.round(px + Math.cos(an) * rx), Math.round(y0 + Math.sin(an) * ry), Math.sin(an)]); }
+  est.sort((a, b) => a[2] - b[2]);
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  for (const [x, y, z] of est) {
+    const g = z > -0.2, l = g ? 2 : 1, tw = Math.sin(ahora * 13 + x) > 0.6;
+    ctx.globalAlpha = g ? 1 : 0.6;
+    ctx.fillStyle = '#2a1804'; ctx.fillRect(x - l - 1, y - 1, l * 2 + 3, 3); ctx.fillRect(x - 1, y - l - 1, 3, l * 2 + 3);
+    ctx.fillStyle = g ? '#ffc830' : '#c8901c'; ctx.fillRect(x - l, y, l * 2 + 1, 1); ctx.fillRect(x, y - l, 1, l * 2 + 1);
+    ctx.fillStyle = tw ? '#ffffff' : '#fff2b0'; ctx.fillRect(x, y, 1, 1);
+  }
+  ctx.restore();
+}
+
+// La marca de presa (cuarta pasada): el horneado `fx_presa_marcada` salía como una nube de corazones rojos que tapaba
+// medio cuerpo. Es una mira de caza de pixel sobre la cabeza: un rombo rojo con cuatro marcas que se cierran y laten, con
+// su canto oscuro.
+export function dibujarMarcaPresa(ctx: CanvasRenderingContext2D, id: number, px: number, cab: number, ahora: number) {
+  const x = Math.round(px), y = Math.round(cab - 9), lat = 0.5 + 0.5 * Math.sin(ahora * 5 + id), r = 4 + Math.round(lat), t = 2 + Math.round(lat);
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  const rombo = (c: string, d: number) => { ctx.fillStyle = c; for (let i = -r; i <= r; i++) { const w = r - Math.abs(i); ctx.fillRect(x - w + d, y + i + d, 1, 1); ctx.fillRect(x + w + d, y + i + d, 1, 1); } };
+  rombo('#1a0404', 1); rombo('#e02a20', 0);
+  ctx.fillStyle = '#1a0404'; ctx.fillRect(x - r - t - 1, y, t + 1, 2); ctx.fillRect(x + r + 1, y, t + 1, 2); ctx.fillRect(x, y - r - t - 1, 2, t + 1); ctx.fillRect(x, y + r + 1, 2, t + 1);
+  ctx.fillStyle = '#ff6a50'; ctx.fillRect(x - r - t - 1, y, t, 1); ctx.fillRect(x + r + 2, y, t, 1); ctx.fillRect(x, y - r - t - 1, 1, t); ctx.fillRect(x, y + r + 2, 1, t);
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5 + 0.5 * lat; ctx.fillStyle = '#ffd0c0'; ctx.fillRect(x, y, 1, 1);
+  ctx.restore();
+}

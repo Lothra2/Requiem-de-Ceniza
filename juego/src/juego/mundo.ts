@@ -574,6 +574,7 @@ export function ganarFuria(j: Juego, v: number) {
 export function cadaveresCerca(j: Juego, x: number, y: number, r: number): Monstruo[] {
   return j.monstruos.filter((m) => m.muerto && !m.dueno && !(m as any).usado && m.tMuerto < 590 && dist(m.x, m.y, x, y) <= r).sort((a, b) => dist(a.x, a.y, x, y) - dist(b.x, b.y, x, y));
 }
+/** (el que revienta queda 2 s más en la lista, `tMuerto` 598, para hincharse antes: lo borra el filtro de los 600 s) */
 function usarCadaver(m: Monstruo) { (m as any).usado = true; m.tMuerto = 999; }
 /** Gasta las cargas de un elemento (o todas) y dice cuántas eran. */
 function gastarCargas(h: Heroe, e?: Elemento): Elemento[] {
@@ -1532,20 +1533,21 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
         const cad = cadaveresCerca(j, ax, ay, 4)[0];
         if (!cad) { aviso(j, ['No hay un cadáver cerca.', 'No corpse nearby.']); reembolso(); break; }
         usarCadaver(cad);
-        const k = cad.vidaMax * 0.5;
-        golpeArea(cad.x, cad.y, r, [dh[0] + k * 0.6, dh[1] + k], '', 0, 'fuego');
-        efecto(j, 'estallido_cadaver', cad.x, cad.y, 0, 1.2); particulas(j, cad.x, cad.y, 30, 'sangre', '#700808', 2.2); j.sacudida = 0.3;
+        // (solo lo que se ve) el muerto se hincha 0,18 s y revienta: el golpe cae cuando revienta
+        const k = cad.vidaMax * 0.5; (cad as any).revienta = j.t + 0.18; cad.tMuerto = 598;
+        golpeArea(cad.x, cad.y, r, [dh[0] + k * 0.6, dh[1] + k], 'estallido_cadaver', 0.18, 'fuego');
+        j.sacudida = 0.3;
         break;
       }
       if (hb.id === 'cosecha_osario') {
         const cads = cadaveresCerca(j, ax, ay, 6).slice(0, Math.round(val(hb.n, n)));
         if (!cads.length) { aviso(j, ['No hay cadáveres cerca.', 'No corpses nearby.']); reembolso(); break; }
-        cads.forEach((cad, i) => { usarCadaver(cad); const k = cad.vidaMax * 0.4; golpeArea(cad.x, cad.y, r, [dh[0] + k * 0.6, dh[1] + k], 'estallido_cadaver', 0.01 + i * 0.22, 'fuego'); particulas(j, cad.x, cad.y, 16, 'sangre', '#700808', 1.8); });
+        cads.forEach((cad, i) => { usarCadaver(cad); const k = cad.vidaMax * 0.4, rt = 0.16 + i * 0.22; (cad as any).revienta = j.t + rt; cad.tMuerto = 598; golpeArea(cad.x, cad.y, r, [dh[0] + k * 0.6, dh[1] + k], 'estallido_cadaver', rt, 'fuego'); });
         j.sacudida = 0.4;
         break;
       }
       if (hb.id === 'lamento_osario') {
-        cadaveresCerca(j, h.x, h.y, r).forEach((cad, i) => { usarCadaver(cad); golpeArea(cad.x, cad.y, 2.5, dh, 'prision_hueso', 0.01 + i * 0.08); });
+        cadaveresCerca(j, h.x, h.y, r).forEach((cad, i) => { usarCadaver(cad); (cad as any).revienta = j.t + 0.01 + i * 0.08; cad.tMuerto = 598; golpeArea(cad.x, cad.y, 2.5, dh, 'prision_hueso', 0.01 + i * 0.08); });
         const cn = Math.round(val(hb.n, n));
         for (let k = 0; k < cn; k++) { const a = (k / cn) * Math.PI * 2; disparar(j, h, h.x + Math.cos(a) * 5, h.y + Math.sin(a) * 5, golpeSimple(j, [dh[0] * 0.5, dh[1] * 0.5], 'sombra'), 'lanza_hueso', 13, { perfora: true, vida: 1.2 }); }
         efecto(j, 'llanto_animas', h.x, h.y, 0, 1.3);
@@ -1555,7 +1557,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
       if (hb.id === 'festin_tumba') {
         const cad = cadaveresCerca(j, ax, ay, 4)[0];
         if (!cad) { aviso(j, ['No hay un cadáver cerca.', 'No corpse nearby.']); reembolso(); break; }
-        usarCadaver(cad);
+        usarCadaver(cad); (cad as any).revienta = j.t + 0.32; (cad as any).consume = true; cad.tMuerto = 598;
         h.vida = Math.min(h.vidaMax, h.vida + h.vidaMax * val(hb.bonos?.cura_pct, n) / 100);
         h.mana = Math.min(h.c.manaMax, h.mana + h.c.manaMax * val(hb.bonos?.mana_pct_cura, n) / 100);
         efecto(j, 'estallido_cadaver', cad.x, cad.y, 0, 0.6); efecto(j, 'chispas_curacion', h.x, h.y);
@@ -1949,7 +1951,8 @@ export function actualizar(j: Juego, dt: number) {
     const tx = c.objetivo ? c.objetivo.x : h.x + Math.cos(c.ang + j.t) * 2, ty = c.objetivo ? c.objetivo.y : h.y + Math.sin(c.ang + j.t) * 2;
     const dx = tx - c.x, dy = ty - c.y, l = Math.hypot(dx, dy) || 1;
     c.x += (dx / l) * Math.min(l, 8 * dt); c.y += (dy / l) * Math.min(l, 8 * dt);
-    if (c.objetivo && l < 0.6 && Math.floor(c.t * 3) !== Math.floor((c.t - dt) * 3)) { danar(j, c.objetivo, { min: c.dano[0], max: c.dano[1], elem: 'fisico', deHeroe: true, fuente: h, sinFallo: true }); if (c.marca) c.objetivo.marca = Math.max(c.objetivo.marca ?? 0, 4); }
+    // (solo lo que se ve) cada picotazo lleva el poder, así suelta plumas y sangre (render/poderes_vivos.ts)
+    if (c.objetivo && l < 0.6 && Math.floor(c.t * 3) !== Math.floor((c.t - dt) * 3)) { habEnCurso = c.marca ? 'cielo_halcones' : 'cuervos'; deDonde = [c.x - dx / l * 0.5, c.y - dy / l * 0.5]; (c as any).pica = j.t; danar(j, c.objetivo, { min: c.dano[0], max: c.dano[1], elem: 'fisico', deHeroe: true, fuente: h, sinFallo: true }); habEnCurso = null; deDonde = null; if (c.marca) c.objetivo.marca = Math.max(c.objetivo.marca ?? 0, 4); }
   }
   j.cuervos = j.cuervos.filter((c) => c.t < c.dur);
   for (const tr of j.torretas) {

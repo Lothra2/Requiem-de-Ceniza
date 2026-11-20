@@ -27,7 +27,7 @@ import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from '.
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
 import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx, nochePfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
-import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha, dibujarVeneno } from './electro';
+import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha, dibujarVeneno, dibujarAturdido, dibujarMarcaPresa } from './electro';
 /** Estados que van encima de la cabeza (se suben a la cabeza de verdad del cuerpo). */
 const ENCIMA = /^fx_(aturdido|confundido|maldito|presa_marcada)$/;
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
@@ -86,6 +86,7 @@ const bctx = brillo.getContext('2d')!;
 
 export interface Pick { tipo: 'monstruo' | 'npc' | 'suelo' | 'objeto' | 'salida' | 'portal'; ref: any; x0: number; y0: number; x1: number; y1: number; prof: number }
 export let picks: Pick[] = [];
+let picksAnt: Pick[] = [];
 export const opciones = { mostrarObjetos: false, idi: 0 as 0 | 1 };
 
 /** Celdas por ciclo de pasos para este cuerpo: zancada del motor por su alto y su escala. */
@@ -241,7 +242,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   }
   if (foco.k > 0) { const k = foco.k * foco.k * (3 - 2 * foco.k); cam.x += ((foco.x - foco.y) * 16 - camS.x) * k; cam.y += ((foco.x + foco.y) * 8 - 60 - camS.y + camAlzada) * k; }
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
-  picks = []; vivasMonstruo = 0;
+  picksAnt = picks; picks = []; vivasMonstruo = 0;
   prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); seguirPoderes(j); seguirPresencias(j); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
   colorBruma = '96,100,108'; anclasCuadro = []; esAncla = new Set(z.salidas.flatMap((sa) => sa.piezas ?? []));
   recolectar(j, tiempo, aPant, W, H);
@@ -477,7 +478,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     } else if (partido) {
       const [, py] = aPant(e.x, e.y), mitad = (atras: boolean) => () => { ctx.save(); ctx.beginPath(); ctx.rect(-4000, atras ? py - 4000 : py, W + 8000, 4000); ctx.clip(); pinta(); ctx.restore(); };
       items.push({ prof: e.x + e.y - 0.03, t: 'efectos', draw: mitad(true) }, { prof: e.x + e.y + 0.03, t: 'efectos', draw: mitad(false) });
-    } else items.push({ prof: e.x + e.y + 0.06, t: 'efectos', draw: () => { ctx.save(); pinta(); ctx.restore(); } });
+    } else items.push({ prof: e.x + e.y + (colDetras(j, e) ? -0.05 : 0.06), t: 'efectos', draw: () => { ctx.save(); pinta(); ctx.restore(); } });
   }
   // Lo que está parado en el mundo y antes se pintaba al final, encima de todo: el portal del héroe, los umbrales de
   // salida, las torretas y las llamas de las fogatas sin fuego vivo. Ahora van en el orden de pintado: lo que tienen
@@ -524,7 +525,23 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const it of itemsPoderes(ctx, aPant)) items.push(it);
   for (const it of itemsPresencias(ctx, j, aPant, tiempo)) items.push(it);
   tajoPend = null;
-  items.push({ prof: j.heroe.x + j.heroe.y + 1.1, draw: () => { if (tajoPend) { const [e, q, px, py, esc, t] = tajoPend; tajoHeroe(ctx, j, e, q, px, py, esc, t); torbellinoAro(ctx, j, px, py, t, false); } } });
+  // el tajo del héroe va justo después de su cuerpo (lo de delante, un muro o una columna, lo tapa) salvo sobre los
+  // enemigos pegados que tiene delante (hasta 1,1 casillas): ahí se pinta otra vez justo después de cada uno, recortado a
+  // su cuerpo (así lo que está delante de ese enemigo también lo tapa). Antes iba entero a 1,1 casillas y pisaba el muro
+  // que estaba más cerca. Los cuerpos salen de los del cuadro anterior (`picksAnt`)
+  const hd = j.heroe.x + j.heroe.y, viejoT = !!(window as any).__tajoViejo;
+  const rectsTajo = viejoT ? [] : picksAnt.filter((k) => k.tipo === 'monstruo' && k.prof > hd + 0.04 && k.prof <= hd + 1.1).map((k) => ({ prof: k.prof, r: [Math.floor(k.x0) - 3, Math.floor(k.y0) - 2, Math.ceil(k.x1) + 3, Math.ceil(k.y1)] }));
+  const pintaTajo = (clip: ((c: CanvasRenderingContext2D) => void) | null) => { if (!tajoPend) return; const [e, q, px, py, esc, t] = tajoPend;
+    if (clip) { ctx.save(); ctx.beginPath(); clip(ctx); }
+    tajoHeroe(ctx, j, e, q, px, py, esc, t); torbellinoAro(ctx, j, px, py, t, false); if (clip) ctx.restore(); };
+  if (viejoT) items.push({ prof: hd + 1.1, draw: () => pintaTajo(null) });
+  else {
+    // (cada recorte se suma al anterior: fuera de todos los cuerpos, y cada cuerpo sin los que van después, así donde dos
+    // se enciman el tajo no se pinta dos veces)
+    const fuera = (c: CanvasRenderingContext2D, rs: typeof rectsTajo) => { for (const k of rs) { c.beginPath(); c.rect(-4000, -4000, W + 8000, H + 8000); c.rect(k.r[0], k.r[1], k.r[2] - k.r[0], k.r[3] - k.r[1]); c.clip('evenodd'); } };
+    items.push({ prof: hd + 0.04, draw: () => pintaTajo(rectsTajo.length ? (c) => fuera(c, rectsTajo) : null) });
+    rectsTajo.forEach((k, i) => items.push({ prof: k.prof + 0.01, draw: () => pintaTajo((c) => { c.rect(k.r[0], k.r[1], k.r[2] - k.r[0], k.r[3] - k.r[1]); c.clip(); fuera(c, rectsTajo.filter((o, n) => o.prof > k.prof || (o.prof === k.prof && n > i))); }) }));
+  }
   tramo('orden');
   // lo que sueltan las armas vivas entra en el orden: las manchas con el piso, las gotas, el miasma y las chispas en la fila
   // del suelo que tienen debajo (antes iban encima de todo y se veían sobre las rocas de delante)
@@ -545,7 +562,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const e of j.efectos) { if (((e as any).partido && !(window as any).__sinPartir) || enOrden(e)) continue; mezclar(e.id); dibujarEfecto(e, tiempo); }
   energiaAire(ctx, j, aPant, W, H);
   // cuervos
-  for (const c of j.cuervos) { const [px, py] = aPant(c.x, c.y); ctx.globalCompositeOperation = 'source-over'; pajaro(px, py - 50 - Math.sin(tiempo * 9 + c.ang) * 6, tiempo + c.ang); ctx.globalCompositeOperation = 'lighter'; }
+  if (!presenciasVivas()) for (const c of j.cuervos) { const [px, py] = aPant(c.x, c.y); ctx.globalCompositeOperation = 'source-over'; pajaro(px, py - 50 - Math.sin(tiempo * 9 + c.ang) * 6, tiempo + c.ang); ctx.globalCompositeOperation = 'lighter'; }
   ctx.restore();
   tramo('particulas');
   // partículas
@@ -764,6 +781,9 @@ function enOrden(e: Efecto): boolean {
   if (e.id.startsWith('pfx:')) { const d = efectoPfx(e.id.slice(4)); if (d?.capa === 'pantalla') return false; }
   return true;
 }
+/** La columna de luz del Coro de los sellos y del Ascenso del espíritu nace en el héroe: va detrás del cuerpo (encima lo
+ * lavaba a blanco a pleno día y no se veía quién la pedía). */
+function colDetras(j: Juego, e: Efecto): boolean { const hab = (e as any).hab; return poderesVivos() && (hab === 'coro_sellos' || hab === 'ascenso_espiritu') && Math.hypot(e.x - j.heroe.x, e.y - j.heroe.y) < 0.6; }
 function esDePiso(e: Efecto): boolean {
   if (ALZADO_FX.test(e.id)) return false;
   if (e.id.startsWith('pfx:')) { const d = efectoPfx(e.id.slice(4)); return d?.capa === 'piso' || PISO_FX.test(e.id); }
@@ -1073,6 +1093,11 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   const pm = (e as any).pfxMuerte as { id: string; t0: number } | undefined;
   const alfaM = (e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1) * (e.tipo === 'invocado' ? alfaInvocado(e, j.t) : 1);
   if (alfaM <= 0.01) return;
+  // el muerto que revienta (Estallido fúnebre, Cosecha del osario, Lamento) se hincha y deja de estar al reventar; el que
+  // se come el Festín de tumba se seca y se hunde (solo lo que se ve, `revienta` lo pone mundo.ts)
+  const rv = e.muerto && poderesVivos() ? ((e as any).revienta as number | undefined) : undefined;
+  if (rv !== undefined && j.t >= rv) return;
+  const consume = !!(e as any).consume, hin = rv !== undefined ? Math.max(0, Math.min(1, 1 - (rv - j.t) / (consume ? 0.32 : 0.18))) : 0;
   // el enemigo que queda delante del héroe y lo tapa se vuelve medio transparente: antes no veías tu propio golpe
   let tapa = 1;
   if (e.tipo === 'monstruo' && !e.muerto && !(e as any).dueno && heroeDibujo && e.x + e.y > heroeDibujo.x + heroeDibujo.y) {
@@ -1104,6 +1129,9 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   else if (mE === 'luz') { tinM = ['#fff2c8', tm < 0.5 ? 0.85 : Math.max(0.3, 0.85 - (tm - 0.5) * 0.5)]; brM = ['#ffe9a0', 0.6 * Math.max(0, 1 - tm / 1.5)]; alM = Math.max(0.35, 1 - Math.max(0, tm - 0.5) * 0.55); }
   if (mE === 'frio') brM = ['#bfe8ff', 0.22 * Math.max(0, 1 - tm / 4)];
   if (mE === 'rayo' && tm >= 0.55) brM = ['#9ab8ff', 0.3 * Math.max(0, 1 - (tm - 0.55) / 0.8)];
+  if (hin > 0) { tinM = consume ? ['#1e0606', 0.3 + 0.45 * hin] : ['#8a1010', (0.12 + 0.3 * hin) * (0.6 + 0.4 * Math.sin(tiempo * 45))]; brM = consume ? ['#ff2a1a', 0.2 * (1 - hin)] : ['#ff5a2a', 0.28 * hin * hin * (0.6 + 0.4 * Math.sin(tiempo * 45))];
+    alM = consume ? 1 - 0.55 * hin : 1; px += Math.round(Math.sin(tiempo * 70 + e.id) * hin * (consume ? 0.6 : 1.6));
+    ctx.save(); if (!(window as any).__sinHincha) { ctx.translate(px, py); ctx.scale(consume ? 1 + 0.12 * hin : 1 + 0.3 * hin * hin, consume ? 1 - 0.5 * hin : 1 + 0.22 * hin * hin); ctx.translate(-px, -py); } }
   if (escY !== 1) { ctx.save(); ctx.translate(px, py); ctx.scale(1 + (1 - escY) * 0.35, escY); ctx.translate(-px, -py); }
   const cambio = e.tipo === 'heroe' ? performance.now() / 1000 - cambioVisible : 9;
   // nunca una silueta en lugar del sprite: el brillo de equipo nuevo es un velo de 25 % que se apaga, y el destello del
@@ -1119,6 +1147,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   else if (e.muerto && e.tMuerto > 60) { ctx.globalAlpha = Math.max(0.25, 1 - (e.tMuerto - 60) / 400); ok = dibujar(ctx, q, px, py, esc); ctx.globalAlpha = 1; }
   else ok = dibujar(ctx, q, px, py, esc);
   if (escY !== 1) ctx.restore();
+  if (hin > 0) ctx.restore();
   // realce del personaje: el sprite viene pintado en clave baja y encima cae la oscuridad de la zona, así que el cuerpo
   // quedaba como una mancha parda al lado de un piso bien iluminado. Se suma el sprite sobre sí mismo (en su lugar del
   // orden de dibujo: lo que lo tapa lo sigue tapando): sube la luz y el contraste, los cantos de metal saltan y lo oscuro
@@ -1138,6 +1167,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     for (const id of ests) {
       if (id === 'fx_congelado') { dibujarEscarcha(ctx, e.id, q, px, py, esc, tiempo, e.congelado > 0); continue; }
       if (id === 'fx_envenenado') { dibujarVeneno(ctx, e.id, q, px, py, esc, tiempo); continue; }
+      if (id === marca && poderesVivos()) { dibujarMarcaPresa(ctx, e.id, px, cab ?? py - q.ay * esc * 0.9, tiempo); continue; }
+      if (id === 'fx_aturdido' && poderesVivos()) { dibujarAturdido(ctx, e.id, px, cab ?? py - q.ay * esc * 0.9, k, tiempo); continue; }
       dibujarPfx(ctx, id, tiempo + (e.id % 7) * 0.31, px, py, { escala: k, cabeza: ENCIMA.test(id) || id === marca ? cab : undefined });
     }
   } else if (ok && ests.length) { const k = Math.max(0.6, Math.min(3, (q.ay * esc) / 75)); for (const id of ests) dibujarPfx(ctx, id, tiempo + (e.id % 7) * 0.31, px, py, { escala: k }); }

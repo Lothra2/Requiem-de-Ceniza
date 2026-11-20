@@ -314,10 +314,55 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     - `__sinPresencias` y `__sinTajos` apagan lo nuevo. Pruebas: `t975_poderes_lento.cjs <clase> <etiqueta> <ids>` (el
       juego en cámara lenta con `__camaraLenta` y el pintor vivo, sin la silueta blanca del reloj quieto de t970; `CERCA`,
       `FIN` termina la mejora a mitad, `ZONA`, `VIEJO`, `FOGONAZO`) y `t975_lamina.py <etiqueta> [otra]` en
-      `/tmp/requiem-pruebas/poderes3/cerca`. t760 y t970 dejan cada poder limpio de verdad (el aura activa, las trampas que
+      `/tmp/requiem-pruebas/poderes4/cerca`. t760 y t970 dejan cada poder limpio de verdad (el aura activa, las trampas que
       seguían tirando, los cuervos, la armadura de hueso, la tempestad, el huracán, el remolino, la furia fija, las cargas y
       lo que guardan los módulos de dibujo por `window.__limpiadores`), ponen cadáveres para los que levantan muertos (antes
       salía "Necesito un cadáver" y la lámina vacía) y arman las trampas en un sitio libre que un zombi pisa a mitad.
+    - **Cuarta pasada** (Rick, 20 nov 2026: "no dejes nada por fuera ni a medias"). Lo que la tercera dejó flojo:
+      - Cadáveres del nigromante: el Estallido fúnebre, la Cosecha del osario, el Festín de tumba y la Ofrenda salían vacíos en
+        las láminas porque la auditoría no ponía cadáveres ni siervos. Ahora el muerto se hincha 0,18 s y revienta
+        (`revienta` en el monstruo, solo visual, lo pone mundo.ts: el golpe del Estallido y de la Cosecha cae cuando revienta,
+        antes caía en el acto), el cuerpo deja de pintarse y `cadaver` en poderes_vivos.ts suelta hueso y carne en cuatro
+        rumbos, costillas que giran, un aro de púas, el charco y en la Cosecha almas moradas y huesitos que vuelven al héroe.
+        El Festín seca y hunde el cuerpo (`consume`) y le bebe la sangre y un alma verde al héroe. La Ofrenda revienta al
+        siervo en sombra con su grieta morada. El que revienta queda 2 s más en la lista (`tMuerto` 598) para hincharse.
+        `__sinHincha` apaga la hinchazón. De cerca: `t981_cadaver.cjs <id> <etiqueta>` (un muerto suelto, cámara lenta,
+        lámina en `/tmp/requiem-pruebas/poderes4/cadaver`, `SIN=1` sin lo vivo).
+      - Puños del monje: rayas de velocidad detrás del puño, el puño encendido de su color y un aro de choque grueso de canto
+        (`puno` en tajos.ts). En el blanco, en vez de la media luna, la onda de choque (`choque`: dos anillos de canto, tres el
+        Puño del eco, rayas, estrella, aro en el piso y lo del elemento: rayos a tierra, fuego, piedra). El barrido horneado de
+        cuerpo a cuerpo de los puños y del escudo (el gancho naranja del Codo de piedra) no va. El Golpe de escudo usa la misma
+        onda, con estrella blanca, astillas de acero y cheurones de aire gruesos desde el escudo.
+      - Aturdido y presa marcada: las cruces negras de `fx_aturdido` y los corazones de `fx_presa_marcada` (status/charmed) se
+        cambiaron por cuatro estrellitas de oro que giran sobre la cabeza (`dibujarAturdido`) y una mira roja de pixel
+        (`dibujarMarcaPresa`), en electro.ts.
+      - Golpes pesados: el arma viene horneada arriba en un cuadro y abajo en el siguiente. El salto grande se toma como el
+        barrido entero (`salto` en `arcoBarrido`), la media luna nace completa en el cuadro del golpe y con cuerpo lleno
+        (`lleno` en `mediaLuna`), y lo que sigue después del golpe ya no la alarga. `__tajoDbg = []` guarda las muestras.
+      - Orden del tajo: va justo después del cuerpo del héroe (lo de delante lo tapa) y se pinta otra vez justo después de
+        cada enemigo pegado de delante, recortado a su cuerpo (los del cuadro anterior, `picksAnt`), sin pintar dos veces
+        donde se enciman. `__tajoViejo` vuelve a lo de antes. Prueba: `t980_tajo_muro.cjs <clase> <ids>` (muro del cementerio
+        en las dunas, `HX`, `HY`, `MX`, `MY` ponen al héroe y al zombi, capturas en `/tmp/requiem-pruebas/poderes4/muro`). El
+        porcentaje que imprime no sirve de mucho: el muro que tapa al héroe se vuelve translúcido igual.
+      - Coro de los sellos y Ascenso del espíritu: la columna que nace en el héroe (el haz del centro, `pilar_luz`, `castigo` y
+        el fogonazo de la definitiva en energia.ts, `tras`) va detrás del cuerpo (`colDetras` en escena.ts), y su luz en
+        luces.ts baja además a 40 % a pleno día. El héroe queda delante de la luz.
+      - Manto de escarcha: `fx_estallido_copos` venía opaco. De día va a medias opaco y a medias sumado (`SUMA_LUZ` en pfx.ts),
+        de noche como siempre.
+      - Halcón: llega en picada (`picadaHalcon` en presencias.ts: la silueta de pixel con su estela, la sombra que se acerca,
+        el golpe de aire, plumas y polvo, y remonta con las alas abiertas). La Picada hace lo mismo sobre el blanco con tres
+        garras (la de `tajo_garras` horneada no va). La Mordida rabiosa cierra dos hileras de colmillos sobre el blanco
+        (`fauces`), arranca carne y la vida vuelve al héroe en hilos.
+      - Cuervos y halcones de los poderes: eran una V de línea negra encima de todo. Ahora pájaros de pixel que aletean, miran
+        hacia donde vuelan, bajan a picotear y llevan su sombra, en el orden del mundo (`dibAve` en presencias.ts). Cada
+        picotazo lleva su poder (`habEnCurso`) y suelta plumas y sangre.
+      - Auditoría: t760 y t975 ponen cadáveres para todo poder de `efecto: 'cadaver'`, dos esqueletos para la Ofrenda y el
+        halcón para la Picada, y el templario lleva escudo (t760 siempre, t975 con `ESCUDO=1`, se espera al pintor). t975
+        guarda en `/tmp/requiem-pruebas/poderes4/cerca`.
+      - Formas del druida (solo se miró): el héroe no se vuelve bestia, solo cambia de tono y de tamaño (`h.tinte`,
+        `h.escala` en mundo.ts). El lobo se podría pintar con el atlas de `lobo_sombrio` (quieto, caminar, correr, atacar,
+        herido y morir en 8 rumbos) sin hornear, pero el oso no tiene cuerpo propio (el oso invocado es el ogro teñido) y
+        hay que armarlo en el motor y hornear `b` y `f`.
 - **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.

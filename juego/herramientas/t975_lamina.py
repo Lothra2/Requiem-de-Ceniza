@@ -1,9 +1,9 @@
 # Tiras de t975_poderes_lento.cjs: por cada poder 12 cuadros (uno de cada dos) al doble, sin suavizar, con el tiempo.
 # Con dos etiquetas pone una encima de la otra (antes y después). Uso: python3 t975_lamina.py <etiqueta> [otra] [SOLO=a,b]
-# -> /tmp/requiem-pruebas/poderes3/cerca/lamina_<etiqueta>_<poder>.png
+# -> /tmp/requiem-pruebas/poderes4/cerca/lamina_<etiqueta>_<poder>.png
 import sys, json, os, glob
 from PIL import Image, ImageDraw
-B = '/tmp/requiem-pruebas/poderes3/cerca'
+B = '/tmp/requiem-pruebas/poderes4/cerca'
 ets = sys.argv[1:]
 solo = os.environ.get('SOLO', '').split(',') if os.environ.get('SOLO') else None
 ids = sorted({os.path.basename(f)[:-5] for f in glob.glob(f'{B}/{ets[0]}/*.json')})

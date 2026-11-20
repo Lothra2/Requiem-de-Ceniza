@@ -321,6 +321,12 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   (base en pie, disco de bronce, la aguja partida en la arena). Siguen la cruz del páramo y el coloso de las dunas. Misma
   huella 4 x 4. Hornear: `RELIEVE=1 GRUPOS=o SOLO=acto_hito ...` (13 s) y después `t1013_cajas.mjs`. Lab:
   `t1020_pieza_lab.mts "acto_hito:a1_campanario+a1_roble+a2_pozo+a2_obelisco"`.
+- **Nichos secretos** (`mazmorra`, solo las de obra, `__sinNichos`): una o dos baldosas que se abren en el muro de atrás
+  (norte u oeste) de una sala que no es la de entrada ni la del jefe: el muro lo tapa desde el medio y la boca va sin luz.
+  Adentro un cofre noble (`escondido`, con su rastro de sangre hacia el centro como los de afuera), huesos y velas. El
+  cofre va al final de `mazmorra` para no mover el azar de lo de antes. 52 nichos en 31 mazmorras (semilla 12345), todos
+  alcanzables (`_m_nichos.mjs`). Ojo: el piso nuevo cambia el azar de los muros y lo que sigue: obra arena 58 a 56 y
+  adornos por pantalla 33 a 29 (grupos de monstruos 968 a 976, campamentos 484 a 475 en 3 semillas).
 
 ## Armas vivas, cofres, poderes y siluetas
 

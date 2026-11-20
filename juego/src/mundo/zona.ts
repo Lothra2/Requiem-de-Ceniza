@@ -1615,6 +1615,24 @@ function mazmorra(def: DefZona, semilla: number): Zona {
       suelo[j * tw + i] = 1; sala[j * tw + i] = 1;
     }
   });
+  // los nichos secretos (oleada 2, desvíos y secretos): en las mazmorras de obra uno o dos huecos de una baldosa que se abren
+  // en el muro de atrás de una sala (al norte o al oeste: lo tapa el muro y no se ve desde el medio), sin luz en la boca.
+  // Adentro un cofre noble, huesos y velas: el premio de quien recorre los muros. Azar propio. `__sinNichos` los quita
+  const nichos: [number, number][] = [];
+  if (obra && !viejoCuello && !(globalThis as any).__sinNichos) {
+    const rn = rng(semilla * 977 + 31), S0 = (x: number, y: number) => x >= 0 && y >= 0 && x < tw && y < th && !!suelo[y * tw + x];
+    const cand: [number, number][] = [];
+    for (let by = 1; by < th - 1; by++) for (let bx = 1; bx < tw - 1; bx++) {
+      if (S0(bx, by)) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) {
+        // (la sala queda al este o al sur del nicho; por los otros tres lados y las dos esquinas de atrás no hay nada)
+        if (!sala[(by + dy) * tw + bx + dx] || S0(bx - dx, by - dy) || S0(bx + dy, by + dx) || S0(bx - dy, by - dx) || S0(bx - dx + dy, by - dy + dx) || S0(bx - dx - dy, by - dy - dx)) continue;
+        const c = orden.find((q) => bx + dx >= q[0] && bx + dx < q[0] + q[2] && by + dy >= q[1] && by + dy < q[1] + q[3]);
+        if (c && c !== orden[0] && !(def.jefe && c === orden[orden.length - 1])) cand.push([bx, by]);
+      }
+    }
+    for (let i = 0; i < 2 && cand.length; i++) { const q = cand.splice(Math.floor(rn() * cand.length), 1)[0]; if (nichos.some(([a, b]) => Math.abs(a - q[0]) + Math.abs(b - q[1]) < 4)) continue; nichos.push(q); suelo[q[1] * tw + q[0]] = 1; }
+  }
   const abierto = t.organica ? cavarCueva(k, orden, enlaces, suelo, sala, !!def.jefe) : null;
   const manchas = ruido2(r, tw, th, 3);
   // (los temas con dos parches no tienen tercero: esas baldosas salían sin piso, negras, y se caminaba por encima de la
@@ -1671,6 +1689,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
       if (!S(bx, by) || sala[by * tw + bx]) continue;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
         const rx = bx + dx, ry = by + dy; if (!Sa(rx, ry)) continue;
+        if (nichos.some(([a, b]) => a === bx && b === by)) continue; // (el nicho secreto va a oscuras)
         // (solo cuellos de una baldosa: a los lados del cuello no hay piso)
         if (dx ? S(bx, by - 1) || S(bx, by + 1) : S(bx - 1, by) || S(bx + 1, by)) continue;
         const vs = dl.d.variantes.filter(dl.v), v = vs.length ? vs[Math.floor(r() * vs.length)] : undefined;
@@ -1814,6 +1833,13 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   }
   // en las mazmorras a veces asoman ojos en la oscuridad
   k.regar([{ t: ['misterio' as Tema], p: ['ojos', 'manos', 'espejo', 'libro', 'arbol_rostros'] }], 2 + Math.floor(area / 3000), 1, 1, z.W - 1, z.H - 1, enSuelo);
+  // (el cofre del nicho va al final: así no mueve el azar de lo que se pone antes)
+  for (const [bx, by] of nichos) {
+    const cx = bx * 5 + 2, cy = by * 5 + 2, cap0: string | undefined = k.capa; k.capa = 'escondido';
+    const o = k.poner('cofre_noble', cx, cy, 'cerrado', false, 'cofre');
+    if (o) { o.dato = { escondido: true }; z.marcas.push({ tipo: 'cofre', cx, cy }); k.poner('cat_monton_huesos', cx - 2, cy + 1, 'de_calaveras'); k.poner('cem2_velas_tumba', cx + 1, cy - 2, 'derretidas'); }
+    k.capa = cap0;
+  }
   return z;
 }
 

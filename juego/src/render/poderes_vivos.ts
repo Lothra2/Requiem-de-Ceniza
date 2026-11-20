@@ -11,6 +11,7 @@
 // Todo a puntos enteros del mundo (el grano del juego) y dentro del orden de pintado, salvo los arcos del rayo, que van
 // después de la luz como siempre (la noche los apagaba). `__sinPoderesVivos` vuelve a lo de antes para comparar.
 import type { Juego, Efecto } from '../juego/mundo';
+import { formasVivas } from './formas';
 import { E } from '../nucleo/lienzo';
 import { bolaFuego, prender } from './fuego_especial';
 import { estallido, anilloPiso, chispasLibres } from './energia';
@@ -18,7 +19,7 @@ import { lienzoTrabajo } from '../motor/lienzos';
 import { HABILIDADES } from '../datos/clases';
 import { ponerMancha } from '../juego/mundo';
 import { nochePfx, efectoPfx } from './pfx';
-import { estiloTajo, tajosVivos } from './tajos';
+import { estiloTajo, estiloTajoDe, tajosVivos } from './tajos';
 
 type P = [number, number];
 /** Azar con semilla (el mismo de electro.ts). */
@@ -86,19 +87,21 @@ function arco(ctx: CanvasRenderingContext2D, e: any, aP: (x: number, y: number) 
   // a tierra: tres lenguas que corren por el piso desde donde cae
   if (e.suelo) for (let i = 0; i < 3; i++) { const an = r() * 6.283, ll = 14 + r() * 18; ramas.push(quebrar(b, [b[0] + Math.cos(an) * ll, b[1] + 34 * 0 + Math.sin(an) * ll * 0.5], r, 0.6, 3)); }
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = `rgba(60,95,255,${0.2 * k})`; ctx.beginPath(); trazo(ctx, princ, 5, 2); ctx.fill();
-  ctx.fillStyle = `rgba(110,150,255,${0.75 * k})`; ctx.beginPath(); trazo(ctx, princ, 3); for (const q of ramas) trazo(ctx, q, 2, 1, 0, 0.6); ctx.fill();
+  if (!e.chico) { ctx.fillStyle = `rgba(60,95,255,${0.2 * k})`; ctx.beginPath(); trazo(ctx, princ, 5, 2); ctx.fill(); }
+  ctx.fillStyle = `rgba(110,150,255,${(e.chico ? 0.45 : 0.75) * k})`; ctx.beginPath(); trazo(ctx, princ, 3); for (const q of ramas) trazo(ctx, q, 2, 1, 0, 0.6); ctx.fill();
   ctx.fillStyle = `rgba(160,190,255,${0.6 * k})`; ctx.beginPath(); trazo(ctx, hebra, 1); for (const q of ramas) trazo(ctx, q, 1); ctx.fill();
-  ctx.fillStyle = `rgba(255,255,255,${Math.min(1, k * 1.4)})`; ctx.beginPath(); trazo(ctx, princ, nace ? 2 : 1); for (const q of ramas) trazo(ctx, q, 1, 1, 0, 0.35); ctx.fill();
+  const chico = !!e.chico; // (los del puño: el alma blanca solo en la rama principal y a media fuerza)
+  ctx.fillStyle = `rgba(255,255,255,${Math.min(1, k * (chico ? 0.6 : 1.4))})`; ctx.beginPath(); trazo(ctx, princ, nace && !chico ? 2 : 1); if (!chico) for (const q of ramas) trazo(ctx, q, 1, 1, 0, 0.35); ctx.fill();
   // donde nace y donde pega: resplandor y una estrella de pixel que late
   // (de día el resplandor del rayo suma menos: el Puño de dios quemaba a blanco)
   const hr = haloRayo(), kd = 0.4 + 0.6 * nochePfx();
-  ctx.globalAlpha = k * 0.6 * kd; ctx.drawImage(hr, a[0] - 8, a[1] - 8, 16, 16);
-  const rb = (nace ? 22 : 11) + r() * 4; ctx.globalAlpha = k * 0.85 * kd; ctx.drawImage(hr, b[0] - rb, b[1] - rb, rb * 2, rb * 2);
+  if (!chico) { ctx.globalAlpha = k * 0.6 * kd; ctx.drawImage(hr, a[0] - 8, a[1] - 8, 16, 16); }
+  const rb = (chico ? 5 : nace ? 22 : 11) + r() * (chico ? 2 : 4); ctx.globalAlpha = k * (chico ? 0.5 : 0.85) * kd; ctx.drawImage(hr, b[0] - rb, b[1] - rb, rb * 2, rb * 2);
   ctx.globalAlpha = 1; ctx.fillStyle = `rgba(255,255,255,${k})`;
-  const bxr = Math.round(b[0]), byr = Math.round(b[1]), lx = Math.round((nace ? 9 : 4) + r() * 5), ly = Math.round(lx * 0.7);
+  if (chico) ctx.fillStyle = `rgba(200,220,255,${k * 0.8})`;
+  const bxr = Math.round(b[0]), byr = Math.round(b[1]), lx = Math.round(chico ? 2 + r() * 2 : (nace ? 9 : 4) + r() * 5), ly = Math.round(lx * 0.7);
   ctx.fillRect(bxr - lx, byr, lx * 2 + 1, 1); ctx.fillRect(bxr, byr - ly, 1, ly * 2 + 1);
-  if (nace) { ctx.fillRect(bxr - 1, byr - 1, 3, 3); ctx.fillStyle = `rgba(150,190,255,${k * 0.8})`; for (const [dx, dy] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) ctx.fillRect(bxr + dx, byr + dy, 1, 1); }
+  if (nace && !chico) { ctx.fillRect(bxr - 1, byr - 1, 3, 3); ctx.fillStyle = `rgba(150,190,255,${k * 0.8})`; for (const [dx, dy] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) ctx.fillRect(bxr + dx, byr + dy, 1, 1); }
   ctx.restore();
 }
 
@@ -285,7 +288,7 @@ const KT = () => (E.tactil ? 0.5 : 1);
  * hoja (cae meciéndose), burbuja (sube y revienta). */
 interface Pz { k: 'gota' | 'astilla' | 'trozo' | 'polvo' | 'bebe' | 'hoja' | 'burbuja'; x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; d: number; c: string; c2?: string; s: number; ang: number; va: number; reb: number; g: number; mancha?: 'sangre' | 'veneno'; luz?: boolean; x0?: number; y0?: number; z0?: number }
 /** Marca que dura: tajo, grieta, haz, ola, púa, runas, remolino, estrella, fuente. */
-interface Mk { k: 'puf' | 'tajo' | 'choque' | 'fauces' | 'grieta' | 'haz' | 'ola' | 'pua' | 'runas' | 'remolino' | 'estrella' | 'fuente'; x: number; y: number; t: number; d: number; c: string; c2?: string; esc: number; sem: number; ang?: number; alto?: number; r?: number; pal?: string; ramas?: P[][]; lean?: number; detras?: boolean }
+interface Mk { k: 'puf' | 'tajo' | 'choque' | 'fauces' | 'chorro' | 'latido' | 'grieta' | 'haz' | 'ola' | 'pua' | 'runas' | 'remolino' | 'estrella' | 'fuente'; x: number; y: number; t: number; d: number; c: string; c2?: string; esc: number; sem: number; ang?: number; alto?: number; r?: number; pal?: string; ramas?: P[][]; lean?: number; detras?: boolean }
 const piezas: Pz[] = [], marcas: Mk[] = [];
 const TOPE_P = () => (E.tactil ? 220 : 520);
 let jRef: Juego | null = null;
@@ -362,13 +365,13 @@ const FLECHA = /flecha|virote|andanada|racimo|lluvia|torreta|jabalina/;
 const MELEE = new Set(['golpe', 'carga', 'salto', 'torbellino']);
 function materiaGolpe(ev: any, k: number) {
   const hb = HABS.get(ev.hab) ?? (ev.hab === 'orbe_glacial_esquirla' ? HABS.get('orbe_glacial') : undefined), el: string = ev.elem, z = ev.alto;
-  const tipo = hb?.tipo ?? 'proyectil', melee = MELEE.has(tipo), flecha = FLECHA.test(ev.hab) || /flecha|virote/.test(hb?.efecto ?? '');
+  const tipo = hb?.tipo ?? (ev.hab === 'ataque' ? 'golpe' : 'proyectil'), melee = MELEE.has(tipo), flecha = FLECHA.test(ev.hab) || /flecha|virote/.test(hb?.efecto ?? '');
   if ((tipo === 'area' || tipo === 'trampa' || tipo === 'maldicion') && hb?.duracion) k *= 0.4; // (lo que pega cada medio segundo, más contenido)
   const fuerte = ev.crit || ev.mata, sub = ev.parte !== undefined && ev.parte < 2, f = (fuerte ? 1.4 : 1) * (sub ? 0.7 : 1) * k;
   const [sx, sy] = enPantalla(ev.ux, ev.uy), col = hb?.color ?? '#e0e0e0';
   // el tajo en media luna, del color del poder (lo dibuja el filo, no un sprite)
   // (tercera pasada: la media luna del blanco es del estilo del golpe, el doble de grande, cuerpo oscuro, color y filo)
-  const et = tajosVivos() ? estiloTajo(ev.hab) : null;
+  const et = tajosVivos() ? (melee && jRef ? estiloTajoDe(ev.hab, jRef) : estiloTajo(ev.hab)) : null;
   // los puños del monje no cortan: revientan en una onda de choque de su elemento (anillos de canto, rayas que salen y la
   // estrella del contacto), con el aro en el piso
   if (melee && (et?.forma === 'puno' || et?.forma === 'escudo')) { choque(ev, et, fuerte, z); if (et.forma === 'escudo') { estrella(ev.x, ev.y, z + 4, '#ffffff', 13, 0.2); astillas(ev.x, ev.y, z, 6, ['#c8ccd8', '#ffffff'], '#363a46', 4, 2, ev.ux, ev.uy, true); j0Sacude(0.25); } return; }
@@ -377,7 +380,7 @@ function materiaGolpe(ev: any, k: number) {
     mk({ k: 'fauces', x: ev.x, y: ev.y, d: 0.42, c: et.medio, c2: et.filo, pal: et.cuerpo, esc: fuerte ? 1.3 : 1.1, ang: Math.atan2(sy, sx), alto: z });
     sangre(ev.x, ev.y, z, ev.ux, ev.uy, 22 * f, fuerte ? 5 : 3, 1.2, ev.hueso); puf(ev.x, ev.y, z, 'sangre', fuerte ? 1.2 : 0.9);
     if (!ev.hueso) ponerMancha(jRef!, { x: ev.x + ev.ux * 0.5, y: ev.y + ev.uy * 0.5, r: 0.55, color: '#6a0a0a', t: 0, tipo: 'sangre', forma: 'salpicadura', ang: Math.atan2(ev.uy, ev.ux), sem: Math.floor(R() * 8), pal: 'rojo' });
-    for (let i = 0, n = Math.round(10 * KT()); i < n; i++) pz({ k: 'bebe', x: ev.x, y: ev.y, z, x0: ev.x + rnd(-0.25, 0.25), y0: ev.y + rnd(-0.25, 0.25), z0: z + rnd(-6, 6), d: rnd(0.4, 0.65), t: 0.1 + i * 0.025, c: elige(['#e01818', '#ff4a3a', '#a00808']), s: 2, g: 0 });
+    if (ev.hab !== 'ataque') for (let i = 0, n = Math.round(10 * KT()); i < n; i++) pz({ k: 'bebe', x: ev.x, y: ev.y, z, x0: ev.x + rnd(-0.25, 0.25), y0: ev.y + rnd(-0.25, 0.25), z0: z + rnd(-6, 6), d: rnd(0.4, 0.65), t: 0.1 + i * 0.025, c: elige(['#e01818', '#ff4a3a', '#a00808']), s: 2, g: 0 });
     j0Sacude(0.18); return;
   }
   if (melee && tipo !== 'torbellino') mk({ k: 'tajo', x: ev.x, y: ev.y, d: et ? Math.max(0.3, et.dur + 0.08) : 0.3, c: et ? et.medio : el === 'sangre' ? '#e01820' : el === 'luz' ? '#ffe070' : col, c2: et ? et.filo : el === 'fisico' ? '#f4f0e8' : '#fff4e0', pal: et?.cuerpo, esc: (fuerte ? 1.35 : 1) * (tipo === 'carga' ? 1.25 : 1) * (ev.parte !== undefined ? 1.1 : 1) * (et ? 0.75 + et.k * 0.45 + et.ancho * 0.012 : 1), ang: Math.atan2(sy, sx) + (ev.parte !== undefined ? (ev.parte % 2 ? -1 : 1) : R() < 0.5 ? -1 : 1) * rnd(0.35, 0.8), alto: z - (ev.parte ?? 1) * 4 + 4, r: ev.parte !== undefined ? (ev.parte % 2 ? -1 : 1) : R() < 0.5 ? 1 : -1, lean: et?.forma === 'garra' ? 3 : et?.extra === 'rasgar' ? 3 : 1 });
@@ -418,11 +421,12 @@ function choque(ev: any, et: NonNullable<ReturnType<typeof estiloTajo>>, fuerte:
   const [sx, sy] = enPantalla(ev.ux, ev.uy), ang = Math.atan2(sy, sx), k = (fuerte ? 1.3 : 1) * (0.85 + et.k * 0.25), ex = et.extra;
   const anillos = ex === 'eco' ? 3 : 2;
   for (let i = 0; i < anillos; i++) mk({ k: 'choque', x: ev.x, y: ev.y, d: 0.26 + i * 0.04, t: -i * (ex === 'eco' ? 0.08 : 0.035), c: et.medio, c2: et.filo, pal: et.cuerpo, esc: k * (1 - i * 0.18), ang, alto: z, r: i });
-  estrella(ev.x, ev.y, z, et.filo, Math.round(9 * k), 0.16);
+  estrella(ev.x, ev.y, z, (window as any).__blancoViejo ? et.filo : et.medio, Math.round(9 * k), 0.16);
   anilloPiso(ev.x, ev.y, { d: 0.35, r0: 0.2, r1: 1.4 * k, c: hexRgb(et.medio), g: 2, a: 0.65 });
   const c = hexRgb(et.filo), c2 = hexRgb(et.medio);
   chispasLibres(Math.round((fuerte ? 12 : 7) * KT()), () => { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.4, v = rnd(3, 6.5); return { x: ev.x, y: ev.y, z: z + rnd(-5, 5), vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(20, 110), t: 0, d: rnd(0.15, 0.32), c: R() < 0.5 ? c : c2, s: 2, reb: 1 }; });
-  if (ex === 'rayo') { for (let i = 0; i < (fuerte ? 3 : 2); i++) { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.6, d = rnd(1, 1.8); jRef!.efectos.push({ id: 'arco_cadena', x: ev.x, y: ev.y, x2: ev.x + Math.cos(an) * d, y2: ev.y + Math.sin(an) * d, t: 0, dir: 0, escala: 1, z: 0, dur: 0.18, za: z, zb: 2, suelo: true, sem: Math.floor(R() * 1e6) } as any); } }
+  // (los rayos a tierra del puño son chicos: arco fino, sin el resplandor grande ni la luz de 220 puntos del rayo en cadena)
+  if (ex === 'rayo') { const viejo = (window as any).__blancoViejo; for (let i = 0; i < (fuerte ? 3 : 2); i++) { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.6, d = rnd(1, 1.8); jRef!.efectos.push({ id: 'arco_cadena', x: ev.x, y: ev.y, x2: ev.x + Math.cos(an) * d, y2: ev.y + Math.sin(an) * d, t: 0, dir: 0, escala: 1, z: 0, dur: 0.18, za: z, zb: 2, suelo: true, chico: !viejo, sem: Math.floor(R() * 1e6) } as any); } }
   else if (ex === 'fuego') { puf(ev.x, ev.y, z, 'fuego', 1.1 * k); brasas(ev.x, ev.y, z, 14, 4); }
   else if (ex === 'piedra') { astillas(ev.x, ev.y, z, 12, ['#8a7a62', '#a09078', '#5a4e40', '#c0ac8a'], '#2a2018', 4, 3, ev.ux, ev.uy); polvo(ev.x, ev.y, 5, '#8a7a62', 5, 12, 1.4); }
   else if (ex === 'eco') polvo(ev.x, ev.y, 3, '#9ab0d8', 4, 10, 1);
@@ -472,10 +476,19 @@ function materiaEfecto(j: Juego, e: Efecto & { hab?: string }) {
 function cadaver(j: Juego, x: number, y: number, id: string) {
   const z = 12;
   if (id === 'festin_tumba') {
-    // se lo bebe: hilos de sangre y el alma verde que van al héroe, el cuerpo se seca (escena.ts) y una nube oscura
-    for (let i = 0, n = Math.round(16 * KT()); i < n; i++) pz({ k: 'bebe', x, y, z, x0: x + rnd(-0.35, 0.35), y0: y + rnd(-0.35, 0.35), z0: rnd(2, 16), d: rnd(0.45, 0.75), t: -i * 0.02, c: i % 4 === 3 ? elige(['#9aff7a', '#d8ffc0']) : elige(['#e01818', '#ff4a3a', '#a00808']), s: 2, g: 0 });
+    // se lo bebe (quinta pasada, Rick: "se lee flojo"): el muerto se seca y se hunde 0,65 s (escena.ts), un chorro grueso
+    // de sangre con el alma verde enroscada sale de él y entra en el pecho del héroe, que late (dos aros) cuando le llega;
+    // gotas que caen del chorro, el charco que se oscurece y al final la cáscara se deshace en polvo y huesitos
+    const viejo = (window as any).__festinViejo;
+    for (let i = 0, n = Math.round((viejo ? 16 : 7) * KT()); i < n; i++) pz({ k: 'bebe', x, y, z, x0: x + rnd(-0.35, 0.35), y0: y + rnd(-0.35, 0.35), z0: rnd(2, 16), d: rnd(0.45, 0.75), t: -i * 0.02 - (viejo ? 0 : 0.1), c: i % 4 === 3 ? elige(['#9aff7a', '#d8ffc0']) : elige(['#e01818', '#ff4a3a', '#a00808']), s: 2, g: 0 });
     puf(x, y, 8, 'sangre', 0.9); polvo(x, y, 5, '#2a0a0a', 4, 12, 0.9);
     ponerMancha(j, { x, y, r: 0.6, color: '#4a0606', t: 0, tipo: 'sangre', forma: 'charco', rmax: 0.8, sem: Math.floor(R() * 8), pal: 'rojo' });
+    if (viejo) return;
+    mk({ k: 'chorro', x, y, d: 0.85, c: '#c41414' });
+    mk({ k: 'latido', x: j.heroe.x, y: j.heroe.y, d: 0.42, t: -0.28, c: '#e02020' });
+    // la cáscara que se deshace al terminar de secarse
+    for (let i = 0, n = Math.round(10 * KT()); i < n; i++) { const an = R() * 6.283, v = rnd(0.4, 1.4); pz({ k: 'astilla', x, y, z: rnd(4, 12), vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(30, 90), t: -0.62, d: rnd(0.8, 1.3), c: elige(['#5a4a3a', '#7a6a52', '#c8bea0']), c2: '#2a2018', s: 3, reb: 1, ang: R() * 6, va: rnd(-10, 10), g: 420 }); }
+    for (let i = 0, n = Math.round(8 * KT()); i < n; i++) { const an = R() * 6.283, v = rnd(0.2, 0.9); pz({ k: 'polvo', x: x + Math.cos(an) * 0.2, y: y + Math.sin(an) * 0.2, z: rnd(0, 8), vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(6, 14), t: -0.6, d: rnd(0.8, 1.3), c: '#3a2a20', s: rnd(3.5, 6), g: 0 }); }
     return;
   }
   const ofrenda = id === 'ofrenda', lamento = id === 'lamento_osario';
@@ -497,6 +510,9 @@ function cadaver(j: Juego, x: number, y: number, id: string) {
 }
 /** El horneado que la materia reemplaza: la salpicadura de sangre horneada salía borrosa y agrandada encima del tajo. */
 export function sinHorneado(e: Efecto): boolean {
+  // (quinta pasada) el remolino horneado del cambio de forma: el druida se vuelve la bestia de verdad (render/formas.ts) y
+  // el cambio lo cuentan su silueta y el estallido de presencias.ts
+  if (formasVivas() && (e.id === 'transformacion_bestia' || (e.id === 'pfx:fx_torbellino_hojas' && /^forma_/.test((e as any).hab ?? '')))) return true;
   const hab = (e as any).hab as string | undefined; if (!conMateria() || !hab) return false;
   if (e.id === 'salpicadura_sangre') return true;
   // (la cuadrícula de oro horneada de la Égida del alba: la reemplaza el haz y el sello de render/presencias.ts)
@@ -508,7 +524,7 @@ export function sinHorneado(e: Efecto): boolean {
   // (cuarta pasada) los puños y el escudo llevan su onda de choque: el barrido horneado de cuerpo a cuerpo (el gancho naranja
   // del Codo de piedra salía medio segundo tarde, como una media luna de fuego) no va
   { const et = tajosVivos() ? estiloTajo(hab) : null; if (et && (et.forma === 'puno' || et.forma === 'escudo') && e.id.startsWith('pfx:') && ((efectoPfx(e.id.slice(4)) as any)?.categoria === 'cuerpo_a_cuerpo' || e.id === 'pfx:fx_golpe_seco')) return true; }
-  if (!estiloTajo(hab) || !tajosVivos() || !/^(pfx:fx_(tajo_espada|zarpazo|tajo_doble|hachazo|barrido_lanza|estocada|latigazo|rafaga_dagas)|chispas_carne|tajo_garras)$/.test(e.id)) return false;
+  if (!(jRef ? estiloTajoDe(hab, jRef) : estiloTajo(hab)) || !tajosVivos() || !/^(pfx:fx_(tajo_espada|zarpazo|tajo_doble|hachazo|barrido_lanza|estocada|latigazo|rafaga_dagas)|chispas_carne|tajo_garras)$/.test(e.id)) return false;
   const de = (e as any).de as [number, number] | undefined; return !de || Math.hypot(e.x - de[0], e.y - de[1]) > 0.5;
 }
 function ola(x: number, y: number, radio: number, d: number, retraso = 0) { mk({ k: 'ola', x, y, d: d + retraso, t: -retraso, r: radio, c: '#a80c0c' }); }
@@ -525,9 +541,11 @@ function definitiva(j: Juego, hb: Hab, x: number, y: number) {
   }
   if (hb.elem === 'luz') {
     // (la columna del centro, si nace en el héroe, va detrás de su cuerpo: encima lo lavaba a blanco de día)
-    mk({ k: 'runas', x, y, d: 1.6, c: '#ffd860', r: Math.min(3.2, r * 0.6) }); haz(x, y, 1.9, 1.1); { const ult = marcas[marcas.length - 1]; if (ult?.k === 'haz' && Math.hypot(x - j.heroe.x, y - j.heroe.y) < 0.6) ult.detras = true; }
+    // (quinta pasada: si nace en el héroe la columna va más angosta, y las brasas de oro, no blancas)
+    const enH = Math.hypot(x - j.heroe.x, y - j.heroe.y) < 0.6, viejo = (window as any).__blancoViejo;
+    mk({ k: 'runas', x, y, d: 1.6, c: '#ffd860', r: Math.min(3.2, r * 0.6) }); if (!enH || viejo) haz(x, y, 1.9, 1.1); else haz(x, y, 1.1, 0.8); { const ult = marcas[marcas.length - 1]; if (ult?.k === 'haz' && enH) ult.detras = true; }
     for (let i = 0; i < 7; i++) { const an = R() * 6.283, d = rnd(1.2, Math.min(4, r * 0.75)); haz(x + Math.cos(an) * d, y + Math.sin(an) * d, rnd(0.8, 1.1), 0.7, 0.08 + i * 0.06); }
-    brasas(x, y, 30, 26, 3, [[255, 250, 220], [255, 220, 120], [255, 200, 80]]); return;
+    brasas(x, y, 30, 26, 3, viejo ? [[255, 250, 220], [255, 220, 120], [255, 200, 80]] : [[255, 228, 150], [255, 196, 90], [240, 160, 50]]); return;
   }
   if (id === 'lamento_osario' || id === 'legion_ceniza' || id === 'condena_osario') {
     puas(x, y, 14, id === 'condena_osario' ? 2 : 2.6, 'hueso', 34, 1.5, true); puas(x, y, 7, 1.6, 'hueso', 24, 1.3, false, 0.1);
@@ -594,6 +612,9 @@ function seguirMateria(j: Juego, dt: number) {
   }
   for (let i = marcas.length - 1; i >= 0; i--) {
     const m = marcas[i]; m.t += dt; if (m.t > m.d) { marcas.splice(i, 1); continue; }
+    // el chorro del Festín suelta gotas que caen al piso y el héroe recibe el golpe al llegar
+    if (m.t >= 0 && m.k === 'chorro' && m.t < 0.6 && R() < dt * 26 * KT()) { const s2 = rnd(0.15, Math.min(1, m.t / 0.3)), x = m.x + (h.x - m.x) * s2, y = m.y + (h.y - m.y) * s2; pz({ k: 'gota', x, y, z: 14 + Math.sin(s2 * Math.PI) * 34, vx: rnd(-0.4, 0.4), vy: rnd(-0.4, 0.4), vz: rnd(-10, 30), d: 1.6, c: elige(['#9a0a0a', '#c01414', '#6a0606']), s: R() < 0.4 ? 2 : 1, g: 420, mancha: 'sangre' }); }
+    if (m.k === 'latido' && m.t >= 0 && m.t - dt < 0) { j.sacudida = Math.max(j.sacudida, 0.14); for (let n = 0; n < 8 * KT(); n++) pz({ k: 'bebe', x: h.x, y: h.y, z: 34, x0: h.x + rnd(-0.6, 0.6), y0: h.y + rnd(-0.6, 0.6), z0: rnd(10, 50), d: rnd(0.25, 0.4), c: elige(['#7af06a', '#d8ffc8', '#ff6a50']), s: 1, g: 0 }); }
     // la fuente de sangre escupe mientras dura; la ola suelta gotas por la cresta
     if (m.t >= 0 && m.k === 'fuente' && m.t < 0.4) for (let n = 0; n < 3 * KT(); n++) { const an = R() * 6.283, v = rnd(0.3, 1.6); pz({ k: 'gota', x: m.x, y: m.y, z: 4, vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(150, 260), d: 2, c: elige(['#9a0a0a', '#c01414', '#e02a20', '#6a0606']), s: R() < 0.4 ? 2 : 1, g: 460, mancha: 'sangre' }); }
     if (m.t >= 0 && m.k === 'ola' && m.t < m.d * 0.7 && R() < 0.9) { const u = m.t / m.d, rr = m.r! * (1 - (1 - u) ** 2.4);
@@ -616,6 +637,8 @@ function itemsMateria(ctx: CanvasRenderingContext2D, aP: (x: number, y: number) 
   for (const m of marcas) { if (m.t < 0) continue;
     const plano = m.k === 'grieta' || m.k === 'runas', pr = m.x + m.y;
     if (m.k === 'ola' || m.k === 'remolino') { out.push({ prof: pr - 0.7, draw: () => dibMarca(ctx, m, aP, -1) }); out.push({ prof: pr + 0.7, draw: () => dibMarca(ctx, m, aP, 1) }); continue; }
+    // (el chorro del Festín y el latido van delante del héroe y del muerto: cruzan de uno al otro)
+    if ((m.k === 'chorro' || m.k === 'latido') && jRef) { out.push({ prof: Math.max(pr, jRef.heroe.x + jRef.heroe.y) + 0.12, draw: () => dibMarca(ctx, m, aP, 0) }); continue; }
     out.push({ prof: plano ? -1e6 + pr + 0.6 : pr + (m.detras ? -0.06 : m.k === 'tajo' || m.k === 'estrella' ? 0.75 : 0.05), draw: () => dibMarca(ctx, m, aP, 0) }); }
   return out;
 }
@@ -707,6 +730,41 @@ function dibMarca(ctx: CanvasRenderingContext2D, m: Mk, aP: (x: number, y: numbe
           if ((i + 14) % 4 === 2) { const L = Math.round((Math.abs(f) < 0.45 ? 8 : 5) * m.esc); ctx.fillStyle = '#2a1a10'; ctx.fillRect(x - 1, y + lado * 2, 3, lado * L); ctx.fillStyle = m.c2 ?? '#fff'; ctx.fillRect(x, y + lado * 2, 1, lado * (L - 1)); } } }
       if (cierra >= 1 && u < 0.4) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (1 - u / 0.4) * kd; ctx.fillStyle = '#ff6a50'; ctx.fillRect(cx - Math.round(R1), Math.round(cy), Math.round(R1 * 2), 1); }
       break; }
+    case 'chorro': {
+      // (quinta pasada) el Festín de tumba: un chorro grueso de sangre que sale del muerto, sube en arco y entra en el pecho
+      // del héroe, con el alma verde enroscada alrededor. La cabeza corre hasta el héroe en 0,3 s, el chorro fluye (las
+      // rayas claras corren hacia el héroe) y la cola se despega del muerto y lo sigue. Cuerpo oscuro que tapa, rojo, el
+      // brillo del medio y el alma sumada: se lee de día y de lejos
+      const h = jRef?.heroe; if (!h) break;
+      const [hx0, hy0] = aP(h.x, h.y), ax = px0, ay = py0 - 10, bx = hx0, by = hy0 - 34, cx = (ax + bx) / 2, cy = Math.min(ay, by) - 34 - Math.abs(bx - ax) * 0.12;
+      const cab = Math.min(1, (m.t / 0.3) ** 0.8), cola = Math.max(0, (m.t - 0.42) / (m.d - 0.42)) ** 1.2; if (cab <= cola) break;
+      const curva = (s: number): P => { const v = 1 - s; return [v * v * ax + 2 * v * s * cx + s * s * bx, v * v * ay + 2 * v * s * cy + s * s * by]; };
+      const N = Math.max(14, Math.round(Math.hypot(bx - ax, by - ay) / 1.5)), viejo = (window as any).__festinViejo; if (viejo) break;
+      const ancho = (s: number) => 2 + 2.6 * (1 - s) * (0.7 + 0.3 * Math.sin(m.t * 30 + s * 9));
+      for (const [col, extra, alfa, comp] of [['#1a0204', 1.2, 0.85, 'source-over'], ['#7a0606', 0, 1, 'source-over'], ['#c41414', -0.9, 1, 'source-over']] as [string, number, number, string][]) {
+        ctx.globalCompositeOperation = comp as GlobalCompositeOperation; ctx.globalAlpha = alfa; ctx.fillStyle = col; ctx.beginPath();
+        for (let i = 0; i <= N; i++) { const s = cola + (cab - cola) * (i / N), [x, y] = curva(s), w = Math.max(0.5, ancho(s) + extra); ctx.rect(Math.round(x - w), Math.round(y - w + (extra > 0 ? 1 : 0)), Math.round(w * 2) || 1, Math.round(w * 2) || 1); }
+        ctx.fill(); }
+      // lo que fluye: rayas claras que corren hacia el héroe
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.75; ctx.fillStyle = '#ff7a5a'; ctx.beginPath();
+      for (let i = 0; i <= N; i++) { const s = cola + (cab - cola) * (i / N); if (((s * 40 - m.t * 22) % 1 + 1) % 1 > 0.35) continue; const [x, y] = curva(s); ctx.rect(Math.round(x), Math.round(y - 1), 1, 1); } ctx.fill();
+      // el alma verde enroscada
+      ctx.globalAlpha = 0.85; ctx.fillStyle = '#6ae85a'; ctx.beginPath();
+      for (let i = 0; i <= N; i++) { const s = cola + (cab - cola) * (i / N), [x, y] = curva(s), o = Math.sin(s * 14 - m.t * 18) * (3 + 2 * (1 - s)); ctx.rect(Math.round(x), Math.round(y + o), 1, 1); } ctx.fill();
+      ctx.fillStyle = '#d8ffc8'; ctx.beginPath(); for (let i = 0; i <= N; i += 3) { const s = cola + (cab - cola) * (i / N), [x, y] = curva(s), o = Math.sin(s * 14 - m.t * 18) * (3 + 2 * (1 - s)); ctx.rect(Math.round(x), Math.round(y + o), 1, 1); } ctx.fill();
+      // la cabeza del chorro: un borbotón
+      if (cab < 1) { const [x, y] = curva(cab); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.fillStyle = '#1a0204'; ctx.fillRect(Math.round(x) - 3, Math.round(y) - 3, 7, 7); ctx.fillStyle = '#c41414'; ctx.fillRect(Math.round(x) - 2, Math.round(y) - 2, 5, 5); ctx.fillStyle = '#ff6a50'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 2, 2, 1); }
+      break; }
+    case 'latido': {
+      // el golpe de vida en el héroe cuando le llega el chorro: dos aros que se abren desde el pecho (rojo y verde) y una
+      // cruz de luz contenida
+      const h = jRef?.heroe; if (!h) break;
+      const [hx0, hy0] = aP(h.x, h.y), x = Math.round(hx0), y = Math.round(hy0 - 30), k = 1 - u;
+      for (const [c, r0, dt] of [['#e02020', 6, 0], ['#7af06a', 4, 0.06]] as [string, number, number][]) { const uu = Math.max(0, (m.t - dt) / (m.d - dt)); if (uu <= 0 || uu >= 1) continue; const rr = r0 + 22 * (1 - (1 - uu) ** 2), g = Math.max(1, Math.round(3 * (1 - uu)));
+        ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 0.6 * (1 - uu); ctx.fillStyle = '#1a0204'; ctx.beginPath(); for (let i = 0; i < 48; i++) { const an = (i / 48) * 6.283; ctx.rect(Math.round(x + Math.cos(an) * rr), Math.round(y + Math.sin(an) * rr * 0.55) + 1, g, g); } ctx.fill();
+        ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.9 * (1 - uu); ctx.fillStyle = c; ctx.beginPath(); for (let i = 0; i < 48; i++) { const an = (i / 48) * 6.283; ctx.rect(Math.round(x + Math.cos(an) * rr), Math.round(y + Math.sin(an) * rr * 0.55), g, Math.max(1, g - 1)); } ctx.fill(); }
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.7 * k * k; ctx.fillStyle = '#ff8a6a'; const l = Math.round(4 + 8 * k); ctx.fillRect(x - l, y, l * 2 + 1, 1); ctx.fillRect(x, y - l, 1, l * 2 + 1);
+      break; }
     case 'choque': {
       // anillo de choque de canto, mirando a donde iba el golpe: se abre rápido, grueso al nacer y fino al irse. El cuerpo
       // oscuro tapa (se lee de día), el color del golpe y el filo encendido se suman
@@ -715,9 +773,13 @@ function dibMarca(ctx: CanvasRenderingContext2D, m: Mk, aP: (x: number, y: numbe
       const aro = (c: string, a: number, dr: number, w: number, dy = 0) => { ctx.globalAlpha = a; ctx.fillStyle = c; ctx.beginPath(); for (let i = 0; i < N; i++) { const an = (i / N) * 6.283, ox = Math.cos(an) * (R1 + dr) * 0.42, oy = Math.sin(an) * (R1 + dr);
         ctx.rect(Math.round(cx + ca * ox - sa * oy), Math.round(cy + (sa * ox + ca * oy) * 0.8) + dy, w, w); } ctx.fill(); };
       aro(m.pal ?? '#202020', 0.75 * (1 - u), 1, g, 1);
-      ctx.globalCompositeOperation = 'lighter'; aro(m.c, (1 - u) * kd, 0, g); aro(m.c2 ?? '#ffffff', (1 - u) * 0.9 * kd, -1, 1);
+      // (quinta pasada: el color del anillo tapa y solo el filo fino se suma, a media fuerza: dos anillos y las rayas
+      // sumados lavaban a blanco al blanco pegado)
+      const viejo = (window as any).__blancoViejo;
+      if (viejo) { ctx.globalCompositeOperation = 'lighter'; aro(m.c, (1 - u) * kd, 0, g); aro(m.c2 ?? '#ffffff', (1 - u) * 0.9 * kd, -1, 1); }
+      else { aro(m.c, (1 - u) * 0.85, 0, g); ctx.globalCompositeOperation = 'lighter'; aro(m.c2 ?? '#ffffff', (1 - u) * 0.45 * kd, -1, 1); }
       // rayas de velocidad que salen del anillo hacia adelante (solo el primero)
-      if (m.r === 0 && u < 0.7) { ctx.globalAlpha = (1 - u / 0.7) * kd; ctx.fillStyle = m.c2 ?? '#fff'; ctx.beginPath(); for (let i = 0; i < 9; i++) { const an = m.ang! + (i - 4) * 0.22, r0 = R1 * 0.6, r1 = r0 + (8 + (i % 3) * 5) * m.esc; for (let q = r0; q < r1; q += 1) ctx.rect(Math.round(cx + Math.cos(an) * q), Math.round(cy + Math.sin(an) * q * 0.8), 1, 1); } ctx.fill(); }
+      if (m.r === 0 && u < 0.7) { ctx.globalAlpha = (1 - u / 0.7) * kd * (viejo ? 1 : 0.6); ctx.fillStyle = viejo ? m.c2 ?? '#fff' : m.c; ctx.beginPath(); for (let i = 0; i < 9; i++) { const an = m.ang! + (i - 4) * 0.22, r0 = R1 * 0.6, r1 = r0 + (8 + (i % 3) * 5) * m.esc; for (let q = r0; q < r1; q += 1) ctx.rect(Math.round(cx + Math.cos(an) * q), Math.round(cy + Math.sin(an) * q * 0.8), 1, 1); } ctx.fill(); }
       break; }
     case 'puf': {
       const pal = PAL_PUF[m.pal!], crece = 1 - (1 - Math.min(1, m.t / 0.06)) ** 3, enfria = Math.max(0, (m.t - 0.04) / (m.d - 0.04)), r0 = 9 * m.esc * (0.4 + 0.6 * crece) * (1 + enfria * 0.3), y0 = py - m.alto! - enfria * 8;
@@ -736,15 +798,19 @@ function dibMarca(ctx: CanvasRenderingContext2D, m: Mk, aP: (x: number, y: numbe
       break; }
     case 'haz': {
       const T = m.t, baja = Math.min(1, T / 0.07), vive = T < 0.07 ? 1 : Math.max(0, 1 - (T - 0.07) / (m.d - 0.07)), w = Math.max(1, Math.round(9 * m.esc * (0.35 + 0.65 * vive))), Hh = Math.round(230 * m.esc), top = py - Hh, bot = Math.round(top + Hh * baja);
-      ctx.globalCompositeOperation = 'lighter'; const n = nochePfx(), kk = 0.55 + 0.45 * n;
-      ctx.globalAlpha = 0.22 * vive * kk; ctx.fillStyle = m.c; ctx.fillRect(px - w, top, w * 2 + 1, bot - top);
-      ctx.globalAlpha = 0.5 * vive * kk; ctx.fillRect(px - (w >> 1), top, (w >> 1) * 2 + 1, bot - top);
+      const n = nochePfx(), viejo = (window as any).__blancoViejo, kk = viejo ? 0.55 + 0.45 * n : 0.55 + 0.2 * n;
+      // (quinta pasada: el cuerpo del haz es de oro y tapa a medias, se suma solo el centro y el alma blanca es de un punto:
+      // de noche el haz grande del Ascenso y del Coro quemaba a blanco al héroe)
+      if (!viejo) { ctx.globalAlpha = 0.16 * vive; ctx.fillStyle = m.c; ctx.fillRect(px - w, top, w * 2 + 1, bot - top); }
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = (viejo ? 0.22 : 0.12) * vive * kk; ctx.fillStyle = m.c; ctx.fillRect(px - w, top, w * 2 + 1, bot - top);
+      ctx.globalAlpha = (viejo ? 0.5 : 0.32) * vive * kk; ctx.fillRect(px - (w >> 1), top, (w >> 1) * 2 + 1, bot - top);
       // (de día el alma blanca del haz va a dos tercios: ocho haces juntos quemaban a blanco el centro de la definitiva)
-      ctx.globalAlpha = vive * (0.6 + 0.4 * n); ctx.fillStyle = '#ffffff'; ctx.fillRect(px - (w > 4 ? 1 : 0), top, w > 4 ? 3 : 1, bot - top);
+      ctx.globalAlpha = vive * (viejo ? 0.6 + 0.4 * n : 0.45 + 0.15 * n); ctx.fillStyle = viejo ? '#ffffff' : '#fff6d8'; ctx.fillRect(px - (w > 4 && viejo ? 1 : 0), top, w > 4 && viejo ? 3 : 1, bot - top);
       // motas que suben por el haz
       const r = azar(m.sem + Math.floor(T * 20)); ctx.fillStyle = '#fff4c0'; for (let i = 0; i < 6; i++) ctx.fillRect(px + Math.round((r() - 0.5) * w * 2), Math.round(bot - r() * Hh * 0.7), 1, 1);
       if (baja >= 1) { const rr = Math.round((6 + 16 * (1 - vive)) * m.esc); ctx.globalAlpha = vive * 0.9; ctx.fillStyle = m.c; ctx.beginPath(); for (let i = 0; i < 40; i++) { const an = (i / 40) * 6.283; ctx.rect(Math.round(px + Math.cos(an) * rr), Math.round(py + Math.sin(an) * rr * 0.5), 1, 1); } ctx.fill();
-        ctx.globalAlpha = vive * 0.7 * kk; const hr = halo('rgba(255,236,170,0.9)', 'rgba(255,190,60,0.25)'), q = 18 * m.esc; ctx.drawImage(hr, px - q, py - q * 0.6, q * 2, q * 1.2); }
+        ctx.globalAlpha = vive * 0.7 * kk * (m.detras && !viejo ? 0.55 : 1); const hr = halo('rgba(255,236,170,0.9)', 'rgba(255,190,60,0.25)'), q = 18 * m.esc; ctx.drawImage(hr, px - q, py - q * 0.6, q * 2, q * 1.2); }
       break; }
     case 'runas': {
       const a = Math.min(1, m.t / 0.15) * Math.min(1, (1 - u) * 3), R1 = m.r! * 22.6, gir = m.t * 0.9; ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a * 0.85; ctx.fillStyle = m.c;

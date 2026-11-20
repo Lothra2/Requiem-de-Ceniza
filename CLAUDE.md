@@ -49,6 +49,12 @@ con su equipo de salida (los 8 rumbos intermedios y los medios cuadros, 6 min): 
 que `firmaVisual` llama 'base'. Con otro equipo lo pinta el aparato (`motor/pintor.ts`). Los PNG intermedios
 no se suben (están en `.gitignore`): se hace commit recién después de pasar a webp.
 
+- **Las formas del druida** (`lobo_druida` y `oso_pardo` en `catalogo/bestias.ts`, quinta pasada): van en `catalogo/`, que no
+  entra en la huella de `__PINTOR__` (solo los `.ts` de `src/engine/gotico/` y no sus carpetas): tocarlas no repinta el héroe
+  de nadie. Se hornean solas: `RELIEVE=1 SOLO=lobo_druida,oso_pardo GRUPOS=b,f npx tsx juego/hornear/hornear.mts && python3
+  juego/hornear/atlas_webp.py` (75 s). Con `SOLO` los atlas llevan un prefijo con la hora (`bmwog...`), así que el webp
+  sale sin pérdida. Un cuerpo nuevo de bestia necesita además su fila en `BESTIAS_OTRAS` (`datos/zancada_monstruos.ts`) y
+  los JSON gemelos (`zancada_monstruos.json`, `zancada_correr_monstruos.json`, `animacion_monstruos.json`) al día.
 - **Morir con intermedios** (Rick, 19 nov 2026: "más sprites en la muerte para que se vea más fluida"). El motor sigue con
   sus 8 poses clave de morir (`CUADROS.morir`, lo que piden cinemáticas y adornos con un cuadro fijo), pero los enemigos se
   hornean con dos intermedios entre cada par: 22 cuadros (la clave k en el cuadro 3k) y los jefes tres (29, la clave en
@@ -359,10 +365,60 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
       - Auditoría: t760 y t975 ponen cadáveres para todo poder de `efecto: 'cadaver'`, dos esqueletos para la Ofrenda y el
         halcón para la Picada, y el templario lleva escudo (t760 siempre, t975 con `ESCUDO=1`, se espera al pintor). t975
         guarda en `/tmp/requiem-pruebas/poderes4/cerca`.
-      - Formas del druida (solo se miró): el héroe no se vuelve bestia, solo cambia de tono y de tamaño (`h.tinte`,
-        `h.escala` en mundo.ts). El lobo se podría pintar con el atlas de `lobo_sombrio` (quieto, caminar, correr, atacar,
-        herido y morir en 8 rumbos) sin hornear, pero el oso no tiene cuerpo propio (el oso invocado es el ogro teñido) y
-        hay que armarlo en el motor y hornear `b` y `f`.
+      - Formas del druida: en la cuarta solo se miró (el héroe cambiaba de tono y de tamaño). Hecho en la quinta, abajo.
+    - **Quinta pasada** (Rick, 20 nov 2026: "metele y déjalo bien perfecto"). Lo que la cuarta dejó flojo:
+      - **Formas del druida de verdad** (`render/formas.ts`). Con la Piel de lobo o la Piel de oso el héroe ES la bestia:
+        `lobo_druida` (el lobo de `bestias.ts` más grande, gris plata con el pecho claro y ojos de ámbar verde, para no
+        confundirse con los lobos sombríos) y `oso_pardo` (cuerpo nuevo: giba, panza, patas cortas y gruesas, cuatro uñas
+        claras, cabeza ancha de hocico corto, orejas redondas, pelo largo en la gorguera y el lomo; ataca alzándose y
+        descargando la zarpa derecha, `ataque: 'zarpazo'`). Las dos traen 'especial' (el lobo aúlla sentado, el oso se alza
+        y ruge), que es lo que se ve al lanzar (`accForma`). `cuadrosForma` da los cuadros con el rumbo real en 16 al andar,
+        `zancadaForma` el ritmo de patas (las patas no patinan), las huellas son de pata (`pisadaHeroe.bestia` en
+        ambiente.ts) y el golpe sin poder también es de la bestia (`estiloTajoDe` y `TAJO_FORMA` en tajos.ts: el lobo muerde,
+        el oso desgarra, con `bocaForma` a su altura; mundo.ts anota ese golpe en `golpesPoder` solo para el dibujo). El
+        cambio dura 0,5 s (`vistaForma`): el cuerpo de antes se encoge y se enciende de verde musgo, a los 0,21 s pasa al
+        otro, que crece con un rebote mientras se apaga, y presencias.ts suelta la luz verde que acude en espiral, el pelo
+        de la bestia, hojas, polvo, un anillo, los rayos y el golpe de cámara (`cambioForma`). El remolino de hojas horneado
+        del lanzador y el canto de la mejora no van en forma. **Nada del juego cambia**: estadísticas, choque, velocidad y
+        `h.escala` siguen igual (la escala la leen los números y el peso del golpe) y nada se guarda. Los atlas de las formas
+        bajan con la zona si el druida tiene el poder (`atlasZona` en main.ts). El Oso espíritu se pinta con el oso pardo
+        (`aspecto` en `INVOCADOS`): la ficha, la huella y la escala siguen siendo las del ogro. `__sinFormas` vuelve a todo
+        lo de antes. Lab sin servidor: `npx tsx juego/herramientas/t995_formas_lab.mts <id,...> [acciones] [rumbos]`; en el
+        juego `t995_formas.cjs [acciones] [rumbos]` (druida, lobo y oso lado a lado en cada acción y rumbo con
+        `__poseHeroe`, el cambio de forma en cámara lenta y el Oso espíritu) y `python3 juego/herramientas/t995_lamina.py`
+        (láminas en `/tmp/requiem-pruebas/poderes5`).
+      - **Menos blanco en el golpe**: Puño de rayo, Coro de los sellos y Ascenso del espíritu dejaban al héroe y al blanco casi
+        blancos una décima de segundo, sobre todo de noche. Los puños pintan su color tapando y suman solo el alma
+        (`kdia × 0,7`), el núcleo del puño es más chico, el anillo de choque pinta el color y suma el filo fino a media
+        fuerza, la estrella del contacto va del color del golpe, los rayos a tierra del puño son chicos (`chico`: arco fino,
+        resplandor chico y luz de 70 puntos en vez de 220), la radiografía del rayo es celeste a 0,4. En las definitivas
+        de luz que nacen en el héroe: el haz es de oro, tapa a medias y su alma es de un punto, el del centro chico (1,1),
+        las brasas de oro, la columna horneada a 0,45 (0,37 de noche, `alfaEf`), su luz en luces.ts a 0,3 de día y 0,5 de
+        noche (antes 1 de noche), de oro y sin el destello de pantalla, el fogonazo chico va detrás y la pantalla, los
+        anillos y el fogonazo de toda definitiva bajan (0,13, 0,42 y 0,32). Todo golpe cuerpo a cuerpo de un poder (no
+        definitivo) revienta en energia.ts a 0,4 (`suave`: ya tiene su materia), su fogonazo en el héroe va detrás a 0,2 y
+        su luz en luces.ts a la mitad (`GOLPES`). `__blancoViejo` vuelve a lo de antes. Medida: `python3
+        juego/herramientas/t996_blanco.py <etiqueta...>` sobre las capturas de t975 (que ahora guarda `<id>_pos.json` y
+        acepta `NOCHE=1`, la oscuridad de la zona a 0,85 en el mismo sitio, y `BANDERAS=`): puntos casi blancos (los tres
+        canales en 225 o más) en la caja del héroe y del blanco, peor cuadro. Puño de rayo (pegado) de día 14,9 y 26,6 % a
+        3,8 y 4,5, de noche 43,5 y 67,8 a 8,5 y 15,8; Ascenso de día 23,5 y 14,8 a 7,3 y 4,2, de noche 48,8 y 30,2 a 8,7 y
+        12,5; Coro de los sellos de noche 54,7 y 27,7 a 25,2 y 7,3, de día 21 a 22 (lo que queda es la columna y los
+        anillos detrás y debajo del templario, no su cuerpo: falta bajarla más sin que la definitiva se apague).
+      - **Cuervos y halcones de pixel del doble** (`spriteAve` en presencias.ts): unos 18 a 22 puntos de envergadura,
+        armados una vez por especie, rumbo (16), aleteo (8) y plegado: alas en tres cuartos (la de cerca baja, la de lejos
+        sube, en X planas, en V arriba), cola en abanico, contorno oscuro, luz arriba, el pecho claro del halcón, ojo y pico
+        con su punto de luz; las primarias del cuervo abiertas como dedos. La sombra crece con el pájaro y se achica con la
+        altura. La picada del halcón usa el mismo halcón, plegado y apuntando a donde cae, y abre las alas al remontar.
+        `__avesViejas` vuelve a lo de antes. Lámina: `t996_aves.cjs` (`/tmp/requiem-pruebas/poderes5/aves_lamina.png`, y la picada
+        en cámara lenta con `__picadaHalcon` en `poderes5/picada`).
+      - **Festín de tumba** (se leía flojo): el muerto se seca 0,65 s (antes 0,32, solo lo que se ve): late rojo, se pone
+        gris ceniza, se aplasta y se ensancha a tirones y al final la cáscara se deshace en polvo y huesitos. Un chorro grueso
+        de sangre (`chorro` en poderes_vivos.ts, en arco, con las rayas que fluyen hacia el héroe y el alma verde enroscada)
+        sale del muerto y entra en el pecho del héroe, suelta gotas que manchan el piso, y cuando llega el héroe late
+        (`latido`: dos aros rojo y verde y una cruz de luz). `__festinViejo` vuelve a lo de antes. De cerca:
+        `ANCHO=240 DESDE=0 node juego/herramientas/t981_cadaver.cjs festin_tumba <etiqueta>` (`VIEJO=1` el de antes).
+      - t975 elige el sitio lejos de toda salida (24 casillas, se afloja a 18 y 14 si no hay): el remolino del umbral "Volver
+        a El Oasis" entraba en los recortes.
 - **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.

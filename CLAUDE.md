@@ -288,6 +288,10 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
 - **a3_selva** salía oscura: la zona lleva su propia `oscuridad: 0.24` (el tema selva sigue en 0,5 para el Manglar Negro).
   Brillo medio del mundo en las vistas de t1021 de 27 a 38 a unos 35 a 40 (el páramo da 30). El despeje ya no era el
   problema: arena 59 a 69 % y 6 a 8 campamentos de 9 a 11 en arena.
+- **Lugares en el mapa** (`dibujarMapa` en `ui/juego_ui.ts`): cada claro visto lleva su rombo de hueso y en el mapa grande
+  su nombre (el hito, rombo de brasa). Solo lo explorado. Los signos de salidas, piedras, cofres y altares se apartan
+  antes que cualquier nombre, y una etiqueta que choca prueba arriba, abajo y a los lados antes de no ponerse (antes la
+  piedra de viaje y los cofres caían encima de los nombres). Se mira con `MAPA=1 t1021_vistas.cjs`.
 - **Nada montado** (`desmontar`, paso 5b de `curarAdornos`, `__montados` lo apaga): dos adornos cuyas cajas de sprite se
   pisan 55 % del más chico: queda el que pesa más (tag, estructura, relleno, macizo, garganta, jefe, horror, escondido,
   interactivo, columnas y las anclas del relato nunca salen; después escena, matanza y relato, viñeta, macabro, riego). Lo

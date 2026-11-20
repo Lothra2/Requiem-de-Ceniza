@@ -2521,10 +2521,10 @@ function curarAdornos(z: Zona, def: DefZona) {
   if (def.tipo !== 'pueblo' && !def.casa && !(globalThis as any).__sinRelatos) {
     const defDe = (id: string) => REGISTRO.find((q) => q.id === id);
     const sup = def.tema === 'nieve' || def.tema === 'hielo' ? 'nieve' : def.tipo === 'mazmorra' ? 'piedra' : 'tierra';
-    const libreEnt = (x: number, y: number) => !Object.values(z.entradas).some(([ex, ey]) => Math.hypot(ex - x, ey - y) < 7) && quedan.every((c) => Math.hypot(c.cx - x, c.cy - y) >= 3);
-    const pon = (id: string, v: string | undefined, cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean): ObjZ | null => {
+    const libreEnt = (x: number, y: number) => !Object.values(z.entradas).some(([ex, ey]) => Math.hypot(ex - x, ey - y) < 7) && quedan.every((c) => Math.hypot(c.cx - x, c.cy - y) >= 3) && grupos.every((g) => Math.hypot(g.cx - x, g.cy - y) >= 6.5); // (nada del relato en el medio de otro campamento)
+    const pon = (id: string, v: string | undefined, cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean, suelto = false): ObjZ | null => {
       const dd = defDe(id); if (!dd) return null; const vv = v && dd.variantes.includes(v) ? v : dd.variantes[Math.floor(r() * dd.variantes.length)];
-      const [hw, hh] = huellaDe(dd, vv), bl = !!dd.bloquea && !dd.plano;
+      const [hw, hh] = huellaDe(dd, vv), bl = !!dd.bloquea && !dd.plano && !suelto;
       enClaro = true; const p = lugar(cx, cy, r0, r1, hw, hh, !!dd.plano, (x, y) => libreEnt(x, y) && (!donde || donde(x, y))); enClaro = false; if (!p) return null;
       // (los cuerpos y lo bajo del relato se pisan: no ocupan la arena. Solo cuenta lo que bloquea de verdad)
       const o: ObjZ = { id, v: vv, cx: p[0], cy: p[1], hw, hh, bloquea: bl, capa: 'relato' }; z.objetos.push(o); if (bl) ocupar(o);
@@ -2592,7 +2592,7 @@ function curarAdornos(z: Zona, def: DefZona) {
         if (k === 3) {
           const c = CASTIGO[def.tema] ?? CASTIGO.paramo, [ia, va] = c[0];
           ancla = pon(ia, va, s.cx, s.cy, 9, 12.5, fondo) ?? pon(ia, va, s.cx, s.cy, 8.5, 13);
-          if (ancla) { const A = ancla; for (const [id, v] of c.slice(1)) pon(id, v, A.cx, A.cy, 2.2, 4.2); }
+          if (ancla) { const A = ancla; for (const [id, v] of c.slice(1)) pon(id, v, A.cx, A.cy, 2.2, 4.2, undefined, true); } // (lo de alrededor no tranca el paso: se pisa)
           else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
         } else if (k === 0) { ancla = pon(FOGATA[def.acto] ?? 'camp_fogata', undefined, s.cx, s.cy, 7.5, 10.5, fondo); if (ancla) { const A = ancla; pon('camp_asador', 'con_carne', A.cx, A.cy, 2.2, 3.4); muerto(A.cx, A.cy, 2.4, 4); } }
         else if (k === 1) { ancla = pon('sed_cuerpo_seco', 'tendido', s.cx, s.cy, 6, 9.5, fondo); if (ancla) { const A = ancla; pon('sed_cuerpo_seco', 'boca_abajo', A.cx, A.cy, 2, 3.6); if (r() < 0.6) pon('sed_cuerpo_seco', 'sentado', A.cx, A.cy, 2, 4); } }

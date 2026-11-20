@@ -59,6 +59,8 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
         for (const m of window.__puestos) {
           if (m.muerto) continue;
           const ob = m.objetivo && !m.objetivo.muerto ? m.objetivo : h; if (ob !== h) continue; const d = Math.hypot(m.x - h.x, m.y - h.y), alcance = m.radio + h.radio + 1.2;
+          // (el que quedó a más de 22 casillas suelta al héroe y vuelve a deambular, así es el juego: no es un atascado)
+          if (m.estado !== 'perseguir') continue;
           if (!Z.pasable(z, m.x, m.y)) enMuro++;
           if (cerca(m.x, m.y) < 0.25) pegados++;
           // ¿hay camino de verdad al héroe? (si no lo hay, quedarse quieto no es atascarse)

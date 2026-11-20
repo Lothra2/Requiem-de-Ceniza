@@ -234,6 +234,47 @@ celdas despertaban de a 3. Definiciones: **despeje** de una celda = anillos libr
   láminas y los mapas de despeje en `/tmp/requiem-pruebas/mundos1`. `t920_adornos` compara los campamentos por cantidad y
   tipo (su sitio se asienta después de curar).
 
+## Mundos, oleada 2 (20 nov 2026)
+
+**Etapa A: que los campamentos se puedan jugar.** La oleada 1 dejó peleas de 6 a 10 cuerpos con el daño de cuando eran 3.
+
+- **Simulador** `npx tsx juego/herramientas/t1010_campamentos.mts [--clases] [--niveles 1,5,10,20,35,50,65] [--semillas 6]
+  [--zonas a,b] [--banderas __frenteViejo] [--diag] [--inicio] [--salida x.json] [--md x.md]`: el héroe típico de
+  `balance.mts` entra de verdad a 4 zonas de su nivel (2 abiertas, 2 mazmorras) y las limpia con un jugador simple (va al
+  más cercano, pega con su poder, poción al 45 %, no esquiva). Mide por pelea cuerpos encima, duración, pociones, vida
+  mínima y muertes, y con `--diag` reparte el daño recibido por quién lo hizo (`__danoHeroe` en `danar`). `RAIZ=<otra
+  copia>/juego` corre el mismo jugador contra otra copia del repo (el antes). Al morir vuelve a la entrada y deja ese
+  campamento. Ojo: muertes por hora = muertes por baja x bajas por hora, y con campamentos se mata 1,3 a 1,5 veces más
+  rápido. Con 6 semillas cada clase muere 0 a 10 veces por nivel: por clase es ruido, vale la media.
+- **El frente** (`enFrente`, `rondar`, `topeFrente`, `ritmoFrente` en `juego/mundo.ts`; `__frenteViejo` lo apaga todo):
+  contra el héroe entran cuerpo a cuerpo 2 a la vez en zonas de nivel menor que 4, 3 hasta el 12 y 4 después; un campeón
+  vale por dos y van de a dos, **un solo bruto a la vez** (común o campeón: carceleros y gigantes de a tres eran lo que
+  mataba a las clases de tiro en las Llanuras y el Trono Helado), el único siempre. El resto cierra un corro a 3 o 4
+  casillas, ronda y entra cuando hay hueco. **Turnos**: entre el arranque de un golpe común y el siguiente pasan 1,2 a
+  1,5 s (el bruto ocupa dos). **Andanada**: un tiro común cada 1,5 s (1,9 desde el nivel 24). Las maniobras (embestida,
+  salto) son del que tiene turno. **Escolta**: en un campamento de élite el grupo que acompaña (`escolta`) es la segunda
+  oleada: entra cuando un élite cae o baja de media vida, si le pegan o a los 15 s.
+- **Bienvenida**: en zonas de nivel menor que 6 los campamentos juntan 2 o 3 grupos (4 a 6 cuerpos). Para un héroe de
+  nivel 3 o menos, el campamento más cercano a la puerta por la que entra es de 2, el segundo de 2 grupos, y los de élite
+  a menos de 40 celdas de esa puerta salen como comunes (`mansos`, solo en esa partida de `poblar`).
+- **Atascos**: `buscarCamino` marca `parcial` si se acabó el presupuesto; `avanzar` busca entonces a fondo (20 000 nodos,
+  con montículo, `caminoLargo`, una vez por cuadro) y sigue ese camino 2,5 s. `t1011_atascos_sim.mts [zonas|todas]
+  [semillas]` es t995 sin navegador (todas las mazmorras en 30 s). El criterio de las dos pruebas ahora mira lo que falta
+  por el camino de verdad, no en línea recta, y no cuenta al que hace cola detrás de otros.
+- **Ruedo del jefe** (`asentarJefe`, al final de `generarZona`): 10 anillos libres garantizados. Si no los hay, quita el
+  adorno suelto que estorba y, si el terreno no da, muda al jefe al punto con ruedo más cercano. En las islas del abismo
+  el jefe tiene su isla mayor de 6 x 6 baldosas. `cabe` (lugares de los exteriores) mira también el medio del claro.
+- Herramientas: `t1012_desglose.mjs` (de qué capa y pieza sale cada adorno y qué tapa el piso), `t1020_pieza_lab.mts <id>`
+  (pinta piezas del catálogo sin servidor, con su huella y una persona de 75 puntos), `t1021_vistas.cjs` +
+  `t1021_lamina.py` (vistas de cada lugar de una zona sin niebla ni pelea).
+
+**Etapa B (en marcha).** Hecho: el borde de los exteriores va por **macizos** (`arb_macizo` en `catalogo/arboles.ts`: una
+pieza de 9 x 3 o un nudo de 5 x 5 con silueta, cuatro especies), solo donde el vacío queda al norte o al oeste (**lo alto
+atrás, lo bajo adelante**: un risco del borde con piso detrás va bajo); la orilla ya no lleva matas ni cascajo, la garganta
+es de roca y hay dos viñetas como mucho. `__sinMacizos` vuelve a lo de antes. Piezas del relato horneadas y todavía sin
+poner en el mundo (`catalogo/horror.ts`): `sed_cuerpo_seco`, `sed_brasa`, `ves_rastro`, `sed_sello_roto`. Hornear una pieza
+suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && python3 juego/hornear/atlas_webp.py` (25 s).
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

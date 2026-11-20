@@ -288,6 +288,13 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   pieza no se desmonta). t1000 (3 semillas), exterior antes de la etapa B y ahora: montados 54 a 15 %, adornos por
   pantalla 55 a 48, arena 62 a 59 (el relato bloquea algo), piso legible 30 a 31; bajo tierra montados 35 a 6 %, adornos
   por pantalla 30 a 25 (cueva 32 a 29).
+- **Puertas y cuellos** (`mazmorra`, solo las de obra; `__pasillosLargos` vuelve a la siembra de antes, `__sinPuertas` quita
+  las jambas): tres de cada cuatro salas nacen junto a otra (a 1 o 2 baldosas, centros alineados), y entre dos salas a 2
+  baldosas o menos el paso es de una baldosa de ancho. Donde un cuello de una baldosa entra a una sala van dos braseros o
+  antorchas del tema a los lados, contra el muro (capa `umbral`, no se quitan ni se desmontan). Baldosas de pasillo por
+  enlace (93 mazmorras x 3 semillas): mediana 3,3 a 2 (las de doble ancho cuentan 2), p90 8,7 a 3,75. t1000 obra: arena
+  57 a 60, campamentos en arena 77 a 83, adornos por pantalla 25 a 33. Medida: `juego/herramientas/_m_pasillo.mjs` no se
+  sube (los `_m_` están en .gitignore): contar `suelo && !sala` por enlace en `mazmorra`.
 
 ## Armas vivas, cofres, poderes y siluetas
 

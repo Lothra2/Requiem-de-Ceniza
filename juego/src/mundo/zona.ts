@@ -1535,6 +1535,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   const viejo = !!(globalThis as any).__salasViejas, obra = !viejo && !def.casa && !t.organica && !t.islas, cueva = !viejo && !!t.organica && !def.casa;
   const SALA_MAYOR: Record<string, number> = { senor_demonio: 10, aun_saar: 10, dragon_oseo: 9, campana_ahoga: 9, madre_cienaga: 9, rey_escarcha: 9 };
   let mayor: [number, number, number, number] | null = null;
+  const viejoCuello = !!(globalThis as any).__pasillosLargos;
   // (oleada 2: en las islas sobre el vacío el jefe también tiene su isla mayor, de 6 x 6 baldosas: Orvan peleaba en una de 23
   //  celdas con los obeliscos, el tesoro y el portal adentro, ruedo libre de 4)
   const islaJefe = !viejo && !!t.islas && !!def.jefe && !def.casa;
@@ -1544,7 +1545,15 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   }
   for (let i = 0; i < (def.casa ? 400 : 120) && cuartos.length < (def.casa ? 5 : Math.max(obra ? 4 : 3, Math.floor((tw * th) / (obra ? 80 : cueva ? 62 : 45)))); i++) {
     const w = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4)), h = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4));
-    const x = 1 + Math.floor(r() * Math.max(1, tw - w - 2)), y = 1 + Math.floor(r() * Math.max(1, th - h - 2));
+    let x = 1 + Math.floor(r() * Math.max(1, tw - w - 2)), y = 1 + Math.floor(r() * Math.max(1, th - h - 2));
+    // (oleada 2, Rick: "puertas y cuellos cortos, no pasillos eternos"): en las de obra tres de cada cuatro salas nacen junto a
+    // otra, a una o dos baldosas y con los centros alineados: se unen por un cuello corto que se lee como puerta
+    if (obra && !viejoCuello && cuartos.length && r() < 0.75) {
+      const R = cuartos[Math.floor(r() * cuartos.length)], lado = Math.floor(r() * 4), g = r() < 0.7 ? 1 : 2, d = Math.round((r() - 0.5) * 2);
+      if (lado < 2) { x = lado === 0 ? R[0] - g - w : R[0] + R[2] + g; y = R[1] + Math.floor((R[3] - h) / 2) + d; }
+      else { y = lado === 2 ? R[1] - g - h : R[1] + R[3] + g; x = R[0] + Math.floor((R[2] - w) / 2) + d; }
+      if (x < 1 || y < 1 || x + w > tw - 1 || y + h > th - 1) continue;
+    }
     if (cuartos.some(([a, b, c, d]) => x < a + c + 1 && x + w + 1 > a && y < b + d + 1 && y + h + 1 > b)) continue;
     cuartos.push([x, y, w, h]);
   }
@@ -1565,7 +1574,9 @@ function mazmorra(def: DefZona, semilla: number): Zona {
     const X = Math.floor(c[0] + c[2] / 2), Y = Math.floor(c[1] + c[3] / 2);
     const primeroX = r() < 0.5;
     // el pasillo no es siempre una L: la mitad hace una Z (quiebra a medio camino) y uno de cada cuatro es de doble ancho
-    const zeta = r() < 0.5, ancho = !t.islas && !t.rieles && (r() < 0.25 || obra);
+    // (oleada 2: entre dos salas a una o dos baldosas el paso es un cuello de una baldosa de ancho: se lee como puerta)
+    const hueco = Math.max(0, Math.max(o[0], c[0]) - Math.min(o[0] + o[2], c[0] + c[2])) + Math.max(0, Math.max(o[1], c[1]) - Math.min(o[1] + o[3], c[1] + c[3]));
+    const zeta = r() < 0.5, ancho = !t.islas && !t.rieles && (r() < 0.25 || obra) && !(obra && !viejoCuello && hueco <= 2);
     const marca = () => { suelo[y * tw + x] = 1; if (ancho) { const x2 = Math.min(tw - 2, x + 1), y2 = Math.min(th - 2, y + 1); suelo[(primeroX ? y2 : y) * tw + (primeroX ? x : x2)] = 1; } };
     const enX = (hasta: number) => { while (x !== hasta) { marca(); x += Math.sign(hasta - x); } }, enY = (hasta: number) => { while (y !== hasta) { marca(); y += Math.sign(hasta - y); } };
     if (primeroX) { if (zeta) enX(Math.round((x + X) / 2)); else enX(X); enY(Y); enX(X); }
@@ -1647,6 +1658,25 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // en las minas los túneles rectos llevan derrubio a los dos lados (queda libre el centro, por donde van los rieles)
   if (t.rieles && !abierto) orillaTunel(k, suelo, sala);
   if (!abierto && !t.islas && !(globalThis as any).__sinEscombro) escombroFrente(k, sala, ESCOMBRO_TEMA[def.tema] ?? 'cementerio'); // (solo en las salas: en un pasillo podría cerrar el paso)
+  // las puertas (oleada 2): donde un cuello de una baldosa entra a una sala, dos luces del tema a los lados, contra el muro,
+  // hacen de jambas. Se leen de lejos como umbral y alumbran el paso. Capa 'umbral': nada las quita ni las desmonta
+  if (obra && !viejoCuello && !(globalThis as any).__sinPuertas) {
+    const luz = k.sel(t.luces).filter((q) => /brasero|antorcha/.test(q.d.id)), dl = luz.length ? luz[Math.floor(r() * luz.length)] : null;
+    const S = (x: number, y: number) => x >= 0 && y >= 0 && x < tw && y < th && !!suelo[y * tw + x], Sa = (x: number, y: number) => S(x, y) && !!sala[y * tw + x];
+    const c0 = k.capa; k.capa = 'umbral';
+    if (dl) for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
+      if (!S(bx, by) || sala[by * tw + bx]) continue;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const rx = bx + dx, ry = by + dy; if (!Sa(rx, ry)) continue;
+        // (solo cuellos de una baldosa: a los lados del cuello no hay piso)
+        if (dx ? S(bx, by - 1) || S(bx, by + 1) : S(bx - 1, by) || S(bx + 1, by)) continue;
+        const vs = dl.d.variantes.filter(dl.v), v = vs.length ? vs[Math.floor(r() * vs.length)] : undefined;
+        if (dx) { const x = dx > 0 ? rx * 5 + 1 : rx * 5 + 3; if (Sa(rx, by - 1)) k.poner(dl.d, x, by * 5 - 1, v); if (Sa(rx, by + 1)) k.poner(dl.d, x, by * 5 + 5, v); }
+        else { const y = dy > 0 ? ry * 5 + 1 : ry * 5 + 3; if (Sa(bx - 1, ry)) k.poner(dl.d, bx * 5 - 1, y, v); if (Sa(bx + 1, ry)) k.poner(dl.d, bx * 5 + 5, y, v); }
+      }
+    }
+    k.capa = c0;
+  }
   // entrada (primer cuarto) y fondo (último)
   const c0 = orden[0], cN = orden[orden.length - 1];
   const centroDe = (c: [number, number, number, number]): [number, number] => [Math.floor((c[0] + c[2] / 2) * 5), Math.floor((c[1] + c[3] / 2) * 5)];
@@ -2332,7 +2362,7 @@ function desmontar(z: Zona, quitar: Set<ObjZ>, fijos: Set<ObjZ>, sacar: (o: ObjZ
   const peso = (o: ObjZ) => {
     if (o.tag || fijos.has(o) || CU_ESTRUCTURA.test(o.id) || DM_FIJO.test(o.id)) return 9;
     const c = o.capa ?? '';
-    if (c === 'relleno' || c === 'garganta' || c === 'jefe' || c === 'horror' || c === 'escondido' || c === 'interactivo') return 9;
+    if (c === 'relleno' || c === 'umbral' || c === 'garganta' || c === 'jefe' || c === 'horror' || c === 'escondido' || c === 'interactivo') return 9;
     return c === 'escena' || c === 'matanza' || c === 'relato' ? 5 : c === 'vineta' ? 3 : c === 'macabro' ? 2 : 1;
   };
   type Caja = { o: ObjZ; k: [number, number, number, number]; x0: number; y0: number; x1: number; y1: number; a: number; p: number };

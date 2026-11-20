@@ -31,7 +31,7 @@ const BESTIAS_ACTO1 = ['lobo_sombrio', 'arana_cueva', 'arana_reina', 'cangrejo_c
  * jabalí (acto 3), el perro de la Herida (acto 5), el gólem del sello, el demonio alado y el dragón de huesos. Sin
  * entrada acá el juego usaba 0,9 de la zancada humana y el jabalí y el perro patinaban al caminar.
  */
-const BESTIAS_OTRAS = ['escorpion_gigante', 'jabali_demonio', 'perro_infernal', 'golem_de_piedra', 'demonio_alado', 'dragon_oseo'];
+const BESTIAS_OTRAS = ['escorpion_gigante', 'jabali_demonio', 'perro_infernal', 'golem_de_piedra', 'demonio_alado', 'dragon_oseo', 'lobo_druida', 'oso_pardo'];
 /** Los que no pisan: ritmo de aleteo (la gárgola bate una vez por ciclo, el murciélago dos) y vaivén de la abadesa. */
 const SIN_PISADA: Record<string, number> = { gargola: 1.7, murcielago_gigante: 2.4, jefe_abadesa: 3.8 };
 

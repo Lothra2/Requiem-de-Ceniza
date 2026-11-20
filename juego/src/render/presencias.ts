@@ -21,6 +21,7 @@ import { anilloPiso, chispasLibres } from './energia';
 import { nochePfx } from './pfx';
 import { HABILIDADES, type Habilidad } from '../datos/clases';
 import { M as V, poderesVivos } from './poderes_vivos';
+import { alCambiarForma, formasVivas, DUR_CAMBIO, type Forma } from './formas';
 
 type RGB = [number, number, number];
 type AP = (x: number, y: number) => [number, number];
@@ -120,7 +121,7 @@ let buffsAnt = new Map<string, number>();
 let rimFin: { c: RGB; t0: number } | null = null;
 const finBuff: { id: string; t0: number }[] = [];
 let latido = 0, ultimaLuz = -9;
-((window as any).__limpiadores ??= []).push(() => { motas.length = marcas.length = 0; buffsAnt = new Map(); rimFin = null; finBuff.length = 0; trampasVivas.length = 0; });
+((window as any).__limpiadores ??= []).push(() => { motas.length = marcas.length = 0; buffsAnt = new Map(); rimFin = null; finBuff.length = 0; trampasVivas.length = 0; cambiosPend.length = 0; });
 
 // ------------------------------------------------------------------ invocaciones
 /** De qué es cada invocado: muerto, ceniza, sangre, bestia, espíritu, ave o árbol. */
@@ -190,6 +191,7 @@ function llegada(j: Juego, m: Monstruo) {
 }
 /** El halcón que baja en picada desde lo alto (al llamarlo y en la Picada): la silueta con su estela de viento, el golpe
  * de aire en el piso, plumas y polvo; después remonta con las alas abiertas. `k` es la fuerza (la Picada pega más). */
+(window as any).__picadaHalcon = (x: number, y: number) => { if (jForma) picadaHalcon(jForma, x, y, 1.4); }; // (pruebas: t996_aves.cjs)
 function picadaHalcon(j: Juego, x: number, y: number, k: number) {
   const LLEGA = 0.28;
   mk({ k: 'picada', x, y, d: 0.75, p: PAL.bestia, r: 1.7 * k, z: 0 });
@@ -339,7 +341,7 @@ function estallidoBuff(j: Juego, est: EstBuff, id: string) {
 export function rimHeroe(j: Juego): [RGB, number] | null {
   if (!presenciasVivas()) return null;
   const ahora = j.t; let mejor: [RGB, number] | null = null, tMax = -1;
-  for (const [k, b] of Object.entries(j.heroe.buffs)) { if (b.t > 9000) continue; const est = BUFF[k]; if (!est) continue;
+  for (const [k, b] of Object.entries(j.heroe.buffs)) { if (b.t > 9000) continue; const est = BUFF[k]; if (!est) continue; if (formasVivas() && k.startsWith('forma_')) continue; // (la bestia ya dice la forma: sin canto)
     // la última que se pidió manda el color; las que tienen canto propio (rim) se ven más
     const t0 = buffT0.get(k) ?? 0; if (t0 > tMax) { tMax = t0; const nace = Math.min(1, (ahora - t0) / 0.25), sale = Math.min(1, b.t / 0.7); mejor = [est.p.rgb, (est.rim ? 0.75 : 0.45) * Math.max(0.15, nace) * sale * (0.82 + 0.18 * Math.sin(ahora * 4))]; } }
   if (!mejor && rimFin) { const u = (ahora - rimFin.t0) / 0.7; if (u < 1) return [rimFin.c, 0.5 * (1 - u)]; rimFin = null; }
@@ -382,8 +384,8 @@ export function seguirPresencias(j: Juego) {
   // mejoras: nacen, siguen y se apagan
   const ahora = new Map<string, number>();
   for (const [k, b] of Object.entries(h.buffs)) { if (b.t > 9000 || !BUFF[k]) continue; ahora.set(k, b.t);
-    const antes = buffsAnt.get(k); if (antes === undefined || b.t > antes + 0.5) { buffT0.set(k, j.t); estallidoBuff(j, BUFF[k], k); } }
-  for (const [k, t] of buffsAnt) if (!ahora.has(k)) { const est = BUFF[k]; if (!est) continue;
+    const antes = buffsAnt.get(k); if (antes === undefined || b.t > antes + 0.5) { buffT0.set(k, j.t); if (!(formasVivas() && k.startsWith('forma_'))) estallidoBuff(j, BUFF[k], k); } }
+  for (const [k, t] of buffsAnt) if (!ahora.has(k)) { const est = BUFF[k]; if (!est) continue; if (formasVivas() && k.startsWith('forma_')) { buffT0.delete(k); continue; }
     // se acabó: el canto se apaga y las motas caen
     if (t < 0.6) { rimFin = { c: est.p.rgb, t0: j.t }; for (let i = 0; i < 10 * KT(); i++) mota(est.mota, h.x + rnd(-0.4, 0.4), h.y + rnd(-0.4, 0.4), rnd(20, 50), est.p, { vz: -rnd(10, 30), d: rnd(0.5, 0.9) }); mk({ k: 'pulso', x: h.x, y: h.y, d: 0.5, p: est.p, r: 0.9, sale: true }); }
     buffT0.delete(k); }
@@ -393,9 +395,36 @@ export function seguirPresencias(j: Juego) {
   for (const k of orden) { const est = BUFF[k];
     if (R() < dt * 3.2 * KT()) { const an = R() * 6.283, rr = rnd(0.2, 0.5); mota(est.mota, h.x + Math.cos(an) * rr, h.y + Math.sin(an) * rr, rnd(4, 40), est.p, { d: rnd(0.7, 1.1) }); }
     if (est.orb && R() < dt * 6 * KT()) mota(est.mota === 'viento' ? 'viento' : est.mota, h.x, h.y, rnd(8, 44), est.p, { orb: { cx: h.x, cy: h.y, r: rnd(0.55, 0.8), an: R() * 6.283, w: rnd(4, 6) }, vz: rnd(-4, 4), d: rnd(0.5, 0.8) }); }
+  // el cambio de forma del druida: lo que quedó para el medio del cambio
+  jForma = j; for (let i = cambiosPend.length - 1; i >= 0; i--) if (j.t >= cambiosPend[i].t) { const c = cambiosPend.splice(i, 1)[0]; c.fn(); }
   moverMotas(dt);
   for (let i = marcas.length - 1; i >= 0; i--) { const m = marcas[i]; m.t += dt; if (m.t > m.d) { marcas[i] = marcas[marcas.length - 1]; marcas.pop(); } }
 }
+
+// ------------------------------------------------------------------ el cambio de forma del druida (render/formas.ts)
+let jForma: Juego | null = null;
+const cambiosPend: { t: number; fn: () => void }[] = [];
+const PELO: Record<Forma, string[]> = { lobo: ['#4e4c46', '#757168', '#8a857a', '#615e56', '#ada188'], oso: ['#36271a', '#4f3926', '#5d432d', '#755037', '#2b1f15'] };
+/**
+ * El druida cambia de cuerpo: la luz verde del bosque acude en espiral y se cierra sobre él (lo de antes se encoge y se
+ * enciende), y en el medio del cambio revienta el pelo de la bestia (o de la que se va), hojas, polvo, un anillo en el
+ * piso, los rayos de luz y un golpe de cámara; al volver a ser druida lo que cae es el pelo de la bestia que se deshace.
+ */
+function cambioForma(j: Juego, de: Forma | null, a: Forma | null) {
+  const h = j.heroe, p = PAL.bosque, pesa = a === 'oso' || (!a && de === 'oso'), pelo = PELO[a ?? de ?? 'lobo'];
+  for (let i = 0; i < 22 * KT(); i++) { const an = R() * 6.283, r = rnd(0.7, 1.5); mota('cura', h.x + Math.cos(an) * r, h.y + Math.sin(an) * r, rnd(4, 40), p, { orb: { cx: h.x, cy: h.y, r, an, w: rnd(6, 10) * (i % 2 ? 1 : -1) }, vz: rnd(10, 30), d: rnd(0.3, 0.45) }); }
+  anilloPiso(h.x, h.y, { d: 0.4, r0: 1.6, r1: 0.3, c: p.rgb, g: 2, a: 0.55 });
+  cambiosPend.push({ t: j.t + DUR_CAMBIO * 0.42, fn: () => {
+    const x = h.x, y = h.y, alto = pesa ? 30 : 22;
+    V.astillas(x, y, alto, a ? 26 : 34, pelo, pelo[pelo.length - 1], pesa ? 3.6 : 3, 3);
+    V.hojas(x, y, a ? 14 : 8); V.polvo(x, y, pesa ? 12 : 8, '#7a6a50', pesa ? 7 : 5, 12, 2.4);
+    anilloPiso(x, y, { d: 0.5, r0: 0.3, r1: pesa ? 2.8 : 2.2, c: p.rgb, g: 3, a: 0.7 });
+    mk({ k: 'rayos', x, y, d: 0.32, p, r: pesa ? 1.2 : 1, z: alto });
+    for (let i = 0; i < 16 * KT(); i++) { const an = R() * 6.283, v = rnd(0.8, 2.4); mota('cura', x + Math.cos(an) * 0.2, y + Math.sin(an) * 0.2, rnd(8, alto + 16), p, { vx: Math.cos(an) * v, vy: Math.sin(an) * v, d: rnd(0.5, 0.9) }); }
+    j.sacudida = Math.max(j.sacudida, pesa ? 0.28 : 0.18);
+  } });
+}
+alCambiarForma((de, a) => { if (jForma && presenciasVivas() && jForma.t > 0.3) cambioForma(jForma, de, a); });
 
 // ------------------------------------------------------------------ el dibujo
 /** Todo lo de este módulo en el orden del mundo (lo plano en el piso, lo de pie con su fila). */
@@ -415,7 +444,7 @@ export function itemsPresencias(ctx: CanvasRenderingContext2D, j: Juego, aP: AP,
   if ((h as any).escudoHueso > 0 && !h.muerto) for (let k = 0; k < 6; k++) { const an = tiempo * 2.6 + k * 1.047, atras = Math.sin(an) < 0;
     out.push({ prof: h.x + h.y + (atras ? -0.03 : 0.05), draw: () => dibHueso(ctx, aP, h.x, h.y, an, k, tiempo) }); }
   // los cuervos y los halcones de los poderes: pájaros de pixel con su sombra en el piso, en el orden del mundo
-  for (const c of j.cuervos as any[]) { out.push({ prof: -1e6 + c.x + c.y + 0.62, draw: () => dibSombraAve(ctx, aP, c, tiempo) }); out.push({ prof: c.x + c.y + 0.4, draw: () => dibAve(ctx, j, aP, c, tiempo) }); }
+  for (const c of j.cuervos as any[]) { out.push({ prof: -1e6 + c.x + c.y + 0.62, draw: () => dibSombraAve(ctx, j, aP, c, tiempo) }); out.push({ prof: c.x + c.y + 0.4, draw: () => dibAve(ctx, j, aP, c, tiempo) }); }
   // las líneas del coto que unen sus trampas
   const coto = (j.torretas as any[]).filter((t) => t.hab === 'coto_caza');
   if (coto.length > 2) out.push({ prof: -1e6 + coto[0].x + coto[0].y + 0.6, draw: () => dibCoto(ctx, coto, aP, tiempo) });
@@ -614,13 +643,19 @@ function dibMarca(ctx: CanvasRenderingContext2D, j: Juego, m: Mk, aP: AP) {
       // la sombra del ave en el piso, que se acerca y se agranda
       if (m.t < LL) { const v = (m.t / LL) ** 1.7, sx = Math.round(px - 40 * (1 - v)), sw = Math.round(3 + 6 * v); ctx.globalAlpha = 0.3 * v; ctx.fillStyle = '#000'; ctx.fillRect(sx - sw, py + 1, sw * 2 + 1, 2); }
       // el ave: cuerpo, cabeza con pico y las alas (plegadas en la picada, abiertas al remontar)
-      ctx.globalAlpha = a; const pt = (f: number, s2: number): [number, number] => [Math.round(hx + ux * f + nx * s2), Math.round(hy + uy * f + ny * s2)];
+      ctx.globalAlpha = a;
+      // (quinta pasada) el halcón de pixel de los pájaros de los poderes: plegado en la picada, apuntando a donde cae, y
+      // abriendo las alas y batiendo al remontar
+      if (!(window as any).__avesViejas) { const fase = m.t < LL ? 2 : Math.floor(m.t * 18) & 7, spr = spriteAve('halcon', Math.atan2(uy, ux), fase, m.t < LL ? 1 : Math.max(0, 1 - abre)); ctx.imageSmoothingEnabled = false; ctx.drawImage(spr, Math.round(hx) - LADO_AVE / 2, Math.round(hy) - LADO_AVE / 2); }
+      else {
+      const pt = (f: number, s2: number): [number, number] => [Math.round(hx + ux * f + nx * s2), Math.round(hy + uy * f + ny * s2)];
       const k = m.r, ala = (3 + abre * 7) * k, atras = (5 - abre * 3) * k;
       ctx.fillStyle = '#1e1208'; for (let f = -6 * k; f <= 2 * k; f++) { const [qx, qy] = pt(f, 0); ctx.fillRect(qx - 1, qy - 1, 3, 3); }
       for (const sg of [-1, 1]) for (let q = 0; q <= ala; q++) { const [qx, qy] = pt(-atras * (q / ala) - 1, sg * q); ctx.fillStyle = '#1e1208'; ctx.fillRect(qx - 1, qy - 1, 3, 2); }
       ctx.fillStyle = '#6a4a2a'; for (let f = -6 * k; f <= 2 * k; f++) { const [qx, qy] = pt(f, 0); ctx.fillRect(qx, qy, 1, 1); }
       for (const sg of [-1, 1]) for (let q = 0; q <= ala; q++) { const [qx, qy] = pt(-atras * (q / ala) - 1, sg * q); ctx.fillStyle = q > ala * 0.6 ? '#3a2614' : '#8a6a40'; ctx.fillRect(qx, qy, 1, 1); if (q % 2 === 0) { ctx.fillStyle = '#d8c098'; ctx.fillRect(qx, qy - 1, 1, 1); } }
       { const [qx, qy] = pt(3 * k, 0); ctx.fillStyle = '#e8dcc0'; ctx.fillRect(qx, qy, 1, 1); const [bx, by] = pt(4 * k, 0); ctx.fillStyle = '#f0b040'; ctx.fillRect(bx, by, 1, 1); }
+      }
       // el golpe de aire al llegar
       if (m.t >= LL && m.t < LL + 0.1) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = (1 - (m.t - LL) / 0.1) * kd; ctx.fillStyle = '#fff6e0'; ctx.fillRect(x1 - 4, y1 + 6, 9, 1); ctx.fillRect(x1, y1 + 2, 1, 9); }
       break; }
@@ -650,7 +685,7 @@ export function lucesPresencias(j: Juego, aP: AP): { x: number; y: number; h: nu
 }
 
 /** Si la mejora o el aura tiene su dibujo propio acá (entonces no va el bucle horneado de su lanzador). */
-export function tieneEstilo(id: string): boolean { return presenciasVivas() && (!!BUFF[id] || !!AURA[id]) && id !== 'forma_lobo' && id !== 'forma_oso'; }
+export function tieneEstilo(id: string): boolean { return presenciasVivas() && (!!BUFF[id] || !!AURA[id]) && (formasVivas() || (id !== 'forma_lobo' && id !== 'forma_oso')); }
 
 /** Una placa de hueso de la armadura del nigromante: un hueso de pixel con su canto oscuro, que gira y sube y baja. */
 function dibHueso(ctx: CanvasRenderingContext2D, aP: AP, hx: number, hy: number, an: number, k: number, t: number) {
@@ -670,24 +705,97 @@ function dibHueso(ctx: CanvasRenderingContext2D, aP: AP, hx: number, hy: number,
 const avesPrev = new WeakMap<object, [number, number]>();
 function altoAve(j: Juego, c: any, t: number): number { const cerca = c.objetivo && !c.objetivo.muerto && Math.hypot(c.objetivo.x - c.x, c.objetivo.y - c.y) < 0.8, pica = c.pica !== undefined ? Math.max(0, 1 - (j.t - c.pica) / 0.18) : 0;
   return (cerca ? 30 : 50) - pica * 16 + Math.sin(t * 9 + c.ang) * (cerca ? 3 : 6); }
-function dibSombraAve(ctx: CanvasRenderingContext2D, aP: AP, c: any, t: number) {
-  const [px, py] = aP(c.x, c.y), a = Math.min(1, c.t * 4) * Math.min(1, (c.dur - c.t) * 3); ctx.save(); ctx.globalAlpha = 0.28 * a; ctx.fillStyle = '#000000'; ctx.fillRect(Math.round(px) - 3, Math.round(py), 7, 2); ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 3, 1); ctx.restore(); void t;
+// ------------------------------------------------------------------ los pájaros de los poderes (quinta pasada)
+// (Rick: "los cuervos y los halcones se ven muy chiquitos", 7 puntos a 720) Un pájaro de pixel de unos 18 de envergadura,
+// armado una vez por especie, rumbo (16), aleteo (8) y plegado: cuerpo, cabeza, pico, cola en abanico y las dos alas
+// (la de atrás más oscura), con la luz de arriba en el canto, lo de abajo hundido, el contorno oscuro de afuera, el ojo
+// que brilla y el pico con su punto de luz. Se pega a puntos enteros.
+interface PalAve { o: string; d: string; m: string; l: string; s: string; p?: string; pico: string; picoL: string; ojo: string; ojoD?: string }
+const PAL_AVE: Record<'cuervo' | 'halcon', PalAve> = {
+  cuervo: { o: '#040406', d: '#100f15', m: '#1d1b25', l: '#2f2c3d', s: '#4c4b6e', pico: '#2a2722', picoL: '#8c877c', ojo: '#d8d8f0' },
+  halcon: { o: '#1a0f06', d: '#3e2714', m: '#6c4c2a', l: '#9c7446', s: '#c89c64', p: '#e6d8b8', pico: '#e0a838', picoL: '#fff0b0', ojo: '#ffd040', ojoD: '#1a0f06' },
+};
+const avesHechas = new Map<string, HTMLCanvasElement>();
+(window as any).__spriteAve = (esp: 'cuervo' | 'halcon', ang: number, fase: number, pl: number) => spriteAve(esp, ang, fase, pl); // (pruebas: t996_aves.cjs)
+const LADO_AVE = 36;
+/** El cuadro del pájaro: especie, rumbo en la pantalla (rad, a 16), fase del aleteo (0..7) y plegado (0 abierto, 1 plegado). */
+function spriteAve(esp: 'cuervo' | 'halcon', ang: number, fase: number, plegado: number): HTMLCanvasElement {
+  const ai = ((Math.round(ang / (Math.PI / 8)) % 16) + 16) % 16, pl = Math.round(plegado * 4) / 4, k = `${esp}|${ai}|${fase}|${pl}`;
+  let c = avesHechas.get(k); if (c) return c;
+  const P = PAL_AVE[esp], hal = esp === 'halcon', N = LADO_AVE, C = N / 2;
+  const h = (ai * Math.PI) / 8, fx = Math.cos(h), fy = Math.sin(h);
+  // el "arriba" del pájaro en la pantalla: la perpendicular que mira hacia arriba (de cabeza al bajar en picada no)
+  let ux = fy, uy = -fx; if (uy > 0 || (uy === 0 && ux > 0 && fx === 0)) { ux = -ux; uy = -uy; }
+  // las alas en tres cuartos, como se ve desde arriba en la isométrica: la de cerca baja hacia nosotros y la de lejos sube,
+  // abiertas en X con el ala plana, en V arriba y caídas abajo (de -45° a 75° de batida)
+  const S = hal ? 1.1 : 1, L = (hal ? 12.5 : 11.5), a = ((15 + 60 * Math.cos((fase / 8) * Math.PI * 2)) * Math.PI) / 180;
+  const sh: [number, number] = [0.8 * S, 0.9];
+  const ala = (lejos: boolean): [number, number] => { const y = L * Math.cos(a) * 0.74 * (lejos ? 1 : -1), z = L * Math.sin(a) * 0.68; return [sh[0] - 2.2 - Math.abs(Math.cos(a)) * 1.6 - 5 * pl + (lejos ? -0.6 : 0), sh[1] + (z + y) * (1 - pl) + pl * 0.6]; };
+  const dSeg = (px: number, py: number, ax: number, ay: number, bx: number, by: number) => { const vx = bx - ax, vy = by - ay, l2 = vx * vx + vy * vy || 1, t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / l2)); return [Math.hypot(px - ax - vx * t, py - ay - vy * t), t]; };
+  const lab = new Uint8Array(N * N); // 0 nada, 1 cuerpo, 2 cabeza, 3 pico, 4 cola, 5 ala cerca, 6 ala lejos, 7 ojo
+  const tip0 = ala(true), tip1 = ala(false);
+  for (let yy = 0; yy < N; yy++) for (let xx = 0; xx < N; xx++) {
+    const sx = xx + 0.5 - C, sy = yy + 0.5 - C, lx = sx * fx + sy * fy, ly = sx * ux + sy * uy; let v = 0;
+    // ala de atrás (debajo de todo), cola, cuerpo, ala de adelante, cabeza, pico
+    { const [d, t] = dSeg(lx, ly, sh[0] - 0.6, sh[1] + 0.4, tip0[0], tip0[1]); if (d < 2.8 * (1 - t) + (hal ? 0.6 : 1.1) && pl < 1) v = 6; }
+    { const tx = -lx / S - 3.4; if (tx > 0 && tx < (hal ? 5 : 4.6) && Math.abs(ly) < 0.9 + tx * (hal ? 0.55 : 0.42)) v = 4; }
+    if ((lx / (4.6 * S)) ** 2 + (ly / 2.1) ** 2 < 1) v = 1;
+    { const [d, t] = dSeg(lx, ly, sh[0], sh[1], tip1[0], tip1[1]); if (d < 3.1 * (1 - t) + (hal ? 0.6 : 1.1) && pl < 1) v = 5;
+      // (el cuervo: las primarias abiertas como dedos en la punta, el halcón la punta afilada)
+      if (!hal && pl < 1 && t > 0.72 && d < 2.2 && Math.floor((lx - tip1[0]) * 1.4 + 20) % 2 === 0) v = 5; }
+    if (!hal && pl < 1) { const [d, t] = dSeg(lx, ly, sh[0] - 0.6, sh[1] + 0.4, tip0[0], tip0[1]); if (v === 0 && t > 0.72 && d < 2.0 && Math.floor((lx - tip0[0]) * 1.4 + 20) % 2 === 0) v = 6; }
+    if ((lx - 5 * S) ** 2 + (ly - 0.7) ** 2 < (hal ? 3.6 : 3.3)) v = 2;
+    { const bx = lx - 6.3 * S; if (bx > 0 && bx < (hal ? 1.9 : 2.8) && Math.abs(ly - 0.55 + (hal ? bx * 0.25 : 0)) < (hal ? 0.9 : 0.85) - bx * (hal ? 0.3 : 0.2)) v = 3; }
+    lab[yy * N + xx] = v;
+  }
+  // el ojo: el punto de la cabeza más adelante y arriba
+  { let mejor = -1e9, oi = -1; for (let i = 0; i < N * N; i++) if (lab[i] === 2) { const sx = (i % N) + 0.5 - C, sy = Math.floor(i / N) + 0.5 - C, lx = sx * fx + sy * fy, ly = sx * ux + sy * uy, sc = lx * 0.6 + ly - Math.abs(lx - 5.6 * S) * 0.9; if (sc > mejor) { mejor = sc; oi = i; } } if (oi >= 0) lab[oi] = 7; }
+  c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d')!, img = g.createImageData(N, N), d = img.data;
+  const hex = (s: string) => [parseInt(s.slice(1, 3), 16), parseInt(s.slice(3, 5), 16), parseInt(s.slice(5, 7), 16)];
+  const pon = (i: number, col: string) => { const [r, gg, b] = hex(col); d[i * 4] = r; d[i * 4 + 1] = gg; d[i * 4 + 2] = b; d[i * 4 + 3] = 255; };
+  const en = (x: number, y: number) => x >= 0 && y >= 0 && x < N && y < N && lab[y * N + x] > 0;
+  for (let yy = 0; yy < N; yy++) for (let xx = 0; xx < N; xx++) {
+    const i = yy * N + xx, v = lab[i];
+    if (!v) { if (en(xx - 1, yy) || en(xx + 1, yy) || en(xx, yy - 1) || en(xx, yy + 1)) pon(i, P.o); continue; }
+    const arriba = !en(xx, yy - 1), abajo = !en(xx, yy + 1);
+    if (v === 3) { pon(i, arriba ? P.picoL : P.pico); continue; }
+    if (v === 7) { pon(i, P.ojo); continue; }
+    if (v === 6) { pon(i, arriba ? P.m : P.d); continue; }
+    // el pecho claro del halcón: lo de abajo del cuerpo y la cabeza
+    if (hal && P.p && (v === 1 || v === 2) && !arriba) { const sx = xx + 0.5 - C, sy = yy + 0.5 - C, ly = sx * ux + sy * uy; if (ly < 0.2) { pon(i, abajo ? P.l : P.p); continue; } }
+    pon(i, arriba ? (v === 5 && (xx + yy) % 2 ? P.s : P.l) : abajo ? P.d : P.m);
+  }
+  // el halcón: la línea oscura detrás del ojo
+  if (hal && P.ojoD) for (let i = 0; i < N * N; i++) if (lab[i] === 7) { const x = i % N, y = Math.floor(i / N), bx = x - Math.round(fx), by = y - Math.round(fy); if (en(bx, by) && lab[by * N + bx] === 2) pon(by * N + bx, P.ojoD); }
+  g.putImageData(img, 0, 0); avesHechas.set(k, c); return c;
+}
+function dibSombraAve(ctx: CanvasRenderingContext2D, j: Juego, aP: AP, c: any, t: number) {
+  const [px, py] = aP(c.x, c.y), a = Math.min(1, c.t * 4) * Math.min(1, (c.dur - c.t) * 3); ctx.save(); ctx.globalAlpha = 0.3 * a; ctx.fillStyle = '#000000';
+  // (quinta pasada: la sombra del tamaño del pájaro nuevo, más chica y clara cuanto más alto vuela)
+  if ((window as any).__avesViejas) { ctx.fillRect(Math.round(px) - 3, Math.round(py), 7, 2); ctx.fillRect(Math.round(px) - 1, Math.round(py) - 1, 3, 1); }
+  else { const al = altoAve(j, c, t), k = Math.max(0.55, 1 - al / 90), w = Math.round(8 * k); ctx.globalAlpha = 0.34 * a * k; ctx.fillRect(Math.round(px) - w, Math.round(py), w * 2 + 1, 2); ctx.fillRect(Math.round(px) - (w >> 1), Math.round(py) - 1, w + 1, 1); ctx.fillRect(Math.round(px) - (w >> 1), Math.round(py) + 2, w + 1, 1); }
+  ctx.restore();
 }
 function dibAve(ctx: CanvasRenderingContext2D, j: Juego, aP: AP, c: any, t: number) {
   const [px0, py0] = aP(c.x, c.y), prev = avesPrev.get(c) ?? [px0, py0]; avesPrev.set(c, [px0, py0]);
   const mira = px0 - prev[0] < -0.05 ? -1 : px0 - prev[0] > 0.05 ? 1 : (c.mira ?? 1); c.mira = mira;
   const halcon = !!c.marca, x = Math.round(px0), y = Math.round(py0 - altoAve(j, c, t)), a = Math.min(1, c.t * 4) * Math.min(1, (c.dur - c.t) * 3);
-  const cerca = c.objetivo && Math.hypot(c.objetivo.x - c.x, c.objetivo.y - c.y) < 0.8, fr = Math.floor((t * (cerca ? 22 : 14) + c.ang * 3)) % 4, ala = fr === 0 ? -3 : fr === 2 ? 2 : 0; // arriba, medio, abajo, medio
+  const cerca = c.objetivo && Math.hypot(c.objetivo.x - c.x, c.objetivo.y - c.y) < 0.8;
+  if ((window as any).__avesViejas) return dibAveViejo(ctx, x, y, a, mira, halcon, cerca, t, c);
+  // aletea de verdad: ocho cuadros por batida, más rápido cuando ronda al blanco; al picar pliega las alas y baja la cabeza
+  const pica = c.pica !== undefined ? Math.max(0, 1 - (j.t - c.pica) / 0.18) : 0, fase = Math.floor(t * (cerca ? 26 : 16) + c.ang * 5) & 7;
+  const spr = spriteAve(halcon ? 'halcon' : 'cuervo', mira > 0 ? pica * 0.6 : Math.PI - pica * 0.6, fase, pica > 0.3 ? 0.75 : 0);
+  ctx.save(); ctx.globalAlpha = a; ctx.imageSmoothingEnabled = false; ctx.drawImage(spr, x - LADO_AVE / 2, y - LADO_AVE / 2); ctx.restore();
+}
+function dibAveViejo(ctx: CanvasRenderingContext2D, x: number, y: number, a: number, mira: number, halcon: boolean, cerca: boolean, t: number, c: any) {
+  const fr = Math.floor((t * (cerca ? 22 : 14) + c.ang * 3)) % 4, ala = fr === 0 ? -3 : fr === 2 ? 2 : 0; // arriba, medio, abajo, medio
   const cO = halcon ? '#2a1a0c' : '#06060a', cC = halcon ? '#7a5a34' : '#1a1820', cB = halcon ? '#c8a070' : '#3a3650', cP = halcon ? '#e8dcc0' : '#26222e';
   ctx.save(); ctx.globalAlpha = a;
   const W = halcon ? 7 : 6, px = (dx: number, dy: number, w = 1, h = 1) => ctx.fillRect(x + dx * mira - (mira < 0 ? w - 1 : 0), y + dy, w, h);
-  // canto oscuro: alas y cuerpo
   ctx.fillStyle = cO; for (let i = 1; i <= W; i++) { const yy = Math.round(ala * (i / W) ** 1.3); px(-i, yy - 1, 1, 3); px(i - 1, yy - 1, 1, 3); }
   px(-2, -1, 6, 3); px(4, -2, 2, 3);
-  // las alas con su luz arriba
   ctx.fillStyle = cC; for (let i = 1; i < W; i++) { const yy = Math.round(ala * (i / W) ** 1.3); px(-i, yy, 1, 1); px(i - 1, yy, 1, 1); }
   ctx.fillStyle = cB; for (let i = 2; i < W - 1; i += 2) { const yy = Math.round(ala * (i / W) ** 1.3); px(-i, yy - 1 + (ala > 0 ? 1 : 0), 1, 1); px(i - 1, yy - 1 + (ala > 0 ? 1 : 0), 1, 1); }
-  // cuerpo, pecho, cabeza, ojo y pico, la cola
   ctx.fillStyle = cC; px(-1, 0, 4, 1); ctx.fillStyle = cP; px(0, 1, 3, 1); ctx.fillStyle = cC; px(4, -1, 1, 1);
   ctx.fillStyle = halcon ? '#f0b040' : '#4a4436'; px(6, -1, 1, 1); ctx.fillStyle = halcon ? '#ffe080' : '#a0a0b8'; px(4, -2, 1, 1);
   ctx.fillStyle = cO; px(-4, 0, 2, 1); px(-5, 1, 1, 1);

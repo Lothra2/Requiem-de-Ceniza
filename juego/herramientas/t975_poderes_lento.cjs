@@ -16,11 +16,21 @@ const fs = require('fs');
   // (a veces la zona tarda: se espera a estar adentro antes de buscar el sitio)
   for (let k = 0; k < 3; k++) { await p.evaluate((z) => window.__ir(z), ZONA); await p.waitForTimeout(4500); if (await p.evaluate((z) => window.__juego().zona.id === z, ZONA)) break; }
   await p.evaluate(async ([viejo]) => { const j = window.__juego(), z = j.zona, h = j.heroe; j.portal = null; window.__sinLluvia = true; window.__sinAmbientePfx = true; if (viejo) { window.__sinPresencias = true; window.__sinTajos = true; } if (viejo === 2) window.__fogonazoParejo = true; let mejor = null, md = -99;
-    for (let y = 16; y < z.H - 16; y += 2) for (let x = 16; x < z.W - 16; x += 2) { let libre = true; for (let dy = -7; dy <= 7 && libre; dy++) for (let dx = -7; dx <= 7; dx++) if (z.bloq[(y + dy) * z.W + x + dx]) { libre = false; break; } if (!libre) continue;
-      let d = 99; for (const o of z.objetos) d = Math.min(d, Math.hypot(o.cx - x, o.cy - y)); for (const sa of z.salidas) d = Math.min(d, Math.hypot(sa.cx - x, sa.cy - y) - 4); if (d > md) { md = d; mejor = [x, y]; } }
+    // (si no hay sitio libre de 7 lejos de las salidas, se afloja: libre de 5 y a 18, libre de 4 y a 14)
+    for (const [RL, RS] of [[7, 24], [5, 18], [4, 14]]) { if (mejor) break;
+    for (let y = 16; y < z.H - 16; y += 2) for (let x = 16; x < z.W - 16; x += 2) { let libre = true; for (let dy = -RL; dy <= RL && libre; dy++) for (let dx = -RL; dx <= RL; dx++) if (z.bloq[(y + dy) * z.W + x + dx]) { libre = false; break; } if (!libre) continue;
+      // (quinta pasada) lejos de toda salida: el umbral, su halo y su remolino entraban en los recortes (la de "Volver a El
+      // Oasis" en las dunas). Ninguna a menos de 24 casillas, ni sus piezas, ni el portal del pueblo
+      let lejos = true; for (const sa of z.salidas) { for (const o of [sa, ...(sa.piezas ?? [])]) if (Math.hypot(o.cx - x, o.cy - y) < RS) lejos = false; } if (j.portal && Math.hypot(j.portal.x - x, j.portal.y - y) < RS) lejos = false; if (!lejos) continue;
+      let d = 99; for (const o of z.objetos) d = Math.min(d, Math.hypot(o.cx - x, o.cy - y)); for (const sa of z.salidas) d = Math.min(d, Math.hypot(sa.cx - x, sa.cy - y) - 4); if (d > md) { md = d; mejor = [x, y]; } } }
+    if (!mejor) console.warn('t975: sin sitio lejos de las salidas');
     if (!mejor) mejor = [Math.floor(h.x), Math.floor(h.y)]; h.x = mejor[0] + 0.5; h.y = mejor[1] + 0.5; h.camino = null; window.__sitio = [h.x, h.y];
     z.objetos = z.objetos.filter((o) => Math.hypot(o.cx + 0.5 - h.x, o.cy + 0.5 - h.y) > 14);
     const C = await import('/src/datos/clases.ts'); for (const x of C.HABILIDADES) if (x.clase === h.d.clase) h.d.habs[x.id] = 5; }, [process.env.FOGONAZO ? 2 : !!process.env.VIEJO]);
+  // NOCHE=1: el mismo sitio de noche (la oscuridad de la zona a 0,85), para medir el lavado a blanco de día y de noche
+  // BANDERAS=__sinEnergia,__sinElectro...: apaga partes para ver de dónde sale cada cosa
+  if (process.env.BANDERAS) await p.evaluate((bs) => { for (const b of bs.split(',')) window[b] = true; }, process.env.BANDERAS);
+  if (process.env.NOCHE) await p.evaluate(() => { window.__juego().zona.oscuridad = 0.85; });
   await p.waitForTimeout(2500);
   // con ESCUDO=1 el héroe lleva un escudo (el Golpe de escudo lo pide) y se espera al pintor para que se vea puesto
   if (process.env.ESCUDO) { await p.evaluate(() => { const T = window.__T, j = window.__juego(), d = j.heroe.d, b = T.D.BASES.find((x) => x.id === 'escudo_cometa') || T.D.BASES.find((x) => x.ranura === 'izq'); d.equipo.izq = T.O.crearBase(b, 12); window.__mundo.recalc(j); j.monstruos = []; j.heroe.vida = j.heroe.vidaMax = 1e9; }); await p.waitForTimeout(+(process.env.ESPERA_PINTOR || 45000)); }
@@ -59,6 +69,8 @@ const fs = require('fs');
     }
     await p.evaluate(() => { window.__camaraLenta = 1; });
     fs.writeFileSync(`${D}/${id}.json`, JSON.stringify(datos)); console.log(id, datos[datos.length - 1]);
+    // (quinta pasada) dónde quedan el héroe y el blanco dentro del recorte, para medir lo que se lava a blanco (t996_blanco.py)
+    fs.writeFileSync(`${D}/${id}_pos.json`, JSON.stringify(await p.evaluate((c) => { const j = window.__juego(), h = j.heroe, m = (window.__ms ?? [])[0], a = (e) => { const [x, y] = window.__aPant(e.x, e.y); return [x - c.x, y - c.y]; }; return { heroe: a(h), blanco: m ? a(m) : null }; }, caja)));
   }
   console.log('errores', errs.filter((e) => !/404/.test(e)).slice(0, 3));
   await b.close();

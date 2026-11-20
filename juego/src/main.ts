@@ -160,6 +160,8 @@ function atlasZona(zid: string): Set<string> {
   for (const a of atlasDe('o', ['thor_icono_collar|icono', 'thor_icono_barda|icono', 'thor_icono_collar|suelo'])) s.add(a);
   // invocaciones del héroe
   for (const id of ['esqueleto', 'esqueleto_arquero', 'ogro', 'necrofago', 'espectro', `thor_${aspectoThor(j!.heroe.d)}`, `thor_${Math.min(5, aspectoThor(j!.heroe.d) + 1)}`]) for (const a of atlasDe('m', clavesCon('m', `${id}/`))) s.add(a);
+  // las formas del druida (el héroe transformado y el Oso espíritu): sus atlas de entrada, así el cambio no espera
+  { const hb = j!.heroe.d.habs ?? {}; if (hb.forma_lobo) for (const a of atlasDe('m', clavesCon('m', 'lobo_druida/'))) s.add(a); if (hb.forma_oso || hb.oso_espiritu) for (const a of atlasDe('m', clavesCon('m', 'oso_pardo/'))) s.add(a); }
   // armas del arsenal para íconos
   for (const k of Object.keys(m.o)) if (k.startsWith('arma_') && (k.endsWith('|flota') || k.endsWith('|suelo'))) for (const e of m.o[k].f) s.add(e[0]);
   return s;

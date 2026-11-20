@@ -373,12 +373,12 @@ export const habilidad = (id: string) => HABILIDADES.find((h) => h.id === id)!;
 export const ATAQUE: Habilidad = { id: 'ataque', nombre: ['Ataque', 'Attack'], desc: ['Golpea o dispara con el arma.', 'Strike or shoot with your weapon.'], clase: 'berserker', rama: 0, nivelReq: 1, tipo: 'golpe', elem: 'fisico', anim: 'atacar', mana: [0, 0], mult: [100, 0], efecto: 'tajo', sonido: 'tajo', color: '#c0c0c0', glifo: 'espada' };
 
 /** Invocaciones. */
-export const INVOCADOS: Record<string, { sprite: string; vida: number; dano: [number, number]; vel: number; distancia?: boolean; tinte?: string; escala?: number; elem?: string; proyectil?: string }> = {
+export const INVOCADOS: Record<string, { sprite: string; /** Solo lo que se ve: con qué cuerpo se pinta (el oso de verdad sobre la ficha del ogro, que no cambia nada del juego). */ aspecto?: string; vida: number; dano: [number, number]; vel: number; distancia?: boolean; tinte?: string; escala?: number; elem?: string; proyectil?: string }> = {
   esqueleto: { sprite: 'esqueleto', vida: 30, dano: [3, 7], vel: 3 },
   arquero: { sprite: 'esqueleto_arquero', vida: 22, dano: [3, 6], vel: 3, distancia: true, proyectil: 'flecha' },
   golem: { sprite: 'ogro', vida: 120, dano: [6, 14], vel: 2.4, tinte: '#a01018', escala: 0.85 },
   lobo: { sprite: 'lobo_sombrio', vida: 40, dano: [4, 9], vel: 4.4, tinte: '#a0a8b0' },
-  oso: { sprite: 'ogro', vida: 200, dano: [10, 22], vel: 2.8, tinte: '#604030' },
+  oso: { sprite: 'ogro', aspecto: 'oso_pardo', vida: 200, dano: [10, 22], vel: 2.8, tinte: '#604030' },
   halcon: { sprite: 'murcielago_gigante', vida: 34, dano: [3, 7], vel: 6, tinte: '#c09050', escala: 0.8 },
   sabueso: { sprite: 'perro_infernal', vida: 45, dano: [5, 10], vel: 4.8, tinte: '#d8d0b8' },
   arbol: { sprite: 'trol_pantano', vida: 260, dano: [14, 28], vel: 2.2, tinte: '#406828', escala: 1.25, elem: 'veneno' },

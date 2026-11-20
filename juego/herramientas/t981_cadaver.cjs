@@ -13,10 +13,11 @@ const fs = require('fs');
     for (const x of C.HABILIDADES) if (x.clase === h.d.clase) h.d.habs[x.id] = 5; h.mana = h.c.manaMax = 1e5; h.dir = 'se';
     const c = M.crearMonstruo(Dm.MONSTRUOS['zombi'], 10, h.x + 2.2, h.y - 0.4, 0, 0); c.vida = 0; c.muerto = true; c.estado = 'dormido'; c.acc = 'morir'; c.t = 5; c.tMuerto = 5; j.monstruos.push(c); window.__c = c; }, id);
   await p.waitForTimeout(2500);
-  const [cx, cy] = await p.evaluate(() => window.__aPant(window.__c.x, window.__c.y)); const caja = { x: Math.round(cx) - 80, y: Math.round(cy) - 90, width: 160, height: 120 };
+  const [cx, cy] = await p.evaluate(() => window.__aPant(window.__c.x, window.__c.y)); const AN = +(process.env.ANCHO || 160), DX = AN - 80, T0 = +(process.env.DESDE ?? 0.3); const caja = { x: Math.round(cx) - DX, y: Math.round(cy) - 90, width: AN, height: 120 }; // (ANCHO=240 entra el héroe, DESDE=0 desde que se pide; VIEJO=1 el Festín de antes)
+  if (process.env.VIEJO) await p.evaluate(() => { window.__festinViejo = true; });
   if (process.env.DBG) { const sh = async (n) => { await p.screenshot({ path: `${D}/dbg_${n}.png`, clip: caja }); }; await sh('a'); await p.evaluate(() => { const j = window.__juego(); window.__camaraLenta = 0.02; window.__c.revienta = j.t + 0.18; window.__c.tMuerto = 598; }); await p.waitForTimeout(2500); await sh('b'); await p.evaluate(() => { window.__c.tMuerto = 5; }); await p.waitForTimeout(300); await sh('c'); await b.close(); return; }
   await p.evaluate((id) => { const j = window.__juego(); window.__camaraLenta = 0.1; window.__t0 = j.t; window.__mundo.usarHabilidad(j, id, window.__c.x, window.__c.y, null, false); }, id);
-  for (let i = 0; i < 30; i++) { await p.waitForFunction(([t]) => window.__juego().t - window.__t0 >= t, [0.3 + 0.03 * i], { timeout: 20000, polling: 5 }).catch(() => {}); const [qx, qy] = await p.evaluate(() => window.__aPant(window.__c.x, window.__c.y)); await p.screenshot({ path: `${D}/${id}_${String(i).padStart(2, '0')}.png`, clip: { ...caja, x: Math.round(qx) - 80, y: Math.round(qy) - 90 } }); }
+  for (let i = 0; i < 30; i++) { await p.waitForFunction(([t]) => window.__juego().t - window.__t0 >= t, [T0 + 0.03 * i], { timeout: 20000, polling: 5 }).catch(() => {}); const [qx, qy] = await p.evaluate(() => window.__aPant(window.__c.x, window.__c.y)); await p.screenshot({ path: `${D}/${id}_${String(i).padStart(2, '0')}.png`, clip: { ...caja, x: Math.round(qx) - DX, y: Math.round(qy) - 90 } }); }
   await p.evaluate(() => { window.__camaraLenta = 1; }); await b.close();
   const { execSync } = require('child_process'); execSync(`python3 -c "
 from PIL import Image

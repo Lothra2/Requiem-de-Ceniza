@@ -23,6 +23,9 @@ import { pulsosOzmaren, lucesSuelo } from './fuego_especial';
 import { luzViva } from './arma_viva';
 import { pulsoLuz } from '../../../src/engine/gotico/fuego_doom';
 import { luzCombustion } from './poderes_vivos';
+import { HABILIDADES } from '../datos/clases';
+/** Los poderes de golpe cuerpo a cuerpo (su luz va a la mitad, quinta pasada). */
+const GOLPES = new Set(HABILIDADES.filter((h) => h.tipo === 'golpe' && !h.definitiva).map((h) => h.id));
 import { nochePfx } from './pfx';
 import { lucesPresencias } from './presencias';
 
@@ -197,10 +200,13 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
       const cv = meta.bucle ? LE.curva[fi % n] : fi < n ? LE.curva[fi] : 0;
       const k = LE.intensidad * cv * (1 - (LE.parpadeo ?? 0) * R());
       if (k <= 0.01 || LE.radio <= 0) continue;
-      const esc = e.escala ?? 1, c = ep ? hexRgb(LE.color) : rgbLuz(e.id);
-      L.push({ id: idDe(e), x: px, y: py, h: LE.altura * esc + (e.z ?? 0), r: LE.radio * esc, c, k: Math.min(1, k), sinSombra: !LE.sombra, prio: LE.prioridad ?? 2 });
-      if ((LE.prioridad ?? 2) === 0) { const f = k * Math.min(1, esc); if (f > fl) { fl = f; flc = c; } }
-      if (e.id === 'arco_cadena' && (e as any).x2 !== undefined) { const [bx, by] = aPant((e as any).x2, (e as any).y2); L.push({ id: idDe(e) + 'b', x: (px + bx) / 2, y: (py + by) / 2, h: 34, r: LE.radio, c, k: Math.min(1, k), prio: 0, sinSombra: !LE.sombra }); }
+      const esc = e.escala ?? 1, c: [number, number, number] = colH.has(idDe(e)) && !(window as any).__blancoViejo ? [255, 196, 100] : ep ? hexRgb(LE.color) : rgbLuz(e.id);
+      // (quinta pasada: el golpe cuerpo a cuerpo de un poder alumbra a la mitad: de noche el Puño de rayo dejaba el piso y
+      // al blanco casi blancos)
+      const chc = (e as any).chico, gpe = !(window as any).__blancoViejo && GOLPES.has((e as any).hab ?? ''); L.push({ id: idDe(e), x: px, y: py, h: LE.altura * esc + (e.z ?? 0), r: LE.radio * esc * (chc ? 0.35 : 1), c, k: Math.min(1, chc ? k * 0.4 : gpe ? k * 0.5 : k), sinSombra: !LE.sombra, prio: chc ? 2 : LE.prioridad ?? 2 });
+      // (la columna que nace en el héroe no da el destello de pantalla: de noche lavaba todo a blanco, quinta pasada)
+      if ((LE.prioridad ?? 2) === 0 && !chc && !gpe && (!colH.has(idDe(e)) || (window as any).__blancoViejo)) { const f = k * Math.min(1, esc); if (f > fl) { fl = f; flc = c; } }
+      if (e.id === 'arco_cadena' && (e as any).x2 !== undefined) { const [bx, by] = aPant((e as any).x2, (e as any).y2), ch = (e as any).chico; L.push({ id: idDe(e) + 'b', x: (px + bx) / 2, y: (py + by) / 2, h: 34, r: ch ? LE.radio * 0.35 : LE.radio, c, k: Math.min(1, ch ? k * 0.4 : k), prio: ch ? 2 : 0, sinSombra: !LE.sombra }); }
       continue;
     }
     const c = COLOR_ELEM[meta?.elem ?? (e.id === 'arco_cadena' ? 'rayo' : 'fisico')] ?? COLOR_ELEM.fisico;
@@ -212,7 +218,7 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     if (impacto && meta.elem !== 'fisico' && meta.elem !== 'hueso') { const f = golpe * Math.min(1, (e.escala ?? 1)); if (f > fl) { fl = f; flc = c; } }
     if (e.id === 'arco_cadena' && (e as any).x2 !== undefined) {
       const [bx, by] = aPant((e as any).x2, (e as any).y2);
-      L.push({ id: idDe(e) + 'b', x: (px + bx) / 2, y: (py + by) / 2, h: 34, r: 220, c: COLOR_ELEM.rayo, k: k });
+      const ch = (e as any).chico; L.push({ id: idDe(e) + 'b', x: (px + bx) / 2, y: (py + by) / 2, h: 34, r: ch ? 70 : 220, c: COLOR_ELEM.rayo, k: ch ? k * 0.4 : k });
     }
   }
   for (const a of j.areas) if (a.retraso <= 0 && a.elem && a.elem !== 'fisico') {
@@ -222,7 +228,9 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   }
   // (tercera pasada) de día la luz de los poderes suma menos: las definitivas (el Coro de los sellos, el Juicio, la
   // Sentencia) encendían a blanco medio campo en las dunas. Las antorchas, el fuego y la lámpara del héroe no cambian
-  if (!(window as any).__fogonazoParejo) { const n = nochePfx(), kd = 0.45 + 0.55 * n, kc = 0.4 + 0.6 * n; for (let i = L0; i < L.length; i++) L[i].k *= kd * (colH.has(L[i].id ?? "") ? kc : 1); }
+  // (quinta pasada: de noche la columna del Coro y del Ascenso tampoco va entera, 0,55; antes subía a 1 y el sitio quedaba
+  // blanco, 49 a 55 % de puntos casi blancos en el héroe)
+  if (!(window as any).__fogonazoParejo) { const n = nochePfx(), kd = 0.45 + 0.55 * n, kc = (window as any).__blancoViejo ? 0.4 + 0.6 * n : 0.3 + 0.2 * n; for (let i = L0; i < L.length; i++) L[i].k *= kd * (colH.has(L[i].id ?? "") ? kc : 1); }
   // el cuerpo sacudido por el rayo alumbra azul a tirones (render/electro.ts)
   for (const m of [h as any, ...j.monstruos]) {
     const f = m.muerto ? 0 : fuerzaElectro(m, j.t); if (f <= 0) continue;

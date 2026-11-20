@@ -2481,7 +2481,7 @@ function pelear(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
       // la andanada: los de tiro de un campamento no sueltan todos en el mismo instante (ver `enFrente`)
       if (obj === j.heroe && !m.dueno && m.calidad < 1 && !m.def.jefe && !(globalThis as any).__frenteViejo) {
         const q = j as any, tiros: number[] = (q.tirosFrente ??= []);
-        while (tiros.length && (j.t - tiros[0] > 1.5 || tiros[0] > j.t)) tiros.shift();
+        while (tiros.length && (j.t - tiros[0] > (j.zona.nivel < 24 ? 1.5 : 1.9) || tiros[0] > j.t)) tiros.shift();
         if (tiros.length >= 1) { m.cd = 0.2 + R() * 0.3; m.acc = 'quieto'; m.dir = dirDe(obj.x - m.x, obj.y - m.y); return; }
         tiros.push(j.t);
       }
@@ -2501,7 +2501,7 @@ function pelear(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
       if (obj === j.heroe && !m.dueno && m.calidad < 1 && !m.def.jefe && m.def.ia !== 'jefe' && !(globalThis as any).__frenteViejo) {
         const q = j as any, ya = q.turnoFrente ?? -9;
         if (j.t < ya && j.t > ya - 5) { m.cd = 0.12 + R() * 0.2; m.acc = 'quieto'; return; }
-        q.turnoFrente = j.t + ritmoFrente(j) * (m.def.ia === 'bruto' ? 1.5 : 1) * (0.85 + R() * 0.3);
+        q.turnoFrente = j.t + ritmoFrente(j) * (m.def.ia === 'bruto' ? 2 : 1) * (0.85 + R() * 0.3);
       }
       iniciarAtaque(j, m, obj, false);
     } else m.acc = 'quieto';
@@ -2509,8 +2509,8 @@ function pelear(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   }
   avanzar(j, m, obj, dt, lento);
 }
-/** Segundos entre el arranque de un golpe común y el siguiente contra el héroe (un bruto ocupa turno y medio). */
-export function ritmoFrente(j: Juego) { const n = j.zona.nivel; return ((globalThis as any).__ritmoFrente ?? 1) * (n < 4 ? 1.5 : n < 12 ? 1.35 : n < 24 ? 1.25 : 1.2); }
+/** Segundos entre el arranque de un golpe común y el siguiente contra el héroe (un bruto ocupa dos turnos). */
+export function ritmoFrente(j: Juego) { const n = j.zona.nivel; return ((globalThis as any).__ritmoFrente ?? 1) * (n < 4 ? 1.5 : n < 12 ? 1.35 : n < 24 ? 1.25 : 1.3); }
 /**
  * El frente de una pelea (oleada 2 de los mundos). Con los campamentos el héroe tenía 8 a 12 cuerpos pegando a la vez con el
  * daño de cuando eran 3: medido con `t1010_campamentos.mts`, las pociones y las muertes subían al triple desde el nivel 20.

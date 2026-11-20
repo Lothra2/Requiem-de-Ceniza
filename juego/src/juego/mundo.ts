@@ -1,6 +1,6 @@
 // La simulación: héroe, monstruos, invocados, proyectiles, áreas, botín y efectos de una zona.
 import { npcVivo } from './historia';
-import { generarZona, pasable, buscarCamino, lineaLibre, libreCerca, type Zona, type ObjZ } from '../mundo/zona';
+import { generarZona, pasable, buscarCamino, lineaLibre, lineaPasable, libreCerca, type Zona, type ObjZ } from '../mundo/zona';
 import { ZONAS, POBL_ZONA, MISIONES, FRASE_JEFE, FRASE_JEFE_ZONA } from '../mundo/actos';
 import { MONSTRUOS, POBLACION, MODS, NOMBRES_UNICOS, type DefMonstruo } from '../datos/monstruos';
 import { HABILIDADES, INVOCADOS, ATAQUE, ESCALA_HECHIZOS, poderNivel, danoInvocadoNivel, type Habilidad } from '../datos/clases';
@@ -827,6 +827,8 @@ function avanzarManiobra(j: Juego, m: Monstruo, mn: Maniobra, dt: number) {
       if (k < 0.7) { mn.ang = Math.atan2(obj.y - m.y, obj.x - m.x); if (mn.tipo === 'salto') { mn.x = obj.x; mn.y = obj.y; } }
       m.dir = dirDe(Math.cos(mn.ang), Math.sin(mn.ang)); m.acc = 'quieto';
       const bx = m.x - Math.cos(mn.ang) * 0.55 * dt, by = m.y - Math.sin(mn.ang) * 0.55 * dt; if (pasable(j.zona, bx, by)) { m.x = bx; m.y = by; }
+      // (el paso atrás de la carga: los pies se mueven, no se corre el cuadro quieto)
+      if (mn.tipo === 'embestida') { m.acc = 'caminar'; m.recorrido = (m.recorrido ?? 0) + 0.55 * dt; (m as any).rumbo = mn.ang + Math.PI; (m as any).accVis = 'caminar'; }
       if (R() < dt * 14) particulas(j, m.x, m.y, 1, 'humo', '#6a5a48', 0.5, 4);
     } else { m.acc = lanza ? 'lanzar' : 'atacar'; m.dur = mn.aviso / 0.5; m.t = mn.t; if (mn.tipo === 'abanico') { mn.ang = Math.atan2(obj.y - m.y, obj.x - m.x); m.dir = dirDe(Math.cos(mn.ang), Math.sin(mn.ang)); } }
     m.destello = Math.max(m.destello, k > 0.75 ? 0.05 : 0);
@@ -886,7 +888,12 @@ function avanzarManiobra(j: Juego, m: Monstruo, mn: Maniobra, dt: number) {
       if (!m.def.jefe) m.aturdido = 1.6; letrero(j, m, ['Aturdido', 'Stunned'], '#ffe080');
       fin(0.8); return;
     }
-    m.x = nx; m.y = ny; mn.hecho = (mn.hecho ?? 0) + paso;
+    // (Rick, 20 nov 2026: "los bosses solo se deslizan, la imagen congelada". El cuadro de correr sale de lo recorrido
+    // (`recorrido`, los pies clavados en escena.ts) y la embestida movía el cuerpo sin sumarlo: el mismo cuadro se corría
+    // por el piso. Ahora suma lo recorrido y el rumbo, como un paso de verdad, y el polvo sale de cada pisada)
+    const rec0 = m.recorrido ?? 0;
+    m.x = nx; m.y = ny; mn.hecho = (mn.hecho ?? 0) + paso; if (!(window as any).__embestidaVieja) { m.recorrido = rec0 + paso; (m as any).rumbo = mn.ang; (m as any).accVis = 'correr'; }
+    if (Math.floor(rec0 / 0.9) !== Math.floor((m.recorrido ?? 0) / 0.9)) { particulas(j, m.x, m.y, 3, 'humo', '#6a5a48', 0.9, 3); j.sacudida = Math.max(j.sacudida, m.def.jefe ? 0.12 : 0.05); }
     if (R() < dt * 30) particulas(j, m.x, m.y, 1, 'humo', '#6a5a48', 0.7, 3);
     for (const e of enemigosDe(j, false)) if (!mn.pegados!.has(e) && dist(e.x, e.y, m.x, m.y) < m.radio + e.radio + 0.3) { mn.pegados!.add(e); danar(j, e, golpeManiobra(j, m, 1.35, 60)); j.sacudida = Math.max(j.sacudida, 0.45); efecto(j, 'onda_aterrizaje', e.x, e.y, 0, 0.9); }
     if (mn.hecho >= mn.largo) { mn.fase = 'recupera'; mn.t = 0; mn.dur = mn.pegados!.size ? 0.5 : 1.1; m.acc = 'quieto'; m.t = 0; }
@@ -1161,7 +1168,8 @@ export function usarHabilidad(j: Juego, id: string, tx: number, ty: number, obj:
     if (!ok) { aviso(j, hb.forma === 'lobo' ? ['Solo puedo hacerlo como lobo.', 'I can only do that as a wolf.'] : hb.forma === 'oso' ? ['Solo puedo hacerlo como oso.', 'I can only do that as a bear.'] : ['Tengo que estar transformado.', 'I must be transformed.']); return false; }
   }
   if (hb.furia && h.furia < hb.furia) { aviso(j, ['Necesito más furia.', 'I need more fury.'], '#ff8060'); letrero(j, h, [`Furia ${Math.floor(h.furia)} de ${hb.furia}`, `Fury ${Math.floor(h.furia)} of ${hb.furia}`], '#ff8060'); return !alAire && !!obj && usarHabilidad(j, 'ataque', tx, ty, obj, alAire); }
-  if (hb.id === 'descarga_prismatica' && !h.cargas.length) { aviso(j, ['No tengo cargas guardadas.', 'I have no stored charges.'], '#c0a0ff'); return false; }
+  // (Rick, 20 nov 2026: "no me funciona la habilidad". Sin cargas se negaba con un aviso y parecía rota: ahora sin cargas
+  // dispara un rayo prismático simple, y con cargas uno de cada elemento guardado, más fuerte)
   if (hb.id === 'picada' && !mios(j, 'halcon').length) { aviso(j, ['Mi halcón no está conmigo.', 'My hawk is not with me.']); return false; }
   const conFrascos = hb.tipo === 'bomba' && h.d.clase === 'alquimista' && !h.buffs.panacea_negra;
   if (conFrascos && h.frascos < 1) { aviso(j, ['No me quedan frascos.', 'I have no flasks left.'], '#ffb040'); return false; }
@@ -1478,8 +1486,8 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
       const vivo = obj && !obj.muerto ? obj : null;
       const base = vivo ? Math.atan2(vivo.y - h.y, vivo.x - h.x) : Math.atan2(ty - h.y, tx - h.x);
       if (hb.id === 'descarga_prismatica') {
-        const cs = gastarCargas(h);
-        const k = 1 + cs.length * 0.25;
+        const guardadas = gastarCargas(h), cs = guardadas.length ? guardadas : ['rayo' as Elemento];
+        const k = guardadas.length ? 1 + cs.length * 0.25 : 0.8;
         cs.forEach((e, i) => {
           const a = base + (i - (cs.length - 1) / 2) * 0.22;
           disparar(j, h, h.x + Math.cos(a) * 5, h.y + Math.sin(a) * 5, golpeSimple(j, [dh[0] * k, dh[1] * k], e), e === 'fuego' ? 'bola_fuego' : e === 'frio' ? 'saeta_hielo' : 'chispa_cargada', 12, { explota: hb.explota ?? 0, hab: hb, nivelHab: n, vida: 1.6 });
@@ -2397,6 +2405,17 @@ function pelear(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   if (d <= alcance) { m.dir = dirDe(obj.x - m.x, obj.y - m.y); if (m.cd <= 0) iniciarAtaque(j, m, obj, false); else m.acc = 'quieto'; return; }
   avanzar(j, m, obj, dt, lento);
 }
+/** Cuántos caminos se pueden calcular todavía en este cuadro (con 40 enemigos persiguiendo, de a muchos frenaba). */
+let presCam = { t: -1, n: 0 };
+function caminosLibres(j: Juego) { if (presCam.t !== j.t) presCam = { t: j.t, n: 0 }; return presCam.n++ < 8; }
+/** El cuerpo no se mete en el muro: con el centro a menos de 0,3 de una celda bloqueada vecina, se corre hacia afuera. */
+function apartarDeMuros(z: Zona, e: Ent) {
+  const R0 = 0.3, cx = Math.floor(e.x), cy = Math.floor(e.y), fx = e.x - cx, fy = e.y - cy;
+  let nx = e.x, ny = e.y;
+  if (fx < R0 && !pasable(z, cx - 1, cy + 0.5)) nx = cx + R0; else if (fx > 1 - R0 && !pasable(z, cx + 1, cy + 0.5)) nx = cx + 1 - R0;
+  if (fy < R0 && !pasable(z, cx + 0.5, cy - 1)) ny = cy + R0; else if (fy > 1 - R0 && !pasable(z, cx + 0.5, cy + 1)) ny = cy + 1 - R0;
+  if ((nx !== e.x || ny !== e.y) && pasable(z, nx, ny)) { e.x = nx; e.y = ny; }
+}
 function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   // rodear: cada uno apunta a un punto alrededor del objetivo
   const ang = (m.id * 2.39996) % (Math.PI * 2);
@@ -2404,6 +2423,7 @@ function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   const tx = obj.x + Math.cos(ang) * off, ty = obj.y + Math.sin(ang) * off;
   // de lejos se lanza a la carrera (si su animación la tiene; si no, camina igual)
   const lejos = m.vel >= 2.6 && dist(m.x, m.y, obj.x, obj.y) > 3.5;
+  if ((window as any).__atascoViejo) {
   if (m.camino && m.camino.length) {
     const [cx, cy] = m.camino[0];
     if (moverHacia(j, m, cx, cy, m.vel * lento, dt)) m.camino.shift();
@@ -2413,6 +2433,37 @@ function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
     moverHacia(j, m, tx, ty, m.vel * lento, dt); m.acc = lejos ? 'correr' : 'caminar';
   } else if (m.pensar <= 0.1) {
     m.camino = buscarCamino(j.zona, m.x, m.y, tx, ty, 900);
+  }
+  } else {
+    // (Rick, 20 nov 2026: "los enemigos quedan como atorados en las paredes". El camino para rodear un muro se borraba a
+    // los 50 ms de calcularse y no se volvía a pedir hasta el próximo pensar (0,5 a 0,9 s): detrás de un muro se quedaban
+    // parados casi todo el tiempo. Y el paso directo miraba una línea de un punto, que se pega a las esquinas: el cuerpo se
+    // trababa contra el canto. Ahora va directo solo si pasa el cuerpo entero, el camino dura hasta que se gasta o hasta
+    // 0,7 s (se rehace con el héroe en otro lado), y si en medio segundo no avanzó se pide otro al toque.)
+    const q = m as any, z = j.zona;
+    q.tCam = (q.tCam ?? 0) - dt;
+    // ¿avanza? cada medio segundo mira cuánto se movió
+    q.tProg = (q.tProg ?? 0) - dt;
+    if (q.tProg <= 0) { const mov = q.px === undefined ? 1 : Math.hypot(m.x - q.px, m.y - q.py); q.px = m.x; q.py = m.y; q.tProg = 0.5; if (mov < 0.15) { q.tCam = 0; q.trabado = (q.trabado ?? 0) + 1; } else q.trabado = 0; }
+    const directo = lineaPasable(z, m.x, m.y, tx, ty);
+    if (directo) {
+      m.camino = null; moverHacia(j, m, tx, ty, m.vel * lento, dt); m.acc = lejos ? 'correr' : 'caminar';
+    } else {
+      if ((!m.camino || !m.camino.length || q.tCam <= 0) && caminosLibres(j)) {
+        // (trabado dos veces seguidas contra lo mismo: apunta a la celda libre del héroe, no al punto del corro)
+        const c = q.trabado >= 2 ? buscarCamino(z, m.x, m.y, obj.x, obj.y, 2500) : buscarCamino(z, m.x, m.y, tx, ty, 1500);
+        m.camino = c; q.tCam = 0.6 + R() * 0.2;
+        // (el primer punto puede quedar atrás: si ya se ve el segundo con el cuerpo entero, se salta)
+        while (m.camino && m.camino.length > 1 && lineaPasable(z, m.x, m.y, m.camino[1][0], m.camino[1][1])) m.camino.shift();
+      }
+      if (m.camino && m.camino.length) {
+        const [cx, cy] = m.camino[0];
+        if (moverHacia(j, m, cx, cy, m.vel * lento, dt)) m.camino.shift();
+        m.acc = lejos ? 'correr' : 'caminar';
+      } else if (lineaLibre(z, m.x, m.y, tx, ty)) { moverHacia(j, m, tx, ty, m.vel * lento, dt); m.acc = lejos ? 'correr' : 'caminar'; }
+      else if (m.acc === 'caminar' || m.acc === 'correr') m.acc = 'quieto';
+    }
+    apartarDeMuros(z, m);
   }
   // separarse de los otros
   for (const o of j.monstruos) {

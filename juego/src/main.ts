@@ -534,8 +534,16 @@ function usarObjeto(jj: Juego, o: ObjZ) {
     ui.dialogoTexto = TT(p.texto); ui.izq = 'pagina' as any; Object.assign(ui as any, { paginaN: p.n, paginaTotal: p.total, paginaTitulo: TT(p.titulo) });
     Sonido.efecto('abrir'); Sonido.susurro(); o.tag = undefined;
   } else if (o.tag === 'pozo') {
-    if (o.v === 'seco') return;
-    o.v = 'seco'; if (o.id.includes('vida')) h.vida = h.vidaMax; else h.mana = h.c.manaMax; Sonido.efecto('pocion');
+    // (Rick, 20 nov 2026: "bebí pozo azul y no se me llenó el maná". Seco no decía nada y lleno tampoco: ahora avisa las dos cosas)
+    const vida = o.id.includes('vida');
+    if (o.v === 'seco') { msg(jj, ['Este pozo está seco.', 'This well is dry.'], '#a0a0a0'); return; }
+    o.v = 'seco';
+    const antes = vida ? h.vida : h.mana;
+    if (vida) h.vida = h.vidaMax; else h.mana = h.c.manaMax;
+    const gano = Math.round((vida ? h.vida : h.mana) - antes);
+    msg(jj, vida ? [`Bebes del pozo: vida llena (+${gano}).`, `You drink from the well: life restored (+${gano}).`] : [`Bebes del pozo: maná lleno (+${gano}).`, `You drink from the well: mana restored (+${gano}).`], vida ? '#ff8080' : '#80a8ff');
+    particulas(jj, h.x, h.y, 18, 'chispa', vida ? '#ff6060' : '#6090ff', 1.2, 30);
+    Sonido.efecto('pocion');
   } else if (o.tag === 'baul') {
     if (o.id === 'cofre_gg' && !o.v.startsWith('abiert')) { o.v = 'abriendo'; o.dato = { abre: jj.t }; (ui as any).baul = o; }
     ui.izq = 'cofre'; ui.der = 'inv'; (ui as any).cofreX = o.cx; (ui as any).cofreY = o.cy; Sonido.efecto('abrir');

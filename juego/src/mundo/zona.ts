@@ -1807,7 +1807,8 @@ export function buscarCamino(z: Zona, ax: number, ay: number, bx: number, by: nu
   }
   return out.length ? out : null;
 }
-function lineaPasable(z: Zona, ax: number, ay: number, bx: number, by: number) {
+/** Línea que deja pasar un cuerpo (0,3 casillas de cada lado): la de un punto se pega a las esquinas. */
+export function lineaPasable(z: Zona, ax: number, ay: number, bx: number, by: number) {
   const d = Math.hypot(bx - ax, by - ay), n = Math.ceil(d * 3);
   for (let i = 1; i <= n; i++) { const t = i / n; const x = ax + (bx - ax) * t, y = ay + (by - ay) * t; for (const [ox, oy] of [[0.3, 0], [-0.3, 0], [0, 0.3], [0, -0.3]]) if (!pasable(z, x + ox, y + oy)) return false; }
   return true;

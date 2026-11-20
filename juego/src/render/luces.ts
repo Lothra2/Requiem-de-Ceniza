@@ -59,6 +59,7 @@ const LUZ_RAREZA: Record<string, [number, number, number]> = { raro: [255, 230, 
 const ids = new WeakMap<object, string>(); let nId = 0;
 const idDe = (o: object) => { let v = ids.get(o); if (!v) { v = 'x' + nId++; ids.set(o, v); } return v; };
 export let luces: Luz[] = [];
+const presencia = new Map<string, { a: number; dentro: boolean; t: number }>(); let tPresencia = 0;
 (window as any).__luces = () => luces;
 /** Destello global de la escena (explosiones grandes), 0 a 1. */
 export let destello = 0;
@@ -289,11 +290,40 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   }
   // con muchas luces (el acto 5 llega a ~50) el cuadro se cae: quedan las 22 que más pesan en pantalla
   // (fuerza por radio y cercanía al centro); las del héroe y las sin id de objeto siempre entran
-  if (L.length > 18) {
+  // (Rick, 20 nov 2026, "saltos de iluminación" en una cripta llena de velas: el radio de cada vela tiembla al azar y el
+  // fuego de Doom late, así que las que quedaban cerca del puesto 18 entraban y salían del tope en cuadros seguidos y su
+  // luz se prendía y se apagaba entera. Ahora la que ya está adentro pesa 1,8 veces más para salir, y la que entra o sale
+  // se funde en un cuarto de segundo: `presencia` por id de luz)
+  const dtL = Math.min(0.1, Math.max(0, t - tPresencia)); tPresencia = t;
+  if ((window as any).__lucesSaltan) { if (L.length > 18) {
     const cxp = W / 2, cyp = H * 0.45;
     const PRIO = [4, 2, 1, 0.5];
     const peso = (l: Luz) => (l.de === h || l.id === 'puerta' || l.id?.startsWith('ancla') || l.id?.startsWith('oz') || l.id?.startsWith('ca') || l.id?.startsWith('as') ? 1e9 : l.prio === 0 && l.k > 0.2 ? 1e8 + l.k : ((l.k * l.r) / (60 + Math.hypot(l.x - cxp, l.y - cyp))) * (l.prio !== undefined ? PRIO[l.prio] : 1));
     L.sort((a, b) => peso(b) - peso(a)); L.length = 18;
+  } } else {
+    const cxp = W / 2, cyp = H * 0.45;
+    const PRIO = [4, 2, 1, 0.5];
+    const peso = (l: Luz) => (l.de === h || l.id === 'puerta' || l.id?.startsWith('ancla') || l.id?.startsWith('oz') || l.id?.startsWith('ca') || l.id?.startsWith('as') ? 1e9 : l.prio === 0 && l.k > 0.2 ? 1e8 + l.k : ((l.k * l.r) / (60 + Math.hypot(l.x - cxp, l.y - cyp))) * (l.prio !== undefined ? PRIO[l.prio] : 1) * (l.id && presencia.get(l.id)?.dentro ? 1.8 : 1));
+    let fuera: Luz[] = [];
+    if (L.length > 18) { L.sort((a, b) => peso(b) - peso(a)); fuera = L.splice(18); }
+    const vistas = new Set<string>(), paso = dtL * 4;
+    for (const l of L) {
+      if (!l.id) continue; vistas.add(l.id);
+      let p = presencia.get(l.id);
+      // (una luz que nunca se vio viene de fuera de la pantalla: entra entera; la que estaba fuera del tope se enciende de a poco)
+      if (!p) { p = { a: 1, dentro: true, t }; presencia.set(l.id, p); }
+      p.dentro = true; p.t = t; p.a = Math.min(1, p.a + paso); l.k *= p.a;
+    }
+    // las que quedaron fuera del tope se apagan de a poco (como mucho 6 de más mientras se funden)
+    let extra = 0;
+    for (const l of fuera) {
+      if (!l.id) continue; vistas.add(l.id);
+      let p = presencia.get(l.id);
+      if (!p) { p = { a: 0, dentro: false, t }; presencia.set(l.id, p); }
+      p.dentro = false; p.t = t; p.a = Math.max(0, p.a - paso);
+      if (p.a > 0 && extra < 6) { l.k *= p.a; L.push(l); extra++; }
+    }
+    if (presencia.size > 400) for (const [id, p] of presencia) if (!vistas.has(id) && t - p.t > 2) presencia.delete(id);
   }
   // como mucho 6 luces de poderes proyectan sombra (las de prioridad 3 nunca)
   let conSombra = 0;

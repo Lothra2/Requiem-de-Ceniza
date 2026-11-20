@@ -293,7 +293,7 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
       alrededor del pecho y se abre un poco más allá, a la medida del alcance; solo el golpe (el tramo que gira rápido
       con la punta bajando), no el levantar del arma. Cuerpo oscuro que tapa, el color del golpe y el filo encendido;
       gruesa pasando la mitad y fina en la cola. Se pinta como su propio paso del orden, delante de los enemigos pegados
-      (`tajoPend` en escena.ts). Además estocadas (lanza), conos de puño con su anillo de choque (rayo, fuego, piedra,
+      (`tajoPend` en escena.ts, a 1,1 casillas delante del héroe: más lejos se pintaba encima del muro de delante). Además estocadas (lanza), conos de puño con su anillo de choque (rayo, fuego, piedra,
       eco), la cuña del escudo, las tres uñas del druida y las fauces de la Mordida, el segundo arco del Hachazo de
       barrido, las tres rayas del Desgarro, runas en el Corte del sello y el aro de acero del Remolino de hierro. La media
       luna del blanco sale del mismo estilo, más grande, con chispas de su color, y el crítico de un poder cuerpo a cuerpo

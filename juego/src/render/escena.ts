@@ -524,7 +524,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const it of itemsPoderes(ctx, aPant)) items.push(it);
   for (const it of itemsPresencias(ctx, j, aPant, tiempo)) items.push(it);
   tajoPend = null;
-  items.push({ prof: j.heroe.x + j.heroe.y + 1.6, draw: () => { if (tajoPend) { const [e, q, px, py, esc, t] = tajoPend; tajoHeroe(ctx, j, e, q, px, py, esc, t); torbellinoAro(ctx, j, px, py, t, false); } } });
+  items.push({ prof: j.heroe.x + j.heroe.y + 1.1, draw: () => { if (tajoPend) { const [e, q, px, py, esc, t] = tajoPend; tajoHeroe(ctx, j, e, q, px, py, esc, t); torbellinoAro(ctx, j, px, py, t, false); } } });
   tramo('orden');
   // lo que sueltan las armas vivas entra en el orden: las manchas con el piso, las gotas, el miasma y las chispas en la fila
   // del suelo que tienen debajo (antes iban encima de todo y se veían sobre las rocas de delante)

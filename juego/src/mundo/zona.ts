@@ -2383,6 +2383,18 @@ function desmontar(z: Zona, quitar: Set<ObjZ>, fijos: Set<ObjZ>, sacar: (o: ObjZ
       if (pierde === a) break;
     } }
 }
+/** El asiento del jefe y sus braseros por tema (oleada 2: la puesta en escena del ruedo). */
+const FOCO_JEFE: Record<string, [string, string | undefined]> = {
+  paramo: ['par_santuario', 'capilla'], cementerio: ['cem2_mausoleo_gotico', 'profanado'], abadia: ['mon_pulpito', 'piedra'], catacumbas: ['mue_trono', 'ruina'],
+  cripta: ['mis_trono_huesos', undefined], mina: ['mue_trono', 'ruina'], cueva: ['mis_trono_huesos', undefined], desierto: ['mue_trono', 'dorado'], tumba: ['mue_trono', 'dorado'],
+  templo: ['sel_cabeza_idolo', 'partida'], selva: ['sel_cabeza_idolo', 'semienterrada'], nieve: ['nie_altar_antiguos', 'despierto'], hielo: ['hie2_trono', undefined],
+  infierno: ['inf2_trono', undefined], santuario: ['for2_trono', 'dosel'], fortaleza: ['for2_trono', 'trono'], abismo: ['abi_trono', undefined],
+  ahogada: ['mon_pulpito', 'piedra'], catedral_ahogada: ['mon_pulpito', 'piedra'], celestial: ['cel_trono_respaldo', 'partido'], celestial_interior: ['cel_trono_respaldo', 'con_halo'], celestial_islas: ['cel_trono_copa', 'volcada'],
+};
+const BRASERO_JEFE: Record<string, string> = {
+  cripta: 'cri_brasero_huesos', catacumbas: 'cri_brasero_huesos', desierto: 'tum_brasero', tumba: 'tum_brasero', templo: 'tem_brasero', selva: 'tem_brasero', nieve: 'nie2_brasero',
+  hielo: 'hie2_brasero', infierno: 'inf2_brasero', santuario: 'for2_brasero', fortaleza: 'for2_brasero', abismo: 'arc_brasero', celestial: 'cel_brasero_blanco', celestial_interior: 'cel_brasero_blanco', celestial_islas: 'cel_brasero_blanco',
+};
 function curarAdornos(z: Zona, def: DefZona) {
   if ((globalThis as any).__sinCurar) return;
   const { W, H, tw } = z, r = rng(z.semilla * 6007 + 1777), N = W * H;
@@ -2613,6 +2625,21 @@ function curarAdornos(z: Zona, def: DefZona) {
       pon('ves_rastro', 'atril', jf.cx, jf.cy, 12, 15.5, hacia);
       pon('ves_rastro', Math.abs(ux) > Math.abs(uy) ? 'hilera_y' : 'hilera', jf.cx, jf.cy, 13, 17, hacia); pon('ves_rastro', Math.abs(ux) > Math.abs(uy) ? 'hilera_y' : 'hilera', jf.cx, jf.cy, 16, 21, hacia);
       pon('ves_rastro', 'partitura', jf.cx, jf.cy, 11.5, 14, hacia);
+    }
+    // la puesta en escena del jefe (oleada 2): de espaldas a por donde llega el héroe, su asiento (trono, altar, ídolo de su
+    // tierra) al borde del ruedo, y braseros a los lados que encierran la arena en luz. El héroe entra y lo ve de frente
+    if (jf && !(globalThis as any).__sinEscenaJefe) {
+      let ux = 0, uy = 1, bd = 1e9; for (const [x, y] of Object.values(z.entradas)) { const dd = Math.hypot(x - jf.cx, y - jf.cy); if (dd < bd && dd > 0.5) { bd = dd; ux = (x - jf.cx) / dd; uy = (y - jf.cy) / dd; } }
+      const cos = (x: number, y: number) => ((x - jf.cx) * ux + (y - jf.cy) * uy) / (Math.hypot(x - jf.cx, y - jf.cy) || 1);
+      const [fi, fv] = FOCO_JEFE[def.tema] ?? FOCO_JEFE.paramo;
+      let foco = pon(fi, fv, jf.cx, jf.cy, 12.5, 16, (x, y) => cos(x, y) < -0.6) ?? pon(fi, fv, jf.cx, jf.cy, 12.5, 17, (x, y) => cos(x, y) < -0.2) ?? pon(fi, fv, jf.cx, jf.cy, 12.5, 19, (x, y) => cos(x, y) < 0.5);
+      const foco2 = foco ?? (fi !== 'mue_trono' ? pon('mue_trono', 'ruina', jf.cx, jf.cy, 12.5, 19, (x, y) => cos(x, y) < 0.5) : null) ?? pon('cri_relicario', 'abierto', jf.cx, jf.cy, 12, 19, (x, y) => cos(x, y) < 0.5);
+      if (foco2) foco2.capa = 'jefe';
+      const br = BRASERO_JEFE[def.tema] ?? 'mon_brasero', puestos: ObjZ[] = [];
+      for (let i = 0; i < 16 && puestos.length < 4; i++) {
+        const o = pon(br, undefined, jf.cx, jf.cy, 12, i < 8 ? 14 : 17, (x, y) => Math.abs(cos(x, y)) < 0.8 && puestos.every((q) => Math.hypot(q.cx - x, q.cy - y) >= 7));
+        if (o) puestos.push(o);
+      }
     }
   }
   const ritos: { cx: number; cy: number; n: number }[] = [];

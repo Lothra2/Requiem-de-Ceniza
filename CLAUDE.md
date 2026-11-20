@@ -309,6 +309,11 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   enlace (93 mazmorras x 3 semillas): mediana 3,3 a 2 (las de doble ancho cuentan 2), p90 8,7 a 3,75. t1000 obra: arena
   57 a 60, campamentos en arena 77 a 83, adornos por pantalla 25 a 33. Medida: `juego/herramientas/_m_pasillo.mjs` no se
   sube (los `_m_` están en .gitignore): contar `suelo && !sala` por enlace en `mazmorra`.
+- **Puesta en escena del jefe** (`curarAdornos` 3b, `FOCO_JEFE` y `BRASERO_JEFE` por tema, `__sinEscenaJefe`): de espaldas
+  a la entrada más cercana, al borde del ruedo (12,5 a 19 del jefe), su asiento (trono, altar, ídolo, púlpito, mausoleo;
+  si no cabe, un trono en ruinas o un relicario) con capa `jefe`, y hasta cuatro braseros del tema a los lados (no en el
+  eje de la entrada) que cierran la arena en luz. 28 de 31 jefes con asiento y 70 braseros (semilla 12345). Faltan
+  asiento en a3_inundadas, a4_grieta y a7_boveda (no hay sitio fuera del ruedo). El ruedo sigue en 10.
 
 ## Armas vivas, cofres, poderes y siluetas
 

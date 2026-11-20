@@ -610,7 +610,9 @@ function exterior(def: DefZona, semilla: number): Zona {
   // viñetas: paisajes del motor estampados donde haya lugar
   const vin = def.vinetas ?? t.vinetas ?? [];
   const usadas: [number, number, number, number][] = [];
-  for (let i = 0; i < Math.min(4, vin.length + 1) && vin.length; i++) {
+  // (oleada 2: con lugares, dos viñetas estampadas como mucho, y de sus árboles en pie queda la mitad: eran el 10 % del piso tapado)
+  const ralo = !(globalThis as any).__sinLugares && !!ESTILO_BORDE[def.tema] && !(globalThis as any).__sinMacizos;
+  for (let i = 0; i < Math.min(ralo ? 2 : 4, vin.length + 1) && vin.length; i++) {
     const id = vin[i % vin.length];
     const m = generarPaisaje(id, semilla * 13 + i);
     for (let intento = 0; intento < 30; intento++) {
@@ -627,6 +629,7 @@ function exterior(def: DefZona, semilla: number): Zona {
         // las viñetas no tapan el camino ni las salidas
         const cx = o.cx + bx * 5, cy = o.cy + by * 5;
         if (/portal_azul|piedra_viaje|baul/.test(o.id)) continue;
+        if (ralo && /^arb_|_pino|_arbol|palmera/.test(o.id) && r() < 0.5) continue;
         k.poner(o.id, cx, cy, o.v);
       }
       k.capa = undefined;
@@ -634,12 +637,37 @@ function exterior(def: DefZona, semilla: number): Zona {
     }
   }
   // borde: árboles y rocas pegados al vacío
+  // (oleada 2: el borde ya no es una fila de árboles sueltos, uno cada dos celdas, que era de donde salía el "todo montado".
+  //  Donde el tema tiene arboleda va por macizos, `arb_macizo`: UNA pieza de 9 x 3 con silueta, a lo largo del filo, o un nudo
+  //  de 5 x 5 donde dobla, con claros entre uno y otro; entre macizos, alguna roca suelta del tema y nada más)
   const bordes = k.sel(t.borde);
-  if (bordes.length) for (let cy = 1; cy < z.H - 1; cy += 2) for (let cx = 1; cx < z.W - 1; cx += 2) {
+  const ESPECIE_MACIZO: Record<string, string> = { paramo: 'muerto', cementerio: 'muerto', nieve: 'pinar', selva: 'selva', desierto: 'palmar' };
+  const esp = sinLugares || (globalThis as any).__sinMacizos ? undefined : ESPECIE_MACIZO[def.tema], dMac = REGISTRO.find((d) => d.id === 'arb_macizo');
+  const vacioEn = (x: number, y: number) => x < 0 || y < 0 || x >= z.W || y >= z.H || z.bloq[y * z.W + x] === 2;
+  if (esp && dMac) {
+    const puestos: [number, number][] = [];
+    for (let cy = 3; cy < z.H - 3; cy += 3) for (let cx = 3; cx < z.W - 3; cx += 3) {
+      if (vacioEn(cx, cy)) continue;
+      // ¿a qué lado queda el vacío? (a 3 o 4 celdas)
+      const n = vacioEn(cx, cy - 3) || vacioEn(cx, cy - 4), su = vacioEn(cx, cy + 3) || vacioEn(cx, cy + 4), o = vacioEn(cx - 3, cy) || vacioEn(cx - 4, cy), e = vacioEn(cx + 3, cy) || vacioEn(cx + 4, cy);
+      if (!n && !su && !o && !e) continue;
+      const azar = r(), nudo = n && o, enX = n;
+      // lo alto atrás, lo bajo adelante: un macizo solo donde el vacío queda al norte o al oeste (arriba en pantalla). En el
+      // frente (vacío al sur o al este) taparía el piso que tiene detrás: ahí van las rocas bajas del tema
+      if (su || e) continue;
+      // (el desierto es abierto: palmares contados; la selva y el bosque cierran más)
+      if (azar > (def.tema === 'desierto' ? 0.3 : def.tema === 'selva' ? 0.62 : 0.5)) continue;
+      if (puestos.some(([a, b]) => Math.abs(a - cx) < (nudo || enX ? 11 : 5) && Math.abs(b - cy) < (nudo || !enX ? 11 : 5))) continue;
+      const v = nudo ? `${esp}_nudo` : `${esp}_${enX ? 'x' : 'y'}${azar * 97 % 1 < 0.5 ? '' : '2'}`;
+      if (k.poner(dMac, cx, cy, v)) puestos.push([cx, cy]);
+    }
+  }
+  const rocas = esp ? bordes.filter((o) => !/^arb_|arbol|pino|palm|ceiba|mangl|bambu|helecho|bosquecillo/.test(o.d.id)) : bordes;
+  if (rocas.length) for (let cy = 1; cy < z.H - 1; cy += 2) for (let cx = 1; cx < z.W - 1; cx += 2) {
     if (z.bloq[cy * z.W + cx] === 2) continue;
     let cercaVacio = false;
     const fr = sinLugares ? 4 : 2; for (let dy = -fr; dy <= fr && !cercaVacio; dy++) for (let dx = -fr; dx <= fr; dx++) { const X = cx + dx, Y = cy + dy; if (X < 0 || Y < 0 || X >= z.W || Y >= z.H || z.bloq[Y * z.W + X] === 2) { cercaVacio = true; break; } }
-    if (cercaVacio && r() < 0.55) { const o = bordes[Math.floor(r() * bordes.length)]; const vs = o.d.variantes.filter(o.v); if (vs.length) k.poner(o.d, cx, cy, vs[Math.floor(r() * vs.length)]); }
+    if (cercaVacio && r() < (esp ? 0.1 : sinLugares ? 0.55 : 0.3)) { const o = rocas[Math.floor(r() * rocas.length)]; const vs = o.d.variantes.filter(o.v); if (vs.length) k.poner(o.d, cx, cy, vs[Math.floor(r() * vs.length)]); }
   }
   // grandes y dispersos
   const area = z.W * z.H, dens = def.densidad ?? 1;
@@ -701,7 +729,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   // las matas: antes 1 cada 230 celdas por todo el mapa. Ahora menos y solo como falda de algo (a 2 celdas de una roca, un árbol o el borde)
   const falda = (x: number, y: number) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= z.W || Y >= z.H) return true; const b = z.bloq[Y * z.W + X]; if (b === 1 || b === 2) return true; } return false; };
   if (sinLugares) decorarMundo(k, ESTILO_BORDE[def.tema], Math.floor((z.W * z.H) / 230), Math.floor((z.W * z.H) / 2400), Math.floor((z.W * z.H) / 5000));
-  else { decorarMundo(k, ESTILO_BORDE[def.tema], 0, Math.floor((z.W * z.H) / 2800), Math.floor((z.W * z.H) / 5000)); decorarMundo(k, ESTILO_BORDE[def.tema], Math.floor((z.W * z.H) / 420), 0, 0, falda); }
+  else { const fl = (globalThis as any).__sinMacizos ? 1 : 0.6; decorarMundo(k, ESTILO_BORDE[def.tema], 0, Math.floor(((z.W * z.H) / 2800) * fl), Math.floor((z.W * z.H) / 5000)); decorarMundo(k, ESTILO_BORDE[def.tema], Math.floor(((z.W * z.H) / 420) * fl), 0, 0, falda); }
   if (!lugares.length) { delete z.lugares; delete z.claros; }
   costa(k, def.tema);
   return z;
@@ -1329,7 +1357,8 @@ function escenasLugares(k: Constructor, def: DefZona, lugares: Lugar[], centro: 
  * ancho de la senda, 5 celdas) por unas 10 celdas. Es el apretón antes del claro. No cierra nada: la senda está reservada.
  */
 function gargantaDe(k: Constructor, t: Tematica, sendas: { l: Lugar; t: [number, number][] }[]) {
-  const z = k.z, r = k.r, bordes = k.sel(t.borde); if (!bordes.length) return;
+  // (oleada 2: los frentes de la garganta son de roca del tema, no de árboles altos que tapaban el paso que estrechan)
+  const z = k.z, r = k.r, todos = k.sel(t.borde), sinArbol = (globalThis as any).__sinMacizos ? todos : todos.filter((o) => !/^arb_|arbol|pino|palm|ceiba|mangl|bambu|helecho|bosquecillo/.test(o.d.id)), bordes = sinArbol.length ? sinArbol : todos; if (!bordes.length) return;
   const s = sendas.filter((q) => q.l.papel === 'claro').sort((a, b) => b.t.length - a.t.length || a.l.cx - b.l.cx)[0];
   if (!s || s.t.length < 34) return;
   const m = Math.floor(s.t.length / 2), tramo = s.t.slice(m - 7, m + 7), c0 = k.capa; k.capa = 'garganta';
@@ -1937,6 +1966,9 @@ function rellenarBolsas(z: Zona, def: DefZona) {
   const est = pre.replace(/_$/, ''), letras = (p: string, ls: string) => ls.split('').map((l) => p + l);
   const ris = (talla: string, ls: string, w: number): Pieza[] => (cueva && !pre ? letras(talla + '_', ls).map((v) => ['cue_penasco', v, w] as Pieza) : letras(pre + talla + '_', ls).map((v) => ['bor_risco', v, w] as Pieza));
   const obra = def.tipo === 'mazmorra' && !cueva, cel = est === 'celestial';
+  // (oleada 2: en la orilla de un mundo abierto las matas y el cascajo del relleno eran 220 adornos por zona, la mitad de todo
+  //  lo que se contaba, montados sobre el borde. Ahora la orilla es roca del tema y, de vez en cuando, algo que crece)
+  const FLOJO = (globalThis as any).__sinMacizos ? 1 : 0.3;
   // tres tallas: alta (más de 100 puntos de alto), media y baja (lo que no tapa a nadie)
   const PAL: Record<'alta' | 'media' | 'baja', Pieza[]> = obra ? {
     alta: [['muro_obra', `${est}_roto`, 3], ['muro_obra', `${est}_roto_y`, 3], ['dec_ruina', `${est}_muro`, 3], ['dec_ruina', `${est}_columnas`, 1], ['dec_muro', `${est}_contrafuerte`, 1], ['dec_ruina', `${est}_arco`, 0.6], ...ris('alta', 'abcd', 0.5), ...(cel ? [['cel_columna_rota', 'partida', 1.5], ['cel_columna_rota', 'alta', 1]] as Pieza[] : [])],
@@ -1950,7 +1982,7 @@ function rellenarBolsas(z: Zona, def: DefZona) {
     // a cielo abierto: roca del tema, pero también lo que crece entre las piedras y alguna ruina o pieza propia del mundo
     alta: [...ris('alta', 'abcd', 1), ['dec_ruina', `${est}_muro`, 0.25], ['dec_ruina', `${est}_columnas`, 0.15], ...(EXTRA_FUERA[est]?.alta ?? [])],
     media: [...ris('media', 'ab', 1.2), ['dec_ruina', `${est}_pila`, 0.5], ['dec_muro', `${est}_derrumbe`, 0.5], ['dec_hito', `${est}_estatua`, 0.12], ...(EXTRA_FUERA[est]?.media ?? [])],
-    baja: [...ris('baja', 'abc', 1.2), ...letras(`${est}_`, 'abcd').map((v) => ['dec_planta', v, 0.45] as Pieza), ['campo_escombros', 'piedra', 0.3], ['cue_escombros', 'monton', 0.25], ['cue_escombros', 'suelto', 0.25], ...(EXTRA_FUERA[est]?.baja ?? [])],
+    baja: [...ris('baja', 'abc', 1.2), ...letras(`${est}_`, 'abcd').map((v) => ['dec_planta', v, FLOJO * 0.45] as Pieza), ['campo_escombros', 'piedra', FLOJO * 0.3], ['cue_escombros', 'monton', FLOJO * 0.25], ['cue_escombros', 'suelto', FLOJO * 0.25], ...(EXTRA_FUERA[est]?.baja ?? [])],
   };
   const defDe = new Map<string, ObjetoDef>();
   for (const k of Object.keys(PAL) as ('alta' | 'media' | 'baja')[]) PAL[k] = PAL[k].filter(([id, v]) => { const d = REGISTRO.find((q) => q.id === id); if (!d || !d.variantes.includes(v)) return false; defDe.set(id, d); return true; });
@@ -1980,6 +2012,9 @@ function rellenarBolsas(z: Zona, def: DefZona) {
     const rad = (talla === 'alta' ? 3.1 : talla === 'media' ? 2.2 : 1.45) * (cueva ? 0.8 : 1) * (orilla ? 0.9 : 1);
     if (cerca(x, y, rad)) continue;
     const p = elegir(PAL[talla], (k) => puestas.some((q) => q.k === k && (q.x - x) ** 2 + (q.y - y) ** 2 < 49)); if (!p) continue;
+    // (a cielo abierto, lo que no es roca del borde sale una de cada tres veces: la regla de no repetir la misma piedra cerca
+    //  empujaba a matas y cascajo, 220 por zona)
+    if (def.tipo !== 'mazmorra' && FLOJO < 1 && p[0] !== pen.id && r() > 0.12) continue;
     const dd = defDe.get(p[0])!, [hw, hh] = huellaDe(dd, p[1]), x0 = Math.round(x - (hw - 1) / 2), y0 = Math.round(y - (hh - 1) / 2);
     // la huella entera dentro del hueco: nada se monta sobre el piso que se camina
     let dentro = true; for (let yy = y0; yy < y0 + hh && dentro; yy++) for (let xx = x0; xx < x0 + hw; xx++) if (xx < 0 || yy < 0 || xx >= W || yy >= H || !bolsa[yy * W + xx]) { dentro = false; break; }
@@ -1996,10 +2031,13 @@ function rellenarBolsas(z: Zona, def: DefZona) {
   for (const o of z.objetos) {
     if (o.id !== pen.id || relleno[Math.floor(o.cy) * W + Math.floor(o.cx)] === undefined) continue;
     if (puestasFill.has(o)) continue;
-    const ta = talla0(o.v), rep = (k: string) => vistos.some((q) => q.k === k && (q.x - o.cx) ** 2 + (q.y - o.cy) ** 2 < 10);
+    let ta = talla0(o.v) as 'alta' | 'media' | 'baja'; const rep = (k: string) => vistos.some((q) => q.k === k && (q.x - o.cx) ** 2 + (q.y - o.cy) ** 2 < 10);
     let p: Pieza | null = null;
+    // (oleada 2: lo alto atrás, lo bajo adelante. Un risco del borde con piso detrás, o sea arriba en pantalla, tapaba ese piso:
+    //  los riscos del filo eran el 21 % del piso tapado a cielo abierto. Con piso a 5 celdas o menos detrás va bajo)
+    if (def.tipo !== 'mazmorra' && FLOJO < 1 && ta !== 'baja' && atras(Math.round(o.cx), Math.round(o.cy)) <= 5) { ta = 'baja'; p = elegir(PAL.baja.filter(([id]) => id === pen.id), rep); if (p) { o.id = p[0]; o.v = p[1]; } vistos.push({ x: o.cx, y: o.cy, k: o.id + '|' + o.v }); continue; }
     if (obra && ta === 'baja' && r() < 0.5) p = elegir(PAL.baja.filter(([id]) => id !== pen.id), rep);
-    else if (def.tipo !== 'mazmorra' && r() < 0.35) p = elegir(PAL[ta].filter(([id]) => id !== pen.id), rep);
+    else if (def.tipo !== 'mazmorra' && r() < 0.35 * (FLOJO < 1 ? 0.4 : 1)) p = elegir(PAL[ta].filter(([id]) => id !== pen.id), rep);
     else if (rep(o.id + '|' + o.v) || r() < 0.5) p = elegir(PAL[ta].filter(([id]) => id === pen.id), rep);
     if (p) { o.id = p[0]; o.v = p[1]; }
     vistos.push({ x: o.cx, y: o.cy, k: o.id + '|' + o.v });

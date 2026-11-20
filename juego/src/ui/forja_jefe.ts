@@ -56,7 +56,7 @@ export function barraJefeForja(j: Juego, t: number, cx: number, top: number, max
   } else if (est.id >= 0) { if (est.cayo < 0) est.cayo = t; if (t - est.cayo > 1) { est.id = -1; return null; } cx = est.cx; top = est.top; maxW = est.w; }
   else return null;
   est.sac = Math.max(0, est.sac - dt * 3.5);
-  const e = espacio(), D = e.D, w = Math.max(150, Math.min(320, Math.floor(((maxW * RES) / D) / 2) * 2, Math.max(220, anchoLetra(est.nombre) + 70)));
+  const e = espacio(), D = e.D, w = Math.max(150, Math.min(460, Math.floor(((maxW * RES) / D) / 2) * 2, Math.max(360, anchoLetra(est.nombre) + 90))); // (más ancho: el de 220 se perdía arriba de la pantalla)
   const x = t - est.entro, cae = est.cayo >= 0 ? t - est.cayo : 0;
   // baja colgado, rebota y queda; al morir el jefe las cadenas lo sueltan
   let dy = x < 3 ? -78 * Math.exp(-4.2 * x) * Math.cos(8 * x) : 0; if (cae > 0) dy += 520 * cae * cae;

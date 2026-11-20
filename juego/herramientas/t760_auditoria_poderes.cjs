@@ -11,12 +11,14 @@ const TOMAS = [150, 350, 550, 800, 1100];
   const clase = process.argv[2] || 'templario';
   const { b, p, errs } = await entrar('pc', clase, 30);
   await p.evaluate(() => window.__ir('a2_dunas')); await p.waitForTimeout(4500);
-  const ok = await p.evaluate((viejo) => { const j = window.__juego(), z = j.zona, h = j.heroe; window.__sinLluvia = true; window.__sinAmbientePfx = true; if (viejo) window.__sinMateria = true; let mejor = null, md = 0;
+  const ok = await p.evaluate((viejo) => { const j = window.__juego(), z = j.zona, h = j.heroe; j.portal = null; window.__sinLluvia = true; window.__sinAmbientePfx = true; if (viejo) window.__sinMateria = true; let mejor = null, md = 0;
     for (let y = 16; y < z.H - 16; y += 2) for (let x = 16; x < z.W - 16; x += 2) { let libre = true; for (let dy = -5; dy <= 5 && libre; dy++) for (let dx = -5; dx <= 5; dx++) if (z.bloq[(y + dy) * z.W + x + dx]) { libre = false; break; } if (!libre) continue;
       let d = 99; for (const o of z.objetos) d = Math.min(d, Math.hypot(o.cx - x, o.cy - y)); for (const s of z.salidas) d = Math.min(d, Math.hypot(s.cx - x, s.cy - y)); if (d > md) { md = d; mejor = [x, y]; } }
     if (!mejor) return null; h.x = mejor[0] + 0.5; h.y = mejor[1] + 0.5; h.camino = null; window.__sitio = [h.x, h.y];
     z.objetos = z.objetos.filter((o) => Math.hypot(o.cx + 0.5 - h.x, o.cy + 0.5 - h.y) > 12); return md; }, !!process.env.VIEJO);
   await p.waitForTimeout(1500);
+  // el templario con escudo (el Golpe de escudo lo pide): se espera al pintor para que se vea puesto
+  if (clase === 'templario' && !process.env.SIN_ESCUDO) { await p.evaluate(() => { const T = window.__T, j = window.__juego(), d = j.heroe.d, b = T.D.BASES.find((x) => x.id === 'escudo_cometa') || T.D.BASES.find((x) => x.ranura === 'izq'); d.equipo.izq = T.O.crearBase(b, 12); window.__mundo.recalc(j); j.monstruos = []; j.heroe.vida = j.heroe.vidaMax = 1e9; }); await p.waitForTimeout(+(process.env.ESPERA_PINTOR || 45000)); }
   const ids = await p.evaluate(async () => { const C = await import('/src/datos/clases.ts'); const h = window.__juego().heroe; for (const x of C.HABILIDADES) if (x.clase === h.d.clase) h.d.habs[x.id] = 5; return C.HABILIDADES.filter((x) => x.clase === h.d.clase && x.tipo !== 'pasiva').map((x) => x.id); });
   const solo = process.env.SOLO ? process.env.SOLO.split(',') : null;
   let n = 0;
@@ -37,10 +39,16 @@ const TOMAS = [150, 350, 550, 800, 1100];
       j.sacudida = 0; j.congela = 0; j.patada = null; window.__apagarSuelos?.(); for (const f of window.__limpiadores ?? []) f();
       const ms = [0, 1, 2].map((i) => { const m = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 1.25 + i * 0.75, h.y + 0.35 - i * 0.55, 0, 0); m.vida = m.vidaMax = 50000; m.estado = 'dormido'; j.monstruos.push(m); return m; });
       // los que levantan muertos necesitan cadáveres (antes avisaban "Necesito un cadáver" y la lámina salía vacía)
-      if (hb.tipo === 'invocar') for (let i = 0; i < 4; i++) { const c = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 1.6 + (i % 2) * 0.9, h.y + 1.4 + (i >> 1) * 0.8, 0, 0); c.vida = 0; c.muerto = true; c.acc = 'morir'; c.t = 5; c.tMuerto = 5; j.monstruos.push(c); }
+      if (hb.tipo === 'invocar' || (hb.efecto === 'cadaver' && id !== 'ofrenda')) for (let i = 0; i < 4; i++) { const c = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 1.6 + (i % 2) * 0.9, h.y + 1.4 + (i >> 1) * 0.8, 0, 0); c.vida = 0; c.muerto = true; c.estado = 'dormido'; c.acc = 'morir'; c.t = 5; c.tMuerto = 5; j.monstruos.push(c); }
       // las trampas se arman en un sitio libre y un zombi la pisa a los 0,6 s: se ve armada y después el disparo
       if (hb.tipo === 'trampa') { const tx = h.x + 1.6, ty = h.y - 1.4; M.usarHabilidad(j, id, tx, ty, null, false); window.__pisar = [tx, ty]; for (const m of ms) { m.x += 1.6; m.y += 1.2; } return; }
       window.__pisar = null;
+      // los que piden un siervo vivo: la Ofrenda sus esqueletos y la Picada el halcón (antes avisaban y la lámina salía vacía)
+      const pide = id === 'ofrenda' ? 'alzar_esqueleto' : id === 'picada' ? 'llamar_halcon' : null;
+      if (pide) { for (let i = 0; i < 4; i++) { const c = M.crearMonstruo(D.MONSTRUOS['zombi'], 10, h.x + 1.6 + (i % 2) * 0.9, h.y + 1.4 + (i >> 1) * 0.8, 0, 0); c.vida = 0; c.muerto = true; c.estado = 'dormido'; c.acc = 'morir'; c.t = 5; c.tMuerto = 5; j.monstruos.push(c); }
+        M.usarHabilidad(j, pide, h.x + 1.2, h.y + 1.2, null, false); if (id === 'ofrenda') { h.recargas = {}; M.usarHabilidad(j, pide, h.x + 1.2, h.y + 1.2, null, false); }
+        await new Promise((r) => setTimeout(r, 1500)); for (const m of j.monstruos) if (m.dueno) { m.x = ms[0].x - 0.6 + Math.random() * 0.3; m.y = ms[0].y + 0.5; m.estado = 'quieto'; }
+        j.efectos.length = 0; h.recargas = {}; h.acc = 'quieto'; for (const f of window.__limpiadores ?? []) f(); }
       M.usarHabilidad(j, id, ms[0].x, ms[0].y, ms[0], false); }, id);
     const t0 = Date.now();
     for (let i = 0; i < TOMAS.length; i++) { await p.waitForTimeout(Math.max(0, TOMAS[i] - (Date.now() - t0)));

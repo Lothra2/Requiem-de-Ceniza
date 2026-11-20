@@ -102,6 +102,7 @@ export function dirPfx(vx: number, vy: number) {
  * Dibuja el efecto con su ancla en (x, y) de pantalla. `dir` 0..7. Devuelve false si todavía no está cargado o ya
  * terminó. Capa pantalla: estirado a cubrir (W, H) y la esquina en (0, 0).
  */
+const SUMA_LUZ = new Set(['fx_estallido_copos', 'pfx:fx_estallido_copos']);
 export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: number, x: number, y: number, o: { dir?: number; alfa?: number; escala?: number; W?: number; H?: number; tesela?: boolean; cabeza?: number } = {}): boolean {
   const e = efectoPfx(id); if (!e) return false;
   const n = cuadroPfx(e, seg); if (n < 0) return false;
@@ -117,14 +118,23 @@ export function dibujarPfx(ctx: CanvasRenderingContext2D, id: string, seg: numbe
   if ((window as any).__pfxAlfa !== undefined) ctx.globalAlpha *= (window as any).__pfxAlfa;
   // los que se suman como luz bajan con la claridad del lugar: de día, sobre arena o nieve, un cuadro de fogonazo
   // quemaba a blanco al héroe y a los enemigos. En lo oscuro van enteros
-  if ((e.mezcla === 'aditiva' || e.mezcla === 'sumar') && e.capa !== 'pantalla') {
+  // (cuarta pasada) el estallido de copos del Manto de escarcha venía horneado opaco: su estrella blanca no bajaba de día
+  // y quemaba la cabeza a pleno sol. De día va a medias opaco (los copos se siguen leyendo sobre la arena) y a medias
+  // sumado como luz; de noche como siempre
+  if (SUMA_LUZ.has(id) && (o as any).modo === undefined && !(window as any).__fogonazoParejo && noche < 1) {
+    ctx.restore(); const a0 = o.alfa ?? 1;
+    const ok = dibujarPfx(ctx, id, seg, x, y, { ...o, alfa: a0 * (0.4 + 0.6 * noche), modo: 'n' } as any);
+    dibujarPfx(ctx, id, seg, x, y, { ...o, alfa: a0 * 0.45 * (1 - noche), modo: 'l' } as any); return ok;
+  }
+  const suma = e.mezcla === 'aditiva' || e.mezcla === 'sumar' || (o as any).modo === 'l';
+  if (suma && e.capa !== 'pantalla') {
     ctx.globalAlpha *= fuerzaAditiva;
     // (tercera pasada) los grandes de luz sumada (las definitivas horneadas: el Lamento del osario, el Puño de dios, las
     // Espadas votivas) quemaban a blanco medio campo de día aunque bajaran como los chicos: van más abajo cuanto más
     // grandes y más claro el lugar (a pleno día, uno de 200 puntos de ancho queda a un 45 % de lo de antes)
     if (!(window as any).__fogonazoParejo) { const ancho = c[3] * Math.min(e.escala * (o.escala ?? 1), Math.max(2, e.escala)), big = Math.max(0, Math.min(1, (ancho - 70) / 130)); ctx.globalAlpha *= 1 - big * (1 - noche) * 0.55; }
   }
-  ctx.globalCompositeOperation = e.mezcla === 'aditiva' || e.mezcla === 'sumar' ? 'lighter' : 'source-over';
+  ctx.globalCompositeOperation = suma ? 'lighter' : 'source-over';
   if (e.capa === 'pantalla' && o.tesela) {
     // clima en mosaico: el cuadro a escala 2 (el mismo pixel que el mundo) con la esquina del lienzo del efecto en (x, y).
     // (el cuadro viene recortado: sin su corrimiento la tesela quedaba corta y corrida y abría una raya entre teselas)

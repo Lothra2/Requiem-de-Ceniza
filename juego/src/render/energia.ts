@@ -18,7 +18,7 @@ import { nochePfx } from './pfx';
 type RGB = [number, number, number];
 interface Chispa { x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; d: number; c: RGB; s: number; px?: number; py?: number; reb: number; g?: number }
 interface Anillo { x: number; y: number; t: number; d: number; r0: number; r1: number; c: RGB; g: number; a: number }
-interface Flash { x: number; y: number; z: number; t: number; d: number; r: number; c: RGB; a: number }
+interface Flash { x: number; y: number; z: number; t: number; d: number; r: number; c: RGB; a: number; tras?: boolean }
 interface Mota { ang: number; r: number; z: number; t: number; d: number; c: RGB; giro: number }
 const chispas: Chispa[] = [], anillos: Anillo[] = [], flashes: Flash[] = [], motas: Mota[] = [];
 const estelas = new Map<Proyectil, { p: [number, number, number][]; c: RGB }>();
@@ -53,13 +53,13 @@ function luzSpr(c: RGB): HTMLCanvasElement {
 }
 
 let heroeXY: [number, number] = [-99, -99];
-function estallar(x: number, y: number, z: number, c: RGB, fuerza: number) {
+function estallar(x: number, y: number, z: number, c: RGB, fuerza: number, tras = false) {
   const tope = E.tactil ? 220 : 420, n = Math.round((E.tactil ? 7 : 12) + fuerza * (E.tactil ? 5 : 10));
   for (let i = 0; i < n && chispas.length < tope; i++) { const a = R() * Math.PI * 2, v = (1.6 + R() * 4.2) * (0.7 + fuerza * 0.4); chispas.push({ x, y, z: z + 8 + R() * 14, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 50 + R() * 150 * (0.7 + fuerza * 0.3), t: 0, d: 0.45 + R() * 0.55, c, s: R() < 0.3 ? 3 : 2, reb: 1 }); }
   // el fogonazo: corto y medido. Antes era un disco blanco de hasta 180 puntos por cada efecto, y tres golpes juntos
   // dejaban al héroe y a los enemigos tapados por una bola blanca. Ahora no se apilan (uno por sitio y momento) y
   // el que cae encima del héroe va más bajo todavía
-  if (!flashes.some((q) => q.t < 0.1 && Math.hypot(q.x - x, q.y - y) < 1.6)) flashes.push({ x, y, z: z + 16, t: 0, d: 0.16 + fuerza * 0.04, r: 20 + fuerza * 13, c, a: Math.hypot(x - heroeXY[0], y - heroeXY[1]) < 1.3 ? 0.3 : 0.5 });
+  if (!flashes.some((q) => q.t < 0.1 && Math.hypot(q.x - x, q.y - y) < 1.6)) flashes.push({ x, y, z: z + 16, t: 0, d: 0.16 + fuerza * 0.04, r: 20 + fuerza * 13, c, a: Math.hypot(x - heroeXY[0], y - heroeXY[1]) < 1.3 ? 0.3 : 0.5, tras });
   anillos.push({ x, y, t: 0, d: 0.34 + fuerza * 0.08, r0: 0.25, r1: 1.3 + fuerza * 1.15, c, g: 2.5 + fuerza, a: 0.85 });
   if (fuerza >= 1.35) { anillos.push({ x, y, t: -0.09, d: 0.55, r0: 0.4, r1: 2.2 + fuerza * 1.5, c, g: 1.6, a: 0.5 }); pantalla = Math.max(pantalla, Math.min(0.2, 0.07 * fuerza)); pantallaC = c; }
 }
@@ -100,7 +100,7 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
   } else if (conjurando && h.golpeo && (h.acc === 'lanzar' || h.acc === 'atacar')) {
     if (oscuro > 0.2) { pantalla = 0.2; pantallaC = cHab; j.sacudida = Math.max(j.sacudida, 0.55); (j as any).congela = Math.max((j as any).congela ?? 0, 0.07);
       for (const [r1, d, t0] of [[4.2, 0.6, 0], [6.5, 0.85, -0.08], [9, 1.1, -0.18]] as [number, number, number][]) anillos.push({ x: h.x, y: h.y, t: t0, d, r0: 0.4, r1, c: cHab, g: 3.2, a: 0.8 });
-      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: 0.5 }); /* la definitiva deslumbra un instante, pero el héroe se sigue viendo */ estallar(h.x, h.y, 20, cHab, 2.2); }
+      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: 0.5, tras: true }); /* la definitiva deslumbra un instante detrás del héroe (cuarta pasada: encima lo lavaba a blanco de día) */ estallar(h.x, h.y, 20, cHab, 2.2, true); }
     flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.14, r: 26, c: cHab, a: 0.45 });
     anillos.push({ x: h.x, y: h.y, t: 0, d: 0.3, r0: 0.3, r1: 1.7, c: cHab, g: 2.2, a: 0.6 });
     for (let i = 0; i < (E.tactil ? 5 : 9); i++) { const a = R() * Math.PI * 2, v = 1.5 + R() * 2.5; chispas.push({ x: h.x, y: h.y, z: 30 + R() * 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 40 + R() * 90, t: 0, d: 0.35 + R() * 0.3, c: cHab, s: 2, reb: 0 }); }
@@ -170,7 +170,7 @@ export function itemsEnergia(ctx: CanvasRenderingContext2D, aP: (x: number, y: n
     ctx.fillStyle = `rgba(${Math.min(255, q.c[0] + 90)},${Math.min(255, q.c[1] + 90)},${Math.min(255, q.c[2] + 90)},${a})`; ctx.fillRect(Math.round(px - q.s / 2), Math.round(py - q.s / 2), q.s, q.s);
     q.px = px; q.py = py;
     ctx.restore(); } });
-  return out.concat(flashes.map((q) => ({ prof: q.x + q.y + 0.08, draw: () => { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.a * (1 - u) ** 1.5 * (0.6 + 0.4 * nochePfx()); ctx.drawImage(luzSpr(q.c), px - r, py - q.z - r, r * 2, r * 2); ctx.restore(); } })));
+  return out.concat(flashes.map((q) => ({ prof: q.x + q.y + (q.tras && !(window as any).__fogonazoParejo ? -0.05 : 0.08), draw: () => { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.a * (1 - u) ** 1.5 * (0.6 + 0.4 * nochePfx()); ctx.drawImage(luzSpr(q.c), px - r, py - q.z - r, r * 2, r * 2); ctx.restore(); } })));
 }
 /** Lo que va en el aire, sumado como luz: estelas, destellos, chispas, las motas del conjuro y el resplandor de pantalla. */
 export function energiaAire(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: number, y: number) => [number, number], W: number, H: number) {

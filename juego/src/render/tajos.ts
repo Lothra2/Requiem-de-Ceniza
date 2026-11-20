@@ -79,12 +79,12 @@ const capas = new Capas();
 const kdia = () => 0.55 + 0.45 * nochePfx();
 
 /** Una media luna de a radios: para cada paso del barrido, de adentro (cuerpo oscuro) a afuera (filo). */
-function mediaLuna(est: EstTajo, pts: { cx: number; cy: number; an: number; r: number; edad: number }[], ancho: number, lineas = 1) {
+function mediaLuna(est: EstTajo, pts: { cx: number; cy: number; an: number; r: number; edad: number }[], ancho: number, lineas = 1, lleno = false) {
   const paso = E.tactil ? 2 : 1;
   for (let i = 0; i < pts.length; i += 1) {
     const p = pts[i], v = Math.max(0, 1 - p.edad / est.dur); if (v <= 0) continue; const a = Math.min(1, v * 1.8);
     // forma de media luna: fina en la cola, gruesa pasando la mitad, y se afina con la edad
-    const f0 = i / Math.max(1, pts.length - 1), perfil = 0.18 + 0.82 * Math.pow(Math.sin(Math.PI * Math.min(1, 0.12 + f0 * 0.8)), 0.7), w = Math.max(2, ancho * Math.pow(v, 0.4) * perfil);
+    const f0 = i / Math.max(1, pts.length - 1), perfil = lleno ? 0.34 + 0.66 * Math.pow(Math.sin(Math.PI * Math.min(1, 0.22 + f0 * 0.7)), 0.5) : 0.18 + 0.82 * Math.pow(Math.sin(Math.PI * Math.min(1, 0.12 + f0 * 0.8)), 0.7), w = Math.max(2, ancho * Math.pow(v, 0.4) * perfil);
     const ca = Math.cos(p.an), sa = Math.sin(p.an) * 0.86;
     for (let ln = 0; ln < lineas; ln++) {
       const rOut = p.r - ln * (ancho + 3), rIn = rOut - (lineas > 1 ? Math.max(2, w * 0.5) : w);
@@ -120,7 +120,8 @@ export function tajoHeroe(ctx: CanvasRenderingContext2D, j: Juego, e: any, q: Cu
   ctx.save(); ctx.imageSmoothingEnabled = false;
   if (e2.forma === 'arco' || e2.forma === 'estocada') {
     if (pegando && hj) { const k = `${hj[0]},${hj[1]},${hj[2]},${hj[3]}`; if (k !== st.ult) { st.ult = k; st.s.push([hj[0] * esc, hj[1] * esc, hj[2] * esc, hj[3] * esc, tiempo]); if (st.s.length > 10) st.s.shift(); } }
-    const s = st.s; if (s.length < 2 && !(e2.forma === 'estocada' && s.length)) { ctx.restore(); return true; }
+    const s = st.s; const dbg = (window as any).__tajoDbg; if (dbg) dbg.push([+tiempo.toFixed(3), +(e.t ?? 0).toFixed(3), +(e.dur ?? 0).toFixed(3), s.map((m) => [Math.round(m[2]), Math.round(m[3]), +m[4].toFixed(3)])]);
+    if (s.length < 2 && !(e2.forma === 'estocada' && s.length)) { ctx.restore(); return true; }
     // ¿barre o empuja? lo que gira poco es una estocada (la lanza, los golpes de punta)
     let giro = 0; for (let i = 1; i < s.length; i++) { let d = Math.atan2(s[i][3] - s[i][1], s[i][2] - s[i][0]) - Math.atan2(s[i - 1][3] - s[i - 1][1], s[i - 1][2] - s[i - 1][0]); while (d > Math.PI) d -= 6.283; while (d < -Math.PI) d += 6.283; giro += d; }
     if (e2.forma === 'estocada' || Math.abs(giro) < 0.45) estocada(ctx, e2, s, px, py, tiempo);
@@ -147,13 +148,19 @@ function arcoBarrido(ctx: CanvasRenderingContext2D, est: EstTajo, s: Muestra[], 
     sg = sgn; tot += d;
   }
   if (mv < 0) return; // (todavía levanta el arma: el golpe no salió)
+  // (cuarta pasada) los golpes pesados vienen horneados con el arma arriba en un cuadro y abajo en el siguiente: el arco
+  // salía de un solo salto, un cuadro tarde y fino en la cola. El salto grande se toma como el barrido entero, nace
+  // completo en el cuadro del golpe (de la punta levantada a la punta que pega) y lo de después del golpe no lo alarga
+  const dAng = (i: number) => { let d = ang(s[i]) - ang(s[i - 1]); while (d > Math.PI) d -= 6.283; while (d < -Math.PI) d += 6.283; return d; };
+  let salto = -1, dMax = 0.8; for (let i = mejor[0] + 1; i <= mejor[1]; i++) { const d = Math.abs(dAng(i)); if (d > dMax) { dMax = d; salto = i; } }
+  if (salto > 0) { let resto = 0; for (let i = salto + 1; i <= mejor[1]; i++) resto += Math.abs(dAng(i)); if (resto < 0.5) mejor[1] = salto; mejor[0] = Math.max(mejor[0], salto - 1); }
   for (let i = mejor[0] + 1; i <= mejor[1]; i++) {
     const a = s[i - 1], b = s[i], a0 = ang(a), ra = rad(a), rb = rad(b); let da = ang(b) - a0; while (da > Math.PI) da -= 6.283; while (da < -Math.PI) da += 6.283;
     const n = Math.max(1, Math.ceil(Math.abs(da) * Math.max(ra, rb) / (E.tactil ? 2 : 1)));
-    for (let k = 0; k < n; k++) { const u = k / n; pts.push({ cx: px, cy: py + cy0, an: a0 + da * u, r: ra + (rb - ra) * u, edad: tiempo - (Math.max(a[4], b[4] - 0.06) + (b[4] - Math.max(a[4], b[4] - 0.06)) * u) }); }
+    for (let k = 0; k < n; k++) { const u = k / n; pts.push({ cx: px, cy: py + cy0, an: a0 + da * u, r: ra + (rb - ra) * u, edad: i === salto ? tiempo - b[4] + (1 - u) * 0.03 : tiempo - (Math.max(a[4], b[4] - 0.06) + (b[4] - Math.max(a[4], b[4] - 0.06)) * u) }); }
   }
   if (!pts.length) return;
-  mediaLuna(est, pts, est.ancho, est.extra === 'rasgar' ? 3 : 1);
+  mediaLuna(est, pts, est.ancho, est.extra === 'rasgar' ? 3 : 1, salto > 0);
   // el Hachazo de barrido abre un segundo arco más afuera, más tenue (el que alcanza a los de alrededor)
   if (est.extra === 'barrido') mediaLuna({ ...est, dur: est.dur * 0.8 }, pts.map((p) => ({ ...p, r: p.r * 1.32, edad: p.edad + 0.04 })), est.ancho * 0.45);
   // la punta de adelante: un destello que va con la hoja
@@ -177,30 +184,38 @@ function estocada(ctx: CanvasRenderingContext2D, est: EstTajo, s: Muestra[], px:
 }
 
 function puno(ctx: CanvasRenderingContext2D, est: EstTajo, e: any, hj: number[] | null, px: number, py: number, fx: number, fy: number, prog: number, tiempo: number, esc: number) {
-  // el puño sale del hombro: un cono de golpe hacia adelante y, en lo más extendido, un anillo de choque
-  const ventana = prog > 0.25 && prog < 0.8; if (!ventana) return;
-  const u = (prog - 0.25) / 0.55, z = 30 * esc, sale = Math.min(1, u * 2.2), a = u < 0.5 ? 1 : Math.max(0, 1 - (u - 0.5) / 0.5);
-  const hx = hj ? px + hj[2] * esc : px + fx * 14, hy = hj ? py + hj[3] * esc : py - z + fy * 7, x0 = hx - fx * 26 * sale, y0 = hy - fy * 26 * sale, nx = -fy, ny = fx;
-  const n = Math.round(30 * sale * est.k), paso = E.tactil ? 2 : 1;
-  for (let i = 0; i < n; i += paso) { const f = i / Math.max(1, n), w = Math.max(1, Math.round(est.ancho * 0.5 * f)), cx = x0 + fx * i, cy = y0 + fy * i;
-    for (let q = -w; q <= w; q += paso) { const borde = Math.abs(q) >= w; capas.add(borde ? est.filo : f > 0.7 ? est.medio : est.cuerpo, a * (0.3 + 0.7 * f), Math.round(cx + nx * q), Math.round(cy + ny * q), paso, paso); } }
-  // el anillo de choque en el puño (la onda del Puño del eco son tres que salen una detrás de otra)
+  // (cuarta pasada, Rick: "el cono se lee flojo") el puño sale disparado: rayas de velocidad que lo siguen, el puño
+  // encendido de su color, y en lo más extendido un aro de choque grueso de canto (el golpe en el blanco lo hace
+  // poderes_vivos.ts con su onda). Cuerpo oscuro que tapa, el color y el filo sumados
+  const ventana = prog > 0.2 && prog < 0.85; if (!ventana) return;
+  const u = (prog - 0.2) / 0.65, z = 30 * esc, sale = Math.min(1, u * 2.4), a = u < 0.45 ? 1 : Math.max(0, 1 - (u - 0.45) / 0.55);
+  const hx = hj ? px + hj[2] * esc : px + fx * 14, hy = hj ? py + hj[3] * esc : py - z + fy * 7, nx = -fy, ny = fx, paso = E.tactil ? 2 : 1;
+  // rayas de velocidad: siete líneas paralelas detrás del puño, largas al salir y que se recogen
+  const largo = (14 + 22 * est.k) * (1 - Math.max(0, u - 0.35) * 1.3);
+  if (largo > 2) for (let l = 0; l < 7; l++) { const off = (l - 3) * (2 + est.ancho * 0.25), L = largo * (1 - Math.abs(l - 3) * 0.16) * (0.75 + 0.25 * ((l * 7) % 3)), x0 = hx + nx * off - fx * 3, y0 = hy + ny * off * 0.8 - fy * 3;
+    for (let q = 0; q < L; q += paso) { const f = q / L, x = Math.round(x0 - fx * q), y = Math.round(y0 - fy * q * 0.86); capas.add(est.cuerpo, a * 0.8 * (1 - f), x, y + 1, paso, paso); capas.add(Math.abs(l - 3) < 2 && f < 0.4 ? est.filo : est.medio, a * (1 - f) * 0.95, x, y, paso, paso); } }
+  // el puño encendido: una bola de su color con el filo blanco, grande al pegar
+  const rb = Math.round((2 + 3 * est.k) * (u < 0.5 ? sale : a));
+  for (let yy = -rb - 1; yy <= rb + 1; yy++) for (let xx = -rb - 1; xx <= rb + 1; xx++) { const d = Math.hypot(xx, yy); if (d > rb + 1) continue; capas.add(d > rb ? est.cuerpo : d > rb * 0.55 ? est.medio : est.filo, a, Math.round(hx + xx), Math.round(hy + yy)); }
+  // el aro de choque en el puño (el Puño del eco tira tres, uno detrás de otro)
   const anillos = est.extra === 'eco' ? 3 : 1;
-  for (let k = 0; k < anillos; k++) { const v = u * 1.6 - k * 0.3; if (v <= 0 || v > 1) continue; const rr = (5 + v * 13) * est.k, aa = (1 - v) * a;
-    for (let i = 0; i < 28; i += 1) { const an = (i / 28) * 6.283, ox = Math.cos(an) * rr * 0.45, oy = Math.sin(an) * rr; // de canto, mirando al frente
-      const x = Math.round(hx + fx * (v * 10 + ox) + nx * oy), y = Math.round(hy + fy * (v * 10 + ox) * 0.86 + ny * oy * 0.86); capas.add(i % 2 ? est.medio : est.filo, aa, x, y); } }
+  for (let k = 0; k < anillos; k++) { const v = u * 1.7 - 0.35 - k * 0.3; if (v <= 0 || v > 1) continue; const rr = (5 + v * 15) * est.k, aa = (1 - v) * Math.max(a, 0.6), g = Math.max(1, Math.round(3 * (1 - v)));
+    for (let i = 0; i < 40; i++) { const an = (i / 40) * 6.283, ox = Math.cos(an) * rr * 0.42, oy = Math.sin(an) * rr;
+      const x = Math.round(hx + fx * (v * 12 + ox) + nx * oy), y = Math.round(hy + fy * (v * 12 + ox) * 0.86 + ny * oy * 0.86); capas.add(est.cuerpo, aa * 0.8, x, y + 1, g, g); capas.add(i % 3 ? est.medio : est.filo, aa, x, y, g, Math.max(1, g - 1)); } }
   // lo del elemento en el puño
   const r = (k: number) => { const s = Math.sin((Math.floor(tiempo * 24) + k) * 12.9898) * 43758.5453; return s - Math.floor(s); };
-  if (est.extra === 'rayo') { let x = hx, y = hy; for (let i = 0; i < 9; i++) { x += (r(i) - 0.5) * 6 + fx * 2; y += (r(i + 20) - 0.5) * 6; capas.add(i % 3 ? est.medio : est.filo, a, Math.round(x), Math.round(y)); } }
-  if (est.extra === 'fuego') for (let i = 0; i < 18; i++) { const an = r(i) * 6.283, d = r(i + 40) * 8 * sale, x = Math.round(hx + fx * d * 1.2 + Math.cos(an) * d * 0.5), y = Math.round(hy + fy * d - r(i + 70) * 6); capas.add(i % 3 === 0 ? est.filo : i % 3 === 1 ? est.medio : '#c03008', a, x, y, 2, 1); }
-  if (est.extra === 'piedra') for (let i = 0; i < 10; i++) { const an = r(i) * 6.283, d = 4 + r(i + 30) * 10 * u; capas.add(i % 2 ? '#8a7a62' : '#5a4e40', a, Math.round(hx + Math.cos(an) * d), Math.round(hy + Math.sin(an) * d * 0.6), 2, 2); }
+  if (est.extra === 'rayo') for (let b = 0; b < 3; b++) { let x = hx, y = hy; for (let i = 0; i < 12; i++) { x += (r(i + b * 31) - 0.5) * 7 + fx * 2.4; y += (r(i + 20 + b * 31) - 0.5) * 7 + fy * 1.5; capas.add(i % 3 ? est.medio : est.filo, a, Math.round(x), Math.round(y)); capas.add(est.cuerpo, a * 0.6, Math.round(x), Math.round(y) + 1); } }
+  if (est.extra === 'fuego') for (let i = 0; i < 34; i++) { const an = Math.atan2(fy, fx) + (r(i) - 0.5) * 1.3, d = r(i + 40) * 16 * sale, x = Math.round(hx + Math.cos(an) * d), y = Math.round(hy + Math.sin(an) * d * 0.8 - r(i + 70) * 7 * u); capas.add(d < 5 ? est.filo : d < 10 ? est.medio : '#c03008', a, x, y, 2, 1); }
+  if (est.extra === 'piedra') for (let i = 0; i < 14; i++) { const an = r(i) * 6.283, d = 4 + r(i + 30) * 12 * u; capas.add(i % 2 ? '#8a7a62' : '#5a4e40', a, Math.round(hx + Math.cos(an) * d), Math.round(hy + Math.sin(an) * d * 0.6), 2, 2); capas.add('#2a2018', a * 0.7, Math.round(hx + Math.cos(an) * d), Math.round(hy + Math.sin(an) * d * 0.6) + 2, 2, 1); }
 }
 
 function cunaEscudo(ctx: CanvasRenderingContext2D, est: EstTajo, px: number, py: number, fx: number, fy: number, prog: number) {
-  // el escudo empuja: tres cheurones de aire que salen del pecho hacia adelante
-  if (prog < 0.3 || prog > 0.95) return; const u = (prog - 0.3) / 0.65, nx = -fy, ny = fx, cx = px + fx * 8, cy = py - 28 + fy * 4;
-  for (let k = 0; k < 3; k++) { const v = u * 1.4 - k * 0.18; if (v <= 0 || v > 1) continue; const d = 6 + v * 34, w = 6 + v * 14, a = (1 - v) * 0.95;
-    for (let q = -w; q <= w; q += 1) { const back = Math.abs(q) * 0.55, x = Math.round(cx + fx * (d - back) + nx * q), y = Math.round(cy + fy * (d - back) * 0.86 + ny * q * 0.86); capas.add(est.cuerpo, a * 0.8, x, y + 1); capas.add(Math.abs(q) < 2 ? est.filo : est.medio, a, x, y); } }
+  // el escudo empuja: el escudo destella de frente y tres cheurones de aire gruesos salen del pecho hacia adelante, con
+  // su canto oscuro (se leen de día) y el filo encendido
+  if (prog < 0.25 || prog > 0.95) return; const u = (prog - 0.25) / 0.7, nx = -fy, ny = fx, cx = px + fx * 10, cy = py - 28 + fy * 5;
+  if (u < 0.35) { const a = 1 - u / 0.35, L = Math.round(4 + 8 * a); capas.add(est.filo, a, Math.round(cx) - L, Math.round(cy), L * 2 + 1, 1); capas.add(est.filo, a, Math.round(cx), Math.round(cy) - L, 1, L * 2 + 1); capas.add(est.medio, a, Math.round(cx) - 2, Math.round(cy) - 2, 5, 5); }
+  for (let k = 0; k < 3; k++) { const v = u * 1.5 - k * 0.2; if (v <= 0 || v > 1) continue; const d = 8 + v * 40, w = 7 + v * 16, a = (1 - v) * 0.95, g = Math.max(1, Math.round(3 * (1 - v)));
+    for (let q = -w; q <= w; q += 1) { const back = Math.abs(q) * 0.6, x = Math.round(cx + fx * (d - back) + nx * q), y = Math.round(cy + fy * (d - back) * 0.86 + ny * q * 0.86); capas.add(est.cuerpo, a * 0.85, x, y + 1, g, g); capas.add(Math.abs(q) < 2 ? est.filo : est.medio, a, x, y, g, Math.max(1, g - 1)); } }
 }
 
 function garras(ctx: CanvasRenderingContext2D, est: EstTajo, px: number, py: number, fx: number, fy: number, prog: number, dir: string, esc: number) {

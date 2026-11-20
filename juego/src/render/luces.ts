@@ -179,9 +179,11 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   // hechizos y explosiones: luz que se apaga; los impactos dan un destello
   let fl = 0; let flc: [number, number, number] = destelloColor;
   const L0 = L.length;
+  const colH = new Set<string>(); // (la columna del Coro y del Ascenso nace en el héroe: de día su luz lo lavaba a blanco)
   for (const e of j.efectos) {
     const [px, py] = aPant(e.x, e.y);
     if (!dentro(px, py, 300)) continue;
+    { const hb = (e as any).hab; if ((hb === 'coro_sellos' || hb === 'ascenso_espiritu') && Math.hypot(e.x - j.heroe.x, e.y - j.heroe.y) < 0.6) { colH.add(idDe(e)); colH.add(idDe(e) + 'b'); } }
     // la Combustión: el calor que se junta, el golpe (con destello) y el fuego que queda (poderes_vivos.ts)
     if (e.id === 'combustion') { const lz = luzCombustion(e); if (lz) { L.push({ id: idDe(e), x: px, y: py, h: 34, r: lz[0], c: COLOR_ELEM.fuego, k: lz[1], prio: 0 }); if (lz[2] > fl) { fl = lz[2]; flc = COLOR_ELEM.fuego; } } continue; }
     // pixelfx: el cuadro sale del efecto (en el manifiesto de poderes no está y caía en la luz genérica)
@@ -219,7 +221,7 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   }
   // (tercera pasada) de día la luz de los poderes suma menos: las definitivas (el Coro de los sellos, el Juicio, la
   // Sentencia) encendían a blanco medio campo en las dunas. Las antorchas, el fuego y la lámpara del héroe no cambian
-  if (!(window as any).__fogonazoParejo) { const kd = 0.45 + 0.55 * nochePfx(); for (let i = L0; i < L.length; i++) L[i].k *= kd; }
+  if (!(window as any).__fogonazoParejo) { const n = nochePfx(), kd = 0.45 + 0.55 * n, kc = 0.4 + 0.6 * n; for (let i = L0; i < L.length; i++) L[i].k *= kd * (colH.has(L[i].id ?? "") ? kc : 1); }
   // el cuerpo sacudido por el rayo alumbra azul a tirones (render/electro.ts)
   for (const m of [h as any, ...j.monstruos]) {
     const f = m.muerto ? 0 : fuerzaElectro(m, j.t); if (f <= 0) continue;

@@ -5,10 +5,12 @@
 // hacia el héroe. Además cuenta los cuerpos con el centro a menos de 0,25 de un muro (se ven metidos en la pared).
 const { entrar } = require('./comun_pruebas.cjs');
 const fs = require('fs');
-const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pastor').split(',');
+const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pastor,a2_tumbas1,a4_hielo1,a5_santuario1').split(',');
 (async () => {
   const { b, p, errs } = await entrar('pc', 'arcanista', 30, undefined);
   if (process.env.VIEJO) await p.evaluate(() => { window.__atascoViejo = true; });
+  // (el frente de la oleada 2 deja a los que no tienen turno rondando a 3 casillas: acá se mide el camino, no el turno)
+  await p.evaluate(() => { window.__frenteViejo = true; });
   const total = { lugares: 0, perseguian: 0, atascados: 0, pegados: 0, enMuro: 0 };
   fs.mkdirSync('/tmp/requiem-pruebas/atascos', { recursive: true });
   for (const zona of ZONAS) {
@@ -45,7 +47,10 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
       }, [x, y]);
       // 9 s de juego: posición a los 6 s y a los 9 s
       await p.waitForTimeout(6000);
-      await p.evaluate(() => { for (const m of window.__puestos) m.__d6 = Math.hypot(m.x - window.__juego().heroe.x, m.y - window.__juego().heroe.y); });
+      // (oleada 2: lo que falta por el camino de verdad, no en línea recta: rodear un muro largo aleja y no es atascarse)
+      await p.evaluate(async () => { const Z = await import('/src/mundo/zona.ts'), j = window.__juego(), h = j.heroe;
+        window.__largo = (m) => { const c = Z.buscarCamino(j.zona, m.x, m.y, h.x, h.y, 40000, true); if (!c) return 1e9; let l = 0, x = m.x, y = m.y; for (const [a, b] of c) { l += Math.hypot(a - x, b - y); x = a; y = b; } return l + Math.hypot(h.x - x, h.y - y) * 3; };
+        for (const m of window.__puestos) m.__d6 = window.__largo(m); });
       await p.waitForTimeout(3000);
       const res = await p.evaluate(async () => {
         const j = window.__juego(), h = j.heroe, z = j.zona, W = z.W, Z = await import('/src/mundo/zona.ts');
@@ -57,11 +62,13 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
           if (!Z.pasable(z, m.x, m.y)) enMuro++;
           if (cerca(m.x, m.y) < 0.25) pegados++;
           // ¿hay camino de verdad al héroe? (si no lo hay, quedarse quieto no es atascarse)
-          const cam = Z.buscarCamino(z, m.x, m.y, h.x, h.y, 6000);
+          const cam = Z.buscarCamino(z, m.x, m.y, h.x, h.y, 40000, true);
           const llega = cam && Math.hypot(cam[cam.length - 1][0] - h.x, cam[cam.length - 1][1] - h.y) < 1.5;
           if (!llega) continue;
           perseguian++;
-          if (d > alcance + 0.6 && m.__d6 - d < 0.6) { atascados++; malos.push([+m.x.toFixed(2), +m.y.toFixed(2), +d.toFixed(1), m.acc, m.def.id, +cerca(m.x, m.y).toFixed(2)]); }
+          // (cerca y con otro cuerpo pegado: hace cola detrás de los que ya llegaron)
+          const cola = d < 4.5 && window.__puestos.some((o) => o !== m && Math.hypot(o.x - m.x, o.y - m.y) < 1.3);
+          if (d > alcance + 0.6 && !cola && m.__d6 - window.__largo(m) < 0.6) { atascados++; malos.push([+m.x.toFixed(2), +m.y.toFixed(2), +d.toFixed(1), m.acc, m.def.id, +cerca(m.x, m.y).toFixed(2)]); }
         }
         for (const m of window.__puestos) { m.vida = 0; m.muerto = true; m.x = -99; }
         return { perseguian, atascados, pegados, enMuro, malos: malos.slice(0, 4) };

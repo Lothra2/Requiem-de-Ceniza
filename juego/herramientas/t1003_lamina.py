@@ -2,7 +2,7 @@
 # Uso: python3 juego/herramientas/t1003_lamina.py <antes> <ahora> [vista]   -> /tmp/requiem-pruebas/mundos1/lamina_<vista>_N.png y lamina_mapas_N.png
 import json, os, sys
 from PIL import Image, ImageDraw, ImageFont
-D='/tmp/requiem-pruebas/mundos1'; A,B=sys.argv[1],sys.argv[2]; V=sys.argv[3] if len(sys.argv)>3 else 'pc'
+D=os.environ.get('MUNDOS_DIR','/tmp/requiem-pruebas/mundos1'); A,B=sys.argv[1],sys.argv[2]; V=sys.argv[3] if len(sys.argv)>3 else 'pc'
 try: F=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',14)
 except: F=ImageFont.load_default()
 ia={ (r['zid'],r['sitio']):r for r in json.load(open(f'{D}/{A}/{V}/indice.json'))}; ib={ (r['zid'],r['sitio']):r for r in json.load(open(f'{D}/{B}/{V}/indice.json'))}

@@ -6,7 +6,7 @@ const { entrar } = require('./comun_pruebas.cjs');
 const fs = require('fs');
 const etiqueta = process.argv[2] || 'ahora', VISTA = process.env.VISTA || 'pc';
 const ZONAS = (process.argv[3] || 'a1_paramo,a1_bosque,a1_cementerio,a1_guarida,a1_cripta,a1_cata1,a1_pozo,a2_dunas,a2_tumbas1,a2_tumbas2,a3_selva,a3_pantano,a3_templo2,a4_picos,a4_hielo1,a4_minas2,a5_llanuras,a5_santuario2,a6_costa,a6_catedral2,a7_cielo,a7_trono').split(',');
-const DIR = `/tmp/requiem-pruebas/mundos1/${etiqueta}/${VISTA}`; fs.mkdirSync(DIR + '/mapas', { recursive: true });
+const DIR = `${process.env.MUNDOS_DIR || '/tmp/requiem-pruebas/mundos1'}/${etiqueta}/${VISTA}`; fs.mkdirSync(DIR + '/mapas', { recursive: true });
 const MEDIR = fs.readFileSync(__dirname + '/medir_espacios.mjs', 'utf8').replace(/^_m_/, '').replace('export const medirZona =', 'window.__medirZona =').replace('export const monton =', 'window.__monton =');
 (async () => {
   const { b, p, errs } = await entrar(VISTA, 'berserker', 30, undefined, "d.id = 'auditoria1';");

@@ -2562,6 +2562,8 @@ function rondar(j: Juego, m: Monstruo, obj: Ent, d: number, dt: number, lento: n
 /** Cuántos caminos se pueden calcular todavía en este cuadro (con 40 enemigos persiguiendo, de a muchos frenaba). */
 let presCam = { t: -1, n: 0 };
 function caminosLibres(j: Juego) { if (presCam.t !== j.t) presCam = { t: j.t, n: 0 }; return presCam.n++ < 8; }
+let presFondo = -1;
+function caminoFondo(j: Juego) { if (presFondo === j.t) return false; presFondo = j.t; return true; }
 /** El cuerpo no se mete en el muro: con el centro a menos de 0,3 de una celda bloqueada vecina, se corre hacia afuera. */
 function apartarDeMuros(z: Zona, e: Ent) {
   const R0 = 0.3, cx = Math.floor(e.x), cy = Math.floor(e.y), fx = e.x - cx, fy = e.y - cy;
@@ -2605,8 +2607,16 @@ function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
     } else {
       if ((!m.camino || !m.camino.length || q.tCam <= 0) && caminosLibres(j)) {
         // (trabado dos veces seguidas contra lo mismo: apunta a la celda libre del héroe, no al punto del corro)
-        const c = q.trabado >= 2 ? buscarCamino(z, m.x, m.y, obj.x, obj.y, 2500) : buscarCamino(z, m.x, m.y, tx, ty, 1500);
-        m.camino = c; q.tCam = 0.6 + R() * 0.2;
+        // (oleada 2: en las salas grandes de las mazmorras nuevas 1500 a 2500 nodos no alcanzaban para rodear un muro largo. El
+        //  camino a medias llevaba al rincón más cercano al héroe, ahí se acababa, y el cuerpo iba y venía sin acumular
+        //  "trabado": 9 de 3827 en t1011. `buscarCamino` avisa si el camino es parcial y entonces se busca a fondo, con montículo,
+        //  una vez por cuadro en toda la pelea; ese camino largo se sigue 2,5 s. Si ni así llega, se reintenta cada 3 s)
+        let c = q.trabado >= 2 ? buscarCamino(z, m.x, m.y, obj.x, obj.y, 2500) : buscarCamino(z, m.x, m.y, tx, ty, 1500), fondo = false;
+        if ((!c || (c as any).parcial) && (q.tFondo ?? 0) <= j.t && caminoFondo(j)) {
+          const c2 = buscarCamino(z, m.x, m.y, obj.x, obj.y, 20000, true);
+          if (c2 && !(c2 as any).parcial) { c = c2; fondo = true; } else q.tFondo = j.t + 3;
+        }
+        m.camino = c; q.tCam = fondo ? 2.5 : 0.6 + R() * 0.2;
         // (el primer punto puede quedar atrás: si ya se ve el segundo con el cuerpo entero, se salta)
         while (m.camino && m.camino.length > 1 && lineaPasable(z, m.x, m.y, m.camino[1][0], m.camino[1][1])) m.camino.shift();
       }

@@ -528,6 +528,9 @@ function exterior(def: DefZona, semilla: number): Zona {
     const rl = rng((semilla ^ 0x2c1b3f ^ hz) >>> 0);
     const cabe = (x: number, y: number, rad: number) => {
       if (x - rad < 4 || y - rad < 4 || x + rad >= z.W - 4 || y + rad >= z.H - 4) return false;
+      // (oleada 2: también el medio. Con solo dos aros de muestra, un macizo de 2 x 2 baldosas cabía entero adentro del claro:
+      //  el jefe del arrecife salía parado sobre el vacío)
+      for (let Y = Math.floor((y - rad * 0.8) / 5); Y <= Math.floor((y + rad * 0.8) / 5); Y++) for (let X = Math.floor((x - rad * 0.8) / 5); X <= Math.floor((x + rad * 0.8) / 5); X++) if (X < 0 || Y < 0 || X >= tw || Y >= th || !z.pisos[Y * tw + X]) return false;
       for (let a = 0; a < 12; a++) for (const f of [1.15, 0.6]) { const X = Math.floor((x + Math.cos(a * 0.5236) * rad * f) / 5), Y = Math.floor((y + Math.sin(a * 0.5236) * rad * f) / 5); if (X < 0 || Y < 0 || X >= tw || Y >= th || !z.pisos[Y * tw + X]) return false; }
       return true;
     };
@@ -1075,6 +1078,49 @@ function asentarCampamentos(z: Zona) {
   }
 }
 
+/**
+ * La garantía del ruedo (oleada 2). El jefe de una zona pelea con 10 anillos libres alrededor (un 21 x 21). Las salas y los claros
+ * ya se lo reservan, pero a cielo abierto quedaban casos en 9 (el filo de la silueta) y alguno parado sobre un macizo (el claro
+ * no cupo y cayó a "lo más lejos"). Al final de la generación, sin azar: si a 3 celdas de donde sale no hay un punto con ese
+ * despeje, primero se quita el adorno suelto que lo estorba (nunca muros, riscos, lo de su arena ni nada con `tag`) y, si el
+ * terreno mismo no da, el jefe se muda al punto con ruedo más cercano que se alcance. Las casas no entran.
+ */
+function asentarJefe(z: Zona) {
+  const sp = z.spawns.find((q) => q.tipo === 'jefe'); if (!sp || (globalThis as any).__salasViejas) return;
+  const { W, H } = z, RUEDO = 10, alc = alcanzable(z);
+  const mejorCerca = (desp: Int16Array, rad: number): [number, number, number] => {
+    let b: [number, number, number] = [Math.floor(sp.cx), Math.floor(sp.cy), -1], bs = -1e9;
+    for (let dy = -rad; dy <= rad; dy++) for (let dx = -rad; dx <= rad; dx++) {
+      const X = Math.floor(sp.cx) + dx, Y = Math.floor(sp.cy) + dy; if (X < 1 || Y < 1 || X >= W - 1 || Y >= H - 1) continue; const i = Y * W + X; if (z.bloq[i] || !alc[i]) continue;
+      const s2 = Math.min(desp[i], RUEDO) * 100 - Math.hypot(dx, dy); if (s2 > bs) { bs = s2; b = [X, Y, desp[i]]; }
+    }
+    return b;
+  };
+  let desp = despejeZona(z), m = mejorCerca(desp, 3);
+  if (m[2] >= RUEDO) { if (z.bloq[Math.floor(sp.cy) * W + Math.floor(sp.cx)]) { sp.cx = m[0]; sp.cy = m[1]; } return; }
+  // 1) quitar el adorno suelto del ruedo
+  const SUELTO = new Set(['riego', 'vida', 'macabro', 'relleno', 'vineta', 'horror', 'matanza']);
+  const cx0 = Math.floor(sp.cx), cy0 = Math.floor(sp.cy);
+  for (let i = z.objetos.length - 1; i >= 0; i--) {
+    const o = z.objetos[i]; if (!o.bloquea || o.tag || !o.capa || !SUELTO.has(o.capa)) continue;
+    if (Math.max(Math.abs(o.cx - cx0) - o.hw / 2, Math.abs(o.cy - cy0) - o.hh / 2) > RUEDO + 3) continue;
+    const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2);
+    for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 1) z.bloq[y * W + x] = 0;
+    z.objetos.splice(i, 1);
+  }
+  // (lo que otro objeto que se queda seguía tapando vuelve a bloquear)
+  for (const o of z.objetos) if (o.bloquea) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 0) z.bloq[y * W + x] = 1; }
+  desp = despejeZona(z); m = mejorCerca(desp, 4);
+  if (m[2] >= RUEDO) { sp.cx = m[0]; sp.cy = m[1]; return; }
+  // 2) el terreno no da: al punto con ruedo más cercano que se alcance (si no hay ninguno con 10, el más abierto)
+  const alc2 = alcanzable(z); let bi = -1, bs = -1e9;
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    const i = y * W + x; if (z.bloq[i] || !alc2[i] || desp[i] < 6) continue;
+    const s2 = Math.min(desp[i], RUEDO) * 1000 - Math.hypot(x - sp.cx, y - sp.cy); if (s2 > bs) { bs = s2; bi = i; }
+  }
+  if (bi >= 0 && Math.min(desp[bi], RUEDO) > Math.max(m[2], 0)) { sp.cx = bi % W; sp.cy = (bi - (bi % W)) / W; } else if (m[2] >= 0) { sp.cx = m[0]; sp.cy = m[1]; }
+}
+
 // ------------------------------------------------------------------ cavernas orgánicas
 /**
  * Cava una caverna a nivel de celda sobre el esqueleto de cuartos y enlaces: cada cuarto es una cámara de borde irregular
@@ -1456,8 +1502,11 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   const viejo = !!(globalThis as any).__salasViejas, obra = !viejo && !def.casa && !t.organica && !t.islas, cueva = !viejo && !!t.organica && !def.casa;
   const SALA_MAYOR: Record<string, number> = { senor_demonio: 10, aun_saar: 10, dragon_oseo: 9, campana_ahoga: 9, madre_cienaga: 9, rey_escarcha: 9 };
   let mayor: [number, number, number, number] | null = null;
-  if (obra) {
-    const lj = def.jefe ? SALA_MAYOR[def.jefe] ?? 8 : 0, w = Math.min(tw - 2, lj || 6 + Math.floor(r() * 2)), h = Math.min(th - 2, lj || 5 + Math.floor(r() * 2));
+  // (oleada 2: en las islas sobre el vacío el jefe también tiene su isla mayor, de 6 x 6 baldosas: Orvan peleaba en una de 23
+  //  celdas con los obeliscos, el tesoro y el portal adentro, ruedo libre de 4)
+  const islaJefe = !viejo && !!t.islas && !!def.jefe && !def.casa;
+  if (obra || islaJefe) {
+    const lj = islaJefe ? 6 : def.jefe ? SALA_MAYOR[def.jefe] ?? 8 : 0, w = Math.min(tw - 2, lj || 6 + Math.floor(r() * 2)), h = Math.min(th - 2, lj || 5 + Math.floor(r() * 2));
     mayor = [1 + Math.floor(r() * Math.max(1, tw - w - 1)), 1 + Math.floor(r() * Math.max(1, th - h - 1)), w, h]; cuartos.push(mayor);
   }
   for (let i = 0; i < (def.casa ? 400 : 120) && cuartos.length < (def.casa ? 5 : Math.max(obra ? 4 : 3, Math.floor((tw * th) / (obra ? 80 : cueva ? 62 : 45)))); i++) {
@@ -1572,7 +1621,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   for (const p of [p0, pN]) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) { const X = p[0] + dx, Y = p[1] + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; }
   // el ruedo del jefe: 10 anillos libres alrededor de donde sale (un 21 x 21), reservados antes de decorar. Lo que adorna su
   // sala (los estorbos de su arena, las rarezas, el tesoro) va por fuera. Antes Aun-Saar peleaba con despeje 1 y once jefes con 0
-  const ruedo = def.jefe && !viejo && !t.islas ? 10 : 0;
+  const ruedo = def.jefe && !viejo && (!t.islas || islaJefe) ? 10 : 0;
   if (ruedo) for (let dy = -ruedo; dy <= ruedo; dy++) for (let dx = -ruedo; dx <= ruedo; dx++) { const X = pN[0] + dx, Y = pN[1] + 2 + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; }
   // decoración
   const area = orden.reduce((s, c) => s + c[2] * c[3], 0) * 25;
@@ -1997,6 +2046,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
     }
   }
   curarAdornos(z, def);
+  asentarJefe(z);
   asentarCampamentos(z);
   esquinasMuro(z);
   return z;
@@ -2048,7 +2098,10 @@ export function lineaLibre(z: Zona, ax: number, ay: number, bx: number, by: numb
 }
 
 /** A* en la grilla con 8 direcciones (sin cortar esquinas). Devuelve los puntos centrales de las celdas. */
-export function buscarCamino(z: Zona, ax: number, ay: number, bx: number, by: number, max = 4000): [number, number][] | null {
+/** `parcial` en el resultado: no se llegó (se acabó el presupuesto) y el camino va al punto más cercano que se encontró.
+ *  `monticulo`: lista abierta en montículo, para búsquedas largas (no cambia las de siempre, que desempatan como antes). */
+export function buscarCamino(z: Zona, ax: number, ay: number, bx: number, by: number, max = 4000, monticulo = false): [number, number][] | null {
+  if (monticulo) return caminoLargo(z, ax, ay, bx, by, max);
   const W = z.W;
   let sx = Math.floor(ax), sy = Math.floor(ay), tx = Math.floor(bx), ty = Math.floor(by);
   if (!pasable(z, tx, ty)) { const q = libreCerca(z, tx, ty); tx = q[0]; ty = q[1]; }
@@ -2079,7 +2132,10 @@ export function buscarCamino(z: Zona, ax: number, ay: number, bx: number, by: nu
   const camino: [number, number][] = [];
   for (let k = mejor; k !== s; k = de.get(k)!) { camino.push([(k % W) + 0.5, ((k / W) | 0) + 0.5]); if (!de.has(k)) break; }
   camino.reverse();
-  if (mejor === t && camino.length) camino[camino.length - 1] = [bx, by];
+  return suavizarCamino(z, ax, ay, bx, by, camino, mejor === t);
+}
+function suavizarCamino(z: Zona, ax: number, ay: number, bx: number, by: number, camino: [number, number][], llego: boolean): [number, number][] | null {
+  if (llego && camino.length) camino[camino.length - 1] = [bx, by];
   // suavizar: saltar puntos con línea libre
   const out: [number, number][] = [];
   let ix = ax, iy = ay, i = 0;
@@ -2088,7 +2144,42 @@ export function buscarCamino(z: Zona, ax: number, ay: number, bx: number, by: nu
     while (j > i && !lineaPasable(z, ix, iy, camino[j][0], camino[j][1])) j--;
     out.push(camino[j]); ix = camino[j][0]; iy = camino[j][1]; i = j + 1;
   }
+  if (!llego) (out as any).parcial = true;
   return out.length ? out : null;
+}
+/** A* con montículo binario (búsquedas de miles de nodos: rodear una sala grande o un muro largo). */
+function caminoLargo(z: Zona, ax: number, ay: number, bx: number, by: number, max: number): [number, number][] | null {
+  const W = z.W;
+  let sx = Math.floor(ax), sy = Math.floor(ay), tx = Math.floor(bx), ty = Math.floor(by);
+  if (!pasable(z, tx, ty)) { const q = libreCerca(z, tx, ty); tx = q[0]; ty = q[1]; }
+  if (!pasable(z, sx, sy)) { const q = libreCerca(z, sx, sy); sx = q[0]; sy = q[1]; }
+  if (sx === tx && sy === ty) return [[bx, by]];
+  const g = new Map<number, number>(), de = new Map<number, number>(), cerr = new Set<number>();
+  const hk: number[] = [], hf: number[] = [];
+  const meter = (k: number, f: number) => { let i = hk.length; hk.push(k); hf.push(f); while (i > 0) { const p = (i - 1) >> 1; if (hf[p] <= f) break; hk[i] = hk[p]; hf[i] = hf[p]; i = p; } hk[i] = k; hf[i] = f; };
+  const sacar = () => { const k0 = hk[0], k = hk.pop()!, f = hf.pop()!, n = hk.length; if (n) { let i = 0; for (;;) { let c = i * 2 + 1; if (c >= n) break; if (c + 1 < n && hf[c + 1] < hf[c]) c++; if (hf[c] >= f) break; hk[i] = hk[c]; hf[i] = hf[c]; i = c; } hk[i] = k; hf[i] = f; } return k0; };
+  const s = sy * W + sx, t = ty * W + tx;
+  const h = (k: number) => { const x = k % W, y = (k / W) | 0, dx = Math.abs(x - tx), dy = Math.abs(y - ty); return Math.max(dx, dy) + 0.41 * Math.min(dx, dy); };
+  g.set(s, 0); meter(s, 0);
+  let mejor = s, mejorH = h(s), n = 0;
+  while (hk.length && n < max) {
+    const k = sacar(); if (cerr.has(k)) continue; cerr.add(k); n++;
+    if (k === t) { mejor = t; break; }
+    const x = k % W, y = (k / W) | 0, gk = g.get(k)!;
+    const hh = h(k); if (hh < mejorH) { mejorH = hh; mejor = k; }
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue;
+      const X = x + dx, Y = y + dy;
+      if (!pasable(z, X, Y)) continue;
+      if (dx && dy && (!pasable(z, x + dx, y) || !pasable(z, x, y + dy))) continue;
+      const nk = Y * W + X, ng = gk + (dx && dy ? 1.414 : 1);
+      if (ng < (g.get(nk) ?? Infinity)) { g.set(nk, ng); de.set(nk, k); meter(nk, ng + h(nk) * 1.1); }
+    }
+  }
+  const camino: [number, number][] = [];
+  for (let k = mejor; k !== s; k = de.get(k)!) { camino.push([(k % W) + 0.5, ((k / W) | 0) + 0.5]); if (!de.has(k)) break; }
+  camino.reverse();
+  return suavizarCamino(z, ax, ay, bx, by, camino, mejor === t);
 }
 /** Línea que deja pasar un cuerpo (0,3 casillas de cada lado): la de un punto se pega a las esquinas. */
 export function lineaPasable(z: Zona, ax: number, ay: number, bx: number, by: number) {

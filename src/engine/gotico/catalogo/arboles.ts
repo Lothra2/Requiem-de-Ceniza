@@ -1325,3 +1325,77 @@ registrar(
     },
   },
 );
+
+// ------------------------------------------------------------------ macizos: una arboleda es UNA pieza con silueta
+/**
+ * Macizo de árboles (oleada 2 de los mundos, Rick: "que no quede todo montado"). El borde de un mundo abierto era una
+ * franja de árboles sueltos, uno cada dos celdas: 85 % de los adornos con otro montado encima. Un macizo es una sola pieza
+ * compuesta, con silueta pensada: sube a una cima corrida del centro y baja a los dos lados, los troncos se abren en
+ * abanico, la falda de matas y piedras lo asienta y nada sale de su huella. Va de borde (9 x 3 a lo largo de x o de y) o de
+ * nudo (5 x 5, donde el borde dobla). Cuatro especies: muerto (páramo y camposanto), pinar nevado, selva y palmar.
+ * Cada variante sale de su propia semilla (`a.r`), así dos macizos vecinos no se repiten.
+ */
+function xfPiezas(ps: Pieza[], s: number, t: V): Pieza[] {
+  const P = (v: V): V => [v[0] * s + t[0], v[1] * s + t[1], v[2] * s + t[2]];
+  return ps.map((p): Pieza => {
+    if (p.k === 'conv') return { ...p, planos: p.planos.map(([n, d]) => [n, d * s + n[0] * t[0] + n[1] * t[1] + n[2] * t[2]] as [V, number]), pts: p.pts.map(P) };
+    if (p.k === 'cono') return { ...p, o: P(p.o), h: p.h * s, r0: p.r0 * s, r1: p.r1 * s };
+    if (p.k === 'elip') return { ...p, c: P(p.c), r: [p.r[0] * s, p.r[1] * s, p.r[2] * s] };
+    const comps = p.comps.map((q): Comp => (q.f === 'hueso'
+      ? hueso(P(q.a), P(q.b), q.r0 * s, q.r1 * s, { mat: q.mat, tono: q.tono, k: q.k === undefined ? undefined : q.k * s })
+      : { ...q, c: P(q.c), sc: P(q.sc), sr: q.sr * s, r: [q.r[0] * s, q.r[1] * s, q.r[2] * s], k: q.k === undefined ? undefined : q.k * s }));
+    return masa(comps, { mat: p.mat, tono: p.tono, suave: p.suave * s });
+  });
+}
+const FORMAS_MACIZO = ['x', 'y', 'nudo', 'x2', 'y2'] as const;
+const ESPECIES_MACIZO = ['muerto', 'pinar', 'selva', 'palmar'] as const;
+function macizo(v: string, a: Arma): Pieza[] {
+  const [esp, forma] = v.split('_') as [(typeof ESPECIES_MACIZO)[number], string];
+  const nudo = forma === 'nudo', enY = forma.startsWith('y'), otra = forma.endsWith('2');
+  const C = 10.4;                                   // unidades por celda
+  // sitios a lo largo del eje largo (u) y a lo ancho (w), con la altura relativa de cada árbol: la cima corrida a un tercio
+  const fila: [number, number, number][] = nudo
+    ? [[-1.5, -1.3, 1.1], [1.4, -0.6, 0.85], [-0.5, 1.5, 0.95], [0.3, 0, 1.35], [1.6, 1.5, 0.7]]
+    : otra ? [[-3.7, 0.3, 0.75], [-1.9, -0.4, 1.0], [0.0, 0.35, 1.4], [1.9, -0.35, 1.1], [3.7, 0.25, 0.7]]
+      : [[-3.7, -0.25, 0.7], [-2.0, 0.4, 1.35], [-0.1, -0.4, 1.15], [1.8, 0.35, 0.95], [3.7, -0.2, 0.72]];
+  const aXY = (u: number, w: number): [number, number] => (enY ? [w * C, u * C] : [u * C, w * C]);
+  const ps: Pieza[] = [];
+  const nieve = esp === 'pinar', tierra = nieve ? 'nieve' : 'tierra';
+  // el lomo de tierra que une el macizo (bajo, del largo de la huella) y su hojarasca
+  { const L = nudo ? 2.5 * C : 4.5 * C, A = nudo ? 2.5 * C : 1.5 * C, [lx, ly] = enY ? [A, L] : [L, A];
+    ps.push(a.elipsoide(0, 0, -0.6, lx * 0.96, ly * 0.9, 2.4, { mat: tierra, tono: nieve ? -0.2 : -0.06 }));
+    ps.push(a.elipsoide(az(a, 3), az(a, 3), -0.4, lx * 0.6, ly * 0.62, 2.9, { mat: tierra, giro: az(a, 14), tono: nieve ? -0.12 : -0.1 })); }
+  // los árboles
+  fila.forEach(([u, w, h], i) => {
+    const [x, y] = aXY(u + az(a, 0.12), w + az(a, 0.12));
+    let arbol: Pieza[], s = 1;
+    if (esp === 'muerto') { arbol = arbolSeco(i % 2 ? 'torcido' : 'alto', a); s = 1.25 * (0.55 + h * 0.45); }
+    else if (esp === 'pinar') { arbol = pino(h > 1.2 ? 'nevado_viejo' : h < 0.8 ? 'nevado_joven' : 'nevado', a, h < 0.9); s = 0.56 * (0.7 + h * 0.3); }
+    else if (esp === 'selva') { arbol = selva(h > 1.2 ? 'viejo' : h < 0.8 ? 'joven' : 'adulto', a); s = 0.56 * (0.75 + h * 0.25); }
+    else { arbol = palmera(h < 0.8 ? 'joven' : h > 1.2 ? 'viejo' : 'adulto', a); s = 0.95 * (0.8 + h * 0.25); }
+    ps.push(...xfPiezas(arbol, s, [x, y, 0.6]));
+  });
+  // la falda: matas y piedras en las puntas y contra el frente, que asientan la masa y cierran el paso entre troncos
+  const falda: [number, number][] = nudo ? [[-2.0, 0.4], [2.0, 0.6], [1.0, -1.9], [-1.9, -2.0], [0.4, 2.1], [-1.2, 2.0]] : [[-4.2, 0.9], [-2.9, -0.95], [-1.0, 1.05], [0.9, -1.0], [2.8, 1.0], [4.2, -0.8], [-4.3, -0.6], [1.0, 1.1]];
+  falda.forEach(([u, w], i) => {
+    const [x, y] = aXY(u + az(a, 0.15), w + az(a, 0.1));
+    const q: Pieza[] = [];
+    if (i % 3 === 2 || esp === 'palmar') {
+      // piedra
+      const R = 4 + a.r() * 3.5;
+      q.push(a.elipsoide(0, 0, R * 0.25, R, R * (0.7 + a.r() * 0.3), R * (0.55 + a.r() * 0.3), { mat: nieve ? 'nie2_roca' : 'piedra', giro: a.r() * 180, tono: -0.12 + az(a, 0.08) }));
+      if (nieve) q.push(a.elipsoide(az(a, 1), az(a, 1), R * 0.62, R * 0.8, R * 0.6, R * 0.28, { mat: 'nieve', tono: -0.1 }));
+      if (esp === 'palmar' && i % 2) mataPasto(a, q, R * 0.9, az(a, 2), 5, 9, 'paja');
+    } else if (esp === 'muerto') arbusto(a, q, { tallos: 5, alto: 13 + a.r() * 8, r: 1, R: 4, mat: 'arboles_zarza', hojas: false, madera: 'corteza_muerta', N: 3, abre: 0.8, max: 9 });
+    else if (esp === 'pinar') arbusto(a, q, { tallos: 4, alto: 11 + a.r() * 6, r: 1.1, R: 5, mat: 'arboles_agujas', mat2: 'nieve', hojas: true, N: 2, abre: 0.6, max: 9 });
+    else arbusto(a, q, { tallos: 5, alto: 14 + a.r() * 9, r: 1.2, R: 6, mat: 'arboles_follaje_selva', mat2: 'hojas_selva', hojas: true, N: 2, abre: 0.75, max: 12 });
+    ps.push(...xfPiezas(q, 1, [x, y, 0.4]));
+  });
+  return ps;
+}
+registrar({
+  id: 'arb_macizo', nombre: ['Macizo de árboles', 'Tree mass'], tema: 'arboles',
+  variantes: ESPECIES_MACIZO.flatMap((e) => FORMAS_MACIZO.map((f) => `${e}_${f}`)),
+  huella: [9, 3], huellaPor: Object.fromEntries(ESPECIES_MACIZO.flatMap((e) => [[`${e}_y`, [3, 9]], [`${e}_y2`, [3, 9]], [`${e}_nudo`, [5, 5]]])) as Record<string, [number, number]>,
+  bloquea: true, armar: (v, _f, a) => macizo(v, a),
+});

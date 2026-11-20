@@ -604,6 +604,13 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     con ganchos (vida, maná, estados, trago, racha fresca y seca, nivel, voz, mensajes, registro, jefe, pueblo, muerte y
     la reliquia de cada clase vacía, a medias y llena) y `python3 juego/herramientas/t955_lamina.py <etiqueta> [vistas]`
     arma las láminas en `/tmp/requiem-pruebas/hud2/estados`. `window.__hudPulso` es el pulso del último cuadro.
+  - Costo (`t956_hud_costo.cjs [vistas]`, la fase interfaz del F3 con la vida fija; `PARTES=1` cada estado por separado;
+    `URL=` otro servidor para comparar): en la nube, quieto 0,44 a 0,47 ms a 720, 0,42 a 0,54 a 1080 y 0,57 a 0,70 en el
+    teléfono (antes y ahora). Con vida al 12 % suma 0,1 a 0,15, veneno 0,05, racha 0,03, el jefe nada que se mida. Con todo
+    a la vez (12 % de vida, veneno, jefe y racha de 12) a 1080 sube de 0,43 a 1,0 a 1,4: ese caso sí pasa de 0,3 ms.
+    El dintel del jefe y los mensajes se dibujan en `dibujarArriba`, fuera de esa fase (igual que la barra de antes).
+    Ojo: `t950` mide con la vida subiendo (cuadros nuevos del orbe) y da números que saltan de 0,5 a 20 ms; no sirve
+    para comparar. `t950`, `t953` y `t951` aceptan `SALIDA=`, y `t650` y `t651` ahora `URL=`.
   - Todo se esculpe en un mapa de alturas con material (`Taller` en `forja_taller.ts`: formas con bisel por distancia de
     chaflán, elipsoides y cápsulas con unión suave, anillos, pozos, surcos, sillares) y se hornea una vez por tamaño con la
     luz de la barra: normales, sombra que cae, oclusión, contorno y tramado (unos 150 a 400 ms la primera vez, `__hudForjaMs`).
@@ -620,7 +627,8 @@ no se suben (están en `.gitignore`): se hace commit recién después de pasar a
     la misma cuenta. Lo tallado (máscara del marco) no deja caminar; lo transparente encima de la banda es del mundo.
   - Táctil (`ui/hud_forja_tactil.ts`, lo llama `hud_tactil.ts` cuando `disposicion()` trae `orbV`): orbes en las esquinas
     de abajo en sus casas, el rosetón (la Marca, con su brasa) en la punta de la de vida, el cinturón de cuatro en su
-    bandeja al centro con el nicho de la reliquia de la clase encima (tocarla dice qué es), la rueda (Golpe, Poder y tres
+    bandeja al centro con el nicho de la reliquia de la clase encima (tocarla dice qué es; en el teléfono va al doble y
+    sin rótulo), la rueda (Golpe, Poder y tres
     atajos) sobre un cuarto de rosetón de piedra alrededor de la casa del maná, y la experiencia en una canaleta por el
     borde. La misión pasa arriba a la izquierda, con el botón del registro a su derecha (44 pt). Lleva lo mismo que late
     en PC (grietas, vidrio, estados, trago, racha, ceniza, dintel del jefe, la muerte) menos las esculturas y la vela. El

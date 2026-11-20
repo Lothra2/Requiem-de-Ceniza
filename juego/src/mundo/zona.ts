@@ -18,7 +18,7 @@ export interface Spawn { cx: number; cy: number; tipo: 'grupo' | 'jefe' | 'unico
   /** Hacia dónde mira el frente del campamento (de donde suele llegar el héroe): los de cuerpo a cuerpo delante, los de tiro detrás. */
   frente?: [number, number] }
 /** Un lugar de un mundo abierto: un claro de pelea (con su campamento y su escena), el hito del acto o una garganta. Se genera, no se guarda. */
-export interface Lugar { cx: number; cy: number; r: number; papel: 'claro' | 'hito' | 'garganta'; escena?: string; nombre?: [string, string] }
+export interface Lugar { cx: number; cy: number; r: number; papel: 'claro' | 'hito' | 'garganta' | 'desvio'; escena?: string; nombre?: [string, string]; relato?: [string, string] }
 export interface Zona {
   id: string;
   /** Los lugares de un mundo abierto (ver `Lugar`) y las celdas de sus claros (ahí no se riega nada que no sea de su escena). */
@@ -608,6 +608,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   }
   if (def.rio) rioDeLava(k, r, def.rio === 'arroyo');
   if (lugares.length) { escenasLugares(k, def, lugares, centro); gargantaDe(k, t, sendas); }
+  const desvio = lugares.length && DESVIO[def.id] && !(globalThis as any).__sinDesvios ? trazarDesvio(k, def, semilla ^ hz, puntos, lugares, centro) : null;
   // viñetas: paisajes del motor estampados donde haya lugar
   const vin = def.vinetas ?? t.vinetas ?? [];
   const usadas: [number, number, number, number][] = [];
@@ -710,12 +711,14 @@ function exterior(def: DefZona, semilla: number): Zona {
   }
   if (!lugares.length) escenasMundo(k, def, puntos);
   // dos cofres escondidos donde no pasa ningún camino: el premio de quien explora los rincones
-  { const lejosDe = [...puntos]; for (let i = 0; i < 2; i++) { const q = lejos(k, lejosDe); lejosDe.push(q); const o = k.poner('cofre_noble', q[0], q[1], 'cerrado', false, 'cofre'); if (o) { o.dato = { escondido: true }; o.capa = 'escondido'; z.marcas.push({ tipo: 'cofre', cx: q[0], cy: q[1] }); } } }
+  // (oleada 2: el primero, si la zona tiene desvío, va al fondo del desvío; `lejos` se llama igual para no mover el azar)
+  { const lejosDe = [...puntos]; for (let i = 0; i < 2; i++) { let q = lejos(k, lejosDe); if (i === 0 && desvio) q = desvio.cofre; lejosDe.push(q); const o = k.poner('cofre_noble', q[0], q[1], 'cerrado', i === 0 && !!desvio, 'cofre'); if (o) { o.dato = { escondido: true }; o.capa = 'escondido'; z.marcas.push({ tipo: 'cofre', cx: q[0], cy: q[1] }); } } }
+  if (desvio) vestirDesvio(k, def, desvio);
   relieveMundo(k, def.tema, 0.2);
   // cofres, santuarios y pozos
   colocarInteractivos(k, 2 + Math.floor(area / 6000), 1 + Math.floor(area / 9000), def.tema);
   // dónde salen los monstruos: lejos de las entradas
-  acampar(k, Math.floor((area / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro' && l.escena !== 'jefe').map((l): [number, number] => [l.cx, l.cy]), (x, y) => lugares.some((l) => l.escena === 'jefe' && Math.hypot(x - l.cx, y - l.cy) < l.r + 8));
+  acampar(k, Math.floor((area / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro' && l.escena !== 'jefe').map((l): [number, number] => [l.cx, l.cy]), (x, y) => lugares.some((l) => (l.escena === 'jefe' && Math.hypot(x - l.cx, y - l.cy) < l.r + 8) || (l.papel === 'desvio' && Math.hypot(x - l.cx, y - l.cy) < 16)));
   if (def.jefe) { const lj = lugares.find((l) => l.escena === 'jefe'), p = lj ? [lj.cx, lj.cy] : lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
   if (def.tema === 'paramo') sueloParamo(k);
   // la pieza única del acto: una o dos por mundo abierto, lejos de las salidas
@@ -1317,6 +1320,90 @@ function escenasMundo(k: Constructor, def: DefZona, puntos: [number, number][]) 
     recetas[orden[q++ % orden.length]](x, y); hechas.push([x, y]); n--;
   }
   k.capa = undefined;
+}
+
+/**
+ * Desvíos de los mundos abiertos (oleada 2, etapa B; Rick: "desvíos y secretos"). Un claro chico escondido contra el borde
+ * (lo más cerca del vacío del norte o del oeste: detrás de los macizos), al que llega un sendero propio desde el camino o una
+ * senda, que se angosta hasta un cuello entre dos peñas. Al fondo, algo que se ve de lejos (una luz, una palmera viva, un
+ * ángel, un pórtico), el cofre escondido de la zona (no suma botín: es el primero de los dos que ya había) y su relato, que
+ * se anuncia al pisar el claro. Con su propio azar, sin tocar pisos: el sendero y el claro solo se reservan.
+ */
+interface Desvio { cx: number; cy: number; fondo: number; cofre: [number, number]; cuello: [number, number, number]; traza: [number, number, number][]; lugar: Lugar }
+type FilaDesvio = { marca: [string, string][]; cuello: [string, string]; relato: [string, string][]; borde: [string, string][]; nombre: [string, string]; texto: [string, string] };
+const DESVIO: Record<string, FilaDesvio> = {
+  a1_paramo: { marca: [['par_santuario', 'capilla']], cuello: ['par_penasco', 'musgo'], relato: [['par_cadaver', 'campesino'], ['par_rescoldos', 'tablas']], borde: [['par_matorral', 'enebro'], ['par_pasto', 'seco'], ['par_matorral', 'espinoso']],
+    nombre: ['La capilla del caminante', 'The Wayfarer\'s Chapel'], texto: ['Alguien le encendía velas a este santo todas las noches. Las últimas se consumieron solas.', 'Someone lit candles for this saint every night. The last ones burned out alone.'] },
+  a1_bosque: { marca: [['par_santuario', 'nicho']], cuello: ['par_penasco', 'con_brezo'], relato: [['par_cadaver', 'esqueleto'], ['cem2_velas_tumba', 'derretidas']], borde: [['par_matorral', 'seco'], ['par_pasto', 'juncos'], ['par_matorral', 'enebro']],
+    nombre: ['El nicho de las cintas', 'The Ribbon Niche'], texto: ['Cada cinta atada aquí es el nombre de un ahorcado. La última quedó sin atar.', 'Every ribbon tied here is the name of a hanged man. The last one was never tied.'] },
+  a1_cementerio: { marca: [['cem2_linterna_muertos', 'encendida'], ['cem2_lapida_angel', 'musgo']], cuello: ['cem2_cruz_celta_alta', 'musgo'], relato: [['cem2_tumba_nino', 'muneca'], ['cem2_corona_marchita', 'en_piso'], ['cem2_velas_tumba', 'farolillos']], borde: [['par_pasto', 'seco'], ['par_pasto', 'cardos'], ['par_matorral', 'seco']],
+    nombre: ['La tumba apartada', 'The Set-Apart Grave'], texto: ['La enterraron lejos de los otros. Alguien le siguió prendiendo la linterna hasta este invierno.', 'They buried her far from the others. Someone kept her lantern lit until this winter.'] },
+  a2_dunas: { marca: [['des2_palmera', 'viva']], cuello: ['des2_roca_viento', 'hongo'], relato: [['des2_camello_muerto', 'con_carga'], ['des2_huesos', 'dispersos']], borde: [['des2_arbusto', 'seco'], ['des2_arbusto', 'espinoso'], ['des2_arbusto', 'tamarisco']],
+    nombre: ['La última palmera', 'The Last Palm'], texto: ['Hay agua debajo de esta palmera. El camello la encontró. El que lo guiaba, no.', 'There is water under this palm. The camel found it. The one leading it did not.'] },
+  a2_oasis_muerto: { marca: [['des2_obelisco', 'en_pie']], cuello: ['des2_roca_viento', 'ventifacto'], relato: [['des2_fogata', 'apagada'], ['des2_huesos', 'craneos']], borde: [['des2_arbusto', 'seco'], ['des2_arbusto', 'rodante'], ['des2_arbusto', 'espinoso']],
+    nombre: ['El escondite del aguador', 'The Water-Bearer\'s Cache'], texto: ['Guardaba agua para los que venían detrás. La sed que cae de arriba llegó primero.', 'He kept water for those coming after. The thirst that falls from above came first.'] },
+  a2_ruinas: { marca: [['des2_columnas', 'portico']], cuello: ['des2_roca_viento', 'hongo'], relato: [['des2_estela', 'rota'], ['des2_huesos', 'dispersos']], borde: [['des2_arbusto', 'seco'], ['des2_arbusto', 'tamarisco'], ['des2_arbusto', 'espinoso']],
+    nombre: ['El pórtico del vigía', 'The Watcher\'s Portico'], texto: ['El vigía del sol vio caer la brasa desde aquí. Escondió lo suyo y no bajó más.', 'The sun-watcher saw the ember fall from here. He hid his things and never came down.'] },
+};
+function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number, number][], lugares: Lugar[], centro: [number, number]): Desvio | null {
+  const z = k.z, { W, H, tw, th } = z, rd = rng((sem ^ 0x61d3a7) >>> 0), R = 4;
+  const tile = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)];
+  const libreEn = (x: number, y: number, r0: number) => { for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) if (dx * dx + dy * dy <= r0 * r0 + 1) { const X = x + dx, Y = y + dy; if (!tile(X, Y) || z.bloq[Y * W + X] || k.reserva[Y * W + X] || z.claros![Y * W + X]) return false; } return true; };
+  // el vacío cerca: cuántas baldosas sin piso hay a 2 baldosas, contando doble las del norte y el oeste (lo alto atrás)
+  const vacio = (x: number, y: number) => { let n = 0; const bx = Math.floor(x / 5), by = Math.floor(y / 5); for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const X = bx + dx, Y = by + dy; if (X < 0 || Y < 0 || X >= tw || Y >= th || !z.pisos[Y * tw + X]) n += dx < 0 || dy < 0 ? 2 : 1; } return n; };
+  const cands: [number, number, number][] = [];
+  for (let i = 0; i < 1500; i++) {
+    const x = 6 + Math.floor(rd() * (W - 12)), y = 6 + Math.floor(rd() * (H - 12));
+    if (!libreEn(x, y, R)) continue;
+    if (puntos.some(([a, b]) => Math.hypot(a - x, b - y) < 20) || lugares.some((l) => Math.hypot(l.cx - x, l.cy - y) < l.r + 12) || Math.hypot(centro[0] - x, centro[1] - y) < 26) continue;
+    // a 12 a 30 del camino más cercano (un sendero que se recorre, no un rincón pegado ni uno perdido)
+    let dc = 1e9; for (let yy = y - 32; yy <= y + 32; yy += 2) for (let xx = x - 32; xx <= x + 32; xx += 2) if (xx >= 0 && yy >= 0 && xx < W && yy < H && k.reserva[yy * W + xx]) dc = Math.min(dc, Math.hypot(xx - x, yy - y));
+    if (dc < 10 || dc > 34) continue;
+    cands.push([x, y, vacio(x, y) * 2 - Math.abs(dc - 18) * 0.4 + rd()]);
+  }
+  cands.sort((a, b) => b[2] - a[2]);
+  for (const [cx, cy] of cands.slice(0, 12)) { const d = senderoDesvio(k, def, cx, cy, R, centro, lugares); if (d) return d; }
+  return null;
+}
+function senderoDesvio(k: Constructor, def: DefZona, cx: number, cy: number, R: number, centro: [number, number], lugares: Lugar[]): Desvio | null {
+  const z = k.z, { W, H, tw } = z, rd = rng((cx * 7919 + cy * 104729) >>> 0);
+  const tile = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)];
+  // el sendero: del claro a la celda de camino más cercana, con un poco de vaivén; se reserva de ancho que se angosta
+  let bx = centro[0], by = centro[1], bd = 1e9;
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) if (k.reserva[y * W + x] && !z.claros![y * W + x]) { const d = Math.hypot(x - cx, y - cy); if (d < bd) { bd = d; bx = x; by = y; } }
+  const L = Math.hypot(bx - cx, by - cy), ux = (bx - cx) / L, uy = (by - cy) / L, nx = -uy, ny = ux, fase = rd() * 6.28, traza: [number, number, number][] = [];
+  for (let t = 0; t <= L; t += 0.5) {
+    const f = t / L, w = Math.sin(f * Math.PI) * (2 + rd() * 0.3) * Math.sin(f * 5 + fase), x = cx + ux * t + nx * w, y = cy + uy * t + ny * w;
+    const X = Math.round(x), Y = Math.round(y); if (!tile(X, Y) || z.bloq[Y * W + X] === 1 || z.bloq[Y * W + X] === 2) return null;
+    traza.push([x, y, f]);
+  }
+  const reservar = (x: number, y: number, r0: number) => { for (let dy = -Math.ceil(r0); dy <= Math.ceil(r0); dy++) for (let dx = -Math.ceil(r0); dx <= Math.ceil(r0); dx++) if (dx * dx + dy * dy <= r0 * r0 + 0.5) { const X = Math.round(x) + dx, Y = Math.round(y) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) k.reserva[Y * W + X] = 1; } };
+  // (ancho 2 en el arranque y 1 cerca del claro: el sendero se angosta)
+  for (const [x, y, f] of traza) reservar(x, y, f < 0.25 ? 1.2 : 1 + f * 1.2);
+  for (let y = cy - R; y <= cy + R; y++) for (let x = cx - R; x <= cx + R; x++) if (Math.hypot(x - cx, y - cy) <= R + 0.5) z.claros![y * W + x] = 1;
+  const fondo = Math.atan2(cy - by, cx - bx), cofre: [number, number] = [Math.round(cx + Math.cos(fondo) * 2), Math.round(cy + Math.sin(fondo) * 2)];
+  const c = traza.find((q) => Math.hypot(q[0] - cx, q[1] - cy) >= R + 3.5) ?? traza[Math.min(traza.length - 1, 10)];
+  const fila = DESVIO[def.id], lugar: Lugar = { cx, cy, r: R + 1, papel: 'desvio', nombre: fila.nombre, relato: fila.texto };
+  lugares.push(lugar);
+  return { cx, cy, fondo, cofre, cuello: [c[0], c[1], Math.atan2(c[1] - cy, c[0] - cx)], traza, lugar };
+}
+function vestirDesvio(k: Constructor, def: DefZona, d: Desvio) {
+  const fila = DESVIO[def.id], c0 = k.capa; k.capa = 'escena';
+  const ponCerca = (id: string, v: string, x: number, y: number, forzar = false) => { for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) { const o = k.poner(id, x + dx, y + dy, v, forzar); if (o) return o; } return null; };
+  // al fondo, lo que se ve de lejos (lo alto), del lado del vacío; el relato entre el cofre y el sendero
+  fila.marca.forEach(([id, v], i) => { const a = d.fondo + (i ? 0.9 : -0.25); ponCerca(id, v, Math.round(d.cx + Math.cos(a) * 3.6), Math.round(d.cy + Math.sin(a) * 3.6)); });
+  fila.relato.forEach(([id, v], i) => { const a = d.fondo + [1.6, -1.5, 2.4][i % 3]; ponCerca(id, v, Math.round(d.cx + Math.cos(a) * 2.6), Math.round(d.cy + Math.sin(a) * 2.6)); });
+  // el cuello: dos peñas (o cruces) a los lados del sendero, que dejan pasar de a uno
+  k.capa = 'garganta';
+  { const [x, y, a] = d.cuello, nx = -Math.sin(a), ny = Math.cos(a); for (const s of [-1, 1]) ponCerca(fila.cuello[0], fila.cuello[1], Math.round(x + nx * s * 3.4), Math.round(y + ny * s * 3.4)); }
+  // y el sendero se lee por lo que lo bordea: matas bajas a los lados que se cierran hacia el claro
+  k.capa = 'escena';
+  const rd = rng((Math.round(d.cx) * 7919 + Math.round(d.cy) * 104729) >>> 0);
+  for (let i = 4; i < d.traza.length - 2; i += 5) {
+    const [x, y, f] = d.traza[i], [x2, y2] = d.traza[i + 1], a = Math.atan2(y2 - y, x2 - x), nx = -Math.sin(a), ny = Math.cos(a), w = (f < 0.25 ? 1.2 : 1 + f * 1.2) + 1.2;
+    for (const s of [-1, 1]) { if (rd() < 0.35) continue; const [id, v] = fila.borde[Math.floor(rd() * fila.borde.length)]; k.poner(id, Math.round(x + nx * s * w), Math.round(y + ny * s * w), v); }
+  }
+  k.capa = c0;
 }
 
 /** Nombre de cada claro según lo que pasó ahí (se anuncia al entrar, `historiaPaso`). */

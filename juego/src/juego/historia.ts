@@ -205,7 +205,7 @@ export function historiaPaso(j: Juego, dt: number) {
   const h = j.heroe, d = h.d;
   misionesPaso(j, dt);
   // los claros con nombre de los mundos abiertos (zona.ts, `Lugar`): se anuncian la primera vez que se pisan en la sesión
-  for (const l of j.zona.lugares ?? []) if (l.nombre && !(l as any).visto && Math.hypot(h.x - l.cx, h.y - l.cy) < l.r) { (l as any).visto = true; msg(j, l.nombre, '#d8c8a0'); }
+  for (const l of j.zona.lugares ?? []) if (l.nombre && !(l as any).visto && Math.hypot(h.x - l.cx, h.y - l.cy) < l.r) { (l as any).visto = true; msg(j, l.nombre, '#d8c8a0'); if (l.relato) msg(j, l.relato, '#a89880'); }
   for (const e of ecos(j)) e.t += dt;
   (j as any).ecos = ecos(j).filter((e) => e.t < e.dur);
   // fantasmas

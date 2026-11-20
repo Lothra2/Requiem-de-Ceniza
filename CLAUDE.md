@@ -341,6 +341,17 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   `t1020_pieza_lab.mts "acto_hito:a1_campanario+a1_roble+a2_pozo+a2_obelisco"` (láminas en
   `/tmp/requiem-pruebas/mundos3/hitos`). En el juego: `juego/herramientas/_m_hitos_vista.cjs <etiqueta> [zonas]` (no se sube;
   `DX`, `DY` ponen al héroe respecto del hito; ojo: con el héroe detrás, el hito se pinta al 45 % como todo lo alto).
+- **Desvíos de los mundos abiertos** (`DESVIO`, `trazarDesvio`, `senderoDesvio` y `vestirDesvio` en `zona.ts`, `__sinDesvios`):
+  en los seis exteriores de los actos 1 y 2, un claro chico (radio 4) escondido contra el borde (puntúa el vacío cerca, doble
+  al norte y al oeste: detrás de los macizos) a 10 a 34 del camino, lejos de salidas, lugares y el centro. Un sendero propio
+  lo une a la celda de camino más cercana, reservado de ancho 2 que se angosta a 1 cerca del claro, bordeado de matas bajas y
+  con un cuello de dos peñas (o cruces) que deja pasar de a uno. Al fondo lo que se ve de lejos (la capilla del caminante, el
+  nicho de las cintas, la linterna de los muertos con el ángel, la última palmera viva, el obelisco del aguador, el pórtico del
+  vigía), el relato del tema y el primero de los dos cofres escondidos de la zona (no suma botín; `lejos` se sigue llamando
+  igual para no mover el azar). Es un `Lugar` con `papel: 'desvio'`, `nombre` y `relato`: `historiaPaso` anuncia los dos al
+  pisarlo y el mapa lo marca como lugar visto. Ningún campamento a menos de 16. Azar propio, sin tocar pisos. 18 de 18
+  (6 zonas x 3 semillas) con cofre alcanzable (`_m_desvios.mjs`, no se sube). t1000: la arena no se mueve (exterior 57).
+  Fotos: `_m_desvio_vista.cjs` (no se sube) en `/tmp/requiem-pruebas/mundos3/desvios`.
 - **Nichos secretos** (`mazmorra`, solo las de obra, `__sinNichos`): una o dos baldosas que se abren en el muro de atrás
   (norte u oeste) de una sala que no es la de entrada ni la del jefe: el muro lo tapa desde el medio y la boca va sin luz.
   Adentro un cofre noble (`escondido`, con su rastro de sangre hacia el centro como los de afuera), huesos y velas. El

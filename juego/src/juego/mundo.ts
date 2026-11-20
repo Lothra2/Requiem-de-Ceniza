@@ -88,6 +88,8 @@ export interface Monstruo extends Ent {
   objetivo: Ent | null; estado: 'dormido' | 'deambular' | 'perseguir' | 'huir' | 'surgir';
   cd: number; pensar: number; camino: [number, number][] | null; ox: number; oy: number;
   xp: number; lider?: Monstruo; invocaCd: number; fase: number;
+  /** Campamento al que pertenece (índice en `zona.spawns`): despiertan todos juntos. No se guarda. */
+  camp?: number;
   misionUnico?: string;
   /** El jefe de la zona (no el de acto): dice su frase de `FRASE_JEFE_ZONA` al verte. No se guarda. */
   jefeZona?: boolean;
@@ -481,31 +483,64 @@ function poblar(z: Zona, d: DatosHeroe): Monstruo[] {
       (m as any).oleada = { ids: Array.from({ length: esActo ? 4 : 5 }, () => elegir(pool)), cd: 1.5 };
       continue;
     }
-    let id = R() < 0.55 ? pool[0] : elegir(pool);
-    // en la Corona los campeones suelen ser ángeles sedientos (vuelan y escupen luz)
-    if (s.tipo === 'campeon' && pool.includes('angel_sediento') && R() < 0.5) id = 'angel_sediento';
-    const dm = MONSTRUOS[id]; if (!dm) continue;
+    // ---- un campamento (`acampar` en zona.ts): los cuerpos de `grupos` grupos de los de antes, juntos y con papeles. Cada
+    // tirada es el grupo de antes tal cual (mismo dado, mismos cuerpos), así el presupuesto de la zona no cambia
+    const ci = z.spawns.indexOf(s), cuerpos: Monstruo[] = [];
+    let lider: Monstruo | undefined;
+    const tirada = (tope = 99) => {
+      const dm = MONSTRUOS[R() < 0.55 ? pool[0] : elegir(pool)]; if (!dm) return;
+      // los sedientos van en manadas de 5 a 8; las manos doradas, de a dos o tres
+      const n = dm.id === 'sediento' ? 5 + Math.floor(R() * 4) : dm.id === 'mano_dorada' ? 2 + Math.floor(R() * 2) : Math.max(1, Math.round((dm.ia === 'enjambre' ? (z.nivel < 6 ? 3 : 5) : dm.ia === 'bruto' ? 2 : z.nivel < 6 ? 2 : 3) * s.fuerza));
+      for (let i = 0; i < Math.min(n, tope); i++) { const m = crearMonstruo(i > 0 && R() < 0.3 ? MONSTRUOS[elegir(pool)] : dm, nivel, s.cx + 0.5, s.cy + 0.5, 0, dif); if (lider) m.lider = lider; cuerpos.push(m); }
+    };
     if (s.tipo === 'unico' || s.tipo === 'campeon') {
+      let id = R() < 0.55 ? pool[0] : elegir(pool);
+      // en la Corona los campeones suelen ser ángeles sedientos (vuelan y escupen luz)
+      if (s.tipo === 'campeon' && pool.includes('angel_sediento') && R() < 0.5) id = 'angel_sediento';
+      const dm = MONSTRUOS[id]; if (!dm) continue;
       const cal = s.tipo === 'unico' ? 2 : 1;
       const n = s.tipo === 'unico' ? 4 : 3;
-      let lider: Monstruo | undefined;
       const mods = [elegir([...MODS]).id]; if (cal === 2) mods.push(elegir([...MODS]).id);
       for (let i = 0; i < n; i++) {
-        const q = libreCerca(z, s.cx + entre(-2, 2), s.cy + entre(-2, 2));
-        const m = crearMonstruo(dm, nivel + (cal === 2 ? 2 : 1), q[0] + 0.5, q[1] + 0.5, cal === 2 && i > 0 ? 0 : cal, dif);
-        if (cal === 2 && i === 0) { lider = m; m.nombre = [`${elegir(NOMBRES_UNICOS.pre)[0]} ${elegir(NOMBRES_UNICOS.suf)[0]}`, '']; const a = elegir(NOMBRES_UNICOS.pre), b = elegir(NOMBRES_UNICOS.suf); m.nombre = [`${a[0]} ${b[0]}`, `${a[1]} ${b[1]}`]; m.mods = mods; m.escala *= 1.12; }
+        const m = crearMonstruo(dm, nivel + (cal === 2 ? 2 : 1), s.cx + 0.5, s.cy + 0.5, cal === 2 && i > 0 ? 0 : cal, dif);
+        if (cal === 2 && i === 0) { lider = m; const a = elegir(NOMBRES_UNICOS.pre), b = elegir(NOMBRES_UNICOS.suf); m.nombre = [`${a[0]} ${b[0]}`, `${a[1]} ${b[1]}`]; m.mods = mods; m.escala *= 1.12; }
         else if (cal === 1) { m.mods = mods; m.nombre = [`${dm.nombre[0]} campeón`, `Champion ${dm.nombre[1]}`]; }
         else if (lider) m.lider = lider;
         aplicarMods(m);
-        out.push(m);
+        cuerpos.push(m);
       }
-      continue;
+      for (let q = 0; q < (s.grupos ?? 0); q++) tirada();
+    } else if (s === primero) tirada(s.grupos != null ? 2 : 1);
+    else for (let q = 0; q < (s.grupos ?? 1); q++) tirada();
+    // el campamento con papeles: si la zona tiene gente de tiro o de conjuro y no salió ninguno, uno de los comunes lo es
+    const deTiro = (m: Monstruo) => m.def.ia === 'mago' || m.def.ia === 'distancia' || m.def.ia === 'invocador';
+    if (s.grupos != null && cuerpos.length >= 6 && !cuerpos.some(deTiro)) {
+      const tiros = pool.filter((q) => MONSTRUOS[q] && (MONSTRUOS[q].ia === 'mago' || MONSTRUOS[q].ia === 'distancia')), k = cuerpos.findIndex((m, i) => i > 0 && m.calidad === 0 && !m.lider);
+      if (tiros.length && k > 0) { const v = cuerpos[k]; cuerpos[k] = crearMonstruo(MONSTRUOS[elegir(tiros)], v.nivel, v.x, v.y, 0, dif); }
     }
-    // los sedientos van en manadas de 5 a 8; las manos doradas, de a dos o tres
-    const n = dm.id === 'sediento' ? 5 + Math.floor(R() * 4) : dm.id === 'mano_dorada' ? 2 + Math.floor(R() * 2) : Math.max(1, Math.round((dm.ia === 'enjambre' ? (z.nivel < 6 ? 3 : 5) : dm.ia === 'bruto' ? 2 : z.nivel < 6 ? 2 : 3) * s.fuerza));
-    for (let i = 0; i < (s === primero ? 1 : n); i++) { const q = libreCerca(z, s.cx + entre(-2.5, 2.5), s.cy + entre(-2.5, 2.5)); out.push(crearMonstruo(i > 0 && R() < 0.3 ? MONSTRUOS[elegir(pool)] : dm, nivel, q[0] + 0.5, q[1] + 0.5, 0, dif)); }
+    // dónde se para cada uno: el jefe del campamento en el centro, los de cuerpo a cuerpo hacia el frente (de donde llega el
+    // héroe) y los de tiro detrás, en el borde del claro. Un grupo suelto de los de antes (sin `grupos`) va apretado como siempre
+    const f = s.frente ?? [0, 1], a0 = Math.atan2(f[1], f[0]), campo = s.grupos != null;
+    for (const m of cuerpos) {
+      const tiro = deTiro(m), jefe = m === lider || m.calidad === 1;
+      let q: [number, number] = [s.cx, s.cy];
+      for (let k = 0, esc = 1; k < 4; k++, esc *= 0.6) {
+        const a = a0 + (tiro ? Math.PI : 0) + entre(-1.25, 1.25), d = (!campo ? entre(0, 2.6) : jefe ? entre(0, 1.4) : tiro ? entre(3, 4.8) : entre(1, 4)) * esc;
+        q = libreCerca(z, s.cx + Math.cos(a) * d, s.cy + Math.sin(a) * d);
+        if (lineaPasable(z, s.cx + 0.5, s.cy + 0.5, q[0] + 0.5, q[1] + 0.5)) break;
+      }
+      m.x = m.ox = q[0] + 0.5; m.y = m.oy = q[1] + 0.5; m.camp = ci;
+      out.push(m);
+    }
   }
   return out;
+}
+/** Despierta al campamento de `m` (los de su mismo `camp`) contra `obj`, escalonado: llegan en oleada y no en bloque. */
+function alertarCampamento(j: Juego, m: Monstruo, obj: Ent) {
+  for (const o of j.monstruos) {
+    if (o === m || o.camp !== m.camp || o.muerto || o.dueno || (o.estado !== 'dormido' && o.estado !== 'deambular')) continue;
+    o.estado = 'perseguir'; o.objetivo = obj; (o as any).alerta = 0.2 + Math.min(0.7, dist(o.x, o.y, m.x, m.y) * 0.09) + entre(0, 0.2);
+  }
 }
 function aplicarMods(m: Monstruo) {
   for (const id of m.mods) {
@@ -719,7 +754,7 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
       if (crit) sonar(j, 'desgarro', v.x, v.y, 0.75);
       else if (R() < 0.45) sonar(j, 'chapoteo', v.x, v.y, 0.4 + Math.min(0.4, total / m.vidaMax));
     }
-    if (m.estado === 'dormido' || m.estado === 'deambular') { m.estado = 'perseguir'; m.objetivo = g.fuente ?? j.heroe; }
+    if (m.estado === 'dormido' || m.estado === 'deambular') { m.estado = 'perseguir'; m.objetivo = g.fuente ?? j.heroe; if (m.camp != null && !(globalThis as any).__vistaVieja) alertarCampamento(j, m, g.fuente ?? j.heroe); }
     if (total > m.vidaMax * 0.12 && m.acc !== 'atacar' && m.acc !== 'lanzar' && m.calidad < 3) { m.acc = 'herido'; m.t = 0; m.dur = 0.3; }
     if (crit || total > m.vidaMax * 0.3) j.sacudida = Math.max(j.sacudida, 0.1);
     if (g.arma && total > 0 && (g.parte === undefined || g.parte === 2)) efectoLegGolpe(j, m, total, crit);
@@ -2259,7 +2294,9 @@ function actualizarMonstruo2(j: Juego, m: Monstruo, dt: number) {
   const dh = dist(m.x, m.y, h.x, h.y);
   // despertar
   if (m.estado === 'dormido' || m.estado === 'deambular') {
-    const vista = m.calidad >= 3 ? 9 : 8;
+    // (antes 8 celdas: los monstruos se veían parados media pantalla antes de reaccionar. Ahora ven a 13 a cielo abierto, a 11
+    //  bajo tierra, y los de élite un poco más. El jefe sigue despertando por su sala)
+    const bajo = j.zona.tipo === 'mazmorra', vista = (globalThis as any).__vistaVieja ? (m.calidad >= 3 ? 9 : 8) : m.calidad >= 3 ? 9 : m.calidad >= 1 ? (bajo ? 12 : 15) : bajo ? 11 : 13;
     // los jefes despiertan por cercanía a su sala, aunque un muro los tape (si no, quedan quietos hasta verte)
     const esJefe = !!(m.def.jefe || m.def.ia === 'jefe');
     if (!h.muerto && ((esJefe && dh < 7 + (m.escala ?? 1) * 2) || (dh < vista && (dh < 3 || lineaLibre(j.zona, m.x, m.y, h.x, h.y))))) {
@@ -2273,6 +2310,8 @@ function actualizarMonstruo2(j: Juego, m: Monstruo, dt: number) {
       else if (R() < 0.3) sonar(j, m.def.sonido === 'hueso' ? 'golpe_hueso' : 'grunido', m.x, m.y, 0.6);
       // el grupo despierta junto
       // el grupo despierta junto, pero no entero: los más cercanos sí, los demás a veces (llegan después cuando te vean)
+      // el campamento entero se viene, en oleada: cada uno con su demora según lo lejos que esté del que dio la voz
+      if (m.camp != null && !(globalThis as any).__vistaVieja) alertarCampamento(j, m, h);
       for (const o of j.monstruos) if (!o.muerto && !o.dueno && o.estado !== 'perseguir' && o.estado !== 'surgir') { const d2 = dist(o.x, o.y, m.x, m.y); if (d2 < 2.5 || (d2 < 5 && R() < 0.4)) { o.estado = 'perseguir'; o.objetivo = h; (o as any).alerta = entre(0.25, 0.7); } }
     } else {
       // deambular cerca de su lugar

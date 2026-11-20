@@ -11,7 +11,11 @@ import { rng, clamp } from '../nucleo/azar';
 
 export interface ObjZ { id: string; v: string; cx: number; cy: number; hw: number; hh: number; bloquea: boolean; tag?: string; dato?: any; /** De qué paso de la generación salió (riego, vida, macabro, relleno, escena, horror, jefe...): lo usa `curarAdornos`. No se guarda. */ capa?: string; }
 export interface Salida { cx: number; cy: number; destino: string; entrada: string; nombre: [string, string]; obj?: ObjZ; /** Misión que hay que haber aceptado para pasar (si no, la puerta está sellada). */ sello?: string; /** Misión que, cumplida, deja la pieza herida. */ herida?: string; /** Piezas que cambian de variante con la historia. */ piezas?: ObjZ[] }
-export interface Spawn { cx: number; cy: number; tipo: 'grupo' | 'jefe' | 'unico' | 'campeon'; fuerza: number }
+export interface Spawn { cx: number; cy: number; tipo: 'grupo' | 'jefe' | 'unico' | 'campeon'; fuerza: number;
+  /** Campamento (`acampar`): cuántos grupos de los de antes junta en este sitio. Un grupo suelto no lo trae (vale 1; los de élite, 0 de séquito extra). */
+  grupos?: number;
+  /** Hacia dónde mira el frente del campamento (de donde suele llegar el héroe): los de cuerpo a cuerpo delante, los de tiro detrás. */
+  frente?: [number, number] }
 export interface Zona {
   id: string;
   /** Puentes sobre el río (centro del tablero, que corre en x): el juego sube al que pasa por encima. */
@@ -589,7 +593,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   // cofres, santuarios y pozos
   colocarInteractivos(k, 2 + Math.floor(area / 6000), 1 + Math.floor(area / 9000), def.tema);
   // dónde salen los monstruos: lejos de las entradas
-  sembrar(k, Math.floor((area / 700) * dens), puntos);
+  acampar(k, Math.floor((area / 700) * dens), puntos);
   if (def.jefe) { const p = lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
   if (def.tema === 'paramo') sueloParamo(k);
   // la pieza única del acto: una o dos por mundo abierto, lejos de las salidas
@@ -886,16 +890,90 @@ function lejos(k: Constructor, de: [number, number][]): [number, number] {
   }
   return best;
 }
-function sembrar(k: Constructor, n: number, evitar: [number, number][]) {
-  const z = k.z;
-  for (let i = 0, c = 0; i < n * 20 && c < n; i++) {
-    const x = 3 + Math.floor(k.r() * (z.W - 6)), y = 3 + Math.floor(k.r() * (z.H - 6));
-    if (z.bloq[y * z.W + x]) continue;
-    if (evitar.some(([a, b]) => Math.hypot(a - x, b - y) < 16)) continue;
-    if (z.spawns.some((s) => Math.hypot(s.cx - x, s.cy - y) < 9)) continue;
-    const q = k.r();
-    z.spawns.push({ cx: x, cy: y, tipo: q < 0.07 ? 'unico' : q < 0.16 ? 'campeon' : 'grupo', fuerza: 0.7 + k.r() * 0.6 });
-    c++;
+
+/** Cuántos anillos libres tiene cada celda alrededor (distancia de Chebyshev al primer estorbo): 4 = cabe un 9 x 9 libre centrado ahí. */
+export function despejeZona(z: Zona): Int16Array {
+  const { W, H } = z, d = new Int16Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const i = y * W + x; if (z.bloq[i]) continue; d[i] = x === 0 || y === 0 || x === W - 1 || y === H - 1 ? 1 : Math.min(d[i - 1], d[i - W], d[i - W - 1], d[i - W + 1]) + 1; }
+  for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) { const i = y * W + x; if (z.bloq[i] || x === 0 || y === 0 || x === W - 1 || y === H - 1) continue; d[i] = Math.min(d[i], d[i + 1] + 1, d[i + W] + 1, d[i + W + 1] + 1, d[i + W - 1] + 1); }
+  for (let i = 0; i < d.length; i++) d[i] = Math.max(0, d[i] - 1);
+  return d;
+}
+/** Lo que se alcanza a pie desde la entrada de la zona. */
+function alcanzable(z: Zona, desde?: [number, number]): Uint8Array {
+  const { W, H } = z, vis = new Uint8Array(W * H), e0 = desde ?? z.entradas.arriba ?? Object.values(z.entradas)[0]; if (!e0) return vis.fill(1);
+  // (desde todo lo libre a 6 celdas de la entrada: una sola celda podía ser un hueco encerrado entre la escalera y el muro)
+  const pila: number[] = [];
+  for (let dy = -6; dy <= 6; dy++) for (let dx = -6; dx <= 6; dx++) { const X = Math.floor(e0[0]) + dx, Y = Math.floor(e0[1]) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && (z.bloq[Y * W + X] === 0 || z.bloq[Y * W + X] === 3)) { vis[Y * W + X] = 1; pila.push(Y * W + X); } }
+  if (!pila.length) return vis.fill(1);
+  while (pila.length) { const i = pila.pop()!, x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (!vis[j] && (z.bloq[j] === 0 || z.bloq[j] === 3)) { vis[j] = 1; pila.push(j); } } }
+  return vis;
+}
+/**
+ * Campamentos (Rick, 20 nov 2026: "espacios abiertos para peleas frenéticas"). Antes `sembrar` regaba un grupo de 3 cada 9
+ * celdas en cualquier celda libre: 19 monstruos en pantalla y peleaban 4. Ahora los MISMOS grupos (el mismo presupuesto de
+ * cuerpos, únicos y campeones: no sube la experiencia ni el botín) se juntan en campamentos de 6 a 10 con unas 24 celdas de
+ * respiro entre uno y otro, parados en lo más abierto que haya (una arena: 4 anillos libres o más) y lejos de las entradas.
+ * `n` es la cantidad de grupos de antes. El único junta su séquito (1 + 3 + un grupo), los campeones también (3 + un grupo).
+ * `sitios`: lugares que piden campamento primero (los claros de un exterior, la sala mayor de una mazmorra).
+ */
+function acampar(k: Constructor, n: number, evitar: [number, number][], sitios: [number, number][] = []) {
+  const z = k.z, r = k.r, { W, H } = z;
+  if (n <= 0) return;
+  const azar = (x: number) => Math.floor(x) + (r() < x - Math.floor(x) ? 1 : 0);
+  let u = azar(n * 0.07), c = azar(n * 0.09), g = Math.max(0, n - u - c);
+  const campos: { tipo: Spawn['tipo']; grupos: number }[] = [];
+  // los campamentos comunes: 2 o 3 grupos de los de antes (3 o 4 donde los grupos eran de a dos)
+  const elite: { tipo: Spawn['tipo']; grupos: number }[] = [];
+  for (let i = 0; i < u; i++) { const q = g > 0 ? 1 : 0; g -= q; elite.push({ tipo: 'unico', grupos: q }); }
+  for (let i = 0; i < c; i++) { const q = g > 0 ? 1 : 0; g -= q; elite.push({ tipo: 'campeon', grupos: q }); }
+  while (g > 0) { let q = Math.min(g, (z.nivel < 6 ? 3 : 2) + (r() < 0.55 ? 1 : 0)); if (g - q === 1) q++; g -= q; campos.push({ tipo: 'grupo', grupos: q }); }
+  // se alternan: campamento, élite, campamento... (los primeros se llevan los mejores sitios)
+  const lista: { tipo: Spawn['tipo']; grupos: number }[] = [];
+  while (campos.length || elite.length) { if (campos.length) lista.push(campos.shift()!); if (elite.length) lista.push(elite.shift()!); }
+  const desp = despejeZona(z), alc = alcanzable(z, evitar.find((p) => p[0] > 0));
+  // (a esta altura el mapa puede no estar unido todavía: `conectar` abre pasos después. Si desde la entrada se alcanza poco, no se mira)
+  { let libres = 0, llega = 0; for (let i = 0; i < W * H; i++) if (!z.bloq[i]) { libres++; if (alc[i]) llega++; } if (llega < libres * 0.7) alc.fill(1); }
+  const azarCelda = new Float32Array(W * H); for (let i = 0; i < azarCelda.length; i++) azarCelda[i] = r();
+  const puestos: [number, number][] = z.spawns.map((sp) => [sp.cx, sp.cy]);
+  const pedidos = sitios.slice();
+  for (const cmp of lista) {
+    let mejor = -1, ms = -1;
+    // un sitio que lo pidió, si sigue libre y lejos de los demás
+    while (pedidos.length && mejor < 0) { const [x, y] = pedidos.shift()!, i = Math.floor(y) * W + Math.floor(x); if (i >= 0 && i < W * H && !z.bloq[i] && alc[i] && !puestos.some(([a, b]) => Math.hypot(a - x, b - y) < 16) && !evitar.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) mejor = i; }
+    // si no, lo más abierto que quede: primero a 24 de los demás y en arena, después se afloja
+    for (const [sep, dmin, lejosEnt] of [[24, 4, 20], [19, 4, 18], [19, 3, 16], [15, 2, 16], [12, 1, 14], [9, 0, 12]] as const) {
+      if (mejor >= 0) break;
+      for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) {
+        const i = y * W + x; if (z.bloq[i] || !alc[i] || desp[i] < dmin) continue;
+        const s = Math.min(desp[i], 9) + azarCelda[i] * 2.5; if (s <= ms) continue;
+        if (evitar.some(([a, b]) => Math.hypot(a - x, b - y) < lejosEnt) || puestos.some(([a, b]) => Math.hypot(a - x, b - y) < sep)) continue;
+        ms = s; mejor = i;
+      }
+    }
+    if (mejor < 0) continue;
+    const x = mejor % W, y = (mejor - x) / W;
+    z.spawns.push({ cx: x, cy: y, tipo: cmp.tipo, fuerza: 0.85 + r() * 0.3, grupos: cmp.grupos });
+    puestos.push([x, y]);
+  }
+}
+/**
+ * Al final de la generación (ya con todo el adorno puesto y curado): cada campamento se corre al sitio más abierto que tenga a
+ * 5 celdas (sin azar), y se anota su frente (hacia la entrada más cercana, de donde llega el héroe).
+ */
+function asentarCampamentos(z: Zona) {
+  const { W, H } = z, desp = despejeZona(z), alc = alcanzable(z);
+  const ent = [...Object.values(z.entradas)];
+  for (const sp of z.spawns) {
+    if (sp.tipo !== 'jefe' && sp.grupos != null) {
+      const x0 = Math.floor(sp.cx), y0 = Math.floor(sp.cy); let bx = x0, by = y0, bs = z.bloq[y0 * W + x0] || !alc[y0 * W + x0] ? -1 : desp[y0 * W + x0] * 4;
+      for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
+        const X = x0 + dx, Y = y0 + dy; if (X < 2 || Y < 2 || X >= W - 2 || Y >= H - 2) continue; const i = Y * W + X; if (z.bloq[i] || !alc[i]) continue;
+        const s = Math.min(desp[i], 8) * 4 - Math.hypot(dx, dy); if (s > bs + 0.001) { bs = s; bx = X; by = Y; }
+      }
+      sp.cx = bx; sp.cy = by;
+    }
+    let bd = 1e9; for (const [ex, ey] of ent) { const d = Math.hypot(ex - sp.cx, ey - sp.cy); if (d < bd && d > 0.5) { bd = d; sp.frente = [(ex - sp.cx) / d, (ey - sp.cy) / d]; } }
   }
 }
 
@@ -1349,7 +1427,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   if (def.piedraViaje) { const o = ponerPiedra(k, p0[0], p0[1]); if (o) z.marcas.push({ tipo: 'viaje', cx: o.cx, cy: o.cy }); }
   colocarInteractivos(k, 2 + Math.floor(area / 3500), 1 + Math.floor(area / 7000), def.tema);
   // ni la entrada ni la sala del jefe llevan grupos sembrados: la escolta del jefe llega por oleadas
-  sembrar(k, Math.floor(area / 260), def.jefe ? [p0, [pN[0], pN[1] + 2]] : [p0]);
+  acampar(k, Math.floor(area / 260), def.jefe ? [p0, [pN[0], pN[1] + 2]] : [p0]);
   const regAntes = def.jefe ? regionesLibres(z) : 0, objAntes = z.objetos.length;
   k.capa = 'jefe';
   if (def.jefe) {
@@ -1715,6 +1793,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
     }
   }
   curarAdornos(z, def);
+  asentarCampamentos(z);
   esquinasMuro(z);
   return z;
 }

@@ -19,6 +19,8 @@ import { R, rng } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
 import { dibujarPortada, tituloFijo, dibujarCarta, prepararCarta } from './portada';
 import { brasaRenglon } from './brasa_menu';
+import { heroeVigilia, heroeCarta, brasaCanto, forjaNueva, vigiliaVieja, infoVigilia, medidasVigilia } from './vigilia';
+import { FICHA } from './seleccion';
 import { lienzoGotico, puntoGotico } from './letra_gotica';
 import { pegarPixel } from './fuego_pixel';
 
@@ -446,7 +448,20 @@ function fondoVigilia(t: number, lx: number, ly: number, r: number) {
   const a = ctx.createLinearGradient(0, 0, 0, H * 0.22); a.addColorStop(0, 'rgba(0,0,0,0.7)'); a.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = a; ctx.fillRect(0, 0, W, H * 0.22);
   const b = ctx.createLinearGradient(0, H * 0.62, 0, H); b.addColorStop(0, 'rgba(0,0,0,0)'); b.addColorStop(1, 'rgba(0,0,0,0.92)'); ctx.fillStyle = b; ctx.fillRect(0, H * 0.62, W, H * 0.38);
 }
-const selP = { k: [] as number[], ult: 0, t0: -1, sel: -1, tCambio: 0, desde: 0 };
+/** El canto de un nicho (el arco apuntado de la carta) como camino de 0 a 1 por su largo, para la brasa que lo recorre. */
+const caminos = new Map<string, (u: number) => [number, number]>();
+function caminoArco(x: number, y: number, w: number, h: number): (u: number) => [number, number] {
+  const k = [x, y, w, h].map((v) => Math.round(v * 4)).join(','); let f = caminos.get(k); if (f) return f;
+  const r = w / 2, pts: [number, number][] = [], q = (a: [number, number], c: [number, number], b: [number, number], n: number) => { for (let i = 1; i <= n; i++) { const u = i / n, v = 1 - u; pts.push([v * v * a[0] + 2 * v * u * c[0] + u * u * b[0], v * v * a[1] + 2 * v * u * c[1] + u * u * b[1]]); } };
+  pts.push([x, y + h]); for (let i = 1; i <= 12; i++) pts.push([x, y + h - ((h - r * 0.9) * i) / 12]);
+  q([x, y + r * 0.9], [x, y + r * 0.1], [x + r, y], 14); q([x + r, y], [x + w, y + r * 0.1], [x + w, y + r * 0.9], 14);
+  for (let i = 1; i <= 12; i++) pts.push([x + w, y + r * 0.9 + ((h - r * 0.9) * i) / 12]);
+  const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const tot = L[L.length - 1];
+  f = (u: number) => { const d = ((u % 1) + 1) % 1 * tot; let i = 1; while (i < L.length - 1 && L[i] < d) i++; const e = (d - L[i - 1]) / Math.max(1e-6, L[i] - L[i - 1]); return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * e, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * e]; };
+  if (caminos.size > 40) caminos.clear(); caminos.set(k, f); return f;
+}
+const selP = { k: [] as number[], h: [] as number[], ult: 0, t0: -1, sel: -1, tCambio: 0, desde: 0 };
 const horas = (seg: number) => { const m = Math.floor((seg ?? 0) / 60); return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
 /**
  * Elegir héroe: la vigilia. El héroe elegido de pie junto al fuego, grande; a su lado su nombre grabado y lo que lleva
@@ -454,13 +469,15 @@ const horas = (seg: number) => { const m = Math.floor((seg ?? 0) / 60); return m
  */
 export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): { accion: 'jugar' | 'crear' | 'borrar' | 'volver' | 'dificultad' | null; sel: number } {
   let accion: 'jugar' | 'crear' | 'borrar' | 'volver' | 'dificultad' | null = null;
+  t = (window as any).__tSel ?? t; // (las pruebas fijan el reloj de esta pantalla)
+  const viejo = vigiliaVieja();
   const dt = Math.min(0.05, Math.max(0, t - selP.ult)); selP.ult = t; if (dt === 0 || selP.t0 < 0 || t - selP.t0 > 600 || t < selP.t0) selP.t0 = t;
   if (selP.sel !== sel) { selP.sel = sel; selP.tCambio = t; }
   const chico = H < 520 || W < 760, pant: Record<string, [number, number]> = ((window as any).__pantalla = {});
   // ---- medidas
   const nichoH = Math.round(chico ? Math.max(74, H * 0.23) : Math.min(150, H * 0.2)), nichoW = Math.round(nichoH * 0.78), galY = H - nichoH - (chico ? 8 : 20);
   const hx = Math.round(chico ? W * 0.27 : W * 0.33), hy = Math.round(galY - (chico ? 14 : 34)), esc = Math.max(1.5, Math.min(3, Math.floor(((galY - (chico ? 60 : 110)) / 92) * 2) / 2));
-  fondoVigilia(t, hx, hy, chico ? 190 : 300);
+  fondoVigilia(t, viejo ? hx : hx - (chico ? 50 : 70), hy, chico ? 190 : 300);
   brasas(t, 26);
   // ---- cabecera
   const tt = chico ? 17 : 24; grabado(T('Tus héroes', 'Your heroes'), W / 2, chico ? 26 : 46, tt, { alin: 'center' }); rayaOro(W / 2 - 150, (chico ? 26 : 46) + 9, 300);
@@ -468,8 +485,15 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
   pant.volver = [14 + 50, (chico ? 8 : 20) + 14];
   const hr = heroes[sel];
   // ---- el héroe: de pie junto a su fuego, con su equipo si el pintor ya lo tiene
+  if (hr && !viejo) {
+    // la vigilia (ui/vigilia.ts): de pie junto a su fogata, vestido con lo que lleva, vivo
+    const alto = medidasVigilia().alto;
+    heroeVigilia(hr, hx, hy, alto, t, t - selP.tCambio, chico);
+    (window as any).__vigilia = () => ({ ...infoVigilia, tCambio: selP.tCambio });
+  }
   if (hr) {
     const entra = suave(Math.max(0, Math.min(1, (t - selP.tCambio) / 0.35)));
+    if (viejo) {
     const vivo = cuadrosDeFirma((window as any).__firmaSel ?? '', 'quieto', 's');
     const fs = vivo?.length ? vivo : cuadrosHeroe(hr.clase, 'quieto', 's');
     ctx.fillStyle = `rgba(0,0,0,${0.6 * entra})`; ctx.beginPath(); ctx.ellipse(hx, hy, 26 * esc * 0.62, 8 * esc * 0.62, 0, 0, Math.PI * 2); ctx.fill();
@@ -479,13 +503,15 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
     // la brasa a sus pies y las chispas que suben
     for (let c = 0; c < 9; c++) { const u = (t * 0.45 + c * 0.113) % 1, sx = hx + 60 * esc * 0.36 + Math.sin(u * 9 + c * 1.7) * 14; ctx.fillStyle = `rgba(255,${150 + (c % 3) * 30},70,${(1 - u) * 0.85})`; ctx.fillRect(Math.round(sx), Math.round(hy + 6 - u * 130 * esc * 0.4), 2, 2); }
     rombo2(hx + 60 * esc * 0.36, hy + 6, 7 + Math.sin(t * 9) * 1.2, '#ff8a2a'); rombo2(hx + 60 * esc * 0.36, hy + 6, 3.2, '#fff0b0');
+    }
     // ---- su ficha: nombre grabado, clase y lo vivido
     const fx = Math.round(chico ? W * 0.47 : W * 0.54), fw = Math.min(W - fx - 20, chico ? 380 : 460); let fy = Math.round(chico ? 52 : H * 0.2);
     const tn = chico ? 24 : Math.min(44, Math.max(30, H * 0.058));
     ctx.save(); ctx.globalAlpha = entra;
     const clase = CLASES.find((c) => c.id === hr.clase)!;
     fy += tn; grabado(hr.nombre, fx + (1 - entra) * 18, fy, tn, { brillo: 0.5 });
-    fy += chico ? 17 : 24; texto(`${TT(clase.nombre)}${hr.dificultad ? ' · ' + [T('Normal', 'Normal'), T('Pesadilla', 'Nightmare'), T('Infierno', 'Hell')][hr.dificultad] : ''}${hr.ciclo ? ' · ' + T('Ciclo', 'Cycle') + ' ' + (hr.ciclo + 1) : ''}`, fx + 2, fy, { tam: chico ? 12 : 15, color: hr.dificultad ? '#ff9070' : '#c8b088', fuente: TITULO });
+    const lc = FICHA[hr.clase]?.luz ?? [200, 176, 136], colClase = viejo ? '#c8b088' : `rgb(${Math.round(lc[0] * 0.55 + 200 * 0.45)},${Math.round(lc[1] * 0.55 + 176 * 0.45)},${Math.round(lc[2] * 0.55 + 136 * 0.45)})`;
+    fy += chico ? 17 : 24; texto(`${TT(clase.nombre)}${hr.dificultad ? ' · ' + [T('Normal', 'Normal'), T('Pesadilla', 'Nightmare'), T('Infierno', 'Hell')][hr.dificultad] : ''}${hr.ciclo ? ' · ' + T('Ciclo', 'Cycle') + ' ' + (hr.ciclo + 1) : ''}`, fx + 2, fy, { tam: chico ? 12 : 15, color: hr.dificultad ? '#ff9070' : colClase, fuente: TITULO });
     fy += chico ? 8 : 14; { const g = ctx.createLinearGradient(fx, 0, fx + fw, 0); g.addColorStop(0, 'rgba(214,168,88,0.9)'); g.addColorStop(1, 'rgba(214,168,88,0)'); ctx.fillStyle = g; ctx.fillRect(fx, fy, fw, 1.5); rombo2(fx, fy + 0.75, 4, '#e8ba64'); }
     // lo vivido, en dos columnas: la cifra grande en oro y debajo qué es
     const datos: [string, string][] = [[String(hr.nivel), T('Nivel', 'Level')], [String(hr.acto), T('Acto', 'Act')], [horas(hr.jugado), T('Jugado', 'Played')], [String(hr.muertes ?? 0), T('Muertes', 'Deaths')], [String((hr as any).oro ?? 0), T('Oro', 'Gold')], [String((hr.actosHechos ?? []).length) + ' / 7', T('Actos hechos', 'Acts done')]];
@@ -513,23 +539,31 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
   for (let q = 0; q < vis; q++) {
     const i = selP.desde + q, x = gx0 + q * (nichoW + sep), nuevo = i >= heroes.length, act = i === sel && !nuevo, enc = dentro(x, galY, nichoW, nichoH);
     selP.k[i] = Math.max(0, Math.min(1, (selP.k[i] ?? 0) + (act || enc ? dt * 6 : -dt * 4))); const k = suave(selP.k[i]), y = galY - k * (chico ? 4 : 8);
+    // (lo que el ratón tiene encima, aparte de la elegida: la carta se enciende)
+    selP.h[i] = Math.max(0, Math.min(1, (selP.h[i] ?? 0) + (enc && !E.tactil ? dt * 7 : -dt * 4))); const kh = viejo ? 0 : suave(selP.h[i]);
     // el nicho: un arco apuntado de piedra oscura con filo de oro
     const arco = () => { const r = nichoW / 2; ctx.beginPath(); ctx.moveTo(x, y + nichoH); ctx.lineTo(x, y + r * 0.9); ctx.quadraticCurveTo(x, y + r * 0.1, x + r, y); ctx.quadraticCurveTo(x + nichoW, y + r * 0.1, x + nichoW, y + r * 0.9); ctx.lineTo(x + nichoW, y + nichoH); ctx.closePath(); };
     ctx.save();
     if (k > 0.02) { ctx.shadowColor = `rgba(255,130,40,${0.6 * k})`; ctx.shadowBlur = 18 * k; }
     const g = ctx.createLinearGradient(0, y, 0, y + nichoH); g.addColorStop(0, act ? '#3a2616' : '#1c1612'); g.addColorStop(1, '#090706'); ctx.fillStyle = g; arco(); ctx.fill(); ctx.shadowBlur = 0;
-    if (!nuevo || k > 0.02) { ctx.save(); arco(); ctx.clip(); const lg = ctx.createRadialGradient(x + nichoW / 2, y + nichoH * 0.86, 2, x + nichoW / 2, y + nichoH * 0.86, nichoH * 0.8); lg.addColorStop(0, `rgba(255,130,40,${0.16 + 0.3 * k})`); lg.addColorStop(1, 'rgba(255,110,30,0)'); ctx.fillStyle = lg; ctx.fillRect(x, y, nichoW, nichoH); ctx.restore(); }
-    ctx.lineWidth = act ? 2 : 1; ctx.strokeStyle = act ? '#f0c060' : k > 0.3 ? '#c09a58' : '#5e4c30'; arco(); ctx.stroke();
+    // la elegida respira (su luz sube y baja como la brasa) y la que tiene el ratón encima se enciende
+    const resp = act && !viejo ? 0.75 + 0.25 * Math.sin(t * 2.1) : 1;
+    if (!nuevo || k > 0.02) { ctx.save(); arco(); ctx.clip(); const lg = ctx.createRadialGradient(x + nichoW / 2, y + nichoH * 0.86, 2, x + nichoW / 2, y + nichoH * 0.86, nichoH * 0.8); lg.addColorStop(0, `rgba(255,130,40,${(0.16 + 0.3 * k) * resp + 0.22 * kh})`); lg.addColorStop(1, 'rgba(255,110,30,0)'); ctx.fillStyle = lg; ctx.fillRect(x, y, nichoW, nichoH); ctx.restore(); }
+    ctx.lineWidth = act ? 2 : 1; ctx.strokeStyle = act ? '#f0c060' : k > 0.3 || kh > 0.3 ? '#c09a58' : '#5e4c30'; arco(); ctx.stroke();
+    if (act && !viejo) brasaCanto(caminoArco(x, y, nichoW, nichoH), t, 0.9);
     rombo2(x + nichoW / 2, y, act ? 5 : 3.5, act ? '#ffb050' : '#8a7046');
     if (nuevo) {
-      const cx = x + nichoW / 2, cy = y + nichoH * 0.5, q2 = nichoH * 0.13; ctx.strokeStyle = k > 0.3 ? '#ffd080' : '#8a7046'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - q2, cy); ctx.lineTo(cx + q2, cy); ctx.moveTo(cx, cy - q2); ctx.lineTo(cx, cy + q2); ctx.stroke();
+      const cx = x + nichoW / 2, cy = y + nichoH * 0.5, q2 = nichoH * 0.13;
+      if (!viejo) { ctx.save(); arco(); ctx.clip(); forjaNueva(cx, cy, y + nichoH * 0.9, nichoW, t, Math.max(k, kh)); ctx.restore(); } ctx.strokeStyle = k > 0.3 ? '#ffd080' : '#8a7046'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - q2, cy); ctx.lineTo(cx + q2, cy); ctx.moveTo(cx, cy - q2); ctx.lineTo(cx, cy + q2); ctx.stroke();
       texto(T('Nuevo héroe', 'New hero').toUpperCase(), cx, y + nichoH - (chico ? 8 : 14), { alin: 'center', tam: chico ? 8 : 10, color: k > 0.3 ? '#ffe0a0' : '#9a8866', fuente: TITULO });
       pant.crear = [cx, galY + nichoH / 2];
       if (enc && E.clicIzq) { accion = 'crear'; Sonido.efecto('click'); }
     } else {
       const h2 = heroes[i], fs = cuadrosHeroe(h2.clase, 'quieto', 'so'), e2 = Math.max(0.6, (nichoH - (chico ? 30 : 44)) / 88);
-      ctx.save(); arco(); ctx.clip(); if (!act) ctx.globalAlpha = 0.62 + 0.38 * k; ctx.imageSmoothingEnabled = false;
-      if (fs.length) dibujar(ctx, fs[Math.floor(t * 6 + i * 2) % fs.length], x + nichoW / 2, y + nichoH - (chico ? 20 : 30), e2); ctx.restore();
+      ctx.save(); arco(); ctx.clip(); if (!act) ctx.globalAlpha = 0.62 + 0.38 * Math.max(k, kh); ctx.imageSmoothingEnabled = false;
+      // con su equipo (el reposo del mundo pintado a la escala de la carta); vivo si es la elegida o la que tiene el ratón
+      if (!viejo) heroeCarta(h2, x + nichoW / 2, y + nichoH - (chico ? 22 : 34), e2 * 84, t, act || kh > 0.2, (act ? 0.22 * resp : 0) + 0.3 * kh, i);
+      else if (fs.length) dibujar(ctx, fs[Math.floor(t * 6 + i * 2) % fs.length], x + nichoW / 2, y + nichoH - (chico ? 20 : 30), e2); ctx.restore();
       texto(h2.nombre.toUpperCase(), x + nichoW / 2, y + nichoH - (chico ? 9 : 15), { alin: 'center', tam: chico ? 9 : 11, color: act ? '#fff0c0' : '#c8b890', fuente: TITULO, max: nichoW - 8 });
       texto(`${T('Nv', 'Lv')} ${h2.nivel}`, x + nichoW / 2, y + nichoH - (chico ? 1 : 4), { alin: 'center', tam: chico ? 8 : 9, color: h2.dificultad ? '#ff9070' : '#8a7a5a', fuente: TITULO });
       pant['heroe' + i] = [x + nichoW / 2, galY + nichoH / 2];

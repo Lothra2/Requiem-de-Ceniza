@@ -68,7 +68,7 @@ function luzFogata(q: Cuadro, x: number, y: number, esc: number, lado: number, p
  * héroe y `esc` los puntos de pantalla por punto del cuadro. Late con la llama (`pul`) y se mece un poco: la lengua de
  * fuego sube y baja y se corre de lado.
  */
-function luzFogataSprite(dx: number, dy: number, esc: number, t: number, pul: number) {
+export function luzFogataSprite(dx: number, dy: number, esc: number, t: number, pul: number) {
   const meceX = Math.sin(t * 5.3) * 1.2 + Math.sin(t * 11.7) * 0.6, meceZ = Math.sin(t * 7.9 + 1) * 1.5;
   const a = (window as any).__luzRet ?? {}; // (las pruebas ajustan al vuelo)
   return {

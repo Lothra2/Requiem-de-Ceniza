@@ -4,6 +4,8 @@
 //   npx tsx juego/herramientas/t1011_atascos_sim.mts [zonas] [semillas]   (DETALLE=1 imprime cada atascado)
 // (entrega 7) No cuenta al que acorta su rodeo entre los cuerpos (`rodean`), al que no tiene rodeo aceptable (`esperan`) ni al que está
 // pegando o en maniobra (`actuan`); SIN_RODEO=1, SIN_TURNO=1 y SIN_ACTUA=1 los vuelven a contar.
+// (entrega 8) `esperaMax`: la espera parada más larga de uno que espera su turno (segundos); `vacio`: cuadros esperando con nadie
+// pegándole al héroe (tiene que dar 0: sin corro no hay turno).
 import { createServer } from 'vite';
 import { fileURLToPath } from 'node:url';
 const nada: any = new Proxy(function () {}, { get: (_t, k) => (k === Symbol.toPrimitive ? () => 0 : nada), apply: () => nada, construct: () => nada });
@@ -15,7 +17,7 @@ const sv = await createServer({ root: raiz, configFile: false, logLevel: 'error'
 const HE = await sv.ssrLoadModule('/src/juego/heroe.ts'), MU = await sv.ssrLoadModule('/src/juego/mundo.ts'), ZO = await sv.ssrLoadModule('/src/mundo/zona.ts'), MO = await sv.ssrLoadModule('/src/datos/monstruos.ts'), AC = await sv.ssrLoadModule('/src/mundo/actos.ts');
 const ZONAS = (process.argv[2] && process.argv[2] !== 'todas' ? process.argv[2].split(',') : Object.values<any>(AC.ZONAS).filter((z) => z.tipo === 'mazmorra' && !z.casa && AC.POBL_ZONA[z.id]).map((z) => z.id));
 const SEM = +(process.argv[3] || 2), DT = 1 / 30;
-const tot = { lugares: 0, perseguian: 0, atascados: 0 };
+const tot: any = { lugares: 0, perseguian: 0, atascados: 0 };
 // lo que le falta caminar hasta el héroe (por el camino de verdad: rodear un muro aleja en línea recta y no es atascarse)
 let zz: any, hh: any;
 // (entrega 7) lo que le falta por el rodeo entre los cuerpos (con las reservas de los demás): el que da la vuelta al corro por el
@@ -45,7 +47,10 @@ for (const zid of ZONAS) for (let s = 0; s < SEM; s++) {
       const m = MU.crearMonstruo(MO.MONSTRUOS[ids[k % ids.length]], 10, mx + 0.5, my + 0.5, 0, 0);
       m.vida = m.vidaMax = 1e7; m.estado = 'perseguir'; m.objetivo = h; m.cd = 999; m.alerta = 0; m.x0 = m.x; m.y0 = m.y; j.monstruos.push(m); puestos.push(m);
     }
-    for (let t = 0; t < 9; t += DT) { if (process.env.TRAZA && t > 8.6) for (const m of puestos) if (Math.abs(m.x0 - +process.env.TRAZA.split(',')[0]) < 0.1 && Math.abs(m.y0 - +process.env.TRAZA.split(',')[1]) < 0.1) console.log(t.toFixed(2), m.x.toFixed(2), m.y.toFixed(2), m.acc, 'cd', m.cd.toFixed(1), 'tCam', m.tCam?.toFixed(2), 'trab', m.trabado, 'cam', JSON.stringify(m.camino), 'pens', m.pensar.toFixed(2), 'cola', m.cola, 'hueco', JSON.stringify(m.hueco), 'rodeo', JSON.stringify(m.rodeo), 'espera', m.espera, 'bc', JSON.stringify(ZO.buscarCamino(z, m.x, m.y, h.x, h.y, 5000)), 'pas', ZO.pasable(z, m.x, m.y), ZO.pasable(z, Math.floor(m.x), Math.floor(m.y)), 'h', h.x, h.y, 'bloq vecinos', [-1, 0, 1].map((dy) => [-2, -1, 0, 1, 2, 3].map((dx) => z.bloq[(Math.floor(m.y) + dy) * W + Math.floor(m.x) + dx]).join('')).join('/')); if (Math.abs(t - 6) < DT / 2) for (const m of puestos) { m.d6 = largo(m); m.r6 = rodeoLargo(j, m); } if (Math.abs(t - 7.5) < DT / 2) for (const m of puestos) { m.d75 = largo(m); m.r75 = rodeoLargo(j, m); } h.vida = h.vidaMax; MU.actualizar(j, DT); }
+    for (let t = 0; t < 9; t += DT) { if (process.env.TRAZA && t > 8.6) for (const m of puestos) if (Math.abs(m.x0 - +process.env.TRAZA.split(',')[0]) < 0.1 && Math.abs(m.y0 - +process.env.TRAZA.split(',')[1]) < 0.1) console.log(t.toFixed(2), m.x.toFixed(2), m.y.toFixed(2), m.acc, 'cd', m.cd.toFixed(1), 'tCam', m.tCam?.toFixed(2), 'trab', m.trabado, 'cam', JSON.stringify(m.camino), 'pens', m.pensar.toFixed(2), 'cola', m.cola, 'hueco', JSON.stringify(m.hueco), 'rodeo', JSON.stringify(m.rodeo), 'espera', m.espera, 'bc', JSON.stringify(ZO.buscarCamino(z, m.x, m.y, h.x, h.y, 5000)), 'pas', ZO.pasable(z, m.x, m.y), ZO.pasable(z, Math.floor(m.x), Math.floor(m.y)), 'h', h.x, h.y, 'bloq vecinos', [-1, 0, 1].map((dy) => [-2, -1, 0, 1, 2, 3].map((dx) => z.bloq[(Math.floor(m.y) + dy) * W + Math.floor(m.x) + dx]).join('')).join('/')); if (Math.abs(t - 6) < DT / 2) for (const m of puestos) { m.d6 = largo(m); m.r6 = rodeoLargo(j, m); } if (t > 6) for (const m of puestos) { const hq = m.hueco ? m.hueco.join() : ''; if (m.huecoVisto !== undefined && hq && hq !== m.huecoVisto) { m.rCambio = rodeoLargo(j, m); m.tCambio = t; } m.huecoVisto = hq; } if (Math.abs(t - 7.5) < DT / 2) for (const m of puestos) { m.d75 = largo(m); m.r75 = rodeoLargo(j, m); } h.vida = h.vidaMax; MU.actualizar(j, DT);
+      // (entrega 8) cuánto espera su turno parado cada uno (la racha más larga) y si espera con el corro vacío (nadie pegándole al
+      //  héroe de los que van por él: eso sería un atasco disfrazado de espera; el que va por Thor espera el corro de Thor)
+      for (const m of puestos) { const q: any = m, ob = m.objetivo; if (ob === h && q.esperoT !== undefined && Math.abs(q.esperoT - j.t) < DT * 1.5 && Math.hypot(m.x - h.x, m.y - h.y) > m.radio + h.radio + 1.2) { q.tEsp = (q.tEsp ?? 0) + DT; tot.esperaMax = Math.max(tot.esperaMax ?? 0, +q.tEsp.toFixed(2)); if (!j.monstruos.some((o: any) => o !== m && !o.muerto && o.objetivo === h && Math.hypot(o.x - h.x, o.y - h.y) <= o.radio + h.radio + 1.0)) tot.vacio = (tot.vacio ?? 0) + 1; } else q.tEsp = 0; } }
     tot.lugares++;
     for (const m of puestos) {
       const dd = Math.hypot(m.x - h.x, m.y - h.y), alcance = m.radio + h.radio + 1.2;
@@ -60,8 +65,9 @@ for (const zid of ZONAS) for (let s = 0; s < SEM; s++) {
       if (turno) { tot.esperan = (tot.esperan ?? 0) + 1; continue; }
       // (entrega 7: si a los 6 s no tenía hueco aceptable estaba esperando su turno; si el hueco se abrió después, se le pide que
       //  avance desde los 7,5 s la mitad, 0,3 (también al que cambió de rodeo a mitad); si recién se abrió en el último segundo y
-      //  medio, sigue contando como que espera)
-      const r9 = rodeoLargo(j, m), rodea = !process.env.SIN_RODEO && ((m.r6 != null && r9 != null && m.r6 - r9 >= 0.6) || (m.r75 != null && ((r9 != null && m.r75 - r9 >= 0.3) || m.d75 - largo(m) >= 0.3)));
+      //  medio, sigue contando como que espera; entrega 8: el que cambió de hueco después de los 6 s, porque el suyo lo tomó otro, tiene
+      //  que haber acortado el rodeo nuevo desde que lo tomó)
+      const r9 = rodeoLargo(j, m), rodea = !process.env.SIN_RODEO && ((m.r6 != null && r9 != null && m.r6 - r9 >= 0.6) || (m.rCambio != null && r9 != null && m.rCambio - r9 >= Math.min(0.6, 0.4 * (9 - m.tCambio))) || (m.r75 != null && ((r9 != null && m.r75 - r9 >= 0.3) || m.d75 - largo(m) >= 0.3)));
       if (!process.env.SIN_TURNO && !process.env.SIN_RODEO && m.r6 == null && m.r75 == null && !rodea && dd > alcance + 0.6 && !cola && m.d6 - largo(m) < 0.6) { tot.esperan = (tot.esperan ?? 0) + 1; continue; }
       if (rodea) tot.rodean = (tot.rodean ?? 0) + 1;
       // (entrega 7: el que al final está pegando o en plena maniobra, con su aviso, está peleando: no se cuenta)

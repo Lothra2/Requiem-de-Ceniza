@@ -43,7 +43,7 @@ def cuadro(id_, v):
     return mascaras[k]
 
 def ancla(o):  # punto de pantalla del ancla (aPant(cx + 0.5, cy + 0.5) sin la cámara)
-    return ((o['cx'] - o['cy']) * 16, (o['cx'] + o['cy'] + 1) * 8)
+    return (int(round((o['cx'] - o['cy']) * 16)), int(round((o['cx'] + o['cy'] + 1) * 8)))  # (entrega 8: las huellas pares van en media celda)
 def huella(o):
     x0 = math.floor(o['cx'] - (o['hw'] - 1) / 2 + 0.5); y0 = math.floor(o['cy'] - (o['hh'] - 1) / 2 + 0.5)
     return x0, x0 + o['hw'] - 1, y0, y0 + o['hh'] - 1

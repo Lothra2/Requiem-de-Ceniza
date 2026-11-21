@@ -21,7 +21,8 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
   6 a 10, exteriores por lugares, salas y cuevas amplias, arenas de jefe, `MAPA_V = 2`). Tanda 2 en marcha: etapa A
   (balance con campamentos, atascos en 0, arenas de jefe pendientes, fotos frescas, pruebas) ya está publicada en main
   (`bb1cbf2`, con la tanda 1); etapa B (menos montado, puertas y cuellos bajo tierra, gore con relato, puesta en escena de jefes, hitos
-  nuevos por acto con los actos 1 y 2 pulidos primero, desvíos y secretos, lugares en el mapa). Auditoría completa en
+  nuevos por acto con los actos 1 y 2 pulidos primero, desvíos y secretos, lugares en el mapa; entregas 3 a 8 abajo, la 8 con
+  los atascos mirados con la cuenta estricta y las minas apuntaladas). Auditoría completa en
   `/tmp/requiem-pruebas/auditoria_mundos/informe.md` (se borra al reiniciar la máquina: lo que importa está aquí).
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
@@ -653,6 +654,101 @@ estaban peladas.
   las fotos se nota sobre todo en el muro de atrás; los marcos del entibado salen menos de lo pensado (2 a 4 por mina: la caja de
   un marco pisa lo que ya había contra la roca y se descarta). La criba de las pruebas de atascos se amplió (rodeo, turno,
   maniobra): está dicho arriba y hay banderas para contar como antes.
+
+## Mundos, entrega 8 (21 nov 2026)
+
+Rick: "deja perfecto bichos y minas, no quiero nada a medias". Dos frentes: comprobar que el 0 de atascos de la entrega 7 no era
+maquillaje de la criba (y arreglar lo que sí era atasco) y dejar las minas apuntaladas de verdad.
+
+- **La criba, mirada con la cuenta estricta** (`SIN_RODEO=1 SIN_TURNO=1 SIN_ACTUA=1` en t1011 y en `_m_atasco3.mts`, que no se
+  sube: es `_m_atasco2` con la espera de cada uno, si esperaba con un hueco libre y con el corro vacío). Con lo de la entrega 7
+  (semilla 101) la estricta daba 3 de 2529: un zombi que rodeó y empezó una maniobra (pelea, está bien), uno que esperaba con el
+  corro lleno (está bien) y **uno real**: en a1_abadia1 caminó 1,5 s en el sitio contra la espalda de otro y después se quedó
+  esperando parado con un hueco libre a 10 casillas de camino. Midiendo la espera aparecieron más: de 110 esperas por corrida,
+  24 tenían hueco libre (hasta 5 s parados), y algunos esperaban con nadie pegándole al héroe.
+- **Atascos reales arreglados** (`avanzar`, `rodeoAceptable`, `corroOcupado` en `juego/mundo.ts`; `__colaE7` vuelve a todo lo de la
+  entrega 7):
+  - **Caminaba en el sitio** contra la espalda del que pegaba (sin rodeo que valiera, "seguía arrimándose" hasta contar como
+    trabado, 1 a 1,5 s): ahora, con un cuerpo pegado delante (`cuerpoDelante` con holgura 0,15) y el corro ocupado, espera mirando
+    al héroe al toque. Y el que tiene un cuerpo delante empieza a rodear desde 5,5 casillas (antes 4,5: a 4,9 empujaba).
+  - **Esperaba con un hueco libre**: el rodeo valía solo hasta 1,6 veces lo que falta más 2,5. Ahora la paciencia (`tEspH`, lo que
+    lleva esperando) estira el rodeo que acepta: desde 1,2 s de espera 8 casillas más por segundo, hasta 18 más, con tope de 16
+    casillas de camino (24 pasados 2,5 s).
+  - **Iba y venía**: al echar a andar por el rodeo largo la paciencia se borraba, en la vuelta siguiente el mismo rodeo ya no
+    valía y se paraba otra vez (a1_guarida, a5_abismo2, a7_islas1). La paciencia ahora se borra al llegar o al dejar de rodear.
+  - **Esperaba con el corro vacío**: sin nadie a tiro de golpe del mismo objetivo no hay turno que esperar (en las islas de
+    a7_islas2 el hueco quedaba fuera de la grilla de `rodeoCuerpos`, y un anillo de los que esperaban a 2 casillas se esperaba a
+    sí mismo): va por el camino de siempre. `corroOcupado` cuenta solo a los que van por el mismo objetivo y están a tiro (radio +
+    radio + 1; el perro o Thor pegados al héroe no son su corro).
+- **t1011 mide la espera** (`esperaMax`: la espera parada más larga de uno que va por el héroe; `vacio`: cuadros esperando sin
+  nadie pegándole al héroe, tiene que dar 0). Ojo: en t1011 nadie pega (`cd` 999) ni muere, así que un corro lleno queda lleno los
+  9 s y el que espera detrás espera hasta el final (5 a 7 s): eso es de la prueba. En el juego entran 2 a 4 a la vez y el resto
+  ronda (`enFrente`, `rondar`), así que la espera parada es para los del frente.
+- **Video de verdad** (`_m_video_camp.cjs <etiqueta> [zonas]`, no se sube; reloj controlado a 25 por segundo, el héroe invulnerable
+  sin pegar contra un muro junto al campamento más grande, `ABIERTO=1` en lo abierto): guarda el mp4 y cada cuerpo cuadro a
+  cuadro, y cuenta los que se deslizan sin andar, tiemblan (el paso se da vuelta 6 veces en un segundo sin ir a ningún lado), se
+  congelan andando o empujan sin avanzar. Videos en `/tmp/requiem-pruebas/e8/video`.
+- **Minas apuntaladas** (`entibar` dentro de `vestirParedes`, azar propio `re`; `__entibadoE7` vuelve al entibado de antes). En la
+  entrega 7 el marco iba después de lo de la pared y de lo suelto, y su caja casi siempre pisaba algo: de 2448 sitios contra la roca
+  1328 se perdían por la caja y 797 por la huella (0 a 9 marcos por mina). Ahora va primero: contra la roca de atrás (norte u
+  oeste) cada 4 a 6 celdas, también en los túneles de 4 a 6 de ancho, y en dos vueltas (la primera solo donde no pisa nada, la
+  segunda donde lo suelto, chico y sin tag, le cede el sitio: lo regado, la vida y lo macabro de 4 celdas o menos). Lo que pesa
+  (tags, cofres, urnas, escenas, relatos, horror, jefe, matanzas, luces, vetas, mineros, vagonetas, escombro, estructura) no cede.
+  La mitad lleva luz (el puntal con farol contra el norte, la cuerda de faroles contra el oeste). Los túneles con vía llevan su
+  marco que cruza sobre los rieles en los tramos rectos que no lo tenían. El marco delante del derrumbe de relleno no se desmonta
+  (`marcoAnteFondo`: el relleno es fondo).
+- **La roca de la mina** (`mazmorra`, `minaRoca`; `__minaObra` vuelve a lo de antes): la mitad de las minas salía con la sillería
+  de obra (`muro_obra`, con sus farolitos verdes) y se leía como mazmorra. Ahora siempre la roca de la galería (`cue_muro`) y uno
+  de cada seis tramos es la veta que se trabajaba (`min_pared_veta`: oro, hierro o la sangre que brilla, con su luz), con azar
+  propio (`rv`). La roca tiene dos celdas de grueso: va con una celda metida en la roca de atrás (así túneles y galerías conservan
+  el ancho del muro de obra; con las dos adentro un túnel quedaba de 3 y un santuario lo cerraba: t370 dio 2 zonas con una sala
+  aislada) y con el centro sin redondear (`poner` lo guardaba una celda más adentro que lo que bloquea y la fila de atrás quedaba
+  libre y encerrada). La pared con veta es muro para `MURO_TAPA` (`desmontarFinal` la sacaba y abría un hueco en la roca). Al pie de la roca va el
+  derrumbe, no el contrafuerte de sillería (`aderezo`).
+- **La vía entra a la galería** (`entrarVias` en `vestirMina`, azar propio `rw`, capa `via`; `__viaCortada` lo apaga): `rieles`
+  tiende la vía solo por los túneles y se cortaba en seco en la boca de cada sala. Ahora sigue una baldosa adentro, gastada o
+  hundida (plana: no estorba la pelea), y lo que se pone después no le cae encima.
+- **Nada flotando ni metido en la roca**: `ponerEn` de `vestirMina` y la pasada de pared en las minas redondeaban el centro de
+  las huellas pares y la pieza quedaba una celda corrida, con media huella sobre la roca (t1033: 63 flotando en las minas, 3
+  semillas); y lo de `vestirMina` exige piso de verdad. Los faroles de la galería (`alumbrarVias`) piden el cuadro de 3 x 3 de
+  delante libre: en la boca de un paso de una celda lo cerraban para la cuenta estricta (el jefe de a4_minas2 quedaba sin camino
+  por celdas libres).
+- **Los nichos secretos de las minas tenían cofre**: el nicho es un tramo sin salida y `rieles` le ponía el fin de vía y
+  `orillaTunel` sus piedras: el cofre no cabía y no salía (6 de 22 en las 4 minas x 3 semillas). Ahora lo de la vía y las piedras
+  del nicho salen antes del cofre: 22 de 22, 158 de 158 nichos con cofre alcanzable en todas las mazmorras (`_m_nichos8.mjs`, no
+  se sube). Ojo: eso son unos 1,3 cofres nobles más por mina, y los cofres sueltos de las minas pasaron de 18 a 24 (hay más sitio
+  contra la roca): el botín de las minas sube un poco.
+- **Faenas y lo suelto** (`vestirMina`): más seguido (faenas 0,6 y a 8 celdas, lo suelto 0,35 a 3 celdas) para no perder
+  densidad al cederle la roca a los marcos.
+- **Medidas, minas** (a1_mina1, a1_mina2, a4_minas1, a4_minas2, 3 semillas; `_m_minas.mjs`, no se sube), antes y ahora por mina:
+  marcos 2,6 a 12, cuerdas de faroles 2,8 a 6, paredes con veta 0 a 11, tramos de vía 7,3 a 11,3, luces 67 a 60 (las de antes
+  eran en buena parte los farolitos verdes de la sillería de obra; ahora son faroles, puntales con farol, cuerdas y la veta de
+  sangre). t1000 (semilla 12345), adornos por pantalla 41, 43, 38 y 44 a 64, 50, 62 y 51; montados 0 a 6 % igual; arena de las
+  minas, media de las 12, 55,2 a 54,5 %. t1033 en las minas: flotando 63 a 0 (la pared con veta cuenta como muro), montados 22 a
+  21 (todos del tesoro del jefe junto a su asiento, como en las demás guaridas). Fotos: `t1021_vistas.cjs` en
+  `/tmp/requiem-pruebas/e8/vistas/{antes,ahora}` y la lámina `python3 juego/herramientas/t1021_lamina.py ahora antes` con
+  `DIR=/tmp/requiem-pruebas/e8/vistas`.
+- **Medidas, bichos**: t1011 normal (`todas 2`), con lo de ahora: 10 corridas, 1 atascado en unos 25 000 casos (a7_islas2: un
+  esqueleto a 3,8 rodeando; no salió en 16 corridas sembradas de esa zona sola), `vacio` 0 (salvo 12 cuadros en una corrida: el
+  corro se vació entre dos vistazos de medio segundo), `esperaMax` 5,9 a 7 s (es el corro lleno de la prueba, ver arriba). Espera
+  con un hueco libre (`_m_atasco3`, 3 semillas): la mediana 1,6 s; de unas 80 esperas con hueco por corrida, 8 a 10 pasan de 3 s
+  (máximo 5,1, con el hueco a más de 20 casillas de camino). Estricta (semilla 101): 3 a 20 a 32 según la corrida; mirando la
+  traza de cada uno (`HIST=1`), todos menos 2 o 3 son "rodea y avanza" (el rodeo se acorta 2 o más pasos en los últimos 3 s), los
+  otros esperan con el corro lleno; ninguno camina en el sitio. La estricta sube porque ahora el que esperaba con un hueco libre va
+  por él dando la vuelta al corro, y esa cuenta no ve los cuerpos. t1011 además cuenta como que rodea al que cambió de hueco
+  después de los 6 s (se lo tomó otro) y acortó el rodeo nuevo. t995 dos tandas 0 y 0 (esperan 1 y 0). Video (`_m_video_camp.cjs`): a1_mina1,
+  a4_minas2, a7_islas2 y en lo abierto a1_paramo y a2_dunas, sin nadie que se deslice, tiemble, se congele andando ni empuje.
+  t1010 (niveles 35 y 50, 3 semillas, contra main): muertes por hora 7,8 a 8,9 y 0 a 0, pociones por 100 bajas 20,2 a 21,9 y
+  8,0 a 6,5, a la vez 5,9 a 6,0 y 4,9 a 4,9 (dentro del ruido).
+- Pruebas: t1000 (todo en su piso: exterior arena 56, obra 54, adornos por pantalla obra 41, montados obra 4), t1001, t1014 (96
+  iguales), t1015 (0 tapados; `t1015_tapados.py` redondea el ancla, las huellas pares de la mina van en media celda), t855 (0 de
+  192), t370 (288, 0 malas), conectividad 20 (1920), t440, t450, t500, t995 (0 y 0). `MAPA_V` sigue en 4: las baldosas no
+  cambian (solo dónde va la roca dentro de las de la mina, y eso no lo guarda la partida). t1000 acepta `BANDERAS=`.
+- Flojo: la cuenta estricta no ve los cuerpos y cuenta como atascado al que da la vuelta al corro: hay que mirar la traza para
+  separarlos (está dicho y hay banderas). Queda 1 atascado cada unas 10 corridas de t1011 que no pude reproducir. El que espera con
+  el hueco a más de 20 casillas de camino sigue esperando hasta 5 s (dar esa vuelta se lee peor). Las minas suben a 50 a 64
+  adornos por pantalla, todo contra la roca y el medio libre; si a Rick le parece mucho, `vestirMina` tiene las dos
+  probabilidades (faenas y suelto) a mano. Los cofres de las minas suben (nichos que ahora salen y más sitio contra la roca).
 
 ## Armas vivas, cofres, poderes y siluetas
 

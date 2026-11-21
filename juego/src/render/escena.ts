@@ -65,7 +65,9 @@ const ES_FUEGO = /fogata|hoguera|brasero|pira|antorcha|fuego|caldero|hogar/;
 import { acc } from '../nucleo/accesible';
 import { empezarRelieve, aplicarLuzGPU, ganchoRelieve, marcarHeroe, desviarRelieve, devolverRelieve, lienzosRelieve, lab } from './luz_gpu';
 import { tramo, cerrarTramos, rend } from '../nucleo/rendimiento';
-import { fijarGanchoRelieve } from '../motor/assets';
+import { fijarGanchoRelieve, relieveDe } from '../motor/assets';
+import { brilloPuas } from './puas';
+import { aperturaRecorte, piezaRecortada, ALTO_PECHO, RX_REC } from './recorte';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
 export const cam = { x: 0, y: 0 };
@@ -169,6 +171,9 @@ export function framesMonstruo(sprite: string, acc: string, dir: string): Cuadro
 
 
 let camAlzada = 0, camJefe = 0, vivasMonstruo = 0;
+/** Los hitos del acto de la zona (una vez por zona: la cámara los mira cada cuadro). */
+const hitosZona = new WeakMap<object, { cx: number; cy: number; id: string; v: string }[]>();
+function hitosDe(z: { objetos: { cx: number; cy: number; id: string; v: string }[] }) { let l = hitosZona.get(z); if (!l) { l = z.objetos.filter((o) => o.id === 'acto_hito'); hitosZona.set(z, l); } return l; }
 /** La forma que se está pintando en el héroe en este cuadro (la lee zancadaDe). */
 let formaVista: Forma | null = null;
 /** (la columna que nace en el héroe se pinta más tenue: ver colDetras) */
@@ -216,6 +221,16 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const sa of z.salidas) if (sa.piezas?.length) {
     const fa = sa.piezas[sa.piezas.length - 1], dy = h.y - fa.cy, dx = Math.abs(h.x - fa.cx);
     if (dy > -2 && dy < 26 && dx < 16) alzar = Math.max(alzar, 240 * Math.min(1, (26 - dy) / 14) * Math.min(1, (16 - dx) / 6));
+  }
+  // (entrega 6) frente a un hito del acto la cámara también sube lo justo para que entre entero en la pantalla, a lo sumo
+  // 150 puntos (el héroe queda en el tercio de abajo, nunca bajo el HUD). Antes el gigante del glaciar, la escalera de los
+  // siete o el campanario se cortaban arriba con el héroe al pie. `__hitoCortado` vuelve a lo de antes
+  if (!(window as any).__hitoCortado) for (const o of hitosDe(z)) {
+    const q = objetoMeta(o.id, o.v)?.f[0]; if (!q) continue;
+    const d = Math.hypot(h.x - o.cx, h.y - o.cy), w = d < 16 ? 1 : d > 26 ? 0 : (26 - d) / 10; if (!w) continue;
+    const ox = (o.cx - o.cy) * 16, hx0 = (h.x - h.y) * 16; if (Math.abs(ox - hx0) > MW / 2 + q.w / 2) continue;
+    const yc = (MH - ALTO_HUD / ZM) / 2, cima = (o.cx + o.cy + 1) * 8 - q.ay - (h.x + h.y) * 8 + yc, tope = Math.min(150, yc * 0.48);
+    if (cima < 12) alzar = Math.max(alzar, Math.min(tope, 12 - cima) * w * w * (3 - 2 * w));
   }
   camAlzada += (alzar - camAlzada) * Math.min(1, dt * 2.5);
   // la cámara sigue al héroe con un resorte corto y se adelanta un poco hacia donde camina (antes iba clavada a él: cada
@@ -392,29 +407,41 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     // a su cara (Rick, 21 nov 2026: "cofres y otros assets como debajo de las paredes"). `__murosEnteros` vuelve a lo de antes
     const tiras = franjasDe(o, meta.plano, q, prof, !!(ciz || cuelga || vivos || esAncla.has(o) || o.dato?.abre !== undefined || (meta.luz && ES_FUEGO.test(o.id)) || pisable(z, o)));
     if (tiras) {
-      let alfa = 1;
+      let alfa = 1, cubre = false;
+      const [hx, hy] = aPant(h.x, h.y);
       if (alto > 60) {
-        const [hx, hy] = aPant(h.x, h.y), lx = hx - (px - q.ax);
+        const lx = hx - (px - q.ax);
         const t = tiras.find((f) => lx >= f.a && lx < f.b);
-        if (t && t.prof > h.x + h.y && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85) alfa = 0.45;
+        if (t && t.prof > h.x + h.y && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85) cubre = true;
       }
+      // (entrega 6) con el héroe detrás se abre una ventana a su alrededor en las franjas que están delante de él (ver recorte.ts)
+      const viejo = (window as any).__alfaViejo, kRec = viejo ? 0 : aperturaRecorte(o, cubre, tiempo);
+      if (viejo && cubre) alfa = 0.45;
+      let recCv: HTMLCanvasElement | null | undefined;
       for (const t of tiras) {
         const sub = { ...q, x: q.x + t.a, w: t.b - t.a, ax: q.ax - t.a } as Cuadro;
         items.push({ prof: t.prof, t: 'objetos', draw: () => {
           const x0 = px - sub.ax; if (x0 + sub.w < 0 || x0 > W || py - q.ay > H || py - q.ay + q.h < 0) return;
           if (alfa < 1) ctx.globalAlpha = alfa;
           const br = q.ay > 200 ? conBruma(q, colorBruma) : null;
-          if (br) ctx.drawImage(br, t.a, 0, t.b - t.a, q.h, Math.round(px - q.ax) + t.a, Math.round(py - q.ay), t.b - t.a, q.h); else dibujar(ctx, sub, px, py);
+          if (kRec > 0.01 && t.prof > h.x + h.y && hx + RX_REC > x0 && hx - RX_REC < x0 + sub.w) {
+            if (recCv === undefined) recCv = piezaRecortada(q, br, px, py, hx, hy - ALTO_PECHO, kRec);
+            if (recCv) { ctx.drawImage(recCv, t.a, 0, t.b - t.a, q.h, Math.round(px - q.ax) + t.a, Math.round(py - q.ay), t.b - t.a, q.h); const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * (1 - 0.5 * kRec); relieveDe(ctx, sub, px, py); ctx.globalAlpha = a0; }
+          } else if (br) ctx.drawImage(br, t.a, 0, t.b - t.a, q.h, Math.round(px - q.ax) + t.a, Math.round(py - q.ay), t.b - t.a, q.h); else dibujar(ctx, sub, px, py);
           if (alfa < 1) ctx.globalAlpha = 1;
         } });
       }
     } else items.push({ prof, t: 'objetos', draw: () => {
       // transparencia si tapa al héroe
-      let alfa = 1;
+      let alfa = 1, cubre = false;
+      const [hx, hy] = aPant(h.x, h.y);
       if (alto > 60) {
-        const [hx, hy] = aPant(h.x, h.y);
-        if (prof > h.x + h.y && hx > px - q.ax && hx < px - q.ax + q.w && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85) alfa = 0.45;
+        if (prof > h.x + h.y && hx > px - q.ax && hx < px - q.ax + q.w && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85) cubre = true;
       }
+      // (entrega 6) antes la pieza entera bajaba a 0,45 y el hito quedaba como un fantasma: ahora solo se abre una ventana
+      // alrededor del héroe (recorte.ts). `__alfaViejo` vuelve a lo de antes
+      const viejo = (window as any).__alfaViejo, kRec = viejo ? 0 : aperturaRecorte(o, cubre, tiempo);
+      if (viejo && cubre) alfa = 0.45;
       // lo alto (más de 200 px sobre el ancla) lleva bruma de altura: perspectiva atmosférica
       const br = q.ay > 200 ? conBruma(q, colorBruma) : null;
       if (alfa < 1) ctx.globalAlpha = alfa;
@@ -424,7 +451,17 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       const PISO_QUIETO = Math.min(26, Math.round(alto * 0.22));
       // fuera de la pantalla no se pinta (con lo que se mece de margen): unas 300 llamadas menos en el páramo
       const mg = Math.abs(ciz) * q.h + 2, x0 = px - q.ax, y0 = py - q.ay;
+      const rec = kRec > 0.01 && !(x0 + q.w + mg < 0 || x0 - mg > W || y0 > H || y0 + q.h < 0) ? piezaRecortada(q, br, px, py, hx, hy - ALTO_PECHO, kRec) : null;
       if (x0 + q.w + mg < 0 || x0 - mg > W || y0 > H || y0 + q.h < 0) { if (!q.img) precargar([q.atlas]); if (lab.on) { relDe(q.atlas + '_n'); relDe(q.atlas + '_h'); } } // (que sigan bajando antes de entrar)
+      else if (rec) {
+        // la pieza con su ventana: lo que se mece, igual que abajo (el pie quieto y lo de arriba cizallado)
+        const X = Math.round(px - q.ax), Y = Math.round(py - q.ay), corte = ciz && !cuelga && alto > PISO_QUIETO + 4 ? q.ay - PISO_QUIETO : 0;
+        if (corte) ctx.drawImage(rec, 0, corte, q.w, q.h - corte, X, Y + corte, q.w, q.h - corte);
+        if (ciz) { ctx.save(); ctx.transform(1, 0, ciz, 1, -ciz * (cuelga ? py - q.ay : corte ? py - PISO_QUIETO : py), 0); }
+        ctx.drawImage(rec, 0, 0, q.w, corte || q.h, X, Y, q.w, corte || q.h);
+        if (ciz) ctx.restore();
+        const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * (1 - 0.5 * kRec); relieveDe(ctx, q, px, py); ctx.globalAlpha = a0;
+      }
       else if (ciz && !cuelga && !br && alto > PISO_QUIETO + 4) {
         const corte = q.ay - PISO_QUIETO; // fila del cuadro donde empieza lo quieto
         const abajo = { ...q, y: q.y + corte, h: q.h - corte, ay: q.ay - corte }, arriba = { ...q, h: corte };
@@ -437,7 +474,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       }
       if (alfa < 1) ctx.globalAlpha = 1;
       // la losa de púas se delata un poco antes de saltar: las puntas de acero destellan de a una (`__puasMudas` lo apaga)
-      if (o.id === 'trampa_puas' && o.v === 'abajo' && !(window as any).__puasMudas) brilloPuas(ctx, px, py, tiempo, o.cx * 7 + o.cy * 13);
+      if (o.id === 'trampa_puas' && o.v === 'abajo' && !(window as any).__puasMudas) ((window as any).__puasViejas ? brilloPuasViejo : brilloPuas)(ctx, px, py, tiempo, o.cx * 7 + o.cy * 13);
       // la luz del cofre que se abre va con el cofre en el orden de fondo: quien esté parado delante la tapa, no al revés
       if (o.dato?.abre !== undefined && j.t - o.dato.abre < 2.6 && /cofre/.test(o.id)) luzCofre(px, py, j.t - o.dato.abre, /ornado|noble|sarcofago|gg/.test(o.id) ? 1.25 : 1, /maldito/.test(o.id) ? '#b060ff' : '#ffc860');
       if (esAncla.has(o)) anclasCuadro.push({ q, br, px, py });
@@ -1024,7 +1061,7 @@ function franjasDe(o: { cx: number; cy: number; hw: number; hh: number }, plano:
 }
 /** El destello de acero de una losa de púas armada: en cada vuelta de unos 2,6 s una punta de la cuadrícula de 4 x 4 se
  *  enciende y se apaga (una cruz de pixel con su centro blanco) y todas llevan un punto de brillo frío que respira. */
-function brilloPuas(c: CanvasRenderingContext2D, px: number, py: number, t: number, sem: number) {
+function brilloPuasViejo(c: CanvasRenderingContext2D, px: number, py: number, t: number, sem: number) {
   const X = Math.round(px), Y = Math.round(py), op = c.globalCompositeOperation;
   c.globalCompositeOperation = 'lighter';
   const resp = 0.16 + 0.1 * Math.sin(t * 1.7 + sem);

@@ -27,8 +27,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
   que Diablo 2 pero original; nada montado, todo con intención; respaldar ramas de trabajo en origin está bien.
 - **Agentes**: nunca con el modelo Fable (Rick, 20 nov 2026). Usar opus o sonnet.
-- **Seguir solo**: hay una tarea programada cada hora ("Seguir la reconstrucción de mundos") que reanuda al agente si el
-  límite de uso lo frena, revisa, publica y avisa. Se borra sola al terminar.
+- **Seguir solo**: la tarea de cada hora se borró el 21 nov al publicar la etapa B (`8f4f242`). Si hace falta otra vez, crear una nueva.
 - **HUD**: publicado (`9be8834`, `bc0a1e1`). Rick aprobó el cinturón partido en dos pares (20 nov). Sutiles
   todavía: ceniza del jefe y grietas de vida baja.
 - **Poderes**: cinco pasadas publicadas. Pendiente: Coro de los sellos (22 a 25 % de blanco por la columna), Puño de dios

@@ -24,6 +24,7 @@ export const barrasVida = { modo: 1 as 0 | 1 | 2 };
 
 interface Estado { k: number; tras: number; trasT: number; golpeT: number; a: number; t: number; off: number; offT: number }
 const estados = new WeakMap<Monstruo, Estado>();
+const medida = { t: -1e9, k: 1 };
 const pendientes: { m: Monstruo; x: number; y: number }[] = [];
 
 /** Lo llama escena.ts al pintar un monstruo o un invocado vivo: dónde queda su cabeza en el mundo visible. */
@@ -68,7 +69,10 @@ export function dibujarBarras(j: Juego) {
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
   let n = 0; const vistas: { id: number; tipo: string; x: number; y: number; w: number; a: number }[] = [];
   // los puntos del aparato por punto CSS (el lienzo puede ir a otra resolución que la página: el teléfono va a 3)
-  const rc = ctx.canvas.getBoundingClientRect(), devCss = rc.width > 0 ? ctx.canvas.width / rc.width : 1;
+  // (se mide una vez por segundo: leer la caja del lienzo en cada cuadro fuerza el diseño de la página)
+  const ahora = performance.now();
+  if (ahora - medida.t > 1000) { const rc = ctx.canvas.getBoundingClientRect(); medida.k = rc.width > 0 ? ctx.canvas.width / rc.width : 1; medida.t = ahora; }
+  const devCss = medida.k;
   const chicas = !!(window as any).__barrasChicas, encimadas = !!(window as any).__barrasEncimadas;
   interface Barra { m: Monstruo; st: Estado; tipo: Tipo; k: number; wu: number; hu: number; bord: number; totW: number; totH: number; X0: number; Y0: number; ay: number }
   const bs: Barra[] = [];

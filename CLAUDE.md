@@ -33,6 +33,8 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Poderes**: cinco pasadas publicadas. Pendiente: Coro de los sellos (22 a 25 % de blanco por la columna), Puño de dios
   lava a blanco, sin sonido de cambio de forma ni de Festín, no se ve el equipo en forma de bestia.
 - **No publicar** nada que no se haya revisado mirando las láminas y corrido las pruebas. Main publica solo al hacer push.
+- **Interfaz pulida** (rama `pulido-ui`, 21 nov 2026): barras de vida legibles y apiladas, letra gótica nueva en todos los
+  menús, la vigilia con boceto y sus arreglos. Ver "Pulido de la interfaz". Flojo: el total de la vigilia sigue en 48 cuadros.
 
 ## Dónde está cada cosa
 
@@ -1218,7 +1220,12 @@ Rick: "Acomodá lo flojo, quiero perfección". Lo flojo de las barras, la letra 
   (el bucle entero respira a 6 por segundo con el pintado más cercano), los impares (12 por segundo) y al final el gesto.
   `__sinBoceto` y `__ordenViejo` (el orden de antes, sin boceto) para medir contra lo mismo; `__vigiliaPedidos()` y
   `__vigilia()` dan `msBoceto`, `ms1`, `msPares`, `msReposo`, `msGesto` y `msTodo`. t1100 acepta `BANDERAS=`.
-  Medidas: ver el informe de la entrega abajo. El total no baja (son los mismos 48 cuadros): baja lo que se espera para ver algo.
+  Medidas (pc 720, K 2,6, en la nube con la máquina cargada por otras sesiones, carga de 6 a 23 en 4 núcleos: el mismo
+  héroe tardó de 38 a 106 s según la corrida): un héroe sin precalentar daba su primer cuadro en 2,5 a 9,6 s y el bucle a 12
+  por segundo recién con los 48 (55 a 100 s); ahora el boceto en 0,8 a 2,4 s (0,8 a 1,4 en 1080 y el teléfono), el primer
+  cuadro de verdad en 2,6 a 11, el bucle a 6 por segundo en 12 a 43 s (19 cuadros de 49) y el reposo entero en 17 a 81. En
+  el lab, un cuadro a K 2,6 cuesta 1,45 s ya caliente y el boceto 0,55 (sin cargar, con 3 obreros: boceto ~1 s, bucle ~10 s,
+  todo ~25 s). El total no baja (son los mismos 48 cuadros): baja lo que se espera para ver algo.
 - **Lo demás de la vigilia** (`ui/vigilia.ts`): el orbe azul junto a la cadera de la arcanista era el **portal azul del
   campamento** del fondo (no estaba horneado: el motor lo pinta limpio); detrás de la vigilia y Opciones ya no se pinta
   (`sinPortal` en `fondoVigilia`, `__portalFondo` lo vuelve a poner), y un velo de noche detrás del héroe lo despega del fondo

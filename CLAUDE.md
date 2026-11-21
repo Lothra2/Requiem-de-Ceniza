@@ -29,7 +29,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Agentes**: nunca con el modelo Fable (Rick, 20 nov 2026). Usar opus o sonnet.
 - **Seguir solo**: la tarea de cada hora se borró el 21 nov al publicar la etapa B (`8f4f242`). Si hace falta otra vez, crear una nueva.
 - **HUD**: publicado (`9be8834`, `bc0a1e1`). Rick aprobó el cinturón partido en dos pares (20 nov). Sexta pasada (rama
-  `pulido-poderes`, 21 nov): grietas de vida baja talladas, ceniza del jefe que se lee y filas del cinturón según el cinto.
+  `pulido-poderes`, 21 nov): grietas de vida baja talladas, ceniza del jefe que se lee y el cinturón siempre de 4 por columna (Rick, la regla por cinto quedó apagada).
 - **Poderes**: seis pasadas (la sexta en `pulido-poderes`, ver "Sexta pasada" en Poderes en vivo): Coro de los sellos y
   Puño de dios bajo 10 % de blanco de día y de noche, sonidos de las formas y del Festín, garras con el color del arma viva.
   Flojo: los sonidos nuevos no los oyó nadie (solo se midieron y se miró el espectrograma).
@@ -1159,7 +1159,8 @@ Rick: "Acomodá lo flojo, quiero perfección." Lo que quedó flojo de la entrega
     columna según el cinto, como en Diablo 2. Los cintos no traen el dato: va por la base (faja de tela 2, cinturón de cuero
     y tahalí 3, de malla, cinto del verdugo y ceñidor de placas 4, otra base 3) y sin cinto 2 (en Diablo 2 es 1: el héroe de
     salida no lleva cinto). Lo que ya está en el cinturón no se toca: si hay más que las filas se ven todas las cuentas
-    (`filasColumna`) y solo no entra más. El tooltip del cinto dice sus filas. `__cinturonViejo` vuelve a 4.
+    (`filasColumna`) y solo no entra más. **Rick lo descartó el 21 nov 2026 ("es Diablo 2 amigo, 4 pociones"): toda columna apila 4,
+    con o sin cinto.** La regla por cinto queda apagada detrás de `__cinturonPorCinto` (también el renglón del tooltip).
   - **Sexta pasada**: las grietas de vida baja se tallan (`grietasHondas`: surco oscuro con labio de luz) antes de sangrar luz y
     no se apagan entre latidos; la ceniza del jefe sube hasta 4 con cresta clara y brasas, más copos y algunos de 2 x 2.
 - **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos

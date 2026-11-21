@@ -60,7 +60,9 @@ export const PILA_BOLSA = 20, PILA_CINTURON = 4;
  * Lo que ya está en el cinturón no se toca nunca: si hay más que las filas, se queda; solo no entra más.
  */
 export const FILAS_CINTO: Record<string, number> = { faja_tela: 2, cinturon_cuero: 3, tahali_cazador: 3, cinturon_malla: 4, cinto_verdugo: 4, cenidor_placas: 4 };
-export function pilaCinturon(h: DatosHeroe): number { const o = (h.equipo as any)?.cinturon as Objeto | undefined; if ((globalThis as any).__cinturonViejo) return PILA_CINTURON; return o ? Math.min(PILA_CINTURON, FILAS_CINTO[o.base] ?? 3) : 2; }
+/** Rick (21 nov 2026): "es Diablo 2 amigo, 4 pociones": toda columna del cinturón apila 4, lleve o no cinto. La regla por cinto
+ * (`FILAS_CINTO`) queda solo para comparar con `__cinturonPorCinto`. */
+export function pilaCinturon(h: DatosHeroe): number { if (!(globalThis as any).__cinturonPorCinto) return PILA_CINTURON; const o = (h.equipo as any)?.cinturon as Objeto | undefined; return o ? Math.min(PILA_CINTURON, FILAS_CINTO[o.base] ?? 3) : 2; }
 export const BOLSA_W = 10, BOLSA_H = 5, BOLSAS = 3;
 
 export function nuevoHeroe(clase: Clase, nombre: string): DatosHeroe {

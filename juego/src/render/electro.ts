@@ -63,9 +63,11 @@ export function tinteElectro(id: number, f: number, ahora: number): [string, num
   const r = azar(Math.floor(ahora * 18) * 977 + id * 31);
   const x = r();
   // la radiografía: casi blanco un instante (quinta pasada: celeste y a 0,4, el Puño de rayo dejaba al blanco en blanco)
-  if (x < 0.12) return (window as any).__blancoViejo ? ['#eef4ff', 0.55 * f] : ['#c4d2ff', 0.4 * f];
+  // (sexta pasada: el titileo va más azul y más bajo; con la luz del rayo encima, el cuerpo sacudido se aclaraba a blanco)
+  const q6 = !(window as any).__blancoQuinta && !(window as any).__blancoViejo;
+  if (x < 0.12) return (window as any).__blancoViejo ? ['#eef4ff', 0.55 * f] : q6 ? ['#9eb2ff', 0.3 * f] : ['#c4d2ff', 0.4 * f];
   if (x < 0.32) return null; // ventana apagada: el chisporroteo corta
-  return ['#a9b8ff', (0.12 + r() * 0.16) * f];
+  return q6 ? ['#7c92ff', (0.1 + r() * 0.12) * f] : ['#a9b8ff', (0.12 + r() * 0.16) * f];
 }
 
 /** Los arcos sobre el cuerpo y las chispas que saltan. (px, py) el ancla en pantalla, esc puntos por punto del dibujo. */
@@ -117,14 +119,18 @@ export function dibujarElectro(ctx: CanvasRenderingContext2D, id: number, q: Cua
   // halo: un punto alrededor de cada punto del arco
   ctx.globalAlpha = 0.28 * f; ctx.fillStyle = '#4a62ff';
   for (let i = 0; i < pts.length; i += 2) ctx.fillRect(ox + Math.round((pts[i] - 1) * esc), oy + Math.round((pts[i + 1] - 1) * esc), s * 3, s * 3);
-  ctx.globalAlpha = 0.55 * f; ctx.fillStyle = '#8fa6ff';
+  // (sexta pasada: el cuerpo del arco y su núcleo tapan, no se suman: sumados sobre el halo y sobre un cuerpo que la luz del
+  // rayo ya aclaraba llegaban a blanco puro, y con cinco golpes seguidos, el Puño de dios, el cuerpo entero quedaba en una
+  // maraña blanca. Azul eléctrico con alma celeste: se lee igual de vivo y el cuerpo se sigue viendo debajo)
+  const q6 = !(window as any).__blancoQuinta; if (q6) ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = (q6 ? 0.75 : 0.55) * f; ctx.fillStyle = q6 ? '#5a74ee' : '#8fa6ff';
   for (let i = 0; i < pts.length; i += 2) ctx.fillRect(ox + Math.round(pts[i] * esc) - (s >> 1), oy + Math.round(pts[i + 1] * esc), s * 2, s);
   // núcleo casi blanco
-  ctx.globalAlpha = 0.95 * f; ctx.fillStyle = '#f2f6ff';
+  ctx.globalAlpha = (q6 ? 0.9 : 0.95) * f; ctx.fillStyle = q6 ? '#bccbff' : '#f2f6ff';
   for (let i = 0; i < pts.length; i += 2) ctx.fillRect(ox + Math.round(pts[i] * esc), oy + Math.round(pts[i + 1] * esc), s, s);
   // chispas sueltas que vuelan desde el borde, con su recorrido dentro de la ventana
   const fr = ahora * 16 - ventana;
-  ctx.fillStyle = '#ffffff';
+  ctx.fillStyle = q6 ? '#d4deff' : '#ffffff';
   for (let i = 0; i < 3 + (alto > 70 ? 3 : 0); i++) {
     const b = borde[Math.floor(r() * borde.length)], bx = b % w, by = (b / w) | 0, vx = (r() - 0.5) * 16, vy = -2 - r() * 8;
     ctx.globalAlpha = (1 - fr) * 0.9 * f;

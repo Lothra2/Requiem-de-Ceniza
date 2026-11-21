@@ -632,7 +632,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // barras de vida de los enemigos (render/barras_vida.ts): encima del mundo y de la luz, debajo de números y frases
   dibujarBarras(j);
   // números de daño (encima de la oscuridad para que se lean)
-  dibujarNumeros(ctx, j.numeros, aPant, TITULO);
+  if (!(window as any).__sinNumeros) dibujarNumeros(ctx, j.numeros, aPant, TITULO); // (`__sinNumeros`: las pruebas que miden el blanco)
   frasesMonstruos();
   // salidas: se leen de lejos. Sin puerta, un umbral de luz (dos pilares y un arco, aro en el piso y motas que suben);
   // con puerta o escalera, el objeto es el marco y lleva solo el aro y las motas. La luz propia que tiñe el piso va en luces.ts.
@@ -909,6 +909,7 @@ function luzCofre(px0: number, py0: number, t: number, k: number, col: string) {
   ctx.restore();
 }
 function dibujarEfecto(e: Efecto, _t: number) {
+  if ((window as any)['__dbg_' + e.id]) return; // DBG
   if (e.id === 'arco_cadena' || sinHorneado(e)) return;
   // (el glifo horneado de la trampa armada: ahora la trampa misma late, render/presencias.ts)
   if (e.id === 'glifo_trampa' && presenciasVivas()) return;
@@ -919,6 +920,8 @@ function dibujarEfecto(e: Efecto, _t: number) {
     // un efecto grande y opaco plantado encima del héroe (una nova de hielo, una polvareda) lo dejaba tapado medio
     // segundo: ese se pinta a media fuerza para que el cuerpo se siga leyendo. Los de luz ya bajan solos
     { const def = efectoPfx(e.id.slice(4)), hj = heroeDibujo; if (def && hj && def.mezcla !== 'aditiva' && def.mezcla !== 'sumar' && def.capa !== 'pantalla' && (def.caja[2] - def.caja[0]) * Math.min(2, def.escala * (e.escala ?? 1)) > 170 && Math.hypot(e.x - hj.x, e.y - hj.y) < 1.4) ctx.globalAlpha *= 0.6; }
+    // (sexta pasada) la carga de rayo del Puño de dios va a media fuerza: su onda y sus rayos ya dicen el golpe
+    if ((e as any).hab === 'puno_dios' && !(window as any).__blancoQuinta) ctx.globalAlpha *= 0.45;
     dibujarPfx(ctx, e.id.slice(4), e.t, px, py - (e.z ?? 0), { dir: e.dir, escala: e.escala }); ctx.globalAlpha = 1; return; }
   const meta = manifiesto().wm?.[e.id];
   const [px, py] = aPant(e.x, e.y);

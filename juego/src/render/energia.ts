@@ -84,7 +84,7 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
     const esc = Math.max(0.5, Math.min(2.4, e.escala ?? 1)), meta = LUZ_EFECTO[e.id] as any;
     // (quinta pasada: el golpe cuerpo a cuerpo de un poder ya revienta con su materia, la onda del puño o la media luna, en
     // poderes_vivos.ts: el estallido de energía va a menos de la mitad. Con todo junto el Puño de rayo dejaba blanco al blanco)
-    const hbE = HAB.get((e as any).hab ?? ''), suave = hbE?.tipo === 'golpe' && !(hbE as any).definitiva && !(window as any).__blancoViejo ? 0.4 : 1;
+    const hbE = HAB.get((e as any).hab ?? ''), suave = hbE?.tipo === 'golpe' && !(hbE as any).definitiva && !(window as any).__blancoViejo ? 0.4 : hbE?.id === 'puno_dios' && !(window as any).__blancoQuinta ? 0.6 : 1; // (sexta pasada: el Puño de dios ya trae su onda)
     estallar(e.x, e.y, e.z ?? 0, colorDe(e.id, meta?.elem), esc * (/meteoro|nova|explosion|estallido|gran_|trueno|castigo|pilar|onda/.test(e.id) ? 1.25 : 0.8), false, suave);
     if (esc >= 1.5 && /meteoro|gran_|sol_negro|edad_hielo|furia|tempestad/.test(e.id)) j.sacudida = Math.max(j.sacudida, 0.35);
   }
@@ -105,8 +105,11 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
     // héroe y a los que tenía al lado casi blancos una décima de segundo)
     const vj = (window as any).__blancoViejo;
     if (oscuro > 0.2) { pantalla = vj ? 0.2 : 0.13; pantallaC = cHab; j.sacudida = Math.max(j.sacudida, 0.55); (j as any).congela = Math.max((j as any).congela ?? 0, 0.07);
-      for (const [r1, d, t0] of [[4.2, 0.6, 0], [6.5, 0.85, -0.08], [9, 1.1, -0.18]] as [number, number, number][]) anillos.push({ x: h.x, y: h.y, t: t0, d, r0: 0.4, r1, c: cHab, g: 3.2, a: vj ? 0.8 : 0.42 });
-      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: vj ? 0.5 : 0.32, tras: true }); /* la definitiva deslumbra un instante detrás del héroe (cuarta pasada: encima lo lavaba a blanco de día) */ estallar(h.x, h.y, 20, cHab, 2.2, true); }
+      // (sexta pasada: los anillos del rayo van de azul hondo: el celeste de siempre, sumado sobre la arena, era blanco)
+      // (y los de la luz de oro viejo: el oro claro de siempre, sumado, quemaba un disco blanco bajo los pies del templario)
+      const q6 = !(window as any).__blancoQuinta, el6 = (hb as any)?.elem, cAn: RGB = q6 && el6 === 'rayo' ? [70, 100, 255] : q6 && el6 === 'luz' ? [190, 120, 30] : cHab;
+      for (const [r1, d, t0] of [[4.2, 0.6, 0], [6.5, 0.85, -0.08], [9, 1.1, -0.18]] as [number, number, number][]) anillos.push({ x: h.x, y: h.y, t: t0, d, r0: 0.4, r1, c: cAn, g: 3.2, a: vj ? 0.8 : 0.42 });
+      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: vj ? 0.5 : 0.32, tras: true }); /* la definitiva deslumbra un instante detrás del héroe (cuarta pasada: encima lo lavaba a blanco de día) */ estallar(h.x, h.y, 20, cAn, 2.2, true); }
     // (quinta pasada: el de la definitiva también va detrás del cuerpo; delante lavaba al héroe a blanco de noche)
     const gp = h.acc === 'atacar' && !vj; // (el golpe de un poder: el fogonazo del héroe a menos de la mitad y detrás)
     flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.14, r: 26, c: cHab, a: gp ? 0.2 : 0.45, tras: (oscuro > 0.2 || gp) && !vj });

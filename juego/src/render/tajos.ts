@@ -48,7 +48,7 @@ export const TAJO: Record<string, EstTajo> = {
   palma_dragon: T('puno', '#6a1606', '#ff7a20', '#fff0b0', 1.2, 8, 0.24, 'fuego'),
   puno_eco: T('puno', '#1a2a74', '#a0c0ff', '#ffffff', 1, 6, 0.3, 'eco'),
   rodilla_volcan: T('puno', '#5a1004', '#ff6010', '#ffe080', 1.15, 8, 0.24, 'fuego'),
-  puno_dios: T('puno', '#2a2a74', '#c8d8ff', '#ffffff', 1.35, 10, 0.3, 'rayo'),
+  puno_dios: T('puno', '#2a2a74', '#c8d8ff', '#b4c6ff', 1.35, 10, 0.3, 'rayo'), // (sexta pasada: el filo celeste, blanco sumado lavaba al blanco)
   // druida: fauces y garras
   mordida_rabiosa: T('mordida', '#3a0a06', '#e8dcc0', '#ffffff', 1, 4, 0.22),
   zarpazo_oso: T('garra', '#2a1a0a', '#c89a5a', '#fff0d0', 1.6, 3, 0.26),

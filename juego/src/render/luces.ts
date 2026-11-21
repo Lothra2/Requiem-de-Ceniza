@@ -185,6 +185,8 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   const L0 = L.length;
   const colH = new Set<string>(); // (la columna del Coro y del Ascenso nace en el héroe: de día su luz lo lavaba a blanco)
   for (const e of j.efectos) {
+    if ((window as any).__dbg_luzEf) break; // DBG
+    if ((e as any).sinLuz) continue; // (los rayitos de la onda del Puño de dios: su luz la da el área, de a veinte encendían los cuerpos)
     const [px, py] = aPant(e.x, e.y);
     if (!dentro(px, py, 300)) continue;
     { const hb = (e as any).hab; if ((hb === 'coro_sellos' || hb === 'ascenso_espiritu') && Math.hypot(e.x - j.heroe.x, e.y - j.heroe.y) < 0.6) { colH.add(idDe(e)); colH.add(idDe(e) + 'b'); } }
@@ -203,10 +205,11 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
       const esc = e.escala ?? 1, c: [number, number, number] = colH.has(idDe(e)) && !(window as any).__blancoViejo ? [255, 196, 100] : ep ? hexRgb(LE.color) : rgbLuz(e.id);
       // (quinta pasada: el golpe cuerpo a cuerpo de un poder alumbra a la mitad: de noche el Puño de rayo dejaba el piso y
       // al blanco casi blancos)
-      const chc = (e as any).chico, gpe = !(window as any).__blancoViejo && GOLPES.has((e as any).hab ?? ''); L.push({ id: idDe(e), x: px, y: py, h: LE.altura * esc + (e.z ?? 0), r: LE.radio * esc * (chc ? 0.35 : 1), c, k: Math.min(1, chc ? k * 0.4 : gpe ? k * 0.5 : k), sinSombra: !LE.sombra, prio: chc ? 2 : LE.prioridad ?? 2 });
+      // (sexta pasada: los rayos del Puño de dios que caen en corro alumbran a media luz y sin destello de pantalla)
+      const chc = (e as any).chico || (e as any).corro, kr = (e as any).chico ? 0.35 : (e as any).corro ? 0.6 : 1, kk = (e as any).chico ? 0.4 : 0.5, gpe = !(window as any).__blancoViejo && (GOLPES.has((e as any).hab ?? '') || ((e as any).hab === 'puno_dios' && !(window as any).__blancoQuinta)); L.push({ id: idDe(e), x: px, y: py, h: LE.altura * esc + (e.z ?? 0), r: LE.radio * esc * kr, c, k: Math.min(1, chc ? k * kk : gpe ? k * 0.5 : k), sinSombra: !LE.sombra, prio: chc ? 2 : LE.prioridad ?? 2 });
       // (la columna que nace en el héroe no da el destello de pantalla: de noche lavaba todo a blanco, quinta pasada)
       if ((LE.prioridad ?? 2) === 0 && !chc && !gpe && (!colH.has(idDe(e)) || (window as any).__blancoViejo)) { const f = k * Math.min(1, esc); if (f > fl) { fl = f; flc = c; } }
-      if (e.id === 'arco_cadena' && (e as any).x2 !== undefined) { const [bx, by] = aPant((e as any).x2, (e as any).y2), ch = (e as any).chico; L.push({ id: idDe(e) + 'b', x: (px + bx) / 2, y: (py + by) / 2, h: 34, r: ch ? LE.radio * 0.35 : LE.radio, c, k: Math.min(1, ch ? k * 0.4 : k), prio: ch ? 2 : 0, sinSombra: !LE.sombra }); }
+      if (e.id === 'arco_cadena' && (e as any).x2 !== undefined) { const [bx, by] = aPant((e as any).x2, (e as any).y2); L.push({ id: idDe(e) + 'b', x: (px + bx) / 2, y: (py + by) / 2, h: 34, r: LE.radio * kr, c, k: Math.min(1, chc ? k * kk : k), prio: chc ? 2 : 0, sinSombra: !LE.sombra }); }
       continue;
     }
     const c = COLOR_ELEM[meta?.elem ?? (e.id === 'arco_cadena' ? 'rayo' : 'fisico')] ?? COLOR_ELEM.fisico;
@@ -224,7 +227,9 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   for (const a of j.areas) if (a.retraso <= 0 && a.elem && a.elem !== 'fisico') {
     const [px, py] = aPant(a.x, a.y);
     if (!dentro(px, py, 300)) continue;
-    L.push({ id: idDe(a), x: px, y: py, h: 20, r: a.radio * 32 + 40, c: COLOR_ELEM[a.elem] ?? COLOR_ELEM.fuego, k: 0.6 + Math.sin(t * 11 + a.x) * 0.08 });
+    // (sexta pasada) la onda triple del Puño de dios son tres áreas de rayo de una décima: juntas encendían el sitio a blanco
+    const kp = a.hab === 'puno_dios' && !(window as any).__blancoQuinta ? 0.3 : 1;
+    L.push({ id: idDe(a), x: px, y: py, h: 20, r: a.radio * 32 + 40, c: COLOR_ELEM[a.elem] ?? COLOR_ELEM.fuego, k: (0.6 + Math.sin(t * 11 + a.x) * 0.08) * kp });
   }
   // (tercera pasada) de día la luz de los poderes suma menos: las definitivas (el Coro de los sellos, el Juicio, la
   // Sentencia) encendían a blanco medio campo en las dunas. Las antorchas, el fuego y la lámpara del héroe no cambian
@@ -235,7 +240,9 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   for (const m of [h as any, ...j.monstruos]) {
     const f = m.muerto ? 0 : fuerzaElectro(m, j.t); if (f <= 0) continue;
     const [px, py] = aPant(m.x, m.y); if (!dentro(px, py, 300)) continue;
-    L.push({ id: 'el' + m.id, x: px, y: py, h: 34 * (m.escala ?? 1), r: 80 + 40 * (m.escala ?? 1), c: [150, 170, 255], k: f * (0.16 + 0.22 * R()), de: m, sinSombra: true, prio: 1 });
+    // (sexta pasada: a media luz y más azul; tres cuerpos sacudidos juntos se encendían unos a otros hasta el blanco)
+    const q6 = !(window as any).__blancoQuinta;
+    L.push({ id: 'el' + m.id, x: px, y: py, h: 34 * (m.escala ?? 1), r: 80 + 40 * (m.escala ?? 1), c: q6 ? [110, 135, 255] : [150, 170, 255], k: f * (0.16 + 0.22 * R()) * (q6 ? 0.55 : 1), de: m, sinSombra: true, prio: 1 });
   }
   // Ozmaren arde: una luz naranja que palpita, más fuerte cuando abre el pecho
   for (const m of j.monstruos) {

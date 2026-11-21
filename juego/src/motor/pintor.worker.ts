@@ -4,6 +4,7 @@ import { pintarEscena, aPantalla, fijarCalidad } from '../../../src/engine/gotic
 import { hojaDe } from './hoja';
 import { tinte } from '../../../src/engine/gotico/apariencia';
 import { luzVigilia, conGrano } from './luz_retrato';
+import { intermedio } from './intermedio';
 
 // (luz por GPU: el motor saca también la normal y el alto de cada punto, para reiluminar al héroe con su equipo)
 (globalThis as any).__relieve = true;
@@ -21,8 +22,18 @@ function recortado(r: any, bufs: ArrayBuffer[], extra: Record<string, unknown> =
 }
 
 self.onmessage = (ev: MessageEvent) => {
-  const { id, cuerpo, equipo, acc, dir, cuadros, calidad, base, clave, retrato, fs, desfase, muneco, vigilia } = ev.data;
+  const { id, cuerpo, equipo, acc, dir, cuadros, calidad, base, clave, retrato, fs, desfase, muneco, vigilia, entre } = ev.data;
   try {
+    // el cuadro del medio de la vigilia (motor/intermedio.ts): se arma de sus dos vecinos pintados siguiendo el movimiento
+    // (unos 0,2 s en vez de 1,5); la hoja del arma sale exacta del esqueleto de ese cuadro
+    if (entre) {
+      const t0 = performance.now(), K = entre.K, cu = { ...cuerpo, alto: (cuerpo.alto ?? 1) * K }, f = entre.f;
+      const r = intermedio(entre.a, entre.b, entre.R ?? 3, 'mezcla', entre.S ?? 0.5);
+      const bufs: ArrayBuffer[] = [r.data.buffer as ArrayBuffer]; if (r.rel) bufs.push(r.rel.buffer as ArrayBuffer); if (r.alt) bufs.push(r.alt.buffer as ArrayBuffer);
+      const out = [{ ...r, hoja: hojaDe(esqueleto, aPantalla, cu, equipo, dir, acc, f, filoDe as any), ms: performance.now() - t0, entre: true }];
+      (self as any).postMessage({ id, acc, dir, out, clave }, bufs);
+      return;
+    }
     fijarCalidad(calidad ?? 1);
     tenir(equipo);
     const out: any[] = [];

@@ -32,10 +32,12 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
   `pulido-poderes`, 21 nov): grietas de vida baja talladas, ceniza del jefe que se lee y el cinturón siempre de 4 por columna (Rick, la regla por cinto quedó apagada).
 - **Poderes**: seis pasadas (la sexta en `pulido-poderes`, ver "Sexta pasada" en Poderes en vivo): Coro de los sellos y
   Puño de dios bajo 10 % de blanco de día y de noche, sonidos de las formas y del Festín, garras con el color del arma viva.
-  Flojo: los sonidos nuevos no los oyó nadie (solo se midieron y se miró el espectrograma).
+  Séptima (rama `pulido2`): las formas y el Festín rehechos de verdad (ver "Sonidos de las formas y del Festín"). Flojo: siguen
+  sin oídos humanos, solo WAV, espectrograma y volumen medidos (los WAV quedan para Rick en `/tmp/requiem-pruebas/sonidos`).
 - **No publicar** nada que no se haya revisado mirando las láminas y corrido las pruebas. Main publica solo al hacer push.
 - **Interfaz pulida** (rama `pulido-ui`, 21 nov 2026): barras de vida legibles y apiladas, letra gótica nueva en todos los
-  menús, la vigilia con boceto y sus arreglos. Ver "Pulido de la interfaz". Flojo: el total de la vigilia sigue en 48 cuadros.
+  menús, la vigilia con boceto y sus arreglos. Ver "Pulido de la interfaz". Segunda pasada de la vigilia (`pulido2`): se pintan 24 cuadros y
+  24 se arman (ver "La vigilia, segunda pasada"). Flojo: con la nube cargada por otras sesiones no llega a 15 y 25 s.
 
 ## Dónde está cada cosa
 
@@ -907,6 +909,35 @@ Rick: "Acomodá lo flojo, quiero perfección." Lo que quedó flojo de la entrega
         (sorbo borboteante y latido húmedo a los 0,3 y 0,52 s, con el chorro y el latido del dibujo). Las formas suenan en
         `actualizarHeroe` cuando cambia `h.escala` (cuando se ve el cambio); la forma ya no suena el rugido de jefe al
         empezar a lanzar. `_renderEfecto(id, seg, true)` devuelve las muestras (para el espectrograma).
+      - **Sonidos de las formas y del Festín, séptima pasada** (rama `pulido2`, Rick: "resuelve lo flojo"; los de la sexta eran
+        tonos casi puros con un LFO parejo y sonaban a sintetizador). Todo síntesis propia en `audio/sonido.ts`, sin archivos:
+        - **Aullido** (`aullido`, `vozLobo`): una onda propia con los armónicos de unos pliegues (`ondaDe`, `createPeriodicWave`,
+          el 2.º y el 3.º fuertes), la boca que va de u a o y vuelve a u (`bocaQueCambia`, tres formantes que se deslizan),
+          un poco de la fuente sin filtro para que los armónicos se lean claros, vibrato de unos 5 Hz que entra a los 0,5 s y
+          se corre (otro LFO de 3,3 Hz y `temblor`: ruido marrón muy filtrado, nada parejo), el aliento (rosa en la banda de la
+          boca y el filo del aire, más fuerte al entrar y al morir), la reverberación del bosque (`bosque`: corta, oscura,
+          40 reflejos tempranos de los troncos, la respuesta se arma una vez por contexto) y otro lobo que contesta lejos,
+          más grave y apagado. Curva: 290 Hz, quiebre a 470 en 0,22 s, sube a 565, baja, vuelve y cae a 330 en 2,2 s.
+        - **Oso** (`grunidoOso`): el resoplido de antes, sierra de unos 82 a 118 Hz con sus subarmónicos (la mitad y el tercio),
+          aspereza (la amplitud tiembla a unos 31 Hz que se corren, 19,5 Hz y un temblor de 40 Hz), saturación, la garganta
+          grande (formantes de 230, 520, 980 y 1900 Hz que se abren al rugir), el aire por la misma garganta, el resuello al
+          final y dos golpes de pecho.
+        - **Huesos** (`huesosCambian`): ráfagas de 2 a 5 chasquidos de ruido en banda corta (2 a 9 ms, a 4 a 18 ms uno del otro,
+          con huecos de 25 a 110 ms), el filo de 1 ms, el cuerpo del hueso (un tono que cae en 20 a 40 ms) y dos o tres que
+          revientan más fuerte y más grave (la articulación); el tendón con temblor irregular, algo húmedo y el golpe del pecho.
+        - **Festín**: cuatro tirones de sorbo (rosa por una banda que sube de 380 a 1100 Hz y se angosta), lo líquido grave con
+          los mismos tirones, 18 burbujas (`burbuja`: un tono que sube 1,5 a 2,1 veces mientras se apaga, la resonancia de la
+          burbuja que se cierra), el trago (la garganta que cierra) y el latido lub-dub a los 0,3 y 0,52 s (con el dibujo).
+        - **De vuelta a hombre**: los huesos, lo húmedo, el jadeo que entra (ruido por la boca de a a e) y el gemido grave.
+        - Prueba sin oído: `node juego/herramientas/t1120_sonidos.cjs [ids] <etiqueta>` (`_renderEfecto(id, seg, true, true)`:
+          con la cadena del juego, la reverberación y el compresor y el limitador del maestro; `MODULO=` otra copia del módulo,
+          `SECO=1`, `VECES=`) deja los WAV en `/tmp/requiem-pruebas/sonidos` y `python3 juego/herramientas/t1120_espectro.py
+          <etiqueta>` los espectrogramas (0 a 6 kHz) y, en el aullido, la fundamental encima con sus medidas. Ahora: la
+          fundamental va de 353 a 556 Hz, el vibrato a 4,9 Hz y 31 cents con 23 % de ciclo a ciclo (irregular), los armónicos
+          23 dB sobre el ruido de entre medio (el de antes 478 a 604 Hz, casi sin vibrato que se mida, 2 ciclos). Volumen, la
+          ventana de 100 ms más fuerte con la cadena del juego: lobo -14,2 dB, oso -13,5, Festín -13,7, de vuelta a hombre
+          -17,2, contra el rugido del jefe -14,8, el grito de guerra -15,8 y invocar -11 (antes -16, -15,7, -12,7 y -21,3).
+          `REVERB_EXTRA` del lobo baja de 0,45 a 0,15 (lleva su bosque).
       - **Formas y equipo**: el equipo no se pinta sobre la bestia (el druida se vuelve el animal, como en Diablo 2), pero el
         arma viva sigue: el tajo de la mordida y del zarpazo toma el color de su elemento (`VIVO_FORMA` en tajos.ts,
         `__formaSinVivo`) y el estallido del arma viva ya revienta en el blanco.
@@ -1341,6 +1372,26 @@ Rick: "Acomodá lo flojo, quiero perfección". Lo flojo de las barras, la letra 
   `python3 juego/herramientas/t1102_lamina.py <antes> <ahora>` (`/tmp/requiem-pruebas/gotico/lamina_<vista>.png` y `_cerca`).
   Ojo al medir la vigilia en la nube: con otras sesiones corriendo pruebas la carga pasa de 15 en 4 núcleos y el mismo héroe
   tarda de 38 a 100 s; comparar siempre de a pares alternados (`BANDERAS=__ordenViejo`) y contar cuadros.
+- **La vigilia, segunda pasada** (rama `pulido2`, Rick: "resuelve lo flojo"; el total seguía en los 48 cuadros pintados).
+  Del reposo se pintan solo las **claves**, una cada 3 cuadros (12 de 36, regadas por el bucle), y los 24 de entre medio se
+  **arman** de sus dos claves (`motor/intermedio.ts`, en el obrero: mensaje `entre` de `pintor.worker.ts`, unos 0,2 a 1 s cada
+  uno contra 1,5 a 5 de pintar). Para cada punto busca el corrimiento (hasta 8 puntos entre claves) que mejor casa las dos
+  claves en un parche de 3 x 3 (color, alfa, alto), lo suaviza con una mediana y toma el punto **entero** de una de las dos
+  con un dado fijo (con la clave de después con probabilidad S, la altura entre las dos): nada de promedio, que lavaba el
+  grano y salía blando (se veía en la lámina). El relieve y el alto salen con el mismo corrimiento, la hoja del arma exacta
+  del esqueleto de ese cuadro. Si las claves no casan (`falla` > 0,04) ese cuadro se pinta. **El gesto se pinta entero**:
+  se mueve mucho y entre dos claves que se parecen puede pasar otra cosa (el lab lo mostró en el hachazo del berserker).
+  Lab (`_m_falla_lab.mts`, `_m_falla3.mts`, no se suben): berserker a K 2,6, el armado contra el pintado 8 a 12 de
+  diferencia media, lo mismo que hay entre dos pintados seguidos (es el grano que cambia de cuadro a cuadro); arcanista 3 a
+  5; falla del reposo 0,004 a 0,017. Lado a lado (t1100 `VIDEO=1`, pintado, de a 2 y de a 3, el mismo héroe con el mismo uid)
+  no se distingue. `__sinIntermedios` pinta los 48, `__pasoEntre = 2` una clave cada dos, `__vigiliaPedidos()` da `entre` y
+  `nEntre`. Los obreros de la vigilia suben de 3 a 5 como mucho (núcleos menos uno: en 4 núcleos siguen 3). t1100 ahora fija
+  el uid de cada pieza (el traje sale del uid: dos corridas visten igual), acepta `BANDERAS=__pasoEntre=2` y `PEDIDOS=1`.
+  Medidas (pc 720, en la nube con otras sesiones corriendo pruebas, carga de 5 a 12 en 4 núcleos; cada cuadro tardaba 3,5 a
+  5 s en el obrero contra 1,45 en el lab), bucle entero / todo: antes (`__sinIntermedios`) 36 a 55 s / 44 a 67 s; ahora 18
+  a 29 s / 22 a 45 s (el berserker es el lento: su gesto, con el hacha arriba, cuesta más). pc1080 19 a 24 / 26 a 32, teléfono
+  19 a 21 / 26 a 29. **No llega a 15 y 25 s con esa carga**; sin carga (lab: 1,45 s el cuadro, 3 obreros) la cuenta da unos
+  7 s el bucle y unos 13 s todo. Lo que queda es el gesto (12 cuadros pintados, la mitad del trabajo).
 
 ## La presentación de las clases
 

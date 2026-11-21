@@ -385,7 +385,29 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
         ciz -= (dx - dy >= 0 ? 1 : -1) * 0.42 * (1 - d2 / 1.7); nDoblan++;
       }
     }
-    items.push({ prof, t: 'objetos', draw: () => {
+    // lo largo (un muro de 5 x 1, una empalizada, un sarcófago de 3) va en franjas de una celda, cada una con la profundidad
+    // de su celda: así lo que está delante de la punta de atrás de un muro ya no queda debajo de él. Antes el muro entero
+    // iba con la profundidad de su punta de adelante y se pintaba encima de los cofres, jergones, braseros y velas pegados
+    // a su cara (Rick, 21 nov 2026: "cofres y otros assets como debajo de las paredes"). `__murosEnteros` vuelve a lo de antes
+    const tiras = franjasDe(o, meta.plano, q, prof, !!(ciz || cuelga || vivos || esAncla.has(o) || o.dato?.abre !== undefined || (meta.luz && ES_FUEGO.test(o.id)) || pisable(z, o)));
+    if (tiras) {
+      let alfa = 1;
+      if (alto > 60) {
+        const [hx, hy] = aPant(h.x, h.y), lx = hx - (px - q.ax);
+        const t = tiras.find((f) => lx >= f.a && lx < f.b);
+        if (t && t.prof > h.x + h.y && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85) alfa = 0.45;
+      }
+      for (const t of tiras) {
+        const sub = { ...q, x: q.x + t.a, w: t.b - t.a, ax: q.ax - t.a } as Cuadro;
+        items.push({ prof: t.prof, t: 'objetos', draw: () => {
+          const x0 = px - sub.ax; if (x0 + sub.w < 0 || x0 > W || py - q.ay > H || py - q.ay + q.h < 0) return;
+          if (alfa < 1) ctx.globalAlpha = alfa;
+          const br = q.ay > 200 ? conBruma(q, colorBruma) : null;
+          if (br) ctx.drawImage(br, t.a, 0, t.b - t.a, q.h, Math.round(px - q.ax) + t.a, Math.round(py - q.ay), t.b - t.a, q.h); else dibujar(ctx, sub, px, py);
+          if (alfa < 1) ctx.globalAlpha = 1;
+        } });
+      }
+    } else items.push({ prof, t: 'objetos', draw: () => {
       // transparencia si tapa al héroe
       let alfa = 1;
       if (alto > 60) {
@@ -413,6 +435,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
         if (ciz) ctx.restore();
       }
       if (alfa < 1) ctx.globalAlpha = 1;
+      // la losa de púas se delata un poco antes de saltar: las puntas de acero destellan de a una (`__puasMudas` lo apaga)
+      if (o.id === 'trampa_puas' && o.v === 'abajo' && !(window as any).__puasMudas) brilloPuas(ctx, px, py, tiempo, o.cx * 7 + o.cy * 13);
       // la luz del cofre que se abre va con el cofre en el orden de fondo: quien esté parado delante la tapa, no al revés
       if (o.dato?.abre !== undefined && j.t - o.dato.abre < 2.6 && /cofre/.test(o.id)) luzCofre(px, py, j.t - o.dato.abre, /ornado|noble|sarcofago|gg/.test(o.id) ? 1.25 : 1, /maldito/.test(o.id) ? '#b060ff' : '#ffc860');
       if (esAncla.has(o)) anclasCuadro.push({ q, br, px, py });
@@ -977,6 +1001,43 @@ function pajaro(x: number, y: number, t: number) {
 // (13 nov: la luz de los personajes ahora sale bien desde el motor; queda un realce suave fuera del pueblo, donde la oscuridad de la zona los apaga)
 const REALCE = { heroe: 0.4, aliado: 0.22, monstruo: 0.22 };
 /** Si un objeto grande (12 casillas o más) se puede pisar por dentro en al menos un tercio de su huella. */
+/**
+ * Las franjas de lo largo: una por celda a lo largo del eje largo, de 16 puntos de ancho (la de cada punta llega al borde del
+ * cuadro, con la sombra), con la profundidad de esa celda como si fuera una pieza de 1 de ancho (un pelo menos, para que lo
+ * que está en la celda de delante gane el empate). Null si no va partido.
+ */
+function franjasDe(o: { cx: number; cy: number; hw: number; hh: number }, plano: unknown, q: Cuadro, prof: number, no: boolean): { a: number; b: number; prof: number }[] | null {
+  const L = Math.max(o.hw, o.hh), C = Math.min(o.hw, o.hh);
+  if (no || plano || L < 3 || C * 2 > L || prof < -1e5 || (window as any).__murosEnteros) return null;
+  const enX = o.hw > o.hh, a0 = enX ? Math.round(o.cx - (o.hw - 1) / 2) : Math.round(o.cy - (o.hh - 1) / 2), out: { a: number; b: number; prof: number }[] = [];
+  for (let k = 0; k < L; k++) {
+    const c = enX ? q.ax + (a0 + k - o.cx) * 16 : q.ax + (o.cy - a0 - k) * 16;
+    const izq = enX ? k === 0 : k === L - 1, der = enX ? k === L - 1 : k === 0;
+    const a = izq ? 0 : Math.max(0, Math.round(c - 8)), b = der ? q.w : Math.min(q.w, Math.round(c + 8));
+    if (b <= a) continue;
+    out.push({ a, b, prof: (enX ? a0 + k + o.cy + (1 + o.hh) / 2 : o.cx + a0 + k + (o.hw + 1) / 2) - 1 - 0.1 });
+  }
+  return out.length > 1 ? out : null;
+}
+/** El destello de acero de una losa de púas armada: en cada vuelta de unos 2,6 s una punta de la cuadrícula de 4 x 4 se
+ *  enciende y se apaga (una cruz de pixel con su centro blanco) y todas llevan un punto de brillo frío que respira. */
+function brilloPuas(c: CanvasRenderingContext2D, px: number, py: number, t: number, sem: number) {
+  const X = Math.round(px), Y = Math.round(py), op = c.globalCompositeOperation;
+  c.globalCompositeOperation = 'lighter';
+  const resp = 0.16 + 0.1 * Math.sin(t * 1.7 + sem);
+  for (let i = 0; i < 4; i++) for (let k = 0; k < 4; k++) {
+    const u = -5.1 + i * 3.4, v = -5.1 + k * 3.4, sx = X + Math.round((u - v) * 1.1), sy = Y + Math.round((u + v) * 0.55) - 1;
+    c.fillStyle = `rgba(170,190,215,${resp})`; c.fillRect(sx, sy, 1, 1);
+  }
+  const ciclo = (t + (sem % 97) * 0.13) / 2.6, f = ciclo - Math.floor(ciclo);
+  if (f < 0.22) {
+    const n = Math.floor(ciclo * 7 + sem) % 16, i = n % 4, k = Math.floor(n / 4), u = -5.1 + i * 3.4, v = -5.1 + k * 3.4;
+    const sx = X + Math.round((u - v) * 1.1), sy = Y + Math.round((u + v) * 0.55) - 1, a = Math.sin((f / 0.22) * Math.PI);
+    c.fillStyle = `rgba(200,220,255,${0.55 * a})`; c.fillRect(sx - 2, sy, 5, 1); c.fillRect(sx, sy - 2, 1, 5);
+    c.fillStyle = `rgba(255,255,255,${0.9 * a})`; c.fillRect(sx, sy, 1, 1);
+  }
+  c.globalCompositeOperation = op;
+}
 function pisable(z: Juego['zona'], o: { cx: number; cy: number; hw: number; hh: number; _pis?: boolean }): boolean {
   if (o._pis !== undefined) return o._pis;
   let libres = 0, total = 0;

@@ -2260,6 +2260,9 @@ function actualizarHeroe(j: Juego, dt: number) {
 
 function actualizarMonstruo(j: Juego, m: Monstruo, dt: number) {
   m.t += dt; m.destello = Math.max(0, m.destello - dt);
+  // lo que dice se apaga solo, para todos (antes la cuenta bajaba solo en los jefes y después de los return de sus
+  // maniobras: la frase de un jefe de zona o de un campeón quedaba pegada encima de la pelea)
+  if (m.habla) { const o = m as any; o.hablaT = (o.hablaT ?? 0) - dt; if (o.hablaT <= 0 || m.muerto) { m.habla = undefined; o.hablaT = 0; } }
   if (m.muerto) { m.tMuerto += dt; return; }
   if ((m as any).manCd > 0 && !(m as any).man && m.estado === 'perseguir') (m as any).manCd -= dt;
   if ((m.def.jefe || m.calidad >= 3) && (m.acc === 'caminar' || m.acc === 'correr') && (m.escala ?? 1) >= 1.3) {
@@ -2424,7 +2427,6 @@ function actualizarMonstruo2(j: Juego, m: Monstruo, dt: number) {
       // nova al cambiar de fase
       for (let a = 0; a < 12; a++) disparar(j, m, m.x + Math.cos(a * 0.524), m.y + Math.sin(a * 0.524), { min: m.dano[0] * 0.6, max: m.dano[1] * 0.6, elem: m.def.elem ?? 'fuego', deHeroe: false, fuente: m }, efectoProy(m.def.proyectil ?? 'fuego'), 7);
     }
-    if ((m as any).hablaT > 0) (m as any).hablaT -= dt; else m.habla = undefined;
   }
   // los únicos y jefes de mazmorra también se enfurecen: a media vida aceleran y sueltan sus maniobras más seguido
   if (!m.def.jefe && m.calidad >= 2 && m.fase === 0 && m.vida < m.vidaMax * 0.5) {

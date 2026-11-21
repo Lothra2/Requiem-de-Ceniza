@@ -560,9 +560,9 @@ function exterior(def: DefZona, semilla: number): Zona {
     // de cara al borde, el tambor de Yhuantl detrás de 17 celdas de árboles) y el héroe no tenía desde dónde mirarlo entero.
     // La explanada queda reservada como un claro más (nada alto cae ahí). `__hitoViejo` vuelve a lo de antes. Después de los
     // claros no se tira más `rl`, así que esto no mueve ningún otro lugar
-    const viejoH = !!(globalThis as any).__hitoViejo, frente = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6);
-    const frente2 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4);
-    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 12, 6, frente2) ?? elegir(5, 8, 4, frente2)) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
+    const viejoH = !!(globalThis as any).__hitoViejo, frente = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6) && puntos.every(([a, b]) => Math.hypot(a - x - 8, b - y - 8) > 16);
+    const frente2 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4) && puntos.every(([a, b]) => Math.hypot(a - x - 7, b - y - 7) > 12);
+    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 12, 6, frente2) ?? elegir(5, 8, 4, frente2)) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5) ?? elegir(5, 6, 2)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
     for (const l of lugares) { const rr = l.r + 0.5; for (let y = Math.floor(l.cy - rr); y <= l.cy + rr; y++) for (let x = Math.floor(l.cx - rr); x <= l.cx + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - l.cx, y - l.cy) <= rr) z.claros[y * z.W + x] = 1; }
     { const lh = lugares.find((l) => l.papel === 'hito'); if (lh && !viejoH) { const ex = lh.cx + 8, ey = lh.cy + 8, rr = 5.5; for (let y = Math.floor(ey - rr); y <= ey + rr; y++) for (let x = Math.floor(ex - rr); x <= ex + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - ex, y - ey) <= rr) z.claros[y * z.W + x] = 1; } }
   }
@@ -862,6 +862,9 @@ export function conectar(z: Zona) {
   inundar(ent[0], ent[1]);
   const metas: [number, number][] = [...Object.values(z.entradas), ...z.salidas.map((s) => [s.cx, s.cy] as [number, number]), ...z.spawns.filter((s) => s.tipo === 'jefe').map((s) => [s.cx, s.cy] as [number, number]), ...z.marcas.filter((m) => m.tipo === 'viaje' || m.tipo === 'cofre').map((m) => [m.cx, m.cy] as [number, number])];
   let abiertos = 0;
+  // (entrega 6) el hito del acto pesa más que el vacío: el paso lo rodea, o abre una baldosa como último recurso, antes que partirlo (se iba entero en algunas zonas)
+  const hitoCel = new Uint8Array(N);
+  if (!(globalThis as any).__hitoViejo) for (const o of z.objetos) if (o.id === 'acto_hito') { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let yy = Math.max(0, y0); yy < Math.min(H, y0 + o.hh); yy++) for (let xx = Math.max(0, x0); xx < Math.min(W, x0 + o.hw); xx++) hitoCel[yy * W + xx] = 1; }
   const cerca = (x: number, y: number) => { for (let r = 0; r <= 3; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = Math.round(x) + dx, Y = Math.round(y) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && alcanza[Y * W + X]) return true; } return false; };
   for (const [mx, my] of metas) {
     if (cerca(mx, my)) continue;
@@ -877,7 +880,7 @@ export function conectar(z: Zona) {
       if (d > dist[i]) continue;
       if (alcanza[i]) { fin = i; break; }
       const x = i % W, y = (i / W) | 0;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; const b = z.bloq[j]; const nd = d + (b === 2 ? 400 : b === 1 ? 25 : 1); if (nd < dist[j]) { dist[j] = nd; prev[j] = i; cola.push([nd, j]); } }
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; const b = z.bloq[j]; const nd = d + (b === 2 ? 400 : b === 1 ? (hitoCel[j] ? 450 : 25) : 1); if (nd < dist[j]) { dist[j] = nd; prev[j] = i; cola.push([nd, j]); } }
     }
     if (fin < 0) continue;
     // despejar el camino: quitar lo que estorba (salvo salidas y piezas ancla) y abrir ríos

@@ -11,7 +11,7 @@ const ZONAS = (process.argv[3] || 'a1_paramo,a1_bosque,a1_cementerio,a2_dunas,a2
 const PUESTOS = (process.argv[4] || 'frente,izq,der,detras').split(',');
 const DIR = `/tmp/requiem-pruebas/e6/hitos/${et}`; fs.mkdirSync(DIR, { recursive: true });
 (async () => {
-  const { b, p, errs } = await entrar(process.env.VISTA || 'pc', 'berserker', 30, process.env.URL || 'http://127.0.0.1:5196/');
+  const { b, p, errs } = await entrar(process.env.VISTA || 'pc', 'berserker', 30, process.env.URL || 'http://127.0.0.1:5196/', "d.id = 'auditoria1'");
   if (process.env.BANDERAS) await p.evaluate((bs) => { for (const k of bs.split(',')) window[k] = true; }, process.env.BANDERAS);
   await p.evaluate(() => setInterval(() => { const j = window.__juego && window.__juego(); if (j && j.heroe) { j.heroe.vida = j.heroe.vidaMax; for (const m of j.monstruos) if (!m.dueno) { m.estado = 'dormido'; m.vel = 0; m.x = 3; m.y = 3; } } }, 50));
   const malos = [], filas = [];

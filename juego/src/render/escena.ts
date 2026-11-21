@@ -66,6 +66,7 @@ import { acc } from '../nucleo/accesible';
 import { empezarRelieve, aplicarLuzGPU, ganchoRelieve, marcarHeroe, desviarRelieve, devolverRelieve, lienzosRelieve, lab } from './luz_gpu';
 import { tramo, cerrarTramos, rend } from '../nucleo/rendimiento';
 import { fijarGanchoRelieve, relieveDe } from '../motor/assets';
+import { brilloPuas } from './puas';
 import { aperturaRecorte, piezaRecortada, ALTO_PECHO, RX_REC } from './recorte';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
@@ -170,6 +171,9 @@ export function framesMonstruo(sprite: string, acc: string, dir: string): Cuadro
 
 
 let camAlzada = 0, camJefe = 0, vivasMonstruo = 0;
+/** Los hitos del acto de la zona (una vez por zona: la cámara los mira cada cuadro). */
+const hitosZona = new WeakMap<object, { cx: number; cy: number; id: string; v: string }[]>();
+function hitosDe(z: { objetos: { cx: number; cy: number; id: string; v: string }[] }) { let l = hitosZona.get(z); if (!l) { l = z.objetos.filter((o) => o.id === 'acto_hito'); hitosZona.set(z, l); } return l; }
 /** La forma que se está pintando en el héroe en este cuadro (la lee zancadaDe). */
 let formaVista: Forma | null = null;
 /** (la columna que nace en el héroe se pinta más tenue: ver colDetras) */
@@ -217,6 +221,16 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   for (const sa of z.salidas) if (sa.piezas?.length) {
     const fa = sa.piezas[sa.piezas.length - 1], dy = h.y - fa.cy, dx = Math.abs(h.x - fa.cx);
     if (dy > -2 && dy < 26 && dx < 16) alzar = Math.max(alzar, 240 * Math.min(1, (26 - dy) / 14) * Math.min(1, (16 - dx) / 6));
+  }
+  // (entrega 6) frente a un hito del acto la cámara también sube lo justo para que entre entero en la pantalla, a lo sumo
+  // 150 puntos (el héroe queda en el tercio de abajo, nunca bajo el HUD). Antes el gigante del glaciar, la escalera de los
+  // siete o el campanario se cortaban arriba con el héroe al pie. `__hitoCortado` vuelve a lo de antes
+  if (!(window as any).__hitoCortado) for (const o of hitosDe(z)) {
+    const q = objetoMeta(o.id, o.v)?.f[0]; if (!q) continue;
+    const d = Math.hypot(h.x - o.cx, h.y - o.cy), w = d < 16 ? 1 : d > 26 ? 0 : (26 - d) / 10; if (!w) continue;
+    const ox = (o.cx - o.cy) * 16, hx0 = (h.x - h.y) * 16; if (Math.abs(ox - hx0) > MW / 2 + q.w / 2) continue;
+    const yc = (MH - ALTO_HUD / ZM) / 2, cima = (o.cx + o.cy + 1) * 8 - q.ay - (h.x + h.y) * 8 + yc, tope = Math.min(150, yc * 0.48);
+    if (cima < 12) alzar = Math.max(alzar, Math.min(tope, 12 - cima) * w * w * (3 - 2 * w));
   }
   camAlzada += (alzar - camAlzada) * Math.min(1, dt * 2.5);
   // la cámara sigue al héroe con un resorte corto y se adelanta un poco hacia donde camina (antes iba clavada a él: cada
@@ -460,7 +474,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       }
       if (alfa < 1) ctx.globalAlpha = 1;
       // la losa de púas se delata un poco antes de saltar: las puntas de acero destellan de a una (`__puasMudas` lo apaga)
-      if (o.id === 'trampa_puas' && o.v === 'abajo' && !(window as any).__puasMudas) brilloPuas(ctx, px, py, tiempo, o.cx * 7 + o.cy * 13);
+      if (o.id === 'trampa_puas' && o.v === 'abajo' && !(window as any).__puasMudas) ((window as any).__puasViejas ? brilloPuasViejo : brilloPuas)(ctx, px, py, tiempo, o.cx * 7 + o.cy * 13);
       // la luz del cofre que se abre va con el cofre en el orden de fondo: quien esté parado delante la tapa, no al revés
       if (o.dato?.abre !== undefined && j.t - o.dato.abre < 2.6 && /cofre/.test(o.id)) luzCofre(px, py, j.t - o.dato.abre, /ornado|noble|sarcofago|gg/.test(o.id) ? 1.25 : 1, /maldito/.test(o.id) ? '#b060ff' : '#ffc860');
       if (esAncla.has(o)) anclasCuadro.push({ q, br, px, py });
@@ -1047,7 +1061,7 @@ function franjasDe(o: { cx: number; cy: number; hw: number; hh: number }, plano:
 }
 /** El destello de acero de una losa de púas armada: en cada vuelta de unos 2,6 s una punta de la cuadrícula de 4 x 4 se
  *  enciende y se apaga (una cruz de pixel con su centro blanco) y todas llevan un punto de brillo frío que respira. */
-function brilloPuas(c: CanvasRenderingContext2D, px: number, py: number, t: number, sem: number) {
+function brilloPuasViejo(c: CanvasRenderingContext2D, px: number, py: number, t: number, sem: number) {
   const X = Math.round(px), Y = Math.round(py), op = c.globalCompositeOperation;
   c.globalCompositeOperation = 'lighter';
   const resp = 0.16 + 0.1 * Math.sin(t * 1.7 + sem);

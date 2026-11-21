@@ -83,17 +83,23 @@ export const medirZona = function (z, mons, vista) {
     spawns: sp, nSpawns: sp.length, nMon, elites, sueltos, mon1000: nMon == null ? null : +(nMon / nAlc * 1000).toFixed(2), pant };
 };
 
+// (entrega 6) lo que una capa de adorno puso es adorno aunque su id diga pared, muro o puerta: las cadenas y los candeleros
+// de pared, las momias de pared, la pared de carne, los santuarios (`com_santuario_` caía por el `rio_` de EST), la puerta del
+// cielo y la reja del riego. Antes no se contaban. Lo que cuelga del muro y su rastro al pie (las cadenas y sus huesos, el
+// candelero y su cera: `vestirParedes`) son una sola pieza a propósito: ese par no cuenta como montado. `MEDIDA_VIEJA=1`
+// vuelve a la cuenta de antes
+const DECO = new Set(process.env.MEDIDA_VIEJA ? [] : ['pared', 'matanza', 'horror', 'relato', 'interactivo', 'riego', 'vida', 'macabro', 'umbral', 'escondido', 'jefe', 'escena', 'refugio', 'pie']);
 export const monton = function (z, man) {
   const W = z.W, H = z.H, N = W * H, tw = z.tw;
   const EST = /muro|pared|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina/;
   const e0 = z.entradas.arriba || Object.values(z.entradas)[0]; const alc = new Uint8Array(N);
   { const i0 = Math.floor(e0[1]) * W + Math.floor(e0[0]); const pila = [i0]; alc[i0] = 1; while (pila.length) { const i = pila.pop(), x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (!alc[j] && !z.bloq[j]) { alc[j] = 1; pila.push(j); } } } }
   const props = [], todos = []; const usos = {};
-  for (const o of z.objetos) { usos[o.id] = (usos[o.id] || 0) + 1; const m = man.o[o.id + '|' + o.v]; if (!m) continue; const f = m.f[0]; const sx = (o.cx - o.cy) * 16, sy = (o.cx + o.cy) * 8; const r = { x0: sx - f[5], y0: sy - f[6], x1: sx - f[5] + f[3], y1: sy - f[6] + f[4], sx, sy, o, plano: !!m.plano, est: EST.test(o.id) || o.capa === 'relleno', a: f[3] * f[4] };
+  for (const o of z.objetos) { usos[o.id] = (usos[o.id] || 0) + 1; const m = man.o[o.id + '|' + o.v]; if (!m) continue; const f = m.f[0]; const sx = (o.cx - o.cy) * 16, sy = (o.cx + o.cy) * 8; const r = { x0: sx - f[5], y0: sy - f[6], x1: sx - f[5] + f[3], y1: sy - f[6] + f[4], sx, sy, o, plano: !!m.plano, est: (EST.test(o.id) && !DECO.has(o.capa)) || o.capa === 'relleno', a: f[3] * f[4] };
     todos.push(r); if (!r.plano && !r.est) props.push(r); }
   // solape: pares de adornos (no planos, no estructura) cuyo rectángulo se pisa 30 % o más del más chico (60 % = montado)
   props.sort((a, b) => a.x0 - b.x0); const sol30 = new Uint8Array(props.length), sol60 = new Uint8Array(props.length); let pares30 = 0, pares60 = 0; const ej = {};
-  for (let i = 0; i < props.length; i++) { const a = props[i]; for (let j = i + 1; j < props.length && props[j].x0 < a.x1; j++) { const b = props[j]; const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); if (ix <= 0 || iy <= 0) continue; const fr = ix * iy / Math.min(a.a, b.a); if (fr >= 0.3) { sol30[i] = sol30[j] = 1; pares30++; } if (fr >= 0.6) { sol60[i] = sol60[j] = 1; pares60++; const k = [a.o.id, b.o.id].sort().join(' + '); ej[k] = (ej[k] || 0) + 1; } } }
+  for (let i = 0; i < props.length; i++) { const a = props[i]; for (let j = i + 1; j < props.length && props[j].x0 < a.x1; j++) { const b = props[j]; const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); if (ix <= 0 || iy <= 0) continue; if (DECO.size && a.o.capa === 'pared' && b.o.capa === 'pared' && (/pared/.test(a.o.id) !== /pared/.test(b.o.id))) continue; const fr = ix * iy / Math.min(a.a, b.a); if (fr >= 0.3) { sol30[i] = sol30[j] = 1; pares30++; } if (fr >= 0.6) { sol60[i] = sol60[j] = 1; pares60++; const k = [a.o.id + (process.env.CAPAS ? '(' + a.o.capa + ')' : ''), b.o.id + (process.env.CAPAS ? '(' + b.o.capa + ')' : '')].sort().join(' + '); ej[k] = (ej[k] || 0) + 1; } } }
   const cta = (a) => { let n = 0; for (const v of a) if (v) n++; return n; };
   // huellas pegadas: adornos con otro adorno a menos de 1,5 celdas de borde a borde
   let pegados = 0; { const g = new Map(); const key = (x, y) => (Math.floor(x / 6)) + ',' + (Math.floor(y / 6)); props.forEach((p, i) => { const k = key(p.o.cx, p.o.cy); if (!g.has(k)) g.set(k, []); g.get(k).push(i); });

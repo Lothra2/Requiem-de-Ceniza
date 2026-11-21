@@ -28,6 +28,10 @@ import { HABILIDADES } from '../datos/clases';
 const GOLPES = new Set(HABILIDADES.filter((h) => h.tipo === 'golpe' && !h.definitiva).map((h) => h.id));
 import { nochePfx } from './pfx';
 import { lucesPresencias } from './presencias';
+import { luzPuas } from './puas';
+/** Las losas de púas de la zona (una vez por zona). */
+const puasZona = new WeakMap<object, { cx: number; cy: number; v: string }[]>();
+function trampasPuas(z: { objetos: { id: string; cx: number; cy: number; v: string }[] }) { let l = puasZona.get(z); if (!l) { l = z.objetos.filter((o) => o.id === 'trampa_puas'); puasZona.set(z, l); } return l; }
 
 export interface Luz {
   /** Punto del piso bajo la luz, en pantalla. */
@@ -128,6 +132,13 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     const c: [number, number, number] = Array.isArray(lc) ? [lc[0], lc[1], lc[2]] : String(lc).includes(',') ? (String(lc).split(',').map(Number) as any) : [255, 150, 60];
     const r = Math.min(260, meta.luz[0] * 1.3) * (0.93 + Math.sin(t * 9 + o.cx) * 0.04 + R() * 0.03);
     L.push({ x: px, y: py, h: Math.max(20, meta.luz[2] * 1.2), r, c, k: 0.9, id: `o${o.cx},${o.cy}` });
+  }
+  // (entrega 6) la losa de púas: su barrido de luz fría (puas.ts), para que se vea venir también en lo oscuro
+  if (!(window as any).__puasMudas && !(window as any).__puasViejas) for (const o of trampasPuas(z)) {
+    if (o.v !== 'abajo') continue;
+    const [px, py] = aPant(o.cx + 0.5, o.cy + 0.5); if (!dentro(px, py, 120)) continue;
+    const lp = luzPuas(t, o.cx * 7 + o.cy * 13);
+    L.push({ id: `p${o.cx},${o.cy}`, x: px, y: py, h: 14, r: lp.r, c: [170, 200, 240], k: lp.k, sinSombra: true });
   }
   // el piso que sigue ardiendo
   for (const l of lucesSuelo(aPant)) if (dentro(l.x, l.y, 200)) L.push(l);

@@ -107,4 +107,10 @@ export const ECOS_FINAL: { mision: string; opcion: number; texto: [string, strin
   { mision: 'm3_tunde', opcion: 0, texto: ['Tunde timonea el barco de Oyá. De noche todavía mira hacia la selva, y a veces algo le contesta.', 'Tunde steers Oya\'s ship. At night he still looks toward the jungle, and sometimes something answers.'] },
   { mision: 'm7_boveda', opcion: 1, texto: ['La estrella que guardaste se apagó la noche en que todo terminó. Mira dice que se cansó de esperar a que la soltaras.', 'The star you kept went out the night it all ended. Mira says it grew tired of waiting for you to let it go.'] },
 ];
+/** Si escuchaste a Vesperio en los cuatro sitios (`v_*` en `FANTASMAS`), su línea va antes de la última del epílogo. Con la
+ *  Brasa bebida la respuesta a su pregunta eres tú. */
+export const ECO_VESPERIO: Record<'destruir' | 'absorber', [string, string]> = {
+  destruir: ['En Santa Oria, de noche, alguien canta bajito en el coro vacío. Las novicias ya no tienen miedo. Dicen que canta para ellas.', 'In Santa Oria, at night, someone sings softly in the empty choir. The novices are no longer afraid. They say he sings for them.'],
+  absorber: ['Algunas noches abres la boca para hablar y te sale una canción que no aprendiste. Ya sabes cuál era la pregunta. La respuesta tiene tu voz.', 'Some nights you open your mouth to speak and a song you never learned comes out. You know now what the question was. The answer has your voice.'],
+};
 export const NOMBRE_DECISION: Record<string, [string, string]> = { vigdis: ['Acto 4: la sangre tibia', 'Act 4: the warm blood'], brasa: ['Acto 5: la Brasa', 'Act 5: the Ember'], corona: ['Acto 7: la Corona', 'Act 7: the Crown'] };

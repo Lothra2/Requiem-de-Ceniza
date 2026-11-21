@@ -1,7 +1,7 @@
 // La historia en juego: estado de las misiones, lo que dice cada uno según lo que pasó, los diarios de los sellos,
 // los fantasmas que repiten su última escena y Vesperio, el heraldo que huye en cada acto hasta la Fragua.
 import { MISIONES, DIARIOS, PAGINAS, FANTASMAS, HERALDO, RESTOS_ACTO, ZONAS, MUSICA_ACTO, POBL_ZONA, DA_MISIONES, daMision, type Mision, type FinalElegido } from '../mundo/actos';
-import { finalPor, type Decisiones, type Final } from '../mundo/decisiones';
+import { finalPor, ECOS_FINAL, ECO_VESPERIO, type Decisiones, type Final } from '../mundo/decisiones';
 import { DIALOGOS, NPCS, type Linea } from '../datos/npcs';
 import { MONSTRUOS, POBLACION } from '../datos/monstruos';
 import { pasable, libreCerca, type ObjZ, type Zona } from '../mundo/zona';
@@ -28,6 +28,8 @@ export interface Historia {
   decisiones?: Record<string, string>;
   /** Restos leídos en las matanzas ('acto:i' de `RESTOS_ACTO`), para el Códice. Campo nuevo y opcional. */
   restos?: string[];
+  /** Fantasmas escuchados enteros (ids de `FANTASMAS`), para el Códice y el epílogo. Campo nuevo y opcional. */
+  fantasmas?: string[];
 }
 export const hist = (d: DatosHeroe) => d as DatosHeroe & Historia;
 export const estadoMision = (d: DatosHeroe, id: string) => d.misiones[id] ?? 0;
@@ -147,9 +149,18 @@ export function leerRestos(d: DatosHeroe, o: ObjZ): { titulo: [string, string]; 
 export const tituloRestos = (acto: number, i: number): [string, string] =>
   i === 3 && acto <= HERALDO.final ? ['Una carta sin mandar', 'An unsent letter'] : i === 3 && acto === 7 ? ['Uno de los siete', 'One of the seven'] : ['Lo que pasó aquí', 'What happened here'];
 
+/** Las líneas del epílogo que salen de lo que hiciste: hasta dos de los encargos y, si escuchaste a Vesperio en los cuatro
+ *  sitios, la suya primero. */
+export function ecosFinal(d: DatosHeroe): [string, string][] {
+  const out = ECOS_FINAL.filter((e) => eleccionDe(d, e.mision) === e.opcion).map((e) => e.texto).slice(0, 2);
+  const oidos = hist(d).fantasmas ?? [], todos = FANTASMAS.filter((f) => f.trasHeraldo).every((f) => oidos.includes(f.id));
+  if (todos && !(globalThis as any).__fantasmasViejos) out.unshift(ECO_VESPERIO[finalDe(d) === 'absorber' ? 'absorber' : 'destruir']);
+  return out;
+}
+
 // ------------------------------------------------------------------ voces que flotan (fantasmas y heraldo)
 export interface Eco { x: number; y: number; txt: [string, string]; t: number; dur: number; color: string; /** Va sobre el héroe y lo sigue (la voz de la Marca). */ sigue?: boolean }
-export interface Fantasma { id: string; sprite: string; texto: [string, string]; x: number; y: number; dir: Dir; estado: 'espera' | 'habla' | 'muere' | 'ido'; t: number }
+export interface Fantasma { id: string; sprite: string; texto: [string, string]; x: number; y: number; dir: Dir; estado: 'espera' | 'habla' | 'muere' | 'ido'; t: number; /** Las líneas que dice, en orden, y cuál va. */ lineas: [string, string][]; i: number; voz: string; luz?: string }
 export const ecos = (j: Juego): Eco[] => ((j as any).ecos ??= []);
 export const fantasmas = (j: Juego): Fantasma[] => (j.zona as any)?.fantasmas ?? [];
 function eco(j: Juego, x: number, y: number, txt: [string, string], dur: number, color: string) { ecos(j).push({ x, y, txt, t: 0, dur, color }); }
@@ -174,10 +185,17 @@ export function historiaEntrar(j: Juego) {
   misionesEntrar(j);
   // fantasmas: uno por zona, en un lugar alejado de la entrada (una vez por zona viva)
   if (!(z as any).fantasmas) {
-    (z as any).fantasmas = FANTASMAS.filter((f) => f.zona === z.id).map((f) => {
-      let x = h.x, y = h.y;
-      for (let k = 0; k < 60; k++) { const a = R() * Math.PI * 2, r = 9 + R() * 9; const px = h.x + Math.cos(a) * r, py = h.y + Math.sin(a) * r; if (pasable(z, px, py)) { x = px; y = py; break; } }
-      return { id: f.id, sprite: f.sprite, texto: f.texto, x, y, dir: dirDe(h.x - x, h.y - y), estado: 'espera', t: 0 } as Fantasma;
+    const viejo = (globalThis as any).__fantasmasViejos;
+    (z as any).fantasmas = FANTASMAS.filter((f) => f.zona === z.id && (viejo ? !f.trasHeraldo : !f.trasHeraldo || hist(d).heraldoMuerto)).map((f) => {
+      let x = h.x, y = h.y, mira: [number, number] | null = null;
+      // (21 nov 2026) Vesperio espera en la explanada del hito, mirándolo de espaldas al héroe que llega; los demás en el desvío
+      // escondido del mundo abierto si lo hay (es un rincón al que se llega a propósito), si no donde caían siempre
+      const hito = (z.lugares ?? []).find((l) => l.papel === 'hito'), desvio = (z.lugares ?? []).find((l) => l.papel === 'desvio');
+      const sitio = viejo ? null : f.junto === 'hito' && hito ? [hito.cx + 5.5, hito.cy + 5.5] : !f.trasHeraldo && desvio ? [desvio.cx + 1, desvio.cy + 1] : null;
+      if (sitio) { const q = libreCerca(z, Math.floor(sitio[0]), Math.floor(sitio[1])); x = q[0] + 0.5; y = q[1] + 0.5; if (f.junto === 'hito' && hito) mira = [hito.cx, hito.cy]; }
+      else for (let k = 0; k < 60; k++) { const a = R() * Math.PI * 2, r = 9 + R() * 9; const px = h.x + Math.cos(a) * r, py = h.y + Math.sin(a) * r; if (pasable(z, px, py)) { x = px; y = py; break; } }
+      return { id: f.id, sprite: f.sprite, texto: f.texto, x, y, dir: mira ? dirDe(mira[0] - x, mira[1] - y) : dirDe(h.x - x, h.y - y), estado: 'espera', t: 0,
+        lineas: [f.texto, ...(viejo ? [] : f.mas ?? [])], i: 0, voz: f.voz ?? '#c8d8f0', luz: f.luz } as Fantasma;
     });
   }
   // Hjaldur sin el calor que le robó Vigdis: llega con un cuarto menos de vida
@@ -211,10 +229,19 @@ export function historiaPaso(j: Juego, dt: number) {
   // fantasmas
   for (const f of fantasmas(j)) {
     f.t += dt;
-    if (f.estado === 'espera' && !h.muerto && dist(f.x, f.y, h.x, h.y) < 5) {
-      f.estado = 'habla'; f.t = 0; f.dir = dirDe(h.x - f.x, h.y - f.y);
-      eco(j, f.x, f.y, f.texto, 5.5, '#c8d8f0'); msg(j, f.texto, '#a8b8d0'); Sonido.susurro();
-    } else if (f.estado === 'habla' && f.t > 5) { f.estado = 'muere'; f.t = 0; }
+    const dh = dist(f.x, f.y, h.x, h.y), cerca = f.lineas.length > 1 ? 6 : 5;
+    const decir = (l: [string, string]) => { const dur = Math.max(5.5, Math.min(8.5, l[j.idi].length / 15)); eco(j, f.x, f.y, l, dur, f.voz); msg(j, l, f.voz === '#c8d8f0' ? '#a8b8d0' : f.voz); Sonido.susurro(); (f as any).dur = dur - 0.4; };
+    if (f.estado === 'espera' && !h.muerto && dh < cerca) {
+      f.estado = 'habla'; f.t = 0; f.i = 0; f.dir = dirDe(h.x - f.x, h.y - f.y); decir(f.lineas[0]);
+    } else if (f.estado === 'habla') {
+      f.dir = dirDe(h.x - f.x, h.y - f.y);
+      // (el que tiene más que decir espera a que vuelvas si te alejas: no habla solo)
+      if (f.lineas.length > 1 && dh > 13) f.t = Math.min(f.t, 0.5);
+      else if (f.t > ((f as any).dur ?? 5)) {
+        if (f.i + 1 < f.lineas.length) { f.i++; f.t = 0; decir(f.lineas[f.i]); }
+        else { f.estado = 'muere'; f.t = 0; const hh = hist(d); (hh.fantasmas ??= []).includes(f.id) || hh.fantasmas.push(f.id); }
+      }
+    }
     else if (f.estado === 'muere' && f.t > 2.2) f.estado = 'ido';
   }
   // el heraldo

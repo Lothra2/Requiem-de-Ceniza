@@ -1715,8 +1715,19 @@ Dónde vive cada hilo nuevo (nada de esto toca la partida salvo `restos`, campo 
   de la última. Solo lee `elecciones`. Auren recuerda el juicio en sus relatos del acto 7 (`DIALOGOS` en `datos/npcs.ts`).
 - El texto de las cinemáticas (`marcoCine` en `menus.ts`) crece hacia arriba: con 3 o 4 renglones se metía en la franja.
 - No se tocó: el orden de las páginas del abad (la partida guarda un contador) ni el tipo de objetivo de ninguna misión. Las
-  ideas sin texto final del informe (epígrafe en la presentación del jefe, bestiario con historia, fantasma de Vesperio en
-  los actos 6 y 7, página del niño de la nieve) siguen pendientes.
+  ideas sin texto final del informe (epígrafe en la presentación del jefe, bestiario con historia, página del niño de la
+  nieve) siguen pendientes. El fantasma de Vesperio está hecho (abajo).
+- **El fantasma de Vesperio** (Rick, 21 nov 2026: "historia épica con sus fantasmas bien"): muere en la Fragua y en los actos 6
+  y 7 espera delante del hito de cuatro mundos (`v_costa`, `v_barrio` en a6_barrio2, `v_cielo`, `v_jardin`, en `FANTASMAS` con
+  `junto: 'hito'` y `trasHeraldo`; reemplaza el `f_jardin` de una línea). No se arrepiente: tiene celos (le preparó la casa al
+  dios y el dios ahora le habla directo al héroe). Paga «la brasa es una pregunta» de Lys («¿quién va a tener sed cuando yo me
+  apague?»: el dios quiere un heredero) y le manda un recado a Auren (el juicio de las cenizas ya contó lo de la canción). Dice
+  de 3 a 4 líneas en violeta, una tras otra, y si te alejas más de 13 casillas espera a que vuelvas; sube ceniza pálida de él.
+  Los demás fantasmas esperan ahora en el desvío del mundo abierto si lo hay. Lo escuchado entero queda en `fantasmas` (campo
+  nuevo y opcional) y en el Códice con todo lo que dijo. Con los cuatro de Vesperio su línea entra al epílogo (`ECO_VESPERIO`
+  en decisiones.ts, otra si bebiste la Brasa; `ecosFinal` en historia.ts, hasta dos de los encargos además). `__fantasmasViejos`
+  vuelve a lo de antes. Prueba: `t961_fantasmas.cjs [pc|movil]` (no sale sin Vesperio muerto, cada uno junto a su hito, espera
+  si te vas, termina, queda anotado y entra al epílogo; `__finalT(s)` pone el epílogo en un segundo, `__ecosFinal()`).
 - Prueba: `node juego/herramientas/t960_historia.cjs [pc|movil]` (clic de verdad en los restos de las Catacumbas, voz de la
   Marca en el Camposanto, Ívola en la Cripta, capturas en `/tmp/requiem-pruebas/historia`).
 

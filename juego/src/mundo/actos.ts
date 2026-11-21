@@ -671,7 +671,20 @@ export const DIARIOS: Record<number, { titulo: [string, string]; paginas: [strin
 
 // ------------------------------------------------------------------ fantasmas que repiten su última escena
 /** Al acercarte, la figura pálida dice sus últimas palabras, repite su muerte y se desvanece. */
-export const FANTASMAS: { id: string; zona: string; sprite: string; texto: [string, string] }[] = [
+export interface DefFantasma {
+  id: string; zona: string; sprite: string; texto: [string, string];
+  /** Lo que sigue diciendo, una línea cada pocos segundos (el primero es `texto`). */
+  mas?: [string, string][];
+  /** Dónde espera: delante del hito del mundo abierto (en su explanada), o donde caiga como siempre. */
+  junto?: 'hito';
+  /** Solo sale si Vesperio ya murió en la Fragua. */
+  trasHeraldo?: boolean;
+  /** El tono de su voz y de su luz (por omisión el azul pálido de los muertos). */
+  voz?: string; luz?: string;
+  /** Su título en el Códice. */
+  titulo?: [string, string];
+}
+export const FANTASMAS: DefFantasma[] = [
   { id: 'f_cementerio', zona: 'a1_cementerio', sprite: 'cultista', texto: ['Cierren las puertas. Algo sube por el pozo y sabe nuestros nombres.', 'Shut the doors. Something is climbing the well and it knows our names.'] },
   { id: 'f_bosque', zona: 'a1_bosque', sprite: 'penitente', texto: ['No fui yo. Fue la campana. Ella me pidió la soga.', 'It was not me. It was the bell. She asked me for the rope.'] },
   { id: 'f_abadia', zona: 'a1_abadia2', sprite: 'monja_hueca', texto: ['Hermano Vesperio, no cantes. Es de noche. Por favor, no cantes.', 'Brother Vesperio, do not sing. It is night. Please, do not sing.'] },
@@ -680,7 +693,27 @@ export const FANTASMAS: { id: string; zona: string; sprite: string; texto: [stri
   { id: 'f_glaciar', zona: 'a4_glaciar', sprite: 'escarchado', texto: ['¿Hijo? ¿Eres tú? Te busqué toda la noche. Ya no siento las manos.', 'Son? Is that you? I searched for you all night. I can no longer feel my hands.'] },
   { id: 'f_llanuras', zona: 'a5_llanuras', sprite: 'caballero_abismo', texto: ['Juramos que no lo despertaríamos. Lo juramos cantando.', 'We swore we would not wake it. We swore it singing.'] },
   { id: 'f_barrio', zona: 'a6_barrio1', sprite: 'ahogado', texto: ['Siéntate, la sopa se enfría. ¿Por qué hay agua en el pan?', 'Sit down, the soup is getting cold. Why is there water in the bread?'] },
-  { id: 'f_jardin', zona: 'a7_jardin', sprite: 'sacerdote_caido', texto: ['Yo también subí, ¿sabes? Antes de cantar de noche. Él me dijo que tenía sed, y yo le creí.', 'I climbed too, you know. Before I sang at night. He told me he was thirsty, and I believed him.'] },
+  // El fantasma de Vesperio en los actos 6 y 7 (Rick, 21 nov 2026: "historia épica con sus fantasmas bien"). Murió en la Fragua
+  // y no se fue: espera delante del hito de cuatro mundos. No se arrepiente. Tiene celos: le preparó la casa entera al dios, y
+  // el dios ahora le habla directo al héroe. Paga dos hilos que estaban sueltos: «la brasa es una pregunta» (Lys) y el juicio de
+  // las cenizas (Auren le enseñó la canción). Escuchar los cuatro deja su línea en el epílogo (`ECO_VESPERIO`).
+  { id: 'v_costa', zona: 'a6_costa', sprite: 'sacerdote_caido', junto: 'hito', trasHeraldo: true, voz: '#e0c8ff', luz: '#b48cff', titulo: ['Vesperio, en la orilla', 'Vesperio, at the shore'],
+    texto: ['Le canté a la brasa un año entero, de noche, con la puerta cerrada. Ahora abro la boca y me sale agua.', 'I sang to the ember for a whole year, at night, behind a locked door. Now I open my mouth and water comes out.'],
+    mas: [['Esa campana sonó mil años para que nadie oyera lo de abajo. Yo la oigo igual. Ya no me tapa nada.', 'That bell rang a thousand years so no one would hear what lies below. I hear it anyway. Nothing covers me now.'],
+      ['Tú lo oyes, ¿verdad? Lo oigo yo también, a través de ti. Como quien oye una fiesta desde la calle, con la cara pegada al vidrio.', 'You hear Him, do you not? I hear Him too, through you. Like someone hearing a feast from the street, with his face pressed to the glass.']] },
+  { id: 'v_barrio', zona: 'a6_barrio2', sprite: 'sacerdote_caido', junto: 'hito', trasHeraldo: true, voz: '#e0c8ff', luz: '#b48cff', titulo: ['Vesperio, entre las campanas', 'Vesperio, among the bells'],
+    texto: ['Nueve campanas enterradas y ninguna me reconoce. Yo era el que mejor cantaba. Pregúntale a cualquiera.', 'Nine buried bells and not one remembers me. I was the best singer. Ask anyone.'],
+    mas: [['Esa voz en tu brazo ya no es la de ella. Ozmaren se calló cuando cayó el último sello. Ahora te habla Él. Directo.', 'That voice in your arm is not hers anymore. Ozmaren fell silent when the last seal broke. Now He speaks to you. Directly.'],
+      ['A mí nunca me habló así. Yo le barrí la casa, le encendí las velas, le abrí las cinco puertas. Y la cena se la sirven a otro.', 'He never spoke to me like that. I swept His house, lit His candles, opened His five doors. And supper is served to someone else.']] },
+  { id: 'v_cielo', zona: 'a7_cielo', sprite: 'sacerdote_caido', junto: 'hito', trasHeraldo: true, voz: '#e0c8ff', luz: '#b48cff', titulo: ['Vesperio, en la escalera', 'Vesperio, on the stair'],
+    texto: ['La noche que la celda amaneció cerrada y vacía, yo estaba aquí. Subí cantando hasta donde se corta la escalera.', 'The night the cell was found locked and empty, I was here. I climbed singing to where the stair breaks off.'],
+    mas: [['Lo oí una sola vez, desde aquí. No dijo mi nombre. Dijo que tenía sed, y que estaba cansado. Yo le creí las dos cosas.', 'I heard Him only once, from here. He did not say my name. He said He was thirsty, and that He was tired. I believed both.'],
+      ['Dile a Auren que canté su parte también. Que la canté bien. Que nunca la canté tan bien como esa noche, sin él.', 'Tell Auren I sang his part too. That I sang it well. That I never sang it as well as that night, without him.']] },
+  { id: 'v_jardin', zona: 'a7_jardin', sprite: 'sacerdote_caido', junto: 'hito', trasHeraldo: true, voz: '#e0c8ff', luz: '#b48cff', titulo: ['Vesperio, ante el cáliz', 'Vesperio, before the chalice'],
+    texto: ['Le dije a Lys que la brasa no era un demonio sino una pregunta. Ella nunca supo cuál. Yo tampoco, hasta ahora.', 'I told Lys the ember was not a demon but a question. She never knew which one. Neither did I, until now.'],
+    mas: [['No es «¿quién me va a dar de beber?». Es «¿quién va a tener sed cuando yo me apague?».', 'It is not "who will give me to drink?". It is "who will thirst when I go out?".'],
+      ['Él no quiere el mundo. Quiere un heredero. Me miró a mí primero. Después te vio a ti, y yo dejé de existir.', 'He does not want the world. He wants an heir. He looked at me first. Then He saw you, and I stopped existing.'],
+      ['Cuando subas, no le tengas miedo. Tenle lástima. Yo ya no puedo.', 'When you climb, do not fear Him. Pity Him. I no longer can.']] },
 ];
 
 // ------------------------------------------------------------------ el heraldo de Ozmaren

@@ -352,6 +352,21 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   pisarlo y el mapa lo marca como lugar visto. Ningún campamento a menos de 16. Azar propio, sin tocar pisos. 18 de 18
   (6 zonas x 3 semillas) con cofre alcanzable (`_m_desvios.mjs`, no se sube). t1000: la arena no se mueve (exterior 57).
   Fotos: `_m_desvio_vista.cjs` (no se sube) en `/tmp/requiem-pruebas/mundos3/desvios`.
+- **Paredes de bajo tierra** (paso 5a de `curarAdornos`, `vestirParedes`, `PARED_TEMA`, `RINCON_OBRA`, `RINCON_CUEVA`,
+  `__sinParedes`): bajo tierra se sentía vacío y el medio de las salas es para pelear, así que se viste el muro de atrás
+  (norte u oeste, el que se ve) y los rincones. Por tema: cadenas, candeleros de pared, hornacinas con velas, placas, frescos,
+  tumbas cavadas, momias, raíces (cripta, catacumbas, abadía), canopos y momias de pie (tumba), algas, nasas y cruces de
+  marinos (catedral ahogada), estandartes y pertrechos (santuario, fortaleza), oro (celestial), runas y reliquias (abismo),
+  cristales y congelados (hielo), puntales y herramientas (mina), huesos y raíces (cueva); en los rincones velas, osarios y
+  telarañas, y al pie de algunas columnas lo mismo. Lo largo usa su variante `_der` contra el muro oeste. Nada bloquea ni
+  ocupa (se pasa por delante, como por delante de una antorcha): la arena no baja. Va solo donde la huella entera toca el
+  muro, con paso delante, fuera de pasillos (ancho 6 o menos), puertas, el medio de las salas y el ruedo del jefe, sin pisar
+  la caja de otro sprite (lo de pared, que no tiene caja, a 2,5 celdas de otro adorno). Capa `pared`: `desmontar` no la muda
+  (la saca si pierde). Azar propio. 17 piezas por mazmorra (`_m_paredes.mjs`, no se sube). t1000 (3 semillas), antes y
+  ahora: obra adornos por pantalla 29 a 35 (p90 40 a 44), cueva 31 a 38 a 40, montados obra 9 a 7 y cueva 8 a 5 a 6, arena
+  igual (obra 56, cueva 40). Ojo: la medida no cuenta como adorno lo que tiene `pared`, `muro` o `nichos` en el id (las
+  cadenas, los candeleros de pared y las momias se ven pero no suman). El tope de `propsPant` de obra en `t1000_pisos.json`
+  pasó de 36 a 46.
 - **Nichos secretos** (`mazmorra`, solo las de obra, `__sinNichos`): una o dos baldosas que se abren en el muro de atrás
   (norte u oeste) de una sala que no es la de entrada ni la del jefe: el muro lo tapa desde el medio y la boca va sin luz.
   Adentro un cofre noble (`escondido`, con su rastro de sangre hacia el centro como los de afuera), huesos y velas. El

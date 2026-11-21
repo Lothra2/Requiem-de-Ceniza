@@ -2473,6 +2473,28 @@ const CAPA_RIEGO = new Set(['riego', 'vida', 'macabro']);
 /** Los guardianes de los cinco sellos (actos 1 a 5): donde pelean va el sello roto y el paso de Vesperio. */
 const MONSTRUOS_JEFE = new Set(['abadesa', 'rey_sin_sombra', 'madre_cienaga', 'rey_escarcha', 'senor_demonio']);
 const CAJAS = CAJAS_SPRITE as unknown as Record<string, [number, number, number, number]>;
+/** Lo que va contra el muro de atrás bajo tierra (5a de `curarAdornos`): 'largo' corre a lo largo del muro (con su variante
+ * `_der` contra el muro oeste), 'suelto' va con su huella pegado al muro. La variante sale al azar de las del catálogo. */
+type FilaPared = [string, 'largo' | 'suelto'];
+const P_NEUTRO: FilaPared[] = [['cri_cadenas_pared', 'largo'], ['cri_candelabro_pared', 'largo'], ['cri_estandarte', 'suelto'], ['cri_candelabro', 'suelto'], ['cri_vasijas', 'suelto'], ['mue_velas', 'suelto'], ['cri_pila_craneos', 'suelto']];
+const P_CRIPTA: FilaPared[] = [['cat2_hornacina_velas', 'largo'], ['cat2_placa_mortuoria', 'largo'], ['cat2_tumba_toba', 'largo'], ['cri_fresco', 'largo'], ['cat2_momias_pared', 'largo'], ['cat2_raices', 'largo'], ['cri_cofres_osarios', 'suelto'], ['cri_lampara_aceite', 'suelto'], ['cri_crucifijo', 'suelto'], ['cat2_huesos_suelo', 'suelto']];
+const PARED_TEMA: Record<string, FilaPared[]> = {
+  obra: P_NEUTRO, cripta: [...P_NEUTRO, ...P_CRIPTA], catacumbas: [...P_NEUTRO, ...P_CRIPTA], abadia: [...P_NEUTRO, ...P_CRIPTA, ['mon_tapiz', 'suelto']],
+  catedral_ahogada: [['cri_cadenas_pared', 'largo'], ['cat2_hornacina_velas', 'largo'], ['cat2_placa_mortuoria', 'largo'], ['cri_fresco', 'largo'], ['ahg_algas_colgantes', 'suelto'], ['ahg_nasa', 'suelto'], ['ahg_barril_marino', 'suelto'], ['ahg_cruz_marinos', 'suelto'], ['cri_vasijas', 'suelto']],
+  tumba: [['cri_cadenas_pared', 'largo'], ['cri_candelabro_pared', 'largo'], ['cat2_momias_pared', 'largo'], ['cat2_tumba_toba', 'largo'], ['cat2_hornacina_velas', 'largo'], ['tum_canopos', 'suelto'], ['cri_vasijas', 'suelto'], ['mue_velas', 'suelto'], ['cri_pila_craneos', 'suelto']],
+  templo: [['cri_cadenas_pared', 'largo'], ['cat2_raices', 'largo'], ['cat2_hornacina_velas', 'largo'], ['cri_vasijas', 'suelto'], ['cri_pila_craneos', 'suelto'], ['mue_velas', 'suelto'], ['tem_pedestal_orbe', 'suelto']],
+  infierno: [['cri_cadenas_pared', 'largo'], ['inf2_estandarte', 'suelto'], ['inf2_craneo', 'suelto'], ['inf_huesos', 'suelto'], ['inf2_ganchos', 'suelto'], ['cri_pila_craneos', 'suelto']],
+  santuario: [['cri_cadenas_pared', 'largo'], ['cri_candelabro_pared', 'largo'], ['for2_estandarte', 'suelto'], ['for2_pertrechos', 'suelto'], ['for_cristales', 'suelto'], ['cri_candelabro', 'suelto']],
+  fortaleza: [['cri_cadenas_pared', 'largo'], ['cri_candelabro_pared', 'largo'], ['for2_estandarte', 'suelto'], ['for2_pertrechos', 'suelto'], ['cri_candelabro', 'suelto']],
+  celestial_interior: [['cel_estandarte', 'suelto'], ['cel_candelabro_oro', 'suelto'], ['cel_anfora_oro', 'suelto'], ['cel_cadena_dorada', 'suelto']],
+  celestial_islas: [['cel_estandarte', 'suelto'], ['cel_candelabro_oro', 'suelto'], ['cel_anfora_oro', 'suelto']],
+  abismo: [['abi_cadena', 'suelto'], ['abi_runa', 'suelto'], ['abi_reliquia', 'suelto'], ['cri_pila_craneos', 'suelto']],
+  hielo: [['cri_cadenas_pared', 'largo'], ['hie_cristales', 'suelto'], ['hie_cuerpo', 'suelto'], ['cat_monton_huesos', 'suelto']],
+  cueva: [['cri_cadenas_pared', 'largo'], ['cat2_raices', 'largo'], ['cat_monton_huesos', 'suelto'], ['cri_vasijas', 'suelto'], ['mue_velas', 'suelto'], ['cat2_huesos_suelo', 'suelto']],
+  mina: [['cue_puntal', 'suelto'], ['min_herramientas', 'suelto'], ['cri_cadenas_pared', 'largo'], ['cat_monton_huesos', 'suelto'], ['mue_velas', 'suelto']],
+};
+const RINCON_OBRA: [string, string][] = [['cem2_velas_tumba', 'derretidas'], ['cem2_velas_tumba', 'en_calavera'], ['cem2_velas_tumba', 'altarcito'], ['cat_monton_huesos', 'de_calaveras'], ['cat_monton_huesos', 'chico'], ['cri_telarana', 'esquina']];
+const RINCON_CUEVA: [string, string][] = [['cat_monton_huesos', 'chico'], ['cem2_velas_tumba', 'derretidas'], ['min_herramientas', 'apoyadas'], ['cri_telarana', 'esquina']];
 const DM_FIJO = /^(arb_macizo|sed_brasa|sed_sello_roto|ves_rastro|acto_hito)$|columna|pilar/;
 function desmontar(z: Zona, quitar: Set<ObjZ>, fijos: Set<ObjZ>, sacar: (o: ObjZ) => void, reubicar: (o: ObjZ, ok: (x: number, y: number) => boolean) => boolean) {
   const peso = (o: ObjZ) => {
@@ -2495,7 +2517,7 @@ function desmontar(z: Zona, quitar: Set<ObjZ>, fijos: Set<ObjZ>, sacar: (o: ObjZ
       // cerraba arena)
       prueba.k = pierde.k; prueba.a = pierde.a;
       const ok = (x: number, y: number) => { caja(prueba, x, y); return L.every((q) => q === pierde || quitar.has(q.o) || pisa(prueba, q) < 0.3); };
-      if ((!pierde.o.bloquea || pierde.o.capa === 'escena') && reubicar(pierde.o, ok)) caja(pierde, pierde.o.cx, pierde.o.cy); else if (pierde.o.capa === 'escena') continue; else sacar(pierde.o);  // (la escena se corre pero no se desarma)
+      if ((!pierde.o.bloquea || pierde.o.capa === 'escena') && pierde.o.capa !== 'pared' && reubicar(pierde.o, ok)) caja(pierde, pierde.o.cx, pierde.o.cy); else if (pierde.o.capa === 'escena') continue; else sacar(pierde.o);  // (la escena se corre pero no se desarma)
       if (pierde === a) break;
     } }
 }
@@ -2835,6 +2857,62 @@ function curarAdornos(z: Zona, def: DefZona) {
     const g = [o]; grupo.set(o, 0);
     for (let i = 0; i < g.length; i++) for (const q of esc) if (!grupo.has(q) && Math.abs(q.cx - g[i].cx) <= 3 && Math.abs(q.cy - g[i].cy) <= 3) { grupo.set(q, 0); g.push(q); }
     if (g.length < 4) for (const q of g) sacar(q);
+  }
+  // 5a. las paredes de bajo tierra con intención (oleada 2, Rick: "bajo tierra se siente vacío", y el medio de las salas es para
+  // pelear). Contra el muro de atrás (norte u oeste, el que se ve) van cadenas, candeleros, hornacinas con velas, placas,
+  // estandartes rotos, tumbas cavadas, raíces que rompen la piedra; en los rincones, osarios y velas; en las cuevas y minas,
+  // puntales, herramientas y huesos. Lo que va pegado al muro no bloquea ni ocupa (se camina por delante, como por delante de
+  // una antorcha): la arena no baja. Nada en pasillos, puertas, el ruedo del jefe ni encima de otro sprite. Azar propio
+  if (def.tipo === 'mazmorra' && !def.casa && !(globalThis as any).__sinParedes) vestirParedes();
+  function vestirParedes() {
+    const t = tematica(def.tema), cueva = !!t.organica, rp = rng(z.semilla * 7349 + 911);
+    const lista = PARED_TEMA[def.tema] ?? (cueva ? PARED_TEMA.cueva : PARED_TEMA.obra), rincon = cueva ? RINCON_CUEVA : RINCON_OBRA;
+    // qué es muro: fuera del piso, roca de la cueva, o una pieza de estructura que bloquea (los muros de obra son objetos)
+    const muro = new Uint8Array(N);
+    for (let i = 0; i < N; i++) { const x = i % W, y = (i - x) / W; if (!piso(x, y) || (z.hueco && z.hueco[i]) || (z.bloq[i] === 2)) muro[i] = 1; }
+    for (const o of z.objetos) { if (quitar.has(o) || !o.bloquea || !CU_ESTRUCTURA.test(o.id)) continue; for (let y = y0De(o); y < y0De(o) + o.hh; y++) for (let x = x0De(o); x < x0De(o) + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) muro[y * W + x] = 1; }
+    const M = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || !!muro[y * W + x];
+    const libreC = (x: number, y: number) => { if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) return false; const i = y * W + x; return z.bloq[i] === 0 && !muro[i] && !bajoPlano[i] && !puerta[i] && !!alcanza[i] && !(z.claros && z.claros[i]); };
+    const cajasHay: [number, number, number, number][] = [];
+    const cajaDe = (id: string, v: string, cx: number, cy: number): [number, number, number, number] | null => { const k = CAJAS[id + '|' + v]; if (!k) return null; const sx = (cx - cy) * 16, sy = (cx + cy) * 8; return [sx - k[2], sy - k[3], sx - k[2] + k[0], sy - k[3] + k[1]]; };
+    for (const o of z.objetos) { if (quitar.has(o) || plano(o.id) || CU_ESTRUCTURA.test(o.id) || o.capa === 'relleno') continue; const c = cajaDe(o.id, o.v ?? '', o.cx, o.cy); if (c) cajasHay.push(c); }
+    const pisaCaja = (c: [number, number, number, number]) => cajasHay.some((q) => { const ix = Math.min(c[2], q[2]) - Math.max(c[0], q[0]), iy = Math.min(c[3], q[3]) - Math.max(c[1], q[1]); return ix > 0 && iy > 0 && (ix * iy) / Math.min((c[2] - c[0]) * (c[3] - c[1]), (q[2] - q[0]) * (q[3] - q[1])) > 0.25; });
+    const puestos: ObjZ[] = [];
+    const lejosDeOtros = (x: number, y: number, rad: number) => puestos.every((q) => Math.hypot(q.cx - x, q.cy - y) >= rad);
+    const poner = (id: string, v: string, cx: number, cy: number, hw: number, hh: number, bloq: boolean): boolean => {
+      // (lo que es de pared no tiene caja en `cajas_sprite.json`: se mira que no haya otro adorno a menos de 2,5 celdas)
+      const c = cajaDe(id, v, cx, cy); if (c ? pisaCaja(c) : z.objetos.some((q) => !quitar.has(q) && !plano(q.id) && !CU_ESTRUCTURA.test(q.id) && q.capa !== 'relleno' && Math.hypot(q.cx - cx, q.cy - cy) < 2.5 + Math.max(hw, hh) / 2)) return false;
+      const o: ObjZ = { id, v, cx, cy, hw, hh, bloquea: bloq, capa: 'pared' }; z.objetos.push(o); if (c) cajasHay.push(c); puestos.push(o); if (bloq) ocupar(o); return true;
+    };
+    const jfP = z.spawns.find((s) => s.tipo === 'jefe');
+    const enRuedo = (x: number, y: number) => !!jfP && Math.hypot(x - jfP.cx, y - jfP.cy) < 12;
+    // los tramos de muro norte (el piso de abajo libre, el muro arriba) y oeste, celda por celda
+    for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) for (const lado of ['n', 'o'] as const) {
+      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6) continue;
+      const atras = lado === 'n' ? M(x, y - 1) : M(x - 1, y); if (!atras) continue;
+      if (rp() > 0.7 || !lejosDeOtros(x, y, cueva ? 4.5 : 3.6)) continue;
+      const [id, modo] = lista[Math.floor(rp() * lista.length)], dd = REGISTRO.find((q) => q.id === id); if (!dd) continue;
+      const vs = dd.variantes.filter((q) => !q.endsWith('_der')), base = vs[Math.floor(rp() * vs.length)];
+      const v = modo === 'largo' && lado === 'o' ? base + '_der' : base; if (!dd.variantes.includes(v)) continue;
+      const [hw, hh] = huellaDe(dd, v); if (modo === 'suelto' && hw * hh > 4) continue;
+      // la huella entera pegada al muro (su fila o columna de atrás toca el muro), libre, con paso delante
+      const x0 = x, y0 = y; let ok = true;
+      for (let yy = y0; yy < y0 + hh && ok; yy++) for (let xx = x0; xx < x0 + hw && ok; xx++) { if (!libreC(xx, yy) || enRuedo(xx, yy)) ok = false; }
+      for (let k = 0; k < (lado === 'n' ? hw : hh) && ok; k++) { const X = lado === 'n' ? x0 + k : x0, Y = lado === 'n' ? y0 : y0 + k; if (!(lado === 'n' ? M(X, Y - 1) : M(X - 1, Y)) || !pasa(lado === 'n' ? (y0 + hh) * W + X : Y * W + x0 + hw)) ok = false; }
+      if (!ok) continue;
+      // (nada de esto bloquea: va contra el muro y se pasa por delante, así la arena no baja)
+      poner(id, v, Math.round(x0 + (hw - 1) / 2), Math.round(y0 + (hh - 1) / 2), hw, hh, false);
+    }
+    // al pie de las columnas de las salas: velas, huesos o telarañas, del lado que se ve (abajo o a la derecha)
+    for (const o of z.objetos.slice()) {
+      if (quitar.has(o) || o.capa === 'pared' || !/columna|pilar/.test(o.id) || rp() > 0.55) continue;
+      for (const [dx, dy] of [[0, 1], [1, 0], [1, 1]]) { const x = Math.round(o.cx + (o.hw / 2 + 0.5) * dx), y = Math.round(o.cy + (o.hh / 2 + 0.5) * dy); if (!libreC(x, y) || enRuedo(x, y) || !lejosDeOtros(x, y, 2.5)) continue; const [id, v] = rincon[Math.floor(rp() * rincon.length)]; if (poner(id, v, x, y, 1, 1, false)) break; }
+    }
+    // los rincones (muro al norte y al oeste): un osario, velas o lo que el tema deja tirado
+    for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+      if (!libreC(x, y) || !libreC(x + 1, y + 1) || enRuedo(x, y) || !M(x, y - 1) || !M(x - 1, y) || rp() > 0.85 || !lejosDeOtros(x, y, 3)) continue;
+      const [id, v] = rincon[Math.floor(rp() * rincon.length)]; poner(id, v, x, y, 1, 1, false);
+    }
   }
   // 5b. nada montado (oleada 2, Rick: "que no quede todo montado"): dos adornos cuyos sprites se pisan en pantalla 55 % o
   // más del más chico se leían como uno encima del otro (la mata detrás del árbol, el escombro sobre el escombro, el cofre

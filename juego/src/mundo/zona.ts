@@ -10,6 +10,7 @@ import { pisosParamo, estadoEn } from '../../../src/engine/gotico/suelo_paramo';
 import { regarDecalsParamo } from '../../../src/engine/gotico/decals_paramo';
 import { rng, clamp } from '../nucleo/azar';
 import CAJAS_SPRITE from './cajas_sprite.json';
+import CAJAS_MURO_J from './cajas_muro.json';
 
 export interface ObjZ { id: string; v: string; cx: number; cy: number; hw: number; hh: number; bloquea: boolean; tag?: string; dato?: any; /** De qué paso de la generación salió (riego, vida, macabro, relleno, escena, horror, jefe...): lo usa `curarAdornos`. No se guarda. */ capa?: string; }
 export interface Salida { cx: number; cy: number; destino: string; entrada: string; nombre: [string, string]; obj?: ObjZ; /** Misión que hay que haber aceptado para pasar (si no, la puerta está sellada). */ sello?: string; /** Misión que, cumplida, deja la pieza herida. */ herida?: string; /** Piezas que cambian de variante con la historia. */ piezas?: ObjZ[] }
@@ -1376,7 +1377,7 @@ const DESVIO: Record<string, FilaDesvio> = {
   a7_jardin: { marca: [['cel_columna_rota', 'entera']], cuello: ['cel_columna_rota', 'partida'], relato: [['cel_estatua_suplica', 'abrazados'], ['cel_brasero_blanco', 'apagado']], borde: [['cel_escombros_marmol', 'monton'], ['cel_columna_rota', 'corta']],
     nombre: ['Los que se abrazaron', 'Those Who Embraced'], texto: ['Llegaron juntos hasta aquí y pidieron juntos. El dios le dio de beber a uno solo.', 'They came this far together and asked together. The god gave only one of them to drink.'] },
 };
-function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number, number][], lugares: Lugar[], centro: [number, number], holgura = false): Desvio | null {
+function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number, number][], lugares: Lugar[], centro: [number, number], holgura = false, floja2 = false): Desvio | null {
   const z = k.z, { W, H, tw, th } = z, rd = rng((sem ^ 0x61d3a7) >>> 0), R = 4;
   const tile = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)];
   const libreEn = (x: number, y: number, r0: number) => { for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) if (dx * dx + dy * dy <= r0 * r0 + 1) { const X = x + dx, Y = y + dy; if (!tile(X, Y) || z.bloq[Y * W + X] || k.reserva[Y * W + X] || z.claros![Y * W + X]) return false; } return true; };
@@ -1386,7 +1387,9 @@ function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number
   for (let i = 0; i < 1500; i++) {
     const x = 6 + Math.floor(rd() * (W - 12)), y = 6 + Math.floor(rd() * (H - 12));
     if (!libreEn(x, y, R)) continue;
-    if (puntos.some(([a, b]) => Math.hypot(a - x, b - y) < (holgura ? 14 : 20)) || lugares.some((l) => Math.hypot(l.cx - x, l.cy - y) < l.r + (holgura ? 7 : 12) + (l.escena === 'jefe' && def.acto >= 3 ? 14 : 0)) || Math.hypot(centro[0] - x, centro[1] - y) < (holgura ? 16 : 26)) continue;
+    // (entrega 5: en los actos 3 a 7 caían pegados a una boca de mina o a una casa, que son grandes y van al norte de su punto:
+    //  ahí la distancia sube a 38 (28 en la vuelta floja y 22 en una tercera, solo si las de antes no dieron) y a las salidas del borde a 26 (14). Los de los actos 1 y 2 quedan como estaban)
+    if (puntos.some(([a, b], i) => Math.hypot(a - x, b - y) < (def.acto < 3 ? (holgura ? 14 : 20) : /abajo|casa/.test(def.salidas[i]?.lado ?? '') ? (floja2 ? 22 : holgura ? 28 : 38) : holgura ? 14 : 26)) || lugares.some((l) => Math.hypot(l.cx - x, l.cy - y) < l.r + (holgura ? 7 : 12) + (l.escena === 'jefe' && def.acto >= 3 ? 14 : 0)) || Math.hypot(centro[0] - x, centro[1] - y) < (holgura ? 16 : 26)) continue;
     // a 12 a 30 del camino más cercano (un sendero que se recorre, no un rincón pegado ni uno perdido)
     let dc = 1e9; for (let yy = y - 32; yy <= y + 32; yy += 2) for (let xx = x - 32; xx <= x + 32; xx += 2) if (xx >= 0 && yy >= 0 && xx < W && yy < H && k.reserva[yy * W + xx]) dc = Math.min(dc, Math.hypot(xx - x, yy - y));
     if (dc < (holgura ? 7 : 10) || dc > (holgura ? 44 : 34)) continue;
@@ -1396,7 +1399,7 @@ function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number
   for (const [cx, cy] of cands.slice(0, 12)) { const d = senderoDesvio(k, def, cx, cy, R, centro, lugares); if (d) return d; }
   // (entrega 4) en los mundos angostos (el Paso del Glaciar) no salía ninguno: una segunda vuelta más floja, solo si la
   // primera no dio (así no mueve los desvíos que ya salían)
-  if (holgura) return null;
+  if (holgura) return floja2 || def.acto < 3 ? null : trazarDesvio(k, def, sem ^ 0x2b, puntos, lugares, centro, true, true);
   return trazarDesvio(k, def, sem ^ 0x2b, puntos, lugares, centro, true);
 }
 function senderoDesvio(k: Constructor, def: DefZona, cx: number, cy: number, R: number, centro: [number, number], lugares: Lugar[]): Desvio | null {
@@ -1971,10 +1974,22 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // en las mazmorras a veces asoman ojos en la oscuridad
   k.regar([{ t: ['misterio' as Tema], p: ['ojos', 'manos', 'espejo', 'libro', 'arbol_rostros'] }], 2 + Math.floor(area / 3000), 1, 1, z.W - 1, z.H - 1, enSuelo);
   // (el cofre del nicho va al final: así no mueve el azar de lo que se pone antes)
+  // (Rick, 21 nov 2026: el cofre del medio del nicho quedaba detrás del muro de la sala de al lado y se leía como un cofre
+  // atravesado por la pared. Ahora va contra la boca, del lado que se ve desde la sala (la cámara mira hacia -x -y: lo que
+  // queda en la línea de la boca se ve entero), con los huesos al fondo, dos velas a los lados de la boca que la marcan
+  // con luz tenue y el rastro de sangre que le pone `curarAdornos`. `__nichoViejo` vuelve al cofre del medio)
+  const nichoViejo = !!(globalThis as any).__nichoViejo;
   for (const [bx, by] of nichos) {
-    const cx = bx * 5 + 2, cy = by * 5 + 2, cap0: string | undefined = k.capa; k.capa = 'escondido';
+    const sur = !!sala[(by + 1) * tw + bx], cap0: string | undefined = k.capa; k.capa = 'escondido';
+    const [cx, cy] = nichoViejo ? [bx * 5 + 2, by * 5 + 2] : sur ? [bx * 5 + 1, by * 5 + 4] : [bx * 5 + 4, by * 5 + 1];
     const o = k.poner('cofre_noble', cx, cy, 'cerrado', false, 'cofre');
-    if (o) { o.dato = { escondido: true }; z.marcas.push({ tipo: 'cofre', cx, cy }); k.poner('cat_monton_huesos', cx - 2, cy + 1, 'de_calaveras'); k.poner('cem2_velas_tumba', cx + 1, cy - 2, 'derretidas'); }
+    if (o && nichoViejo) { o.dato = { escondido: true }; z.marcas.push({ tipo: 'cofre', cx, cy }); k.poner('cat_monton_huesos', cx - 2, cy + 1, 'de_calaveras'); k.poner('cem2_velas_tumba', cx + 1, cy - 2, 'derretidas'); }
+    else if (o) {
+      o.dato = { escondido: true }; z.marcas.push({ tipo: 'cofre', cx, cy });
+      // los huesos y una vela al fondo, las velas de la boca afuera, a los dos lados del hueco
+      if (sur) { k.poner('cat_monton_huesos', bx * 5 + 3, by * 5 + 1, 'de_calaveras'); k.poner('cem2_velas_tumba', bx * 5 + 1, by * 5 + 1, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5, by * 5 + 5, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 4, by * 5 + 5, 'derretidas'); }
+      else { k.poner('cat_monton_huesos', bx * 5 + 1, by * 5 + 3, 'de_calaveras'); k.poner('cem2_velas_tumba', bx * 5 + 1, by * 5 + 1, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 5, by * 5, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 5, by * 5 + 4, 'derretidas'); }
+    }
     k.capa = cap0;
   }
   return z;
@@ -2288,6 +2303,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   asentarCampamentos(z);
   ponerTrampas(z, def);
   esquinasMuro(z);
+  despegarDeMuros(z);
   return z;
 }
 
@@ -2335,6 +2351,10 @@ function ponerTrampas(z: Zona, def: DefZona) {
       const enX = muro(0, 1) && muro(0, -1) && libre(x - 2, y, 0) && libre(x + 2, y, 0), enY = muro(1, 0) && muro(-1, 0) && libre(x, y - 2, 0) && libre(x, y + 2, 0);
       if (!(enX || enY) || !sirve(x, y, 12, 14)) continue;
       poner('trampa_puas', 'abajo', x, y, 'puas'); k++;
+      // (la sangre vieja de los que la pisaron, corrida a lo largo del paso: avisa antes de que salte. `__puasLimpias` la quita)
+      if (!(globalThis as any).__puasLimpias) { const lado = r() < 0.5 ? 1 : -1, [ax, ay] = enX ? [lado, 0] : [0, lado], v = r() < 0.5 ? 'piedra_mancha' : 'piedra_costra';
+        z.objetos.push({ id: 'gore_sangre_seca', v, cx: x + ax, cy: y + ay, hw: 3, hh: 3, bloquea: false, capa: 'trampa' });
+        z.objetos.push({ id: 'cri_sangre_seca', v: 'salpicadura', cx: x - ax * 2, cy: y - ay * 2, hw: 2, hh: 2, bloquea: false, capa: 'trampa' }); }
     }
     // el brasero flojo delante de uno de cada dos campamentos (no en la cripta del agua ni en el cielo)
     if (!/ahogada|celestial/.test(def.tema)) { let nb = 0; for (const s of camps) { if (nb >= 3 || r() < 0.5) continue; const p = delante(s, 5, 8, 1, (x, y) => sirve(x, y, 8, 8)); if (p) { poner('trampa_brasero', 'en_pie', p[0], p[1], null, true, 'volcar'); nb++; } } }
@@ -2377,6 +2397,88 @@ function esquinasMuro(z: Zona) {
     if (z.objetos.some((o, i) => i < n && o.tag && Math.abs(o.cx - c - g) <= (o.hw - 1) / 2 + 0.5 && Math.abs(o.cy - f - g) <= (o.hh - 1) / 2 + 0.5)) continue;
     z.objetos.push({ id: 'muro_esquina', v: familia(ox), cx: c + g, cy: f + g, hw: 1, hh: 1, bloquea: false });
   }
+}
+
+/**
+ * Nada metido en un muro (Rick, 21 nov 2026: "mira como salen cofres y otros assets como debajo de las paredes"). Lo suelto
+ * cuya huella pisa la de un muro (la esquina a inglete, que va al final y deja su celda de piso, caía encima de las velas,
+ * los huesos y los braseros de los rincones; lo regado que se coló en una almena) se corre una o dos celdas hacia la sala, a
+ * piso libre, y si no hay sitio o bloquea, sale. Lo que tiene `tag` (cofres, salidas, libros) no se toca. Va al final de todo,
+ * sin azar. El escombro del frente y de los muros (el derrumbe es del muro) no se mueve. `__pegadosAlMuro` lo apaga. Lo pegado a la cara del muro sin meterse ya no queda debajo: el muro se pinta en
+ * franjas de una celda (`franjasDe` en escena.ts). Prueba: `t1015_tapados.mjs`.
+ */
+const MURO_TAPA = /muro|muralla|nichos|pared_toba|esquina|almena|reja|tapia/;
+const NO_DESPEGA = /escombro|muro|muralla|almena|penasco|risco|nichos|reja|puerta|porton|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina|macizo|pared_toba/;
+function despegarDeMuros(z: Zona) {
+  if ((globalThis as any).__pegadosAlMuro) return;
+  const W = z.W, H = z.H, muro = new Uint8Array(W * H), ocup = new Uint8Array(W * H), esPlano = new Map<string, boolean>();
+  const plano = (id: string) => { let p = esPlano.get(id); if (p === undefined) { p = !!REGISTRO.find((d) => d.id === id)?.plano; esPlano.set(id, p); } return p; };
+  const celdas = (o: ObjZ, dx = 0, dy = 0) => { const a = Math.round(o.cx - (o.hw - 1) / 2) + dx, b = Math.round(o.cy - (o.hh - 1) / 2) + dy, out: number[] = []; for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) out.push(x >= 0 && y >= 0 && x < W && y < H ? y * W + x : -1); return out; };
+  const esMuro = (o: ObjZ) => MURO_TAPA.test(o.id) && (o.bloquea || o.id === 'muro_esquina');
+  for (const o of z.objetos) { if (plano(o.id)) continue; const m = esMuro(o); for (const i of celdas(o)) if (i >= 0) { if (m) muro[i] = 1; else ocup[i]++; } }
+  const quitar = new Set<ObjZ>();
+  const soltar = (o: ObjZ) => { for (const i of celdas(o)) if (i >= 0) { ocup[i]--; if (!muro[i] && !ocup[i] && !(z.hueco && z.hueco[i]) && (z.bloq[i] === 1 || z.bloq[i] === 3)) z.bloq[i] = 0; } };
+  const PASOS: [number, number][] = [[1, 1], [1, 0], [0, 1], [2, 1], [1, 2], [2, 2], [2, 0], [0, 2]], PASOS_LEJOS: [number, number][] = [[3, 1], [1, 3], [3, 2], [2, 3], [3, 3], [3, 0], [0, 3], [4, 3], [3, 4], [4, 4]];
+  for (const o of z.objetos) {
+    if (o.tag || plano(o.id) || NO_DESPEGA.test(o.id) || o.capa === 'relleno' || esMuro(o)) continue;
+    if (!celdas(o).some((i) => i >= 0 && muro[i])) continue;
+    soltar(o);
+    const paso = o.bloquea ? null : PASOS.find(([dx, dy]) => celdas(o, dx, dy).every((i) => i >= 0 && !muro[i] && !ocup[i] && z.bloq[i] === 0 && z.pisos[Math.floor(i / W / 5) * z.tw + Math.floor((i % W) / 5)] && !(z.hueco && z.hueco[i])));
+    const g1 = ((globalThis as any).__despegados ??= { corridos: 0, quitados: 0 });
+    if (!paso) { quitar.add(o); g1.quitados++; continue; }
+    o.cx += paso[0]; o.cy += paso[1]; g1.corridos++;
+    for (const i of celdas(o)) { ocup[i]++; if (!z.bloq[i]) z.bloq[i] = 3; }
+  }
+  // 2. lo que no está metido pero cuyo dibujo cae bajo una franja de muro que se pinta después (lo tendido y ancho, como un
+  // crucifijo caído o un estandarte en el piso, que pasa de su huella): un paso hacia la sala o sale
+  const muros = z.objetos.filter((o) => esMuro(o) && !quitar.has(o) && CAJAS_MURO[o.id + '|' + o.v]);
+  // (el mismo orden que `pisable` en escena.ts: lo grande que se pisa por dentro va por su borde de atrás)
+  const profDe = (o: ObjZ) => { let libres = 0, total = 0; if (o.hw * o.hh >= 12) for (let y = Math.floor(o.cy - (o.hh - 1) / 2); y <= o.cy + (o.hh - 1) / 2; y++) for (let x = Math.floor(o.cx - (o.hw - 1) / 2); x <= o.cx + (o.hw - 1) / 2; x++) { total++; if (x >= 0 && y >= 0 && x < W && y < H && !z.bloq[y * W + x]) libres++; } return total > 0 && libres / total > 0.33 ? o.cx + o.cy - (o.hw + o.hh) / 2 + 1 : o.cx + o.cy + (o.hw + o.hh) / 2 - 1; };
+  const tapado = (o: ObjZ, dx: number, dy: number) => {
+    const k = CAJAS[o.id + '|' + o.v]; if (!k) return 0;
+    const cx = o.cx + dx, cy = o.cy + dy, sx = (cx - cy) * 16, sy = (cx + cy) * 8, bx0 = sx - k[2], by0 = sy - k[3], bx1 = bx0 + k[0], by1 = by0 + k[1];
+    const ox0 = Math.round(cx - (o.hw - 1) / 2), oy0 = Math.round(cy - (o.hh - 1) / 2), ox1 = ox0 + o.hw - 1, oy1 = oy0 + o.hh - 1, p = profDe({ ...o, cx, cy });
+    let area = 0;
+    for (const w of muros) {
+      if (Math.abs(w.cx - cx) > 14 || Math.abs(w.cy - cy) > 14) continue;
+      const wx0 = Math.round(w.cx - (w.hw - 1) / 2), wy0 = Math.round(w.cy - (w.hh - 1) / 2);
+      if (wy0 > oy1 || wx0 > ox1) continue; // (el muro está delante: tapar es lo justo)
+      const c = CAJAS_MURO[w.id + '|' + w.v], wsx = (w.cx - w.cy) * 16, wsy = (w.cx + w.cy) * 8;
+      for (const t of franjasMuro(w, c)) {
+        if (t.prof <= p) continue;
+        const x0 = Math.max(bx0, wsx - c[2] + t.a), x1 = Math.min(bx1, wsx - c[2] + t.b), y0 = Math.max(by0, wsy + t.dy - c[3]), y1 = Math.min(by1, wsy + t.dy + 12);
+        if (x1 > x0 && y1 > y0) area += (x1 - x0) * (y1 - y0);
+      }
+    }
+    return area / (k[0] * k[1]);
+  };
+  for (const o of z.objetos) {
+    if (quitar.has(o) || (o.tag && o.tag !== 'romper' && o.tag !== 'restos') || plano(o.id) || NO_DESPEGA.test(o.id) || o.capa === 'relleno' || esMuro(o)) continue;
+    if (tapado(o, 0, 0) < 0.08) continue;
+    soltar(o);
+    // (lo que bloquea solo se corre a piso libre rodeado de piso libre: así no cierra un paso; el asiento del jefe se queda)
+    const libreAlrededor = (dx: number, dy: number) => { if (!o.bloquea || o.capa === 'jefe') return true; const a = Math.round(o.cx - (o.hw - 1) / 2) + dx, b = Math.round(o.cy - (o.hh - 1) / 2) + dy; for (let y = b - 1; y <= b + o.hh; y++) for (let x = a - 1; x <= a + o.hw; x++) if (x < 0 || y < 0 || x >= W || y >= H || z.bloq[y * W + x] === 1 || z.bloq[y * W + x] === 2 || muro[y * W + x]) return false; return true; };
+    const paso = (o.capa === 'jefe' ? [...PASOS, ...PASOS_LEJOS] : PASOS).find(([dx, dy]) => tapado(o, dx, dy) < 0.04 && libreAlrededor(dx, dy) && celdas(o, dx, dy).every((i) => i >= 0 && !muro[i] && !ocup[i] && z.bloq[i] === 0 && z.pisos[Math.floor(i / W / 5) * z.tw + Math.floor((i % W) / 5)] && !(z.hueco && z.hueco[i])));
+    const g = ((globalThis as any).__despegados ??= { corridos: 0, quitados: 0 });
+    if (!paso) { if (o.capa === 'jefe' || o.capa === 'umbral') { for (const i of celdas(o)) if (i >= 0) { ocup[i]++; if (o.bloquea) z.bloq[i] = 1; } continue; } quitar.add(o); g.quitados++; continue; }
+    o.cx += paso[0]; o.cy += paso[1]; g.corridos++;
+    for (const i of celdas(o)) { ocup[i]++; z.bloq[i] = o.bloquea ? 1 : z.bloq[i] || 3; }
+  }
+  if (quitar.size) z.objetos = z.objetos.filter((o) => !quitar.has(o));
+}
+const CAJAS_MURO = CAJAS_MURO_J as unknown as Record<string, [number, number, number, number]>;
+/** Las franjas en que se pinta un muro (las mismas de `franjasDe` en render/escena.ts) con la altura de la base de cada una
+ *  respecto del ancla (`dy`). Lo que no va partido es una sola franja de todo el cuadro. */
+function franjasMuro(o: ObjZ, c: [number, number, number, number]): { a: number; b: number; prof: number; dy: number }[] {
+  const L = Math.max(o.hw, o.hh), C = Math.min(o.hw, o.hh), prof = o.cx + o.cy + (o.hw + o.hh) / 2 - 1;
+  if (L < 3 || C * 2 > L) return [{ a: 0, b: c[0], prof, dy: c[1] - c[3] }];
+  const enX = o.hw > o.hh, a0 = enX ? Math.round(o.cx - (o.hw - 1) / 2) : Math.round(o.cy - (o.hh - 1) / 2), out: { a: number; b: number; prof: number; dy: number }[] = [];
+  for (let k = 0; k < L; k++) {
+    const d = enX ? a0 + k - o.cx : o.cy - a0 - k, cc = c[2] + d * 16, izq = enX ? k === 0 : k === L - 1, der = enX ? k === L - 1 : k === 0;
+    const a = izq ? 0 : Math.max(0, Math.round(cc - 8)), b = der ? c[0] : Math.min(c[0], Math.round(cc + 8));
+    if (b > a) out.push({ a, b, prof: (enX ? a0 + k + o.cy + (1 + o.hh) / 2 : o.cx + a0 + k + (o.hw + 1) / 2) - 1 - 0.1, dy: (enX ? a0 + k - o.cx : a0 + k - o.cy) * 8 + (o.hh + o.hw - 2) * 4 });
+  }
+  return out;
 }
 
 export const pasable = (z: Zona, x: number, y: number) => { const cx = Math.floor(x), cy = Math.floor(y); if (cx < 0 || cy < 0 || cx >= z.W || cy >= z.H) return false; const b = z.bloq[cy * z.W + cx]; return b === 0 || b === 3; };

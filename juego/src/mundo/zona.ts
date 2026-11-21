@@ -3338,6 +3338,83 @@ function curarAdornos(z: Zona, def: DefZona) {
       if (!libreC(x, y) || !libreC(x + 1, y + 1) || enRuedo(x, y) || !M(x, y - 1) || !M(x - 1, y) || rp() > 0.85 || !lejosDeOtros(x, y, 3)) continue;
       const [id, v] = rincon[Math.floor(rp() * rincon.length)]; poner(id, v, x, y, 1, 1, false);
     }
+    if (def.tema === 'mina' && !(globalThis as any).__minaPelada) vestirMina();
+  // (entrega 7) Las minas eran galerías peladas: roca, la vía y poco más (las Galerías de Velmora y los Socavones en 25 a 27
+  // adornos por pantalla, la obra en 40). Una mina es un lugar de trabajo que se abandonó de golpe, y eso se cuenta en tres
+  // capas, todas contra la roca (el medio de las salas sigue libre para pelear) y sin bloquear (se pasa por delante, como lo
+  // de la pared): (1) el entibado, marcos de puntales a lo largo del muro de atrás cada 4 a 6 celdas, alguno pandeado o roto,
+  // y entre dos marcos a veces la cuerda con faroles; (2) las faenas, lo que quedó donde se trabajaba: el frente de la veta
+  // (pico clavado, la pila de mineral, la carretilla), el derrumbe que mató a alguien (la viga caída, el minero, una vela que le
+  // pusieron), el polvorín (cajones de dinamita, la pólvora y el cartel), la mesa del capataz con su taburete volcado, la
+  // vagoneta volcada con lo que llevaba y el andamio con las herramientas; (3) las goteras: charcos donde el agua cae del techo,
+  // los únicos que van en el medio (son planos). Azar propio (`rm`). `__minaPelada` lo apaga
+  function vestirMina() {
+    // (lo sólido detrás: el muro, la roca o el derrumbe que cierra la galería; en las minas la orilla es roca que bloquea, no muro)
+    const M = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || !!muro[y * W + x] || z.bloq[y * W + x] === 1;
+    // (y el medio de la sala, `z.claros`, se deja libre para pelear, pero lo que va pegado a la roca no le quita nada: en las
+    //  minas la franja contra la roca casi siempre cae dentro del claro, y con el `libreC` de las paredes no entraba nada)
+    const libreC = (x: number, y: number) => { if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) return false; const i = y * W + x; return z.bloq[i] === 0 && !muro[i] && !bajoPlano[i] && !puerta[i] && !!alcanza[i]; };
+    const rm = rng(z.semilla * 5303 + 71), pick = <T,>(a: T[]) => a[Math.floor(rm() * a.length)];
+    // un marco o una composición contra el muro norte (u a lo largo de x, w hacia +y) o el oeste (u a lo largo de y, w hacia +x)
+    const cabe = (x0: number, y0: number, hw: number, hh: number) => { for (let yy = y0; yy < y0 + hh; yy++) for (let xx = x0; xx < x0 + hw; xx++) if (!libreC(xx, yy) || enRuedo(xx, yy)) return false; return true; };
+    const ponerEn = (id: string, v: string, x0: number, y0: number, oeste: boolean) => {
+      const dd = REGISTRO.find((q) => q.id === id); if (!dd) return false;
+      const vs = dd.variantes, vy = oeste && vs.includes(v + '_y') ? v + '_y' : v; if (!vs.includes(vy)) return false;
+      let [hw, hh] = huellaDe(dd, vy); if (oeste && vy === v && hw !== hh) [hw, hh] = [hh, hw];
+      if (!cabe(x0, y0, hw, hh)) return false;
+      return poner(id, vy, Math.round(x0 + (hw - 1) / 2), Math.round(y0 + (hh - 1) / 2), hw, hh, false);
+    };
+    // (1) el entibado
+    const marcos: [number, number][] = [];
+    for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) for (const lado of ['n', 'o'] as const) {
+      const oeste = lado === 'o';
+      if (!libreC(x, y) || ancho[y * W + x] <= 6 || !(oeste ? M(x - 1, y) && M(x - 1, y + 1) && M(x - 1, y + 2) : M(x, y - 1) && M(x + 1, y - 1) && M(x + 2, y - 1))) continue;
+      const lejos = 4 + rm() * 2; if (marcos.some(([a, b]) => Math.hypot(a - x, b - y) < lejos)) continue;
+      const k = rm(), id = k < 0.55 ? 'min_puntal' : k < 0.85 && !oeste ? 'cue_puntal' : 'min_linternas_cuerda';
+      const v = id === 'min_puntal' ? pick(['entero', 'entero', 'reforzado', 'pandeado', 'roto']) : id === 'cue_puntal' ? pick(['entero', 'farol', 'farol', 'roto']) : pick(['tres', 'tres', 'caida']);
+      // (el marco va paralelo al muro: el min_puntal sin _y cruza el eje y, así que contra el muro norte va con _y y al revés)
+      const vv = id === 'min_puntal' ? (oeste ? v : v + '_y') : id === 'min_linternas_cuerda' ? (oeste ? v + '_y' : v) : v;
+      const dd = REGISTRO.find((q) => q.id === id); if (!dd || !dd.variantes.includes(vv)) continue;
+      const [hw, hh] = huellaDe(dd, vv); if (!cabe(x, y, hw, hh)) continue;
+      if (poner(id, vv, Math.round(x + (hw - 1) / 2), Math.round(y + (hh - 1) / 2), hw, hh, false)) marcos.push([x, y]);
+    }
+    // (2) las faenas
+    type Pz = [string, string | string[], number, number];
+    const FAENAS: Pz[][] = [
+      [['min_pico_clavado', ['carbon', 'hierro', 'oro', 'sangre'], 0, 0], ['min_mineral', ['carbon', 'hierro', 'oro'], 2, 0], ['min_carretilla', ['mineral', 'vacia'], 1, 2]],
+      [['min_viga_caida', ['apoyada', 'astillada', 'cruzadas'], 0, 0], ['min_minero_muerto', ['aplastado', 'esqueleto'], 0, 3], ['mue_velas', ['una', 'derretidas'], 4, 0]],
+      [['min_cajones', ['dinamita'], 0, 0], ['min_polvora', ['pila', 'abierto', 'mecha'], 2, 0], ['min_cartel', ['peligro', 'calavera'], 4, 0], ['min_cajones', ['pila', 'rotos'], 0, 2]],
+      [['min_mesa_capataz', ['vela', 'apagada'], 0, 0], ['mue_taburete', ['volcado'], 3, 1], ['min_cajones', ['pila'], 4, 0], ['cat2_huesos_suelo', ['pocos'], 1, 2]],
+      [['min_vagoneta_volcada', ['carbon', 'hierro', 'oro', 'sangre'], 0, 0], ['min_mineral', ['carbon', 'hierro', 'oro', 'sangre'], 3, 0], ['min_herramientas', ['tiradas'], 1, 3]],
+      [['min_andamio', ['bajo', 'alto'], 0, 0], ['min_herramientas', ['apoyadas', 'soporte'], 4, 0], ['min_escalera', ['apoyada'], 4, 2]],
+      [['min_minero_muerto', ['tendido', 'esqueleto'], 0, 1], ['min_pico_clavado', ['sangre', 'carbon'], 3, 0], ['min_linterna', ['apagada'], 0, 0]],
+    ];
+    const hechas: [number, number][] = [];
+    let turno = Math.floor(rm() * FAENAS.length);
+    for (let y = 3; y < H - 4; y++) for (let x = 3; x < W - 4; x++) {
+      const oeste = !M(x, y - 1); if (oeste ? !M(x - 1, y) || !M(x - 1, y + 3) : !M(x + 3, y - 1) || !M(x, y - 1)) continue;
+      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6 || rm() > 0.45 || hechas.some(([a, b]) => Math.hypot(a - x, b - y) < 9)) continue;
+      const comp = FAENAS[turno % FAENAS.length]; let n = 0, primero = true;
+      for (const [id, vs, u, w] of comp) {
+        const v = Array.isArray(vs) ? pick(vs) : vs, ok = ponerEn(id, v, oeste ? x + w : x + u, oeste ? y + u : y + w, oeste);
+        if (primero && !ok) break; primero = false; if (ok) n++;
+      }
+      if (n) { hechas.push([x, y]); turno++; }
+    }
+    // lo que dejaron contra cualquier roca (también la de adelante): mineral, herramientas, cajones, un pico; chico y suelto
+    const SUELTO: Pz[] = [['min_herramientas', ['tiradas', 'apoyadas'], 0, 0], ['min_cajones', ['rotos', 'pila'], 0, 0], ['min_pico_clavado', ['carbon', 'hierro'], 0, 0], ['min_carretilla', ['volcada', 'vacia'], 0, 0], ['cat2_huesos_suelo', ['pocos'], 0, 0]];
+    for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) {
+      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6 || !(M(x + 2, y) || M(x, y + 2) || M(x - 1, y) || M(x, y - 1)) || rm() > 0.2 || !lejosDeOtros(x, y, 3.5)) continue;
+      const [id, vs] = pick(SUELTO); ponerEn(id, pick(vs as string[]), x, y, false);
+    }
+    // (3) las goteras: planas, en el medio también, nunca en un paso
+    let ng = 0;
+    for (let k = 0; k < 400 && ng < 2 + Math.floor(W * H / 900); k++) {
+      const x = 3 + Math.floor(rm() * (W - 6)), y = 3 + Math.floor(rm() * (H - 6)), i = y * W + x;
+      if (z.bloq[i] !== 0 || z.bloq[i + 1] !== 0 || z.bloq[i + W] !== 0 || z.bloq[i + W + 1] !== 0 || !alcanza[i] || puerta[i] || bajoPlano[i] || ancho[i] <= 6 || enRuedo(x, y) || !lejosDeOtros(x, y, 6)) continue;
+      if (poner('cat2_gotera', pick(['charco', 'charco_grande', 'sobre_piedra']), x, y, 2, 2, false)) ng++;
+    }
+  }
   }
   // 5b. nada montado (oleada 2, Rick: "que no quede todo montado"): dos adornos cuyos sprites se pisan en pantalla 55 % o
   // más del más chico se leían como uno encima del otro (la mata detrás del árbol, el escombro sobre el escombro, el cofre

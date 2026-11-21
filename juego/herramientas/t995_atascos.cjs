@@ -11,6 +11,7 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
   if (process.env.VIEJO) await p.evaluate(() => { window.__atascoViejo = true; });
   // (el frente de la oleada 2 deja a los que no tienen turno rondando a 3 casillas: acá se mide el camino, no el turno)
   await p.evaluate(() => { window.__frenteViejo = true; });
+  if (process.env.SIN_TURNO) await p.evaluate(() => { window.__SIN_TURNO = true; });
   const total = { lugares: 0, perseguian: 0, atascados: 0, pegados: 0, enMuro: 0 };
   fs.mkdirSync('/tmp/requiem-pruebas/atascos', { recursive: true });
   for (const zona of ZONAS) {
@@ -50,12 +51,16 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
       // (oleada 2: lo que falta por el camino de verdad, no en línea recta: rodear un muro largo aleja y no es atascarse)
       await p.evaluate(async () => { const Z = await import('/src/mundo/zona.ts'), j = window.__juego(), h = j.heroe;
         window.__largo = (m) => { const c = Z.buscarCamino(j.zona, m.x, m.y, h.x, h.y, 40000, true); if (!c) return 1e9; let l = 0, x = m.x, y = m.y; for (const [a, b] of c) { l += Math.hypot(a - x, b - y); x = a; y = b; } return l + Math.hypot(h.x - x, h.y - y) * 3; };
-        for (const m of window.__puestos) m.__d6 = window.__largo(m); });
-      await p.waitForTimeout(3000);
+        // (entrega 7) lo que le falta por el rodeo entre los cuerpos, con las reservas de los demás (ver t1011)
+        window.__rodeoLargo = (m) => { const M = window.__mundo, r = M.rodeoAceptable ? M.rodeoAceptable(j, m, h) : null; if (!r) return null; let l = 0, x = m.x, y = m.y; for (const [a, b] of r.camino) { l += Math.hypot(a - x, b - y); x = a; y = b; } return l; };
+        for (const m of window.__puestos) { m.__d6 = window.__largo(m); m.__r6 = window.__rodeoLargo(m); } });
+      await p.waitForTimeout(1500);
+      await p.evaluate(() => { for (const m of window.__puestos) { m.__d75 = window.__largo(m); m.__r75 = window.__rodeoLargo(m); } });
+      await p.waitForTimeout(1500);
       const res = await p.evaluate(async () => {
         const j = window.__juego(), h = j.heroe, z = j.zona, W = z.W, Z = await import('/src/mundo/zona.ts');
         const cerca = (x, y) => { let m = 9; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const cx = Math.floor(x) + dx, cy = Math.floor(y) + dy; if (z.bloq[cy * W + cx] !== 1) continue; const qx = Math.max(cx, Math.min(cx + 1, x)), qy = Math.max(cy, Math.min(cy + 1, y)); m = Math.min(m, Math.hypot(qx - x, qy - y)); } return m; };
-        let perseguian = 0, atascados = 0, pegados = 0, enMuro = 0; const malos = [];
+        let perseguian = 0, atascados = 0, pegados = 0, enMuro = 0, esperan = 0; const malos = [];
         for (const m of window.__puestos) {
           if (m.muerto) continue;
           const ob = m.objetivo && !m.objetivo.muerto ? m.objetivo : h; if (ob !== h) continue; const d = Math.hypot(m.x - h.x, m.y - h.y), alcance = m.radio + h.radio + 1.2;
@@ -70,12 +75,18 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
           perseguian++;
           // (cerca y con otro cuerpo pegado: hace cola detrás de los que ya llegaron)
           const cola = d < 4.5 && window.__puestos.some((o) => o !== m && Math.hypot(o.x - m.x, o.y - m.y) < 1.3);
-          if (d > alcance + 0.6 && !cola && m.__d6 - window.__largo(m) < 0.6) { atascados++; malos.push([+m.x.toFixed(2), +m.y.toFixed(2), +d.toFixed(1), m.acc, m.def.id, +cerca(m.x, m.y).toFixed(2)]); }
+          // (entrega 7: el que da la vuelta al corro por el lado libre se acerca por el rodeo entre los cuerpos; el que no tiene
+          //  hueco aceptable espera su turno, como en t1011. SIN_TURNO=1 los cuenta igual como atascados)
+          const r9 = window.__rodeoLargo(m), rodea = (m.__r6 != null && r9 != null && m.__r6 - r9 >= 0.6) || (m.__r75 != null && ((r9 != null && m.__r75 - r9 >= 0.3) || m.__d75 - window.__largo(m) >= 0.3)), quieto = m.__d6 - window.__largo(m) < 0.6;
+          if (d > alcance + 0.6 && !cola && quieto && !rodea && (r9 == null || (m.__r6 == null && m.__r75 == null)) && !window.__SIN_TURNO) { esperan++; continue; }
+          // (el que al final está pegando o en plena maniobra está peleando: no se cuenta)
+          if (d > alcance + 0.6 && !cola && !rodea && quieto && (m.man || m.acc === 'atacar' || m.acc === 'lanzar')) continue;
+          if (d > alcance + 0.6 && !cola && !rodea && quieto) { atascados++; malos.push([+m.x.toFixed(2), +m.y.toFixed(2), +d.toFixed(1), m.acc, m.def.id, +cerca(m.x, m.y).toFixed(2)]); }
         }
         for (const m of window.__puestos) { m.vida = 0; m.muerto = true; m.x = -99; }
-        return { perseguian, atascados, pegados, enMuro, malos: malos.slice(0, 4) };
+        return { perseguian, atascados, pegados, enMuro, esperan, malos: malos.slice(0, 4) };
       });
-      total.lugares++; for (const k of ['perseguian', 'atascados', 'pegados', 'enMuro']) total[k] += res[k];
+      total.lugares++; for (const k of ['perseguian', 'atascados', 'pegados', 'enMuro', 'esperan']) total[k] = (total[k] ?? 0) + res[k];
       if (res.atascados) console.log(zona, x, y, JSON.stringify(res));
     }
   }

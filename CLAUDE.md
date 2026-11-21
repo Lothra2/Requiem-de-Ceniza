@@ -603,6 +603,55 @@ Rick: "Acomodá lo flojo, quiero perfección." Lo que quedó flojo de la entrega
   49, hito sin explanada o ausente 8 a 1 (con las 3 semillas de t1000: montados 2189 a 700, repetidos 213 a 201). Lo que queda "flotando" (unos 290) es a propósito: lo que vive en el vacío del
   abismo y del cielo y las matas de la orilla.
 
+## Mundos, entrega 7 (21 nov 2026)
+
+Rick: "resuelve lo flojo, no quiero nada flojo". Lo flojo de la entrega 6: los atascos no llegaban a 0 y las minas sin túnel
+estaban peladas.
+
+- **Atascos: el corro con huecos reservados** (`avanzar`, `rodeoCuerpos`, `rodeoAceptable`, `huecosDe`, `cuerpoDelante` en
+  `juego/mundo.ts`; `__colaE6` vuelve a lo de la entrega 6). Lo que quedaba era el que tenía hueco del otro lado del corro:
+  apuntaba al hueco pero iba por la línea recta o por el camino de la grilla, que pasan por encima de los cuerpos, y empujaba.
+  Ahora: (1) cada uno **reserva su hueco** del aro de golpe (vive en el objetivo, `huecosCorro`; caduca a 1,5 s, al llegar, al
+  morir o al cambiar de objetivo) y en la búsqueda los huecos de los demás cuentan como cuerpos: dos no se pelean el mismo;
+  (2) **sigue paso a paso** el camino que rodea a los cuerpos (media casilla) y lo rehace cada 0,5 s, prefiriendo el hueco que ya
+  tenía si queda a 3 pasos o menos del más cercano (si no, saltaba de un lado al otro del corro); (3) el rodeo es **pegajoso**:
+  quien entra a rodear sigue hasta llegar o hasta que el héroe se le vaya a más de 7 (antes, al alejarse por el rodeo dejaba de
+  estar "en cola" y volvía al montón); (4) un rodeo vale solo si no es una vuelta entera (1,6 veces lo que falta más 2,5): si
+  no, el que ya está trabado o en cola **espera quieto mirando** (`esperaH`); el que solo tenía un cuerpo delante sigue
+  arrimándose como siempre; (5) empieza a rodear apenas tiene un cuerpo pegado delante (`cuerpoDelante`), sin esperar un segundo
+  a contar como trabado; (6) el punto del corro que cae dentro de un muro o del otro lado (héroe pegado al muro, a7_islas2) se
+  cambia por el objetivo. Dos errores de antes: la espera de la entrega 6 se llamaba `espera`, como la de la escolta, y
+  `pelear` la borraba al cuadro siguiente (el que debía esperar empujaba, y a veces se quedaba hasta 1 s en alerta); y el
+  punto del corro del otro lado del muro, que era el de siempre de a7_islas2.
+- **Las pruebas de atascos miran el rodeo** (t1011 y t995): avanzar también es acortar el camino entre los cuerpos
+  (`rodeoAceptable`, a los 6 s 0,6 o desde los 7,5 s 0,3); el que no tiene rodeo aceptable espera su turno (`esperan`); el que
+  al final está pegando o en plena maniobra, con su aviso, está peleando (`actuan`). `SIN_TURNO=1`, `SIN_RODEO=1` y
+  `SIN_ACTUA=1` vuelven a contarlos. Antes el que daba la vuelta al corro por el lado libre se contaba atascado porque el
+  camino de la grilla (sin cuerpos) le decía que se alejaba. `_m_atasco2.mts` (no se sube) es t1011 con el azar sembrado
+  (`SEMILLA=`) y la traza de los últimos 3 s de cada atascado (`HIST=1`).
+- **Minas vestidas** (`vestirMina` dentro de `vestirParedes`, azar propio `rm`, capa `pared`, nada bloquea; `__minaPelada` lo
+  apaga). Las galerías sin túnel (Galerías de Velmora, Socavones) quedaban en 25 y 27 adornos por pantalla. Contra la roca
+  (en las minas la orilla es roca que bloquea, no muro: `M` local mira también `bloq === 1`) y sin el veto del claro de la
+  sala (la franja contra la roca casi siempre cae adentro): el **entibado** (marcos `min_puntal` paralelos al muro cada 4 a 6
+  celdas, `cue_puntal` con farol contra el norte, la cuerda de faroles `min_linternas_cuerda`); las **faenas**, por turno, a 8
+  celdas una de otra: el frente de la veta (pico clavado, mineral, carretilla), el derrumbe que mató a alguien (viga caída,
+  minero, vela), el polvorín (dinamita, pólvora, cartel), la mesa del capataz con el taburete volcado, la vagoneta volcada con
+  su carga y el andamio con herramientas y escalera; lo suelto contra cualquier roca (herramientas, cajones, picos,
+  carretillas, huesos) y las **goteras** (`cat2_gotera`, planas, las únicas que van en el medio). No hubo que hornear piezas
+  (todas estaban en el catálogo). t1000 (semilla 12345): a1_mina1 25 a 41, a4_minas1 27 a 38, a1_mina2 35 a 43, a4_minas2 39 a
+  44; montados 0 y 5 a 6 %, arena igual o más (la familia obra 54 a 55, adornos por pantalla 40 a 41). Mueve las trampas de
+  algunas minas (se ponen después, miran lo ocupado). Lámina: `/tmp/requiem-pruebas/e7/lamina_minas.png` (t1021 antes y ahora).
+- Pruebas: t1011 (`todas 2`) 22 corridas seguidas en 0 atascados (55.683 casos; esperan su turno 0 a 6 por corrida, 54 en total, unos 7.600 rodean; antes de cerrarlo 2 de 22 y 1 de 20 en dos tandas previas, que se arreglaron); t995 dos tandas de 4 zonas, 0 y 0 (esperan 0); t1010 niveles 35 y 50, 3
+  semillas, contra main: muertes por hora 9,7 a 7,8 y 0 a 0, pociones por 100 bajas 19,2 a 20,2 y 11,1 a 8,0, a la vez 5,9 a
+  5,9 y 5,0 a 4,9 (dentro del ruido). t1000 (todo en su piso), t1001, t1014 (96 iguales), t1015 (0 tapados), t855 (0 de 192),
+  t370 (288, 0 malas), t440, t450, t500 y conectividad 20 (1920). Capturas en serie de un campamento contra el héroe
+  invulnerable (`_m_serie.cjs`, no se sube, `BANDERAS=__colaE6` el antes): el corro sigue cerrado y encima del héroe.
+  `MAPA_V` sigue en 4 (los pisos no cambian).
+- Flojo: las minas llegan a 38 a 44 por pantalla pero el medio de las salas sigue limpio a propósito (es para pelear), así que en
+  las fotos se nota sobre todo en el muro de atrás; los marcos del entibado salen menos de lo pensado (2 a 4 por mina: la caja de
+  un marco pisa lo que ya había contra la roca y se descarta). La criba de las pruebas de atascos se amplió (rodeo, turno,
+  maniobra): está dicho arriba y hay banderas para contar como antes.
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

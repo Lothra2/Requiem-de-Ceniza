@@ -2589,14 +2589,49 @@ function apartarDeMuros(z: Zona, e: Ent) {
   if ((nx !== e.x || ny !== e.y) && pasable(z, nx, ny)) { e.x = nx; e.y = ny; }
 }
 /**
+ * (entrega 7) Los huecos del corro que ya tomó alguien: cada uno que va rodeando a los otros cuerpos reserva el suyo hasta que
+ * llega, lo cambia, se aleja, muere o pasan 1,5 s sin renovarlo. Vive en el objetivo (no se guarda nada).
+ */
+type Reserva = { m: Monstruo; x: number; y: number; t: number };
+function huecosDe(j: Juego, obj: Ent): Reserva[] {
+  const q = obj as any, L: Reserva[] = (q.huecosCorro ??= []);
+  for (let i = L.length - 1; i >= 0; i--) { const r = L[i]; if (r.m.muerto || j.t - r.t > 1.5 || j.t < r.t || (r.m as any).huecoR !== r || r.m.objetivo !== obj) L.splice(i, 1); }
+  return L;
+}
+/**
+ * (entrega 7) El hueco al que vale la pena ir: el de `rodeoCuerpos` con las reservas de los demás, siempre que el rodeo no sea
+ * una vuelta entera al corro (a lo sumo 1,6 veces lo que falta en línea recta más 2,5 casillas). Un zombi que se iba 12 casillas
+ * por detrás del montón tardaba 10 s y se leía como uno que se aleja; esperar su turno detrás de los que pegan es lo que se ve
+ * bien. Lo usa `avanzar` y lo mira t1011 (el que no tiene hueco aceptable espera su turno, no está atascado).
+ */
+export function rodeoAceptable(j: Juego, m: Monstruo, obj: Ent) {
+  const q = m as any, r = rodeoCuerpos(j, m, obj, true, q.rodeando && !(window as any).__huecoSalta ? q.hueco : null); if (!r) return null;
+  let l = 0, x = m.x, y = m.y; for (const [a, b] of r.camino) { l += Math.hypot(a - x, b - y); x = a; y = b; }
+  return l <= Math.hypot(m.x - obj.x, m.y - obj.y) * 1.6 + 2.5 ? r : null;
+}
+/** (entrega 7) ¿Tiene otro cuerpo pegado delante, entre él y el objetivo? Así empieza a rodear al toque en vez de empujar un segundo
+ * entero hasta contar como trabado (era lo que lo dejaba atrás en la cuenta de t1011). */
+function cuerpoDelante(j: Juego, m: Monstruo, obj: Ent) {
+  const dx = obj.x - m.x, dy = obj.y - m.y, l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l;
+  for (const o of j.monstruos) {
+    if (o === m || o.muerto) continue;
+    const ox = o.x - m.x, oy = o.y - m.y, a = ox * ux + oy * uy; if (a <= 0 || a > m.radio + o.radio + 0.5 || a > l) continue;
+    if (Math.abs(ox * uy - oy * ux) < (m.radio + o.radio) * 0.9) return true;
+  }
+  return false;
+}
+function soltarHueco(m: Monstruo) { const q = m as any; if (q.huecoR) { q.huecoR.t = -99; q.huecoR = null; } }
+/**
  * (entrega 6) Por dónde llega un cuerpo a pegarle a `obj` contando a los otros cuerpos, no solo los muros: una búsqueda a lo
  * ancho en una grilla de media casilla de 13 x 13 casillas alrededor del objetivo, donde cada otro cuerpo es un disco que no
  * se pisa. La meta es cualquier punto del aro de golpe (sin muro entre el objetivo y él). Devuelve el hueco y el camino, o null
  * si el corro está lleno. Lo usa `avanzar` y lo mira t1011.
  */
-export function rodeoCuerpos(j: Juego, m: Monstruo, obj: Ent): { hueco: [number, number]; camino: [number, number][] } | null {
+export function rodeoCuerpos(j: Juego, m: Monstruo, obj: Ent, reservas = false, prefer?: [number, number] | null): { hueco: [number, number]; camino: [number, number][] } | null {
   const z = j.zona, R0 = 0.5, N = 27, ox = obj.x - (N - 1) * R0 / 2, oy = obj.y - (N - 1) * R0 / 2, r0 = m.radio + obj.radio + 0.35;
-  const otros = j.monstruos.filter((o) => o !== m && !o.muerto && Math.abs(o.x - obj.x) < 8 && Math.abs(o.y - obj.y) < 8);
+  const otros: { x: number; y: number; radio: number }[] = j.monstruos.filter((o) => o !== m && !o.muerto && Math.abs(o.x - obj.x) < 8 && Math.abs(o.y - obj.y) < 8);
+  // (entrega 7) los huecos que ya tomó otro que viene en camino cuentan como ocupados: así dos no se pelean el mismo
+  if (reservas) for (const r of huecosDe(j, obj)) if (r.m !== m) otros.push({ x: r.x, y: r.y, radio: r.m.radio });
   const libre = new Uint8Array(N * N);
   for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
     const x = ox + gx * R0, y = oy + gy * R0;
@@ -2605,22 +2640,28 @@ export function rodeoCuerpos(j: Juego, m: Monstruo, obj: Ent): { hueco: [number,
     libre[gy * N + gx] = 1;
   }
   const sx = Math.round((m.x - ox) / R0), sy = Math.round((m.y - oy) / R0); if (sx < 0 || sy < 0 || sx >= N || sy >= N) return null;
-  const padre = new Int32Array(N * N).fill(-2), cola = [sy * N + sx]; padre[sy * N + sx] = -1;
+  const padre = new Int32Array(N * N).fill(-2), hondo = new Int16Array(N * N), cola = [sy * N + sx]; padre[sy * N + sx] = -1;
+  // (entrega 7: con `prefer`, el hueco que ya tenía gana si queda a lo sumo 3 pasos más lejos que el más cercano: cada medio
+  //  segundo los cuerpos se corren un poco y el más cercano saltaba de un lado al otro del corro; el que rodeaba daba media vuelta)
+  const armar = (i: number) => { const x = ox + (i % N) * R0, y = oy + Math.floor(i / N) * R0, camino: [number, number][] = []; for (let c = i; c >= 0; c = padre[c]) camino.push([ox + (c % N) * R0, oy + Math.floor(c / N) * R0]);
+    camino.reverse(); camino.shift();
+    return { hueco: [x, y] as [number, number], camino: reservas ? camino : camino.filter((_, n) => n % 2 === 1 || n === camino.length - 1) }; };
+  let primero = -1;
   for (let k = 0; k < cola.length; k++) {
     const i = cola[k], gx = i % N, gy = (i - gx) / N, x = ox + gx * R0, y = oy + gy * R0, d = Math.hypot(x - obj.x, y - obj.y);
+    if (primero >= 0 && hondo[i] > hondo[primero] + 3) return armar(primero);
     if (k > 0 && d <= r0 + 0.3 && lineaPasable(z, obj.x, obj.y, x, y)) {
-      const camino: [number, number][] = []; for (let c = i; c >= 0; c = padre[c]) camino.push([ox + (c % N) * R0, oy + Math.floor(c / N) * R0]);
-      camino.reverse(); camino.shift();
-      return { hueco: [x, y], camino: camino.filter((_, n) => n % 2 === 1 || n === camino.length - 1) };
+      if (!prefer || Math.hypot(x - prefer[0], y - prefer[1]) < 0.8) return armar(i);
+      if (primero < 0) primero = i;
     }
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
       const X = gx + dx, Y = gy + dy; if (X < 0 || Y < 0 || X >= N || Y >= N) continue; const jn = Y * N + X;
       if (padre[jn] !== -2 || !libre[jn]) continue;
       if (dx && dy && (!libre[gy * N + X] || !libre[Y * N + gx])) continue; // (sin cortar esquinas)
-      padre[jn] = i; cola.push(jn);
+      padre[jn] = i; hondo[jn] = hondo[i] + 1; cola.push(jn);
     }
   }
-  return null;
+  return primero >= 0 ? armar(primero) : null;
 }
 function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   // rodear: cada uno apunta a un punto alrededor del objetivo
@@ -2632,21 +2673,51 @@ function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   if ((window as any).__colaVieja) qh.corro = dh < 3; else if (dh < 3) qh.corro = true; else if (dh > 3.8) qh.corro = false;
   const off = qh.corro ? 0.9 : 0;
   let tx = obj.x + Math.cos(ang) * off, ty = obj.y + Math.sin(ang) * off;
+  // (entrega 7: con el héroe pegado a un muro, el punto del corro podía caer dentro del muro o del otro lado: el camino de la
+  //  grilla llevaba al cuerpo a rodear el muro hasta la cara de atrás, donde no se llega, y volvía; así iba y venía en
+  //  a7_islas2. Si el punto no se ve desde el objetivo con el cuerpo entero, apunta al objetivo)
+  if (off && !(window as any).__colaE6 && !lineaPasable(j.zona, obj.x, obj.y, tx, ty)) { tx = obj.x; ty = obj.y; }
   // (entrega 6: t1011 daba 1 o 2 atascados por corrida, siempre igual: a 3 casillas del héroe pegado a un muro chico, con el
   //  lado que da a este cuerpo ya lleno de otros. El camino de la grilla no ve los cuerpos: rodeaba el muro por un lado, se
   //  topaba con los que ya pegaban, rehacía el camino por el otro lado y así, caminando sin llegar nunca. Trabado o sin
   //  acercarse cerca del héroe, busca por dónde pasar entre muros Y cuerpos (`rodeoCuerpos`) hasta un hueco libre alrededor
   //  del héroe y apunta ahí; si no hay ninguno (el corro está lleno), espera quieto su turno en vez de empujar. `__colaVieja`
   //  vuelve a lo de antes)
-  { const q = m as any;
-    if (dist(m.x, m.y, obj.x, obj.y) <= m.radio + obj.radio + 0.9) { q.cola = 0; q.hueco = null; q.espera = false; } // (ya llegó: fuera de la cola)
-    else if ((q.trabado >= 2 || q.cola) && !(window as any).__colaVieja && !(window as any).__sinRodeo && !(window as any).__atascoViejo && dist(m.x, m.y, obj.x, obj.y) < 5.5) {
+  // (entrega 7: lo que quedaba de la entrega 6 era el que tenía hueco del otro lado del corro: apuntaba al hueco pero iba por la
+  //  línea recta o por el camino de la grilla, que pasan por encima de los cuerpos que ya pegan, y empujaba en vez de rodear.
+  //  Seguir el camino de `rodeoCuerpos` lo empeoraba porque los que hacían cola se peleaban el mismo hueco. Ahora cada uno
+  //  RESERVA su hueco (`huecosDe`: los de los demás cuentan como cuerpos en la búsqueda), sigue paso a paso el camino que
+  //  rodea a los cuerpos y lo rehace cada medio segundo; el que no tiene hueco libre espera quieto mirando (`esperaH`: antes
+  //  se llamaba `espera`, como la de la escolta, y `pelear` la borraba en el cuadro siguiente: el que debía esperar empujaba).
+  //  `__colaE6` vuelve a lo de la entrega 6)
+  let sigueRodeo: [number, number][] | null = null;
+  { const q = m as any, e7 = !(window as any).__colaE6;
+    const dh2 = dist(m.x, m.y, obj.x, obj.y), libreDeFlags = !(window as any).__colaVieja && !(window as any).__sinRodeo && !(window as any).__atascoViejo;
+    if (dh2 <= m.radio + obj.radio + 0.9) { q.cola = 0; q.hueco = null; q.esperaH = false; q.rodeoC = null; q.rodeando = false; soltarHueco(m); } // (ya llegó: fuera de la cola)
+    else if (libreDeFlags && (e7 ? (q.rodeando && dh2 < 7) || ((q.trabado >= 2 || q.cola || (dh2 < 4.5 && cuerpoDelante(j, m, obj))) && dh2 < 5.5) : (q.trabado >= 2 || q.cola) && dh2 < 5.5)) {
+      // (entrega 7: el que entra a rodear se queda rodeando hasta llegar o hasta que el héroe se le vaya a más de 7: antes, al
+      //  alejarse un poco por el rodeo dejaba de estar "en cola", volvía al camino de la grilla hacia el montón y así iba y venía)
+      if (e7) q.rodeando = true;
       q.tRodeo = (q.tRodeo ?? 0) - dt;
-      if (q.tRodeo <= 0) { q.tRodeo = 0.8; const r = rodeoCuerpos(j, m, obj); q.hueco = r ? r.hueco : null; q.espera = !r; q.tCam = 0; }
-      if (q.espera) { m.camino = null; if (m.acc === 'caminar' || m.acc === 'correr') m.acc = 'quieto'; return; }
+      if (q.tRodeo <= 0) {
+        q.tCam = 0;
+        if (e7) {
+          q.tRodeo = 0.5;
+          const r = rodeoAceptable(j, m, obj);
+          if (r) {
+            let rv: Reserva | null = q.huecoR; if (!rv) { rv = { m, x: 0, y: 0, t: 0 }; q.huecoR = rv; } rv.x = r.hueco[0]; rv.y = r.hueco[1]; rv.t = j.t;
+            const L = huecosDe(j, obj); if (!L.includes(rv)) L.push(rv);
+            q.hueco = r.hueco; q.rodeoC = r.camino; q.esperaH = false;
+          } else if (q.trabado >= 2 || q.cola) { soltarHueco(m); q.hueco = null; q.rodeoC = null; q.esperaH = true; }
+          // (si entró solo porque tenía un cuerpo pegado delante y no hay rodeo que valga, sigue como siempre: se arrima al
+          //  montón detrás de los que pegan. Esperar quieto es solo para el que ya está trabado o en cola)
+          else { soltarHueco(m); q.hueco = null; q.rodeoC = null; q.esperaH = false; q.rodeando = false; }
+        } else { q.tRodeo = 0.8; const r = rodeoCuerpos(j, m, obj); q.hueco = r ? r.hueco : null; q.esperaH = !r; }
+      }
+      if (q.esperaH) { m.camino = null; if (m.acc === 'caminar' || m.acc === 'correr') m.acc = 'quieto'; girarHacia(m, obj.x - m.x, obj.y - m.y, dt, sensacionDe(m).giro); return; }
       if (q.hueco) { tx = q.hueco[0]; ty = q.hueco[1]; }
-
-    } else if (!q.trabado && !q.cola) { q.hueco = null; q.espera = false; }
+      if (e7 && q.rodeoC && q.rodeoC.length) sigueRodeo = q.rodeoC;
+    } else if (!q.trabado && !q.cola) { q.hueco = null; q.esperaH = false; q.rodeoC = null; q.rodeando = false; soltarHueco(m); }
     // (¿se acerca? el que va y viene entre dos rodeos se mueve y nunca se contaba como trabado: cada 1,5 s, si a menos de 5,5
     //  casillas no se acercó ni 0,3 al héroe, queda en cola hasta que se acerque 0,6)
     if (!(window as any).__colaVieja && !(window as any).__atascoViejo) {
@@ -2680,7 +2751,13 @@ function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
     q.tProg = (q.tProg ?? 0) - dt;
     if (q.tProg <= 0) { const mov = q.px === undefined ? 1 : Math.hypot(m.x - q.px, m.y - q.py); q.px = m.x; q.py = m.y; q.tProg = 0.5; if (mov < 0.15) { q.tCam = 0; q.trabado = (q.trabado ?? 0) + 1; } else q.trabado = 0; }
     const directo = lineaPasable(z, m.x, m.y, tx, ty);
-    if (directo) {
+    if (sigueRodeo) {
+      // (el camino que rodea a los cuerpos, de media casilla en media casilla: se salta lo que ya quedó atrás)
+      while (sigueRodeo.length > 1 && Math.hypot(sigueRodeo[0][0] - m.x, sigueRodeo[0][1] - m.y) < 0.35) sigueRodeo.shift();
+      m.camino = null; const [cx, cy] = sigueRodeo[0];
+      if (moverHacia(j, m, cx, cy, m.vel * lento, dt)) sigueRodeo.shift();
+      m.acc = 'caminar';
+    } else if (directo) {
       m.camino = null; moverHacia(j, m, tx, ty, m.vel * lento, dt); m.acc = lejos ? 'correr' : 'caminar';
     } else {
       if ((!m.camino || !m.camino.length || q.tCam <= 0) && caminosLibres(j)) {

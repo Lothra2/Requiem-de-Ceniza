@@ -8,7 +8,7 @@
 // terminar de forjarse el fuego se enciende desde el centro hacia los lados con una bocanada.
 // `__tituloViejo` vuelve al fuego liso de antes (una grilla agrandada con suavizado) y sin el golpe.
 import * as D from '../../../src/engine/gotico/fuego_doom';
-import { ctx, E } from '../nucleo/lienzo';
+import { ctx, E, H, RES } from '../nucleo/lienzo';
 import { acc } from '../nucleo/accesible';
 import { Sonido } from '../audio/sonido';
 import { BANDAS_METAL, capa, pintarCalor, pegarPixel, moverChispas, dibujarChispas, type Capa, type Chispa } from './fuego_pixel';
@@ -27,11 +27,25 @@ interface Estado {
   calorMetal: Float32Array;
   /** qué tan cerca del canto de abajo de su trazo está cada celda (1 en el canto, 0 a media letra): ahí vive el calor */
   bajo: Float32Array;
+  filaK?: Float32Array;
   tablas?: { sx1: Float32Array; cx1: Float32Array; sx2: Float32Array; cx2: Float32Array; sy1: Float32Array; cy1: Float32Array; sy2: Float32Array; cy2: Float32Array };
   llama: Capa; humo: Capa; adel: Capa; metal: Capa;
   brillo: HTMLCanvasElement; gb: CanvasRenderingContext2D;
 }
-let est: Estado | null = null, ultT = -1, ultAd = -1, encendido = false, golpeado = false;
+/** Los sonidos del golpe y del encendido esperan al audio: si la portada arranca antes del primer toque, suenan cuando
+ * se desbloquea mientras el título todavía se forja (el golpe hasta 2 s después del encendido, el encendido 1,5 s). */
+const pendiente = { golpe: -1, enciende: -1, tras: -1 };
+(window as any).__sonidoPendiente = pendiente;
+function sonar(t: number) {
+  const log = ((window as any).__sonidosPortada ??= []) as { id: string; t: number }[];
+  if (Sonido.mudo()) return;
+  if (pendiente.golpe >= 0 && t < ENCIENDE_T + 2) { Sonido.efecto('golpe_metal' as any, { vol: 0.7, tono: 0.55 }); log.push({ id: 'golpe_metal', t }); pendiente.tras = t + 0.4; }
+  // (si los dos llegan juntos al desbloquear, el encendido espera un poco detrás del golpe)
+  if (pendiente.enciende >= 0 && t >= ENCIENDE_T && t >= pendiente.tras && t < ENCIENDE_T + 2.5) { Sonido.efecto('fuego_lanzar' as any, { vol: 0.6, tono: 0.7 }); log.push({ id: 'fuego_lanzar', t }); pendiente.enciende = -1; }
+  pendiente.golpe = -1;
+  if (t >= ENCIENDE_T + 2.5) pendiente.enciende = -1;
+}
+let est: Estado | null = null, ultT = -1, ultAd = -1, encendido = false, golpeado = false, avivo = false;
 const chispas: Chispa[] = [];
 
 function armar(im: HTMLImageElement, celda: number, cw: number): Estado | null {
@@ -60,11 +74,13 @@ function armar(im: HTMLImageElement, celda: number, cw: number): Estado | null {
     if (r > 170 && r - b > 90 && gg > 70 && azar(x, y, 6) < 0.3) { fF[i] = 0.45 + 0.35 * azar(x, y, 7); idxF.push(i); }
   }
   if (!idxA.length) return null;
-  const atras = D.crearFuego({ ancho: wA, alto: hA, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fA }, altura: 0.3, viento: 0.08, rafagas: 0.35, turbulencia: 0.36, ruido: 0.5, tramo: 9, velocidadTramo: 1.5, humo: 0.5, margen: 2 });
-  const frente = D.crearFuego({ ancho: cw, alto: ch, semilla: 667, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fF, forma }, altura: 0.075, viento: 0, rafagas: 0.1, turbulencia: 0.12, ruido: 0.6, tramo: 4, velocidadTramo: 2.6, humo: 0, margen: 0 });
+  const atras = D.crearFuego({ ancho: wA, alto: hA, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fA }, altura: 0.3, viento: 0.08, rafagas: 0.35, turbulencia: 0.36, ruido: 0.5, tramo: 9, velocidadTramo: 1.5, humo: 0.5, margen: 2, encendido: 0 });
+  const frente = D.crearFuego({ ancho: cw, alto: ch, semilla: 667, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fF, forma }, altura: 0.075, viento: 0, rafagas: 0.1, turbulencia: 0.12, ruido: 0.6, tramo: 4, velocidadTramo: 2.6, humo: 0, margen: 0, encendido: 0 });
   // la distancia al canto de abajo de cada trazo, columna por columna (de abajo hacia arriba)
   const bajo = new Float32Array(cw * ch), largo = Math.max(6, ch * 0.13);
   for (let x = 0; x < cw; x++) { let dd = 1e9; for (let y = ch - 1; y >= 0; y--) { const i = y * cw + x; if (mk[i] < 0.6) { dd = 1e9; continue; } dd = dd > 1e8 ? 0 : dd + 1; bajo[i] = Math.max(0, 1 - dd / largo); } }
+  // (sin precalentar: las fuentes están apagadas hasta el encendido, y precalentar 50 mil celdas trababa 0,6 s)
+  D.encender(atras, 1); D.encender(frente, 1);
   const brillo = document.createElement('canvas'); brillo.width = Math.ceil(wA / 4); brillo.height = Math.ceil(hA / 4);
   return {
     im, cw, ch, aire, celda, mk, atras, baseA: new Float32Array(atras.fuente), idxA: Int32Array.from(idxA),
@@ -115,7 +131,7 @@ function calentar(s: Estado, dt: number, t: number, forja: number, racha: number
     // las vetas: dos ondas torcidas que suben por el hierro
     const veta = 0.5 + 0.25 * (tb.sx1[x] * tb.cy1[y] + tb.cx1[x] * tb.sy1[y]) + 0.25 * (tb.sx2[x] * tb.cy2[y] + tb.cx2[x] * tb.sy2[y]);
     const b = bajo[i], dr = x / cw - rachaX;
-    const meta = Math.min(1, (f0 * 0.5 + f1 * 0.3 + f2 * 0.25 + a0 * 0.5) * inv + b * b * (0.32 + 0.3 * veta) + 0.08 * veta + forja + racha * Math.exp(-dr * dr * 60) * (0.25 + 0.5 * b));
+    const meta = Math.min(1, (f0 * 0.5 + f1 * 0.3 + f2 * 0.25 + a0 * 0.5) * inv + b * b * (0.32 + 0.3 * veta) + 0.025 * veta + forja + racha * Math.exp(-dr * dr * 60) * (0.25 + 0.5 * b));
     const v = calorMetal[i], c = (calorMetal[i] = v + (meta - v) * (meta > v ? kUp : kDn));
     // la rampa del metal, interpolada (liso)
     const u = Math.min(n - 0.001, c * n * 0.95), k0 = Math.floor(u), q = u - k0, A = BANDAS_METAL[k0], B = BANDAS_METAL[k0 + 1];
@@ -142,18 +158,27 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
   if (viejo()) { fuegoTituloViejo(im, x, y, w, h, t, alfa, pasada); return; }
   if (!im) return;
   // la grilla: celdas de 2 o 3 puntos enteros del aparato (el grano de las letras: 240 de ancho en PC, 260 en el teléfono)
-  const T = ctx.getTransform(), dev = w * T.a, celda = Math.max(2, Math.min(3, Math.round(dev / 240))), cw = Math.max(16, Math.round(dev / celda));
+  const T = ctx.getTransform(), dev = w * RES, celda = Math.max(2, Math.min(3, Math.round(dev / 240))), cw = Math.max(16, Math.round(dev / celda));
   if (!est || est.im !== im || est.cw !== cw || est.celda !== celda) { est = armar(im, celda, cw); ultT = -1; encendido = false; if (!est) return; }
-  const s = est, cel = celda / T.a, oy = y - s.aire * cel, x0 = x + (w - s.cw * cel) / 2;
+  const s = est, cel = celda / RES, oy = y - s.aire * cel, x0 = x + (w - s.cw * cel) / 2;
   if (pasada === 'atras') {
-    if (t < ultT - 0.5) { golpeado = false; encendido = false; chispas.length = 0; }
+    if (t < ultT - 0.5) { golpeado = false; encendido = false; avivo = false; chispas.length = 0; pendiente.golpe = pendiente.enciende = pendiente.tras = -1; }
     const dt = ultT < 0 ? 1 / 30 : Math.min(0.1, Math.max(0, t - ultT)); ultT = t;
     // el golpe de forja: chispas que saltan de las letras y el martillazo
-    if (!golpeado && t >= GOLPE_T && t < GOLPE_T + 0.3) { golpeado = true; chispasDeGolpe(s, x0, oy, cel); Sonido.efecto('golpe_metal' as any, { vol: 0.7, tono: 0.55 }); }
+    if (!golpeado && t >= GOLPE_T && t < ENCIENDE_T) { golpeado = true; chispasDeGolpe(s, x0, oy, cel); pendiente.golpe = t; }
     // el encendido: del centro a los lados, con una bocanada
     const ki = Math.max(0, Math.min(1, (t - ENCIENDE_T) / ENCIENDE_DUR));
+    // el frente del encendido corre del centro a los lados soltando brasas hacia arriba (la bocanada que se lee)
+    if (ki > 0 && ki < 1) {
+      const m = s.cw / 2, q = Math.min(1, ki * 1.3), n = E.tactil ? 3 : 6;
+      for (let k = 0; k < n; k++) {
+        const lado = k % 2 ? 1 : -1, cx = Math.round(m + lado * q * m + (Math.random() - 0.5) * 6), i = s.idxA.find((j) => Math.abs((j % s.cw) - cx) < 2);
+        if (i === undefined) continue;
+        chispas.push({ x: x0 + ((i % s.cw) + 0.5) * cel, y: oy + Math.floor(i / s.cw) * cel, vx: lado * (30 + Math.random() * 90), vy: -260 - Math.random() * 220, t: 0, d: 0.35 + Math.random() * 0.5, g: 260, q: 1, s: 1 });
+      }
+    }
     if (ki < 1) { prender(s, ki); encendido = false; } else if (!encendido) { prender(s, 1); encendido = true; }
-    if (t >= ENCIENDE_T && t < ENCIENDE_T + dt + 0.02) { D.avivar(s.atras, 2.1, 0.9); D.avivar(s.frente, 1.8, 0.7); Sonido.efecto('fuego_lanzar' as any, { vol: 0.55, tono: 0.7 }); }
+    if (!avivo && t >= ENCIENDE_T && t < ENCIENDE_T + 1) { avivo = true; D.avivar(s.atras, 2.8, 1.0); D.avivar(s.frente, 2, 0.8); pendiente.enciende = t; }
     // las rachas: cada 4 a 6 s el fuego se aviva y una ola de calor cruza el título (el bucle no se apaga nunca)
     const r = racha(t);
     if (r.nueva) { D.avivar(s.atras, 1.7, 0.8); D.avivar(s.frente, 1.6, 0.6); }
@@ -165,8 +190,12 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
       for (const b of D.brasas(s.frente, 1, 0.55)) if (Math.random() < 0.22) chispas.push({ x: x0 + b.x * cel, y: y + b.y * cel, vx: (Math.random() - 0.5) * 16, vy: -36 - Math.random() * 40, t: 0, d: 0.7 + Math.random() * 1.2, g: -4, q: 0.7 + b.calor * 0.3, s: 1 });
     }
     moverChispas(chispas, dt, t, 6);
-    pintarCalor(s.atras, s.humo, { humo: true, pasadas: 2 });
-    pintarCalor(s.atras, s.llama, { brillo: 1.5, umbral: 0.22, pasadas: 2 });
+    sonar(t);
+    // las llamas mueren antes del borde de arriba de la pantalla: cada fila se enfría según dónde cae (nunca un corte)
+    const fk = s.filaK ?? (s.filaK = new Float32Array(s.ch + s.aire)), techo = Math.max(10, H * 0.06);
+    for (let r = 0; r < fk.length; r++) { const sy = (T.d * (oy + r * cel) + T.f) / T.d, u = Math.max(0, Math.min(1, (sy - 2) / techo)); fk[r] = u * u * (3 - 2 * u); }
+    pintarCalor(s.atras, s.humo, { humo: true, pasadas: 2, filaK: fk });
+    pintarCalor(s.atras, s.llama, { brillo: 1.5, umbral: 0.22, pasadas: 2, filaK: fk, tramaDesde: E.tactil ? 3.6 : 2.6 });
     pegarPixel(s.humo.c, x0, oy, celda, alfa * 0.9);
     // el resplandor: la llama achicada a un cuarto y agrandada suave (es luz, no fuego: puede ser blanda)
     s.gb.clearRect(0, 0, s.brillo.width, s.brillo.height); s.gb.imageSmoothingEnabled = true; s.gb.drawImage(s.llama.c, 0, 0, s.brillo.width, s.brillo.height);
@@ -176,7 +205,7 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
   } else {
     // el metal al rojo (sumado) y la llama que lame las letras (encima, sin tapar el hierro frío)
     // la forja: el hierro se calienta mientras aparece, al rojo en el golpe, y se enfría
-    const forja = t < GOLPE_T ? 0.6 * Math.max(0, t / GOLPE_T) ** 2 : 0.6 * Math.exp(-(t - GOLPE_T) / 0.9);
+    const forja = (t < GOLPE_T ? 0.6 * Math.max(0, t / GOLPE_T) ** 2 : 0.6 * Math.exp(-(t - GOLPE_T) / 0.9)) + (t >= ENCIENDE_T ? 0.35 * Math.exp(-(t - ENCIENDE_T) / 0.45) : 0);
     const dt = ultAd < 0 || t < ultAd ? 1 / 30 : Math.min(0.1, t - ultAd); ultAd = t;
     const r = racha(t);
     calentar(s, dt, t, forja, r.k * alfa, r.x);
@@ -198,7 +227,7 @@ export function golpeTitulo(t: number): { dx: number; dy: number; destello: numb
   const v = t - ENCIENDE_T, b = v >= 0 ? 2 * Math.exp(-v / 0.12) * (v < 0.5 ? 1 : 0) * acc.temblor : 0;
   const dx = Math.round((Math.sin(u * 83) * a + Math.sin(v * 71) * b) * 2) / 2, dy = Math.round((Math.cos(u * 67) * a * 0.8 + Math.cos(v * 59) * b) * 2) / 2;
   const destello = Math.exp(-u / 0.09) * acc.destellos;
-  const bocanada = v >= 0 ? Math.exp(-v / 0.22) * acc.destellos : 0;
+  const bocanada = v >= 0 ? Math.exp(-v / 0.35) * acc.destellos : 0;
   return { dx, dy, destello, bocanada };
 }
 

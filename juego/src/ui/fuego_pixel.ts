@@ -11,7 +11,8 @@ export const BANDAS_LLAMA: readonly RGBA[] = [
   [236, 108, 28, 255], [248, 150, 48, 255], [255, 196, 90, 255], [255, 234, 170, 255],
 ];
 /** El metal al rojo (se suma sobre el hierro de las letras): del rojo apagado al naranja vivo. */
-export const BANDAS_METAL: readonly RGBA[] = [[0, 0, 0, 0], [60, 6, 3, 255], [112, 16, 5, 255], [168, 40, 8, 255], [220, 82, 18, 255], [255, 140, 44, 255], [255, 196, 96, 255]];
+// (de brasa a naranja con su verde: el rojo solo sobre el hierro gris lo dejaba rosado)
+export const BANDAS_METAL: readonly RGBA[] = [[0, 0, 0, 0], [40, 10, 0, 255], [92, 30, 2, 255], [150, 60, 6, 255], [206, 102, 16, 255], [246, 150, 40, 255], [255, 198, 92, 255]];
 /** El humo: tres grises tibios y translúcidos. */
 export const BANDAS_HUMO: readonly RGBA[] = [[0, 0, 0, 0], [24, 14, 13, 70], [30, 18, 16, 120], [36, 22, 19, 165]];
 /** Umbrales de la trama Bayer 4 x 4 (0 a 1). */
@@ -49,7 +50,7 @@ function suavizadoF(src: Float32Array, w: number, h: number): Float32Array {
   for (let y = 0; y < h; y++) { const o = y * w; for (let x = 0; x < w; x++) { const i = o + x; tmp[i] = (tmp2[y > 0 ? i - w : i] + 2 * tmp2[i] + tmp2[y < h - 1 ? i + w : i]) * 0.25; } }
   return tmp;
 }
-export function pintarCalor(f: D.Fuego, cp: Capa, o: { humo?: boolean; brillo?: number; umbral?: number; alfa?: number; mascara?: Float32Array; bandas?: readonly RGBA[]; filtro?: number; trama?: boolean; pasadas?: number } = {}) {
+export function pintarCalor(f: D.Fuego, cp: Capa, o: { humo?: boolean; brillo?: number; umbral?: number; alfa?: number; mascara?: Float32Array; bandas?: readonly RGBA[]; filtro?: number; trama?: boolean; pasadas?: number; filaK?: Float32Array; tramaDesde?: number } = {}) {
   const { w, h } = f, d = cp.im.data, W = cp.c.width, H = Math.min(cp.c.height, h);
   const bandas = o.bandas ?? (o.humo ? BANDAS_HUMO : BANDAS_LLAMA), n = bandas.length, inv = 1 / (o.humo ? 255 : D.CALOR_MAX);
   const br = 1 / (o.brillo ?? 1), um = o.umbral ?? 0, al = o.alfa ?? 1, mk = o.mascara;
@@ -61,7 +62,11 @@ export function pintarCalor(f: D.Fuego, cp: Capa, o: { humo?: boolean; brillo?: 
     let v = x < w ? src[i] * inv : 0;
     if (v > 0 && br !== 1) v = Math.pow(v, br);
     if (o.humo) v *= 0.9;
-    let q = v > um ? (o.trama === false ? Math.min(n - 1, Math.floor(v * (n - 1) + 0.5)) : banda(v, n, x, y)) : 0;
+    // (filaK: la llama se enfría por fila, para que muera antes del borde de la pantalla en vez de cortarse)
+    if (o.filaK) v *= o.filaK[y];
+    // en las bandas oscuras no va la trama (se leía como tablero): se redondea a la banda, el pixel sigue
+    const sinTrama = o.trama === false || (o.tramaDesde !== undefined && v * (n - 1) < o.tramaDesde);
+    let q = v > um ? (sinTrama ? Math.min(n - 1, Math.floor(v * (n - 1) + 0.5)) : banda(v, n, x, y)) : 0;
     if (mk && mk[y * W + x] < 0.5) q = 0;
     const b = bandas[q]; d[j] = b[0]; d[j + 1] = b[1]; d[j + 2] = b[2]; d[j + 3] = b[3] * al;
   }

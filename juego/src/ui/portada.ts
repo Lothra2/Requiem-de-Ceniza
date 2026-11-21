@@ -15,7 +15,8 @@ let pidio = false;
 const imgs = new Map<string, HTMLImageElement>();
 const pedir = (ruta: string) => {
   if (imgs.has(ruta)) return imgs.get(ruta)!;
-  const im = new Image(); im.decoding = 'async'; im.src = RAIZ + ruta; imgs.set(ruta, im); return im;
+  // (decode() la deja decodificada fuera del hilo antes de dibujarla: sin eso la primera hoja del título trababa 0,2 s)
+  const im = new Image(); im.decoding = 'async'; im.src = RAIZ + ruta; imgs.set(ruta, im); im.decode?.().catch(() => { /* nada */ }); return im;
 };
 const lista = (ruta?: string) => { if (!ruta) return null; const im = pedir(ruta); return im.complete && im.naturalWidth ? im : null; };
 
@@ -373,7 +374,7 @@ function nueva(pc: any, alAzar: boolean): Part {
 function dibujarTitulo(tRel: number, vertical: boolean, destello = 0, bocanada = 0) {
   const ti = man.titulo[IDI ? 'en' : 'es'], col = man.titulo.colocacion?.[vertical ? 'movil_vertical' : 'escritorio'] ?? { ancho_rel: 0.54, centro_y_rel: 0.235 };
   // (se mide por ancho, pero nunca más alto que el 40 % de la pantalla: en monitores anchos crecía hasta tapar la catedral)
-  const w = Math.min(W * col.ancho_rel, H * 0.4 / 0.6), h = w * 0.6, x = W / 2 - w / 2, y = Math.max(-h * 0.08, H * (vertical ? col.centro_y_rel : 0.19) - h / 2);
+  const w = Math.min(W * col.ancho_rel, H * 0.4 / 0.6), h = w * 0.6, x = W / 2 - w / 2, y = Math.max(vertical ? -h * 0.08 : H * 0.035, H * (vertical ? col.centro_y_rel : 0.19) - h / 2);
   (window as any).__tituloRect = [x, y, w, h];
   if (tRel < 0) return;
   const hoja = (a: any, i: number) => { const n = Math.floor(i / a.por_hoja), j = i % a.por_hoja; const im = lista(a.hojas[n]); if (!im) return false; ctx.drawImage(im, (j % a.columnas) * a.w, Math.floor(j / a.columnas) * a.h, a.w, a.h, x, y, w, h); return true; };
@@ -394,8 +395,8 @@ function dibujarTitulo(tRel: number, vertical: boolean, destello = 0, bocanada =
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     // las letras mismas se ponen al blanco en el golpe (el título sumado sobre sí mismo)
     if (fijoIm && destello > 0.02) { ctx.globalAlpha = Math.min(1, destello * 0.85); ctx.drawImage(fijoIm, x, y, w, h); ctx.globalAlpha = Math.min(1, destello * 0.5); ctx.drawImage(fijoIm, x, y, w, h); }
-    ctx.globalAlpha = Math.min(1, destello * 0.45 + bocanada * 0.3); ctx.drawImage(fg, x - w * 0.15, y - h * 0.05, w * 1.3, h * 1.1);
-    ctx.globalAlpha = Math.min(1, destello * 0.28); ctx.fillStyle = '#ff9a50'; ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = Math.min(1, destello * 0.45 + bocanada * 0.6); ctx.drawImage(fg, x - w * 0.15, y - h * 0.05, w * 1.3, h * 1.1);
+    ctx.globalAlpha = Math.min(1, destello * 0.28 + bocanada * 0.12); ctx.fillStyle = '#ff9a50'; ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }
 }

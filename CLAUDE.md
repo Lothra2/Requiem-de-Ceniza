@@ -1053,9 +1053,20 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
 - **Canto de brasa en los botones** (`ui/brasa_menu.ts`, `brasaRenglon`): el renglón encendido lleva un fuego de Doom chico
   que nace del canto de abajo de cada letra y lo lame por detrás, y el borde de las letras en brasa de pixel, más vivo
   abajo y donde lo toca la llama. Celdas de 2 puntos del aparato. Una grilla por renglón, solo se mueve mientras está encendido.
+- **Tercera pasada (21 nov 2026)**: las llamas mueren antes del borde de arriba de la pantalla (`filaK`: cada fila del fuego
+  se enfría según dónde cae, en el 6 % de arriba) y el título baja un 3,5 % en PC: nunca un corte recto, en ninguna vista.
+  En las bandas oscuras no va la trama (`tramaDesde`, 2,6 en PC y 3,6 en táctil: el tablero en el hueco de la Q). El metal
+  al rojo es de brasa a naranja con su verde (el rojo solo dejaba rosado el hierro gris). La grilla se mide con `RES`, no
+  con la transformación del cuadro: el temblor del golpe la cambiaba y se rearmaba (0,7 s trabado en el golpe y en el
+  encendido), y los fuegos nacen sin precalentar. Las hojas del título se piden con `decode()`. La bocanada del encendido
+  aviva 2,8 veces, suelta brasas desde el frente que corre y tiñe la pantalla. **Sonido**: el golpe y el encendido
+  quedan pendientes hasta que el audio se desbloquea (`pendiente`, `sonar`; `Sonido.mudo()`): el golpe vale hasta 2 s
+  después del encendido y el encendido suena 0,4 s detrás del golpe si llegan juntos. `__sonidosPortada` anota lo que
+  sonó. Prueba: `t683_portada_video.cjs <etiqueta> [pc|pc1080|movil]` (video real con el grabador de Playwright a mp4 de
+  25 por segundo y cuadros sueltos, la API de audio interceptada, sin gesto y ya desbloqueado).
 - Banderas: `__tituloViejo` (el fuego liso de antes y sin golpe), `__menuViejo` (el dorado de antes). `__portadaReloj`
   fija el tiempo de la escena y `__portadaMed` suma lo que cuesta por cuadro (fondo y título, ms de JS).
-- Pruebas: `t681_portada_fuego.cjs <etiqueta> [pc,pc1080,movil] [es,en]` (ocho momentos, el botón encendido y el costo;
+- Pruebas: `t681_portada_fuego.cjs <etiqueta> [pc,pc1080,ultra,ipad,movil,vertical] [es,en]` (ocho momentos, el botón encendido y el costo;
   `BANDERAS=__tituloViejo,__menuViejo` el antes), `t682_portada_golpe.cjs <etiqueta> [vista] [idioma]` (el golpe cuadro a
   cuadro con el reloj fijo, `DESDE`, `HASTA`) y `python3 juego/herramientas/t681_lamina.py <antes> <ahora>` o `golpe
   <etiqueta> <vista_idioma>` (láminas y letras al doble en `/tmp/requiem-pruebas/portada2/laminas`).

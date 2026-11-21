@@ -1,12 +1,12 @@
 // La portada en varios momentos (entrada, forjado, bucle y un botón encendido), en ES y EN, con recortes del título
 // y el costo por cuadro de la portada (`__portadaMed`: el fondo y el título con su fuego, en ms de JS).
-// Uso: node juego/herramientas/t681_portada_fuego.cjs <etiqueta> [pc,pc1080,movil] [es,en]
+// Uso: node juego/herramientas/t681_portada_fuego.cjs <etiqueta> [pc,pc1080,movil,ultra,ipad,vertical] [es,en]
 // Variables: URL (otro servidor), BANDERAS=__tituloViejo (se ponen en window antes de cargar).
 // Capturas en /tmp/requiem-pruebas/portada2/<etiqueta>/; la lámina la arma t681_lamina.py.
 const { chromium } = require('playwright');
 const fs = require('fs');
 const etq = process.argv[2] || 'ahora';
-const VISTAS = { pc: [{ width: 1280, height: 720 }, false, 1], pc1080: [{ width: 1920, height: 1080 }, false, 1], movil: [{ width: 844, height: 390 }, true, 3] };
+const VISTAS = { pc: [{ width: 1280, height: 720 }, false, 1], pc1080: [{ width: 1920, height: 1080 }, false, 1], movil: [{ width: 844, height: 390 }, true, 3], ultra: [{ width: 2560, height: 1080 }, false, 1], ipad: [{ width: 1194, height: 834 }, true, 2], vertical: [{ width: 390, height: 844 }, true, 3] };
 const vistas = (process.argv[3] || 'pc,pc1080,movil').split(',');
 const idiomas = (process.argv[4] || 'es,en').split(',');
 const MOMENTOS = [['entrada', 1.2], ['golpe', 2.35], ['forja1', 2.8], ['forja2', 3.4], ['forjado', 4.3], ['enciende', 5.2], ['bucle1', 8], ['bucle2', 11.5]];
@@ -31,7 +31,7 @@ const dir = `/tmp/requiem-pruebas/portada2/${etq}`; fs.mkdirSync(dir, { recursiv
       if (nom === 'bucle1') { const m = await p.evaluate(() => window.__portadaMed); out[k].entrada = m; await p.evaluate(() => { window.__portadaMed = { n: 0, fondo: 0, titulo: 0, peor: 0 }; }); }
       await p.waitForFunction((tt) => (window.__portadaT ?? 0) >= tt, tt, { timeout: 60000, polling: 16 });
       await p.screenshot({ path: `${dir}/${k}_${nom}.png` });
-      const r = await p.evaluate(() => window.__tituloRect); if (r) out[k].rect = r;
+      const r = await p.evaluate(() => window.__tituloRect); if (r) out[k].rect = r; out[k].W = await p.evaluate(() => window.__vista && window.__vista().W);
     }
     out[k].bucle = await p.evaluate(() => window.__portadaMed);
     // un botón encendido: el ratón sobre la segunda fila
@@ -43,5 +43,7 @@ const dir = `/tmp/requiem-pruebas/portada2/${etq}`; fs.mkdirSync(dir, { recursiv
     console.log(k, 'entrada', f(out[k].entrada), '| bucle', f(out[k].bucle), errs.length ? errs.slice(0, 2) : '');
     await b.close();
   }
-  fs.writeFileSync(`${dir}/medidas.json`, JSON.stringify(out, null, 1));
+  // (se suma a lo que ya haya de otra corrida con la misma etiqueta)
+  let prev = {}; try { prev = JSON.parse(fs.readFileSync(`${dir}/medidas.json`, 'utf8')); } catch { /* nada */ }
+  fs.writeFileSync(`${dir}/medidas.json`, JSON.stringify({ ...prev, ...out }, null, 1));
 })();

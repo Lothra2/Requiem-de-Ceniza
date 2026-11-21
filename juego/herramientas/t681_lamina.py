@@ -57,6 +57,7 @@ def lamina_momentos(antes, ahora, k):
 def json_W(etq, k, im):
     # el título va limitado por el alto (w = H x 0,4 / 0,6): de ahí sale la escala de lógico a captura
     m = json.load(open(f'{R}/{etq}/medidas.json'))[k]
+    if m.get('W'): return m['W']
     return im.width / (im.height / (m['rect'][2] * 1.5))
 
 def lamina_golpe(etq, k):

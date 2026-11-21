@@ -17,13 +17,10 @@ ARPG gótico isométrico original de Rick, en Vite + TypeScript + Canvas 2D. Est
 
 Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 
-- **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin). Tanda 1 hecha (campamentos de
-  6 a 10, exteriores por lugares, salas y cuevas amplias, arenas de jefe, `MAPA_V = 2`). Tanda 2 en marcha: etapa A
-  (balance con campamentos, atascos en 0, arenas de jefe pendientes, fotos frescas, pruebas) ya está publicada en main
-  (`bb1cbf2`, con la tanda 1); etapa B (menos montado, puertas y cuellos bajo tierra, gore con relato, puesta en escena de jefes, hitos
-  nuevos por acto con los actos 1 y 2 pulidos primero, desvíos y secretos, lugares en el mapa; entregas 3 a 8 abajo, la 8 con
-  los atascos mirados con la cuenta estricta y las minas apuntaladas). Auditoría completa en
-  `/tmp/requiem-pruebas/auditoria_mundos/informe.md` (se borra al reiniciar la máquina: lo que importa está aquí).
+- **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 8 publicadas en main
+  (la 8, atascos mirados con la cuenta estricta y minas apuntaladas, el 21 nov). Cada entrega tiene su sección abajo. Nada
+  abierto: lo flojo que queda está dicho al final de "Mundos, entrega 8".
+- **Libro de Odrán** (rama `odran`, copia en `/home/user/requiem-odran`, 21 nov 2026, en marcha): el Códice por hilos de la historia.
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
   que Diablo 2 pero original; nada montado, todo con intención; respaldar ramas de trabajo en origin está bien.

@@ -18,7 +18,7 @@ import { nochePfx } from './pfx';
 type RGB = [number, number, number];
 interface Chispa { x: number; y: number; z: number; vx: number; vy: number; vz: number; t: number; d: number; c: RGB; s: number; px?: number; py?: number; reb: number; g?: number }
 interface Anillo { x: number; y: number; t: number; d: number; r0: number; r1: number; c: RGB; g: number; a: number }
-interface Flash { x: number; y: number; z: number; t: number; d: number; r: number; c: RGB; a: number; tras?: boolean }
+interface Flash { x: number; y: number; z: number; t: number; d: number; r: number; c: RGB; a: number; tras?: boolean; /** sin el centro blanco (sexta pasada) */ hondo?: boolean }
 interface Mota { ang: number; r: number; z: number; t: number; d: number; c: RGB; giro: number }
 const chispas: Chispa[] = [], anillos: Anillo[] = [], flashes: Flash[] = [], motas: Mota[] = [];
 const estelas = new Map<Proyectil, { p: [number, number, number][]; c: RGB }>();
@@ -45,21 +45,21 @@ const SIN_ESTALLIDO = /fx_(aviso|recoger|cofre|humareda|congelar|alma|monedas|pl
 const HAB = new Map(HABILIDADES.map((h) => [h.id, h]));
 const R = Math.random;
 const sprites = new Map<string, HTMLCanvasElement>();
-function luzSpr(c: RGB): HTMLCanvasElement {
-  const k = c.join(','); let s = sprites.get(k); if (s) return s;
+function luzSpr(c: RGB, hondo = false): HTMLCanvasElement {
+  const k = c.join(','), kc = k + (hondo ? 'h' : ''); let s = sprites.get(kc); if (s) return s;
   s = document.createElement('canvas'); s.width = s.height = 64; const x = s.getContext('2d')!;
-  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.25, `rgba(${Math.min(255, c[0] + 60)},${Math.min(255, c[1] + 60)},${Math.min(255, c[2] + 60)},0.8)`); g.addColorStop(0.6, `rgba(${k},0.3)`); g.addColorStop(1, `rgba(${k},0)`);
-  x.fillStyle = g; x.fillRect(0, 0, 64, 64); sprites.set(k, s); return s;
+  const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, hondo ? `rgba(${Math.min(255, c[0] + 50)},${Math.min(255, c[1] + 50)},${Math.min(255, c[2] + 50)},1)` : 'rgba(255,255,255,1)'); g.addColorStop(0.25, `rgba(${Math.min(255, c[0] + 60)},${Math.min(255, c[1] + 60)},${Math.min(255, c[2] + 60)},0.8)`); g.addColorStop(0.6, `rgba(${k},0.3)`); g.addColorStop(1, `rgba(${k},0)`);
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64); sprites.set(kc, s); return s;
 }
 
 let heroeXY: [number, number] = [-99, -99];
-function estallar(x: number, y: number, z: number, c: RGB, fuerza: number, tras = false, suave = 1) {
+function estallar(x: number, y: number, z: number, c: RGB, fuerza: number, tras = false, suave = 1, hondo = false) {
   const tope = E.tactil ? 220 : 420, n = Math.round(((E.tactil ? 7 : 12) + fuerza * (E.tactil ? 5 : 10)) * suave);
   for (let i = 0; i < n && chispas.length < tope; i++) { const a = R() * Math.PI * 2, v = (1.6 + R() * 4.2) * (0.7 + fuerza * 0.4); chispas.push({ x, y, z: z + 8 + R() * 14, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 50 + R() * 150 * (0.7 + fuerza * 0.3), t: 0, d: 0.45 + R() * 0.55, c, s: R() < 0.3 ? 3 : 2, reb: 1 }); }
   // el fogonazo: corto y medido. Antes era un disco blanco de hasta 180 puntos por cada efecto, y tres golpes juntos
   // dejaban al héroe y a los enemigos tapados por una bola blanca. Ahora no se apilan (uno por sitio y momento) y
   // el que cae encima del héroe va más bajo todavía
-  if (!flashes.some((q) => q.t < 0.1 && Math.hypot(q.x - x, q.y - y) < 1.6)) flashes.push({ x, y, z: z + 16, t: 0, d: 0.16 + fuerza * 0.04, r: 20 + fuerza * 13, c, a: (Math.hypot(x - heroeXY[0], y - heroeXY[1]) < 1.3 ? 0.3 : 0.5) * suave, tras });
+  if (!flashes.some((q) => q.t < 0.1 && Math.hypot(q.x - x, q.y - y) < 1.6)) flashes.push({ x, y, z: z + 16, t: 0, d: 0.16 + fuerza * 0.04, r: 20 + fuerza * 13, c, a: (Math.hypot(x - heroeXY[0], y - heroeXY[1]) < 1.3 ? 0.3 : 0.5) * suave, tras, hondo });
   anillos.push({ x, y, t: 0, d: 0.34 + fuerza * 0.08, r0: 0.25, r1: 1.3 + fuerza * 1.15, c, g: 2.5 + fuerza, a: 0.85 * (0.4 + 0.6 * suave) });
   if (fuerza >= 1.35) { anillos.push({ x, y, t: -0.09, d: 0.55, r0: 0.4, r1: 2.2 + fuerza * 1.5, c, g: 1.6, a: 0.5 }); pantalla = Math.max(pantalla, Math.min(0.2, 0.07 * fuerza)); pantallaC = c; }
 }
@@ -85,7 +85,9 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
     // (quinta pasada: el golpe cuerpo a cuerpo de un poder ya revienta con su materia, la onda del puño o la media luna, en
     // poderes_vivos.ts: el estallido de energía va a menos de la mitad. Con todo junto el Puño de rayo dejaba blanco al blanco)
     const hbE = HAB.get((e as any).hab ?? ''), suave = hbE?.tipo === 'golpe' && !(hbE as any).definitiva && !(window as any).__blancoViejo ? 0.4 : hbE?.id === 'puno_dios' && !(window as any).__blancoQuinta ? 0.6 : 1; // (sexta pasada: el Puño de dios ya trae su onda)
-    estallar(e.x, e.y, e.z ?? 0, colorDe(e.id, meta?.elem), esc * (/meteoro|nova|explosion|estallido|gran_|trueno|castigo|pilar|onda/.test(e.id) ? 1.25 : 0.8), false, suave);
+    // (sexta pasada: lo que estalla en el héroe con el Coro y el Ascenso, la columna y el castigo, de oro viejo y a media fuerza)
+    const enH6 = !(window as any).__blancoQuinta && (hbE?.id === 'coro_sellos' || hbE?.id === 'ascenso_espiritu') && Math.hypot(e.x - h.x, e.y - h.y) < 0.6;
+    estallar(e.x, e.y, e.z ?? 0, enH6 ? [190, 120, 30] : colorDe(e.id, meta?.elem), esc * (/meteoro|nova|explosion|estallido|gran_|trueno|castigo|pilar|onda/.test(e.id) ? 1.25 : 0.8), false, enH6 ? 0.6 : suave, enH6);
     if (esc >= 1.5 && /meteoro|gran_|sol_negro|edad_hielo|furia|tempestad/.test(e.id)) j.sacudida = Math.max(j.sacudida, 0.35);
   }
   // ---- el héroe conjura: motas que acuden a las manos; al soltar, fogonazo y onda
@@ -104,16 +106,17 @@ export function energiaSuelo(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
     // (quinta pasada: la pantalla, los tres anillos y el fogonazo de la definitiva más contenidos; de noche dejaban al
     // héroe y a los que tenía al lado casi blancos una décima de segundo)
     const vj = (window as any).__blancoViejo;
+    // (sexta pasada: los anillos del rayo van de azul hondo y los de la luz de oro viejo: el celeste y el oro claro de
+    // siempre, sumados sobre la arena, eran blancos y quemaban un disco bajo los pies)
+    const q6 = !(window as any).__blancoQuinta && !vj, el6 = (hb as any)?.elem, cAn: RGB = q6 && el6 === 'rayo' ? [70, 100, 255] : q6 && el6 === 'luz' ? [190, 120, 30] : cHab;
     if (oscuro > 0.2) { pantalla = vj ? 0.2 : 0.13; pantallaC = cHab; j.sacudida = Math.max(j.sacudida, 0.55); (j as any).congela = Math.max((j as any).congela ?? 0, 0.07);
-      // (sexta pasada: los anillos del rayo van de azul hondo: el celeste de siempre, sumado sobre la arena, era blanco)
-      // (y los de la luz de oro viejo: el oro claro de siempre, sumado, quemaba un disco blanco bajo los pies del templario)
-      const q6 = !(window as any).__blancoQuinta, el6 = (hb as any)?.elem, cAn: RGB = q6 && el6 === 'rayo' ? [70, 100, 255] : q6 && el6 === 'luz' ? [190, 120, 30] : cHab;
       for (const [r1, d, t0] of [[4.2, 0.6, 0], [6.5, 0.85, -0.08], [9, 1.1, -0.18]] as [number, number, number][]) anillos.push({ x: h.x, y: h.y, t: t0, d, r0: 0.4, r1, c: cAn, g: 3.2, a: vj ? 0.8 : 0.42 });
-      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cHab, a: vj ? 0.5 : 0.32, tras: true }); /* la definitiva deslumbra un instante detrás del héroe (cuarta pasada: encima lo lavaba a blanco de día) */ estallar(h.x, h.y, 20, cAn, 2.2, true); }
+      flashes.push({ x: h.x, y: h.y, z: 40, t: 0, d: 0.3, r: 105, c: cAn, a: vj ? 0.5 : 0.32, tras: true, hondo: q6 }); /* la definitiva deslumbra un instante detrás del héroe (cuarta pasada: encima lo lavaba a blanco de día) */ estallar(h.x, h.y, 20, cAn, 2.2, true, 1, q6); }
     // (quinta pasada: el de la definitiva también va detrás del cuerpo; delante lavaba al héroe a blanco de noche)
     const gp = h.acc === 'atacar' && !vj; // (el golpe de un poder: el fogonazo del héroe a menos de la mitad y detrás)
-    flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.14, r: 26, c: cHab, a: gp ? 0.2 : 0.45, tras: (oscuro > 0.2 || gp) && !vj });
-    anillos.push({ x: h.x, y: h.y, t: 0, d: 0.3, r0: 0.3, r1: 1.7, c: cHab, g: 2.2, a: 0.6 });
+    const def6 = oscuro > 0.2 && q6; // (la definitiva: el fogonazo chico y el anillo del pie también del color hondo)
+    flashes.push({ x: h.x, y: h.y, z: 34, t: 0, d: 0.14, r: 26, c: def6 ? cAn : cHab, a: gp ? 0.2 : 0.45, tras: (oscuro > 0.2 || gp) && !vj, hondo: def6 });
+    anillos.push({ x: h.x, y: h.y, t: 0, d: 0.3, r0: 0.3, r1: 1.7, c: def6 ? cAn : cHab, g: 2.2, a: 0.6 });
     for (let i = 0; i < (E.tactil ? 5 : 9); i++) { const a = R() * Math.PI * 2, v = 1.5 + R() * 2.5; chispas.push({ x: h.x, y: h.y, z: 30 + R() * 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v, vz: 40 + R() * 90, t: 0, d: 0.35 + R() * 0.3, c: cHab, s: 2, reb: 0 }); }
   }
   conjurando = cast;
@@ -181,7 +184,7 @@ export function itemsEnergia(ctx: CanvasRenderingContext2D, aP: (x: number, y: n
     ctx.fillStyle = `rgba(${Math.min(255, q.c[0] + 90)},${Math.min(255, q.c[1] + 90)},${Math.min(255, q.c[2] + 90)},${a})`; ctx.fillRect(Math.round(px - q.s / 2), Math.round(py - q.s / 2), q.s, q.s);
     q.px = px; q.py = py;
     ctx.restore(); } });
-  return out.concat(flashes.map((q) => ({ prof: q.x + q.y + (q.tras && !(window as any).__fogonazoParejo ? -0.05 : 0.08), draw: () => { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.a * (1 - u) ** 1.5 * (0.6 + 0.4 * nochePfx()); ctx.drawImage(luzSpr(q.c), px - r, py - q.z - r, r * 2, r * 2); ctx.restore(); } })));
+  return out.concat(flashes.map((q) => ({ prof: q.x + q.y + (q.tras && !(window as any).__fogonazoParejo ? -0.05 : 0.08), draw: () => { const u = q.t / q.d, [px, py] = aP(q.x, q.y), r = q.r * (0.6 + 0.7 * u); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = q.a * (1 - u) ** 1.5 * (0.6 + 0.4 * nochePfx()); ctx.drawImage(luzSpr(q.c, q.hondo), px - r, py - q.z - r, r * 2, r * 2); ctx.restore(); } })));
 }
 /** Lo que va en el aire, sumado como luz: estelas, destellos, chispas, las motas del conjuro y el resplandor de pantalla. */
 export function energiaAire(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: number, y: number) => [number, number], W: number, H: number) {

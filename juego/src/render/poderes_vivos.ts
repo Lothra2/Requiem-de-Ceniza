@@ -70,7 +70,6 @@ export function dibujarArcos(ctx: CanvasRenderingContext2D, j: Juego, aP: (x: nu
   for (const e of j.efectos as any[]) if (e.id === 'arco_cadena' && e.x2 !== undefined && e.t >= 0) arco(ctx, e, aP);
 }
 function arco(ctx: CanvasRenderingContext2D, e: any, aP: (x: number, y: number) => [number, number]) {
-  if ((window as any)[e.cielo ? '__dbg_cielo' : '__dbg_arco']) return; // DBG
   const dur = e.dur ?? 0.45, u = e.t / dur; if (u >= 1) return;
   const [ax, ay] = aP(e.x, e.y), [bx, by] = aP(e.x2, e.y2);
   const a: P = [ax, ay - (e.za ?? 34)], b: P = [bx, by - (e.zb ?? 34)];
@@ -527,8 +526,9 @@ export function sinHorneado(e: Efecto): boolean {
   const hab = (e as any).hab as string | undefined; if (!conMateria() || !hab) return false;
   if (e.id === 'salpicadura_sangre') return true;
   // (sexta pasada) la columna horneada del Coro de los sellos y del Ascenso del espíritu que nace en el héroe: aun detrás y a
-  // menos de la mitad, sumada sobre la arena rodeaba la cabeza de blanco. La columna la hace el haz de oro de definitiva()
-  if (e.id === 'pilar_luz' && (hab === 'coro_sellos' || hab === 'ascenso_espiritu') && !(window as any).__blancoQuinta && jRef && Math.hypot(e.x - jRef.heroe.x, e.y - jRef.heroe.y) < 0.6) return true;
+  // menos de la mitad, sumada sobre la arena rodeaba la cabeza de blanco, y el castigo horneado dejaba su estrella blanca
+  // sobre la cabeza. La columna la hace el haz de oro de definitiva() y la ola, los anillos de oro viejo de energia.ts
+  if ((e.id === 'pilar_luz' || e.id === 'castigo') && (hab === 'coro_sellos' || hab === 'ascenso_espiritu') && !(window as any).__blancoQuinta && jRef && Math.hypot(e.x - jRef.heroe.x, e.y - jRef.heroe.y) < 0.6) return true;
   // (la cuadrícula de oro horneada de la Égida del alba: la reemplaza el haz y el sello de render/presencias.ts)
   if (!(window as any).__sinPresencias && ((hab === 'egida_alba' && e.id === 'pfx:fx_bloqueo_escudo') || (hab === 'piel_hierro' && e.id === 'pfx:fx_parada') || (hab === 'cepo_dientes' && e.id === 'pfx:fx_explosion_tierra') || (hab === 'armadura_hueso' && e.id === 'pfx:fx_calaveras_orbitan') || (hab === 'llamar_halcon' && e.id === 'pfx:fx_plumas') || (hab === 'picada' && e.id === 'tajo_garras')
     // (la burbuja de oro del escudo divino en mejoras que no son de luz: el tónico, la piel de yunque, el mantra y la cortina)
@@ -572,9 +572,11 @@ function definitiva(j: Juego, hb: Hab, x: number, y: number) {
     // (la columna del centro, si nace en el héroe, va detrás de su cuerpo: encima lo lavaba a blanco de día)
     // (quinta pasada: si nace en el héroe la columna va más angosta, y las brasas de oro, no blancas)
     const enH = Math.hypot(x - j.heroe.x, y - j.heroe.y) < 0.6, viejo = (window as any).__blancoViejo;
-    mk({ k: 'runas', x, y, d: 1.6, c: '#ffd860', r: Math.min(3.2, r * 0.6) }); if (!enH || viejo) haz(x, y, 1.9, 1.1); else haz(x, y, 1.1, 0.8); { const ult = marcas[marcas.length - 1]; if (ult?.k === 'haz' && enH) ult.detras = true; }
-    for (let i = 0; i < 7; i++) { const an = R() * 6.283, d = rnd(1.2, Math.min(4, r * 0.75)); haz(x + Math.cos(an) * d, y + Math.sin(an) * d, rnd(0.8, 1.1), 0.7, 0.08 + i * 0.06); }
-    brasas(x, y, 30, 26, 3, viejo ? [[255, 250, 220], [255, 220, 120], [255, 200, 80]] : [[255, 228, 150], [255, 196, 90], [240, 160, 50]]); return;
+    mk({ k: 'runas', x, y, d: 1.6, c: '#ffd860', r: Math.min(3.2, r * 0.6) }); if (!enH || viejo) haz(x, y, 1.9, 1.1); else if ((window as any).__blancoQuinta) haz(x, y, 1.1, 0.8); else haz(x, y, 1.6, 1.05, 0, '#ffd070'); /* (sexta pasada: sin la columna horneada, el haz del centro es la columna: más ancho y de oro más hondo, detrás del cuerpo) */ { const ult = marcas[marcas.length - 1]; if (ult?.k === 'haz' && enH) ult.detras = true; }
+    // (sexta pasada: los siete de alrededor no caen en la columna de pantalla del héroe: el que caía delante lo cruzaba entero)
+    for (let i = 0; i < 7; i++) { let an = R() * 6.283, d = rnd(1.2, Math.min(4, r * 0.75)); if (enH && !viejo && !(window as any).__blancoQuinta) for (let k = 0; k < 12 && Math.abs(Math.cos(an) * d - Math.sin(an) * d) < 1.5; k++) { an = R() * 6.283; d = rnd(1.4, Math.min(4, r * 0.75)); }
+      haz(x + Math.cos(an) * d, y + Math.sin(an) * d, rnd(0.8, 1.1), 0.7, 0.08 + i * 0.06); }
+    brasas(x, y, 30, 26, 3, viejo ? [[255, 250, 220], [255, 220, 120], [255, 200, 80]] : enH && !(window as any).__blancoQuinta ? [[250, 190, 80], [230, 150, 40], [200, 110, 30]] : [[255, 228, 150], [255, 196, 90], [240, 160, 50]]); return;
   }
   if (id === 'lamento_osario' || id === 'legion_ceniza' || id === 'condena_osario') {
     puas(x, y, 14, id === 'condena_osario' ? 2 : 2.6, 'hueso', 34, 1.5, true); puas(x, y, 7, 1.6, 'hueso', 24, 1.3, false, 0.1);

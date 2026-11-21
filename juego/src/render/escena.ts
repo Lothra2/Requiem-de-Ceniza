@@ -909,7 +909,6 @@ function luzCofre(px0: number, py0: number, t: number, k: number, col: string) {
   ctx.restore();
 }
 function dibujarEfecto(e: Efecto, _t: number) {
-  if ((window as any)['__dbg_' + e.id]) return; // DBG
   if (e.id === 'arco_cadena' || sinHorneado(e)) return;
   // (el glifo horneado de la trampa armada: ahora la trampa misma late, render/presencias.ts)
   if (e.id === 'glifo_trampa' && presenciasVivas()) return;

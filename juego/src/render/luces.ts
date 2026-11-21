@@ -185,7 +185,6 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   const L0 = L.length;
   const colH = new Set<string>(); // (la columna del Coro y del Ascenso nace en el héroe: de día su luz lo lavaba a blanco)
   for (const e of j.efectos) {
-    if ((window as any).__dbg_luzEf) break; // DBG
     if ((e as any).sinLuz) continue; // (los rayitos de la onda del Puño de dios: su luz la da el área, de a veinte encendían los cuerpos)
     const [px, py] = aPant(e.x, e.y);
     if (!dentro(px, py, 300)) continue;

@@ -29,7 +29,7 @@ registrar(
       } else if (v === 'a1_campanario') {
         ps.push(...campanario(a));
       } else if (v === 'a1_roble') {
-        ps.push(...robleSogas(a));
+        const e = robleSogas(a); ps.push(...e.piezas, suelo(a)); return { ...e, piezas: ps };
       } else if (v === 'a2_pozo') {
         ps.push(...pozoOasis(a));
       } else if (v === 'a2_obelisco') {

@@ -1,4 +1,5 @@
 import type { Arma, Pieza, V3 } from '../objeto';
+import type { Escena } from '../render';
 import { MATERIALES } from '../materiales';
 import { ruido, type Comp } from '../render';
 import { G, bloque, ojiva, cascotes, hiedra, cadena, cuervo, vela, calavera, letras, grieta } from '../kit_muerte';
@@ -175,7 +176,7 @@ function soga(g: G, t: V3, largo: number, giro: number, corta = false) {
 /** El roble de las sogas del Bosque de los Ahorcados: tronco enorme y hueco con contrafuertes de raíz, ramas como brazos que
  * se abren sobre el camino, las sogas que esperan (una todavía con su muerto, una cortada), el banquillo pateado, el cerco
  * de piedras con los nombres raspados, velas y cintas de los que vienen a llorar, hojas muertas y cuervos. */
-export function robleSogas(a: Arma): Pieza[] {
+export function robleSogas(a: Arma): Escena {
   const ps: Pieza[] = [], g = new G(a, ps), C = 'abo_corteza';
   // el piso: tierra negra con hojarasca y musgo
   { const cs: Comp[] = [g.bu([0, 0, -2.4], [36, 33, 3.4])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 14 + a.r() * 12; cs.push(g.bu([Math.cos(t) * d, Math.sin(t) * d, -1.8], [9 + a.r() * 6, 8 + a.r() * 5, 2.2])); } g.masa(cs, { mat: 'abo_barro', suave: 6, tono: 0.12 }); }
@@ -227,7 +228,20 @@ export function robleSogas(a: Arma): Pieza[] {
   for (let i = 0; i < 7; i++) { const t = a.r() * TAU, d = 20 + a.r() * 12; mata(a, ps, Math.cos(t) * d - 6, Math.sin(t) * d - 6, 4 + Math.floor(a.r() * 3), 3 + a.r() * 3, 'ext_pasto'); }
   cuervo(g.sub(brazoC[brazoC.length - 1][0], brazoC[brazoC.length - 1][1], brazoC[brazoC.length - 1][2] - 0.4, 120).esc(0.9), 'grazna');
   cuervo(g.sub(en(brazoA, 0.25)[0], en(brazoA, 0.25)[1], en(brazoA, 0.25)[2] + 4.6, 30).esc(0.85), 'posado');
-  return ps;
+  // (entrega 3, Rick: "el roble queda muy oscuro bajo la lluvia") la luz con intención: el farol que alguien colgó del brazo
+  // que mira al camino para que los suyos no se queden a oscuras, con su cadena, la jaula de hierro, el vidrio ahumado y
+  // la llama; y tres velas vivas en el labio del hueco, donde dejan las cintas. El resplandor tiñe el árbol y el juego le
+  // da su luz (`fuenteDe`), que saca de la lluvia el tronco, las sogas y el muerto.
+  const pf = en(brazoE, 0.85), fz = pf[2] - 12, F: V3 = [pf[0] + 0.4, pf[1] + 0.4, fz];
+  cadena(g, [pf[0], pf[1], pf[2] + 1], [F[0], F[1], fz + 7.4], 0.3, 'mu_hierro', 0.55);
+  g.cil(F[0], F[1], fz + 6, 2.6, 1.2, { mat: 'mu_hierro', r1: 0.6 }); g.cil(F[0], F[1], fz + 5.2, 2.7, 0.8, { mat: 'mu_hierro' });
+  g.cil(F[0], F[1], fz, 2.4, 0.9, { mat: 'mu_hierro' }); g.cil(F[0], F[1], fz - 1, 1.2, 1.1, { mat: 'mu_hierro', r1: 2.2 });
+  g.cil(F[0], F[1], fz + 0.8, 2.05, 4.4, { mat: 'luz_vela', tono: -0.05 });
+  for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU + 0.4; g.palo([F[0] + Math.cos(t) * 2.3, F[1] + Math.sin(t) * 2.3, fz + 0.4], [F[0] + Math.cos(t) * 2.4, F[1] + Math.sin(t) * 2.4, fz + 5.6], 0.32, { mat: 'mu_hierro' }); }
+  g.elip(F[0], F[1], fz + 2.8, 1.1, 1.1, 1.7, { mat: 'fuego', tono: 0.15 });
+  for (const [x, y, h] of [[4.4, 6.4, 2.6], [6.2, 4.6, 1.8], [5.6, 6.8, 3.4]] as [number, number, number][]) vela(g, x, y, 5.8, h, 0.7, 0, 8, a.r() * 8, true);
+  // (en unidades de la pieza ya agrandada 2,4 veces: el resplandor no pasa por la escala)
+  return { piezas: ps, resplandor: { c: [F[0] * 2.4, F[1] * 2.4, (fz + 2.5) * 2.4], r: 46, color: '#ffb25c' } };
 }
 
 /** Palmera seca a escala `k`: tronco anillado que se curva, la copa de pencas muertas que cuelgan; `quebrada` la parte. */
@@ -253,7 +267,7 @@ function palmaSeca(g: G, b: V3, H: number, curva: number, giro: number, k: numbe
 function duna(g: G, c: V3, L: number, W: number, H: number, giro: number, n = 4) {
   const a = g.a, cs: Comp[] = [], cg = Math.cos((giro * Math.PI) / 180), sg = Math.sin((giro * Math.PI) / 180);
   for (let i = 0; i < n; i++) { const u = (i / (n - 1) - 0.5) * L * 0.8, w = (a.r() - 0.5) * W * 0.3, h = H * (1 - Math.abs(u / L) * 1.1) * (0.8 + a.r() * 0.3); cs.push(g.bu([c[0] + u * cg - w * sg, c[1] + u * sg + w * cg, c[2] - h * 0.35], [L / n * 0.9 + W * 0.3, W * (0.5 + a.r() * 0.2), h], { giro: giro + (a.r() - 0.5) * 12 })); }
-  g.masa(cs, { mat: 'des2_arena', suave: Math.min(W, L) * 0.35 });
+  g.masa(cs, { mat: 'arena', suave: Math.min(W, L) * 0.35 });
 }
 /** Ánfora de barro: cuerpo, cuello, labio y asas; `rota` le saca medio cuerpo y deja los cascos al lado. */
 function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = false) {
@@ -270,9 +284,11 @@ function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = f
 export function pozoOasis(a: Arma): Pieza[] {
   const ps: Pieza[] = [], g = new G(a, ps), P = 'des2_piedra_pulida';
   // el suelo: arena que se arrima, y adelante el fondo del oasis hundido, barro seco en placas
-  { const cs: Comp[] = [g.bu([-6, -6, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -1.9], [11 + a.r() * 6, 9 + a.r() * 5, 2.3])); } g.masa(cs, { mat: 'des2_arena', suave: 6, tono: -0.07 }); }
+  // (entrega 3, Rick: "el borde de arena se nota contra el piso") sin manto de arena debajo: el piso del juego llega hasta
+  // la obra y solo la arena que el viento arrima contra las gradas, en lenguas bajas del material del piso (`arena`)
+  for (let i = 0; i < 6; i++) { a.r(); a.r(); a.r(); a.r(); }
   disco(a, ps, 17, 18.5, -0.9, 19, 12.5, 1.5, 'hit_barro_seco', { giro: 40, ruido: 0.26, n: 32, tono: -0.06 });
-  for (let i = 0; i < 7; i++) { const t = a.r() * TAU, d = 0.82 + a.r() * 0.25; g.elip(17 + Math.cos(t) * 19 * d * 0.8, 18.5 + Math.sin(t) * 12.5 * d, 0, 4 + a.r() * 4, 2.6 + a.r() * 2, 1.1, { mat: 'des2_arena', giro: 40 + (a.r() - 0.5) * 60, tono: -0.05 }); }
+  for (let i = 0; i < 7; i++) { const t = a.r() * TAU, d = 0.82 + a.r() * 0.25; g.elip(17 + Math.cos(t) * 19 * d * 0.8, 18.5 + Math.sin(t) * 12.5 * d, -0.3, 4 + a.r() * 4, 2.6 + a.r() * 2, 0.8, { mat: 'arena', giro: 40 + (a.r() - 0.5) * 60 }); }
   // el estrado: dos gradas de losas, la de abajo comida por la arena
   const C: V3 = [-8, -8, 0];
   for (const [r, z, h] of [[20, 0, 3.6], [16, 3.6, 3.4]] as [number, number, number][]) {
@@ -280,6 +296,7 @@ export function pozoOasis(a: Arma): Pieza[] {
     for (let i = 0; i < nl; i++) { const t = (i / nl) * TAU, x = C[0] + Math.cos(t) * (r - 3), y = C[1] + Math.sin(t) * (r - 3); bloque(g.sub(x, y, 0, (t * 180) / Math.PI), 0, 0, z, 6.2, (TAU * (r - 3)) / nl + 0.6, h, { mat: P, j: 0.6, tono: (a.r() - 0.5) * 0.1 }); }
     g.cil(C[0], C[1], z, r - 5.5, h, { mat: P, tono: -0.04 });
   }
+  for (const [x, y, gi] of [[C[0] - 21, C[1] + 4, 100], [C[0] + 3, C[1] - 21, 10], [C[0] + 14, C[1] + 16, 135]] as [number, number, number][]) duna(g, [x, y, 0], 16, 6, 3, gi, 3);
   // el brocal: dos hiladas de sillares curvos, la albardilla con las estrías que gastaron las sogas, y una piedra caída
   const R = 9, zb = 7;
   for (let f = 0; f < 2; f++) for (let i = 0; i < 10; i++) { const t = ((i + f * 0.5) / 10) * TAU; bloque(g.sub(C[0] + Math.cos(t) * R, C[1] + Math.sin(t) * R, 0, (t * 180) / Math.PI), 0, 0, zb + f * 4.4, 3.6, (TAU * R) / 10 - 0.3, 4.3, { mat: P, j: 0.5, tono: (a.r() - 0.5) * 0.1 }); }
@@ -316,7 +333,9 @@ export function pozoOasis(a: Arma): Pieza[] {
  * piramidión con su capa de oro gastada al final, y el que se llevó el rayo, que no llegó lejos. */
 export function obeliscoSol(a: Arma): Pieza[] {
   const ps: Pieza[] = [], g = new G(a, ps), P = 'des2_piedra_pulida', J = 'des2_glifos';
-  { const cs: Comp[] = [g.bu([-4, -4, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -1.9], [11 + a.r() * 6, 9 + a.r() * 5, 2.3])); } g.masa(cs, { mat: 'des2_arena', suave: 6, tono: -0.07 }); }
+  // (entrega 3, Rick: "el borde de arena se nota contra el piso") sin manto de arena debajo: el piso del juego llega hasta
+  // la obra y solo la arena que el viento arrima contra las gradas, en lenguas bajas del material del piso (`arena`)
+  for (let i = 0; i < 6; i++) { a.r(); a.r(); a.r(); a.r(); }
   const C: V3 = [-14, -12, 0];
   // el estrado: tres gradas de sillares, con esquinas desportilladas
   let z = 0;

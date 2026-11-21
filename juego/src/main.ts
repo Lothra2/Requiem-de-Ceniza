@@ -6,6 +6,8 @@ import { ctx, W, H, E, ZM, ajustar, instalarEntrada, finCuadro, pulso, alPrimerG
 import { cargarManifiesto, asegurar, atlasDe, clavesCon, manifiesto, objetoMeta, liberarAtlas, precargar, marcarCuadro } from './motor/assets';
 import * as Assets from './motor/assets';
 import { pintarHeroe, progresoPintura } from './motor/pintor';
+import { vigiliaOcupada } from './motor/vigilia';
+import { precalentarVigilia } from './ui/vigilia';
 import { Sonido } from './audio/sonido';
 import { T, TT, texto, IDI, fijarIdioma, tooltip, TITULO } from './ui/comun';
 import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from './ui/menus';
@@ -754,6 +756,8 @@ function paso(dt: number) {
       let ultId = ''; try { ultId = localStorage.getItem('marca.ultimo') ?? ''; } catch { /* nada */ }
       const ult = heroes.find((q) => String(q.id) === ultId) ?? [...heroes].sort((a, b) => (b.jugado ?? 0) - (a.jugado ?? 0))[0] ?? null;
       const r = menuPrincipal(tiempo, heroes.length > 0, ult);
+      // el héroe que sale primero en la vigilia se va pintando mientras tanto (ui/vigilia.ts)
+      if (tEstado > 1.5) precalentarVigilia(heroes[sel]);
       if (r === 'continuar' && ult) { E.clicIzq = false; empezarPartida(JSON.parse(JSON.stringify(ult))); break; }
       dibujarCursor('senalar');
       if (r === 'jugar') { estado = heroes.length ? 'seleccion' : 'crear'; selClase = null; tEstado = 0; }
@@ -772,8 +776,9 @@ function paso(dt: number) {
       break;
     }
     case 'seleccion': {
-      // el héroe elegido se pinta con su equipo (el mismo pintor del juego, así además queda listo en caché al entrar)
-      if (heroes[sel]) { const d = heroes[sel]; const f = firmaVisual(d); if ((window as any).__firmaSel !== f) { (window as any).__firmaSel = f; pintarHeroe(d.clase, cuerpoDe(d.clase), equipoVisual(d), f, 's'); } }
+      // el héroe elegido se pinta con su equipo (el mismo pintor del juego, así además queda listo en caché al entrar),
+      // después de que la vigilia termine de pintar al grande (motor/vigilia.ts): los dos a la vez se peleaban los núcleos
+      if (heroes[sel] && !vigiliaOcupada()) { const d = heroes[sel]; const f = firmaVisual(d); if ((window as any).__firmaSel !== f) { (window as any).__firmaSel = f; pintarHeroe(d.clase, cuerpoDe(d.clase), equipoVisual(d), f, 's'); } }
       const r = dibujarSeleccion(tiempo, heroes, sel);
       sel = r.sel;
       dibujarCursor('senalar');

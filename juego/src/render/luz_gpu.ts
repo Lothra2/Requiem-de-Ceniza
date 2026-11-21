@@ -241,7 +241,7 @@ function vigilar() {
 // el del mundo.
 let glS: WebGL2RenderingContext | null = null, glSCv: HTMLCanvasElement | null = null, pSprite: WebGLProgram | null = null, sinGLS = false;
 /** Texturas de atlas subidas (color, relieve, alto), las últimas usadas: cada clase tiene su atlas. */
-const texS = new Map<string, { t: WebGLTexture; usado: number }>();
+const texS = new Map<string, { t: WebGLTexture; usado: number; b: number }>();
 const FS_SPRITE = `#version 300 es
 precision highp float; out vec4 o;
 uniform sampler2D tC, tN, tA; uniform ivec4 rect; uniform vec2 ancla; uniform float kz;
@@ -302,8 +302,11 @@ function texAtlas(nombre: string, im: CanvasImageSource): WebGLTexture {
     g.texImage2D(g.TEXTURE_2D, 0, g.RGBA, g.RGBA, g.UNSIGNED_BYTE, im as TexImageSource);
     // las de hace rato se sueltan (cada atlas de retrato son unos MB en la tarjeta), antes de anotar la nueva: si no, la
     // nueva era la de uso más viejo y se borraba al toque (se veía el atlas de otra clase)
-    if (texS.size >= 9) { const viejo = [...texS.entries()].sort((a, b) => a[1].usado - b[1].usado)[0]; g.deleteTexture(viejo[1].t); texS.delete(viejo[0]); }
-    e = { t, usado: 0 }; texS.set(nombre, e);
+    // (por peso: los cuadros sueltos de la vigilia son chicos y van muchos; un atlas de retrato pesa como cien de ellos)
+    const b = ((im as any).width ?? 1) * ((im as any).height ?? 1) * 4;
+    let total = b; for (const x of texS.values()) total += x.b;
+    while (texS.size && (total > 48e6 || texS.size >= 240)) { const viejo = [...texS.entries()].sort((a, c) => a[1].usado - c[1].usado)[0]; g.deleteTexture(viejo[1].t); texS.delete(viejo[0]); total -= viejo[1].b; }
+    e = { t, usado: 0, b }; texS.set(nombre, e);
   }
   e.usado = performance.now();
   return e.t;
@@ -320,13 +323,14 @@ export interface LuzSprite {
  */
 export function spriteConLuz(q: Cuadro, luz: LuzSprite): HTMLCanvasElement | null {
   if (!lab.on || !q.img) return null;
-  const n = relDe(q.atlas + '_n'), a = relDe(q.atlas + '_h');
+  // (los pintados en vivo, como la vigilia, traen su relieve en el cuadro; los horneados, en sus atlas gemelos)
+  const n = q.rel ?? relDe(q.atlas + '_n'), a = q.alt ?? relDe(q.atlas + '_h');
   if (!n || !a || !iniciarS()) return null;
   const g = glS!, cv = glSCv!;
   if (cv.width !== q.w || cv.height !== q.h) { cv.width = q.w; cv.height = q.h; }
   g.viewport(0, 0, q.w, q.h);
   g.useProgram(pSprite);
-  const texs: [string, WebGLTexture][] = [['tC', texAtlas(q.atlas, q.img)], ['tN', texAtlas(q.atlas + '_n', n)], ['tA', texAtlas(q.atlas + '_h', a)]];
+  const texs: [string, WebGLTexture][] = [['tC', texAtlas(q.atlas, q.img)], ['tN', texAtlas(q.atlas + '_n', n as CanvasImageSource)], ['tA', texAtlas(q.atlas + '_h', a as CanvasImageSource)]];
   texs.forEach(([nm, t], i) => { g.activeTexture(g.TEXTURE0 + i); g.bindTexture(g.TEXTURE_2D, t); g.uniform1i(g.getUniformLocation(pSprite!, nm), i); });
   const u = (nm: string) => g.getUniformLocation(pSprite!, nm);
   const KZ = Math.sqrt(1.5);

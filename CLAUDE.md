@@ -1048,6 +1048,49 @@ Rick: "haz todo lo que falte, lo que quedó flojo y lo que falta de los actos 3 
   pintor del mundo, capturas en `/tmp/requiem-pruebas/muneco`) y `t881_muneco_giro.cjs [pc|movil]` (girar, casillas, mano,
   cambio de casco). Ganchos: `__muneco()`, `__munecoGirar(n)`, `__rectPanel(lado)`.
 
+## La vigilia (elegir héroe guardado, 21 nov 2026)
+
+Rick: "quiero que hagas estas animaciones mejores, más pro, más sprites, más todo". Antes el héroe grande era el sprite
+del mundo agrandado a puntos gruesos (o un retrato liso de 4 cuadros), la espada en llamas un bloque amarillo y las cartas
+mostraban al héroe de salida aunque llevara capucha, escudo y espada.
+
+- Vive en `ui/vigilia.ts` (el dibujo) y `motor/vigilia.ts` (los cuadros); `dibujarSeleccion` en `ui/menus.ts` los llama.
+  `__vigiliaVieja = true` vuelve a lo de antes, `__tSel` fija el reloj de la pantalla (las pruebas).
+- **El grande**: la acción `seleccion` del motor (48 cuadros a 12 por segundo: 0 a 11 el gesto de la clase, 12 a 47 el
+  reposo que respira, pasa el peso y mece la tela) con el equipo de verdad (`equipoVisual`, `firmaVisual`), pintada por los
+  obreros (`pintor.worker.ts`, opción `vigilia`) a K veces su alto (hasta 2,6) con la luz de la fogata de la presentación de
+  las clases, el grano a la escala y los rasgos grandes (`detalle: 2`), una muestra por punto. Se dibuja en un lienzo propio
+  a la resolución del héroe y se pega a d puntos enteros del aparato (720: K 2,6 y d 1; 1080: K 2 y d 2; teléfono d 2).
+  La luz vive en `motor/luz_retrato.ts` (`hornear/luz_retrato.mts` la reexporta): fuera del motor, no mueve `__PINTOR__`.
+- El gesto sale al elegirlo y cada 10 s (`cuadroVigilia`). Al elegirlo aparece desde la penumbra (la silueta se va con la
+  luz en 0,9 s) y la fogata se aviva. Con arma viva la hoja se pinta sin el encanto del motor (era el bloque amarillo) y
+  `arma_viva.ts` pone el elemento a la escala de la figura con su propia bolsa (`pozoArma`).
+- La fogata (las piedras horneadas y el fuego de Doom) va delante a la izquierda de su cara, como en la presentación: con
+  la luz avanzada `spriteConLuz` reilumina el relieve del cuadro (ahora acepta `q.rel` y `q.alt` del cuadro; las texturas
+  se sueltan por peso, 48 MB); en la clásica se suma el calor horneado del lado del fuego (`calorDe`) con el latido. La
+  sombra es la silueta del cuadro echada lejos del fuego. Brasas que suben de la fogata y ceniza que cae, la mitad por
+  detrás y la mitad por delante, y la lluvia salpica en la cabeza y los hombros (`techo` de cada columna).
+- **El orden de pintado** (`ordenGrande`): el cuadro con que arranca el reposo, el reposo de a 9 y de a 4 (quien dibuja usa
+  el pintado más cercano al que toca: el bucle se afina mientras llegan), el gesto y lo que falta. Antes que nada el primer
+  cuadro de la carta elegida (sale en un segundo y se ve agrandado en la penumbra mientras llega el grande). Mientras el
+  grande se pinta, el pintor del mundo espera (`vigiliaOcupada` en main.ts: los dos a la vez se peleaban los núcleos), y en
+  la portada se va pintando el héroe que saldrá primero (`precalentarVigilia`). Todo queda en IndexedDB `marca_vigilia`
+  (los últimos 5 grandes y 16 cartas, `vigilia.claves.*`), con `__PINTOR__` en la clave: la segunda vez sale entero.
+- **Las cartas**: el reposo del mundo (`quieto`, 8 cuadros, opción `muneco`) con su equipo a la escala de la carta; la
+  elegida respira, se mueve y lleva una brasa que corre por el canto (`brasaCanto`); la del ratón se enciende; «Nuevo
+  héroe» con su forja (`forjaNueva`). Hasta que se pinta, la silueta del de salida a oscuras (nunca el equipo que no lleva).
+- Prueba: `node juego/herramientas/t1100_vigilia.cjs <etiqueta> [pc,pc1080,ipad,movil] [héroes]` (cuatro héroes vestidos;
+  `VIDEO=1` 9 s a 25 por segundo, `LUZ=1` la luz avanzada a la fuerza, `ANTES=1` sin los ganchos nuevos) y
+  `python3 juego/herramientas/t1100_lamina.py <etiqueta> [vista] [antes]` o `video <etiqueta> [vista]` (láminas, antes y
+  después y el mp4 en `/tmp/requiem-pruebas/vigilia`). Sin servidor: `npx tsx juego/herramientas/t1101_vigilia_lab.mts
+  <clase> [acc:desde-hasta/paso] [K]` pinta tiras con la luz de la vigilia y el tiempo por cuadro.
+- Costo (en la nube, 4 núcleos y el lienzo por software, 21 nov 2026): pintar el grande la primera vez, sin caché, 30 a 45
+  s a 720 (el primer cuadro en 5 a 7 s; antes se ve el de la carta en la penumbra) y 40 a 65 en 1080, iPad y teléfono; un
+  cuadro tarda 1,7 s en un núcleo solo a K 2,25 (t1101). La segunda vez sale de IndexedDB. Por cuadro, ya pintado
+  (`__vigiliaPartes`): el héroe 3,5 a 4,8 ms de JS (3,2 son el arma viva; con `__sinDerrame` 0,2), pegarlo 0,6 a 7 (este
+  último con el lienzo por software), la fogata 0,4 a 0,6, la ceniza y las brasas 0,3 a 0,5. El cuadro entero de la
+  pantalla pasa de unos 33 a unos 50 ms en la nube con el arma viva (sin ella queda igual que antes).
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`) y se dibuja a puntos enteros, igual que la fogata y

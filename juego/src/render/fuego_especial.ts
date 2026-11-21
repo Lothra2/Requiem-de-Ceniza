@@ -107,6 +107,13 @@ export let pulsoArma = 1;
  * Prende la hoja (coordenadas relativas al ancla `px, py`): `ve` es la máscara de tramos que se ven, `antes` la hoja del
  * cuadro anterior (para llenar lo barrido), `cabeza` un radio de fuente extra en la punta (el orbe), `act` 0..1 la fuerza.
  */
+/**
+ * Portadores cuya arma se mueve más rápido de lo que la llama alcanza a seguir (el gesto de la vigilia: la hoja da media
+ * vuelta en un cuadro de 12 por segundo). Con esto la llama vieja se enfría de golpe y la nueva sube un paso más: antes
+ * quedaba medio paso atrás de la hoja.
+ */
+const rapidos = new WeakSet<object>();
+export function armaRapida(e: object, si: boolean) { if (si) rapidos.add(e); else rapidos.delete(e); }
 export function armaArdeViva(ctx: CanvasRenderingContext2D, e: object, pal: D.NombrePaleta, h: [number, number, number, number], antes: [number, number, number, number] | null, ve: number, px: number, py: number, act: number, dt: number, cabeza = 0, alfa = 1) {
   let s = hogueras.get(e);
   // (cambió de arma o de elemento: grilla nueva con su paleta)
@@ -131,6 +138,7 @@ export function armaArdeViva(ctx: CanvasRenderingContext2D, e: object, pal: D.No
   // lo barrido entre el cuadro anterior y este también prende (el arco del golpe queda en llamas)
   if (antes && Math.hypot(antes[2] - h[2], antes[3] - h[3]) > 3) for (const b of [0.5]) marca(antes[0] + (h[0] - antes[0]) * b, antes[1] + (h[1] - antes[1]) * b, antes[2] + (h[2] - antes[2]) * b, antes[3] + (h[3] - antes[3]) * b, 0.75);
   if (cabeza > 0 && ((ve >> 5) & 1)) { const cx = Math.round((h[2] - GX) / GC), cy = Math.round((h[3] - GY) / GC); for (let y = -cabeza; y <= cabeza; y++) for (let x = -cabeza; x <= cabeza; x++) { const X = cx + x, Y = cy + y; if (x * x + y * y <= cabeza * cabeza && X > 2 && X < GW - 3 && Y > 2 && Y < GH - 1) fu[Y * GW + X] = 1; } }
+  if (rapidos.has(e)) { const c = f.calor; for (let i = 0; i < c.length; i++) if (fu[i] < 0.5) c[i] = (c[i] * 0.62) | 0; D.pasos(f, 1); }
   avanzar(s, dt);
   pintarEn(ctx, s, px + GX, py + GY, 1, alfa);
   pulsoArma = D.pulsoLuz(f, 0.3).k;

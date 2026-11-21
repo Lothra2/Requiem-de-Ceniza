@@ -33,6 +33,8 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Poderes**: cinco pasadas publicadas. Pendiente: Coro de los sellos (22 a 25 % de blanco por la columna), Puño de dios
   lava a blanco, sin sonido de cambio de forma ni de Festín, no se ve el equipo en forma de bestia.
 - **No publicar** nada que no se haya revisado mirando las láminas y corrido las pruebas. Main publica solo al hacer push.
+- **Interfaz pulida** (rama `pulido-ui`, 21 nov 2026): barras de vida legibles y apiladas, letra gótica nueva en todos los
+  menús, la vigilia con boceto y sus arreglos. Ver "Pulido de la interfaz". Flojo: el total de la vigilia sigue en 48 cuadros.
 
 ## Dónde está cada cosa
 
@@ -1182,6 +1184,64 @@ mostraban al héroe de salida aunque llevara capucha, escudo y espada.
   último con el lienzo por software), la fogata 0,4 a 0,6, la ceniza y las brasas 0,3 a 0,5. El cuadro entero de la
   pantalla pasa de unos 33 a unos 50 ms en la nube con el arma viva (sin ella queda igual que antes).
 
+## Pulido de la interfaz (21 nov 2026, rama `pulido-ui`)
+
+Rick: "Acomodá lo flojo, quiero perfección". Lo flojo de las barras, la letra gótica y la vigilia.
+
+- **Barras de vida** (`render/barras_vida.ts`): un mínimo legible en puntos CSS de la pantalla (`MIN_W` y `MIN_H` por clase:
+  común 34 x 4 de canal, campeón 40 x 5, único 46 x 5, jefe de zona 54 x 5, invocados 28 x 3), pasado a puntos del aparato con
+  lo que mide el lienzo en la página; en Lejos medían 20 a 30 de ancho y 5 o 6 de alto. Las marcas de los cuartos solo en
+  los élites. Dos enemigos pegados ya no las enciman: se apilan hacia arriba (la del de adelante, más abajo en pantalla, queda
+  en su sitio y la de atrás sube lo justo), con el corrimiento suavizado por barra (`off` en su estado, 14 por segundo: nunca
+  un salto) y un margen más ancho para soltar la pila que para armarla (no tiembla en el borde). `__barrasEncimadas` y
+  `__barrasChicas` vuelven a lo de antes. Ojo: el corrimiento empieza con `tOff` vacío (con `undefined` daba NaN y no se
+  dibujaba ninguna).
+- **La letra gótica** (`ui/letra_gotica.ts`, rehecha): la grande (11 puntos) con espolones (la púa arriba a la izquierda de
+  cada fuste), pies en cuña que patean a la derecha, la A con punta de arco, la M y la N con su cuña, y la C, la O, la G, la Q
+  y la S facetadas con el nudillo hacia adentro a media altura. Y una menuda de 7 puntos (cabeza de cada fuste en diagonal)
+  para lo chico. `LIGA` escribe Æ, Œ, Ø, Ð, Þ, Ł y ẞ con las nuestras; las tildes sin glifo caen a su base (à, ö, â y la ç
+  con su cedilla) y lo demás (un nombre en otro alfabeto) al glifo de reserva, un rombo tallado con su cruz. Tonos: hierro,
+  brasa, oro, hueso, ceniza, sangre o un color (la clase). `ui/texto_gotico.ts` (`textoGotico`, `medirGotico`) elige talla y
+  puntos del aparato por punto que dan la versal más cerca de la del tamaño pedido, achica si no entra en `max` (un punto
+  menos, la menuda, y al final corta) y pega a puntos enteros. Va en el detalle de Continuar (dos renglones: el nombre, y la
+  clase, el nivel y el acto), en Opciones (título, rótulos, llaves, porcentajes y Volver), en la vigilia (título, ficha,
+  Jugar, Borrar, Volver, los nombres y el nivel de las cartas, todas en la misma talla, y «Nuevo héroe») y en `grabado`.
+  `boton(..., { gotico: true, tono })` en `ui/comun.ts` la usa; en táctil esos botones miden al menos 44 puntos por lado
+  para el dedo (crecen parejo alrededor de la placa) y cada objetivo de toque se anota en `__toquesMenu` (puntos CSS).
+  `__letraVieja` vuelve a Cinzel en todo.
+- **Opciones en el teléfono**: táctil y bajo va en rejilla de tres columnas por cinco filas, el rótulo encima y cada mando de
+  44 puntos o más (en una columna de 15 filas cada fila medía 18), con Volver arriba a la izquierda. `__opcionesViejas`.
+- **La ficha de la vigilia**: el nombre en oro grande con su resplandor, la clase en su color y la dificultad y el ciclo en
+  sangre, el nivel en su nicho con la cifra grande, el resto en dos filas a una misma talla (la más grande en que entran las
+  cinco cifras) con su rótulo menudo en ceniza, Jugar en oro y Borrar en ceniza (sangre cuando pide confirmar). En la carta los
+  pies quedan más arriba (casi tocaban el nombre).
+- **La vigilia más rápida** (`motor/vigilia.ts`): primero el **boceto** (el cuadro 12 a la mitad de K, un cuarto de los puntos,
+  `kBoceto`), que se ve a puntos dobles con su calor y su entrada mientras llega el de verdad; después los 18 pares del reposo
+  (el bucle entero respira a 6 por segundo con el pintado más cercano), los impares (12 por segundo) y al final el gesto.
+  `__sinBoceto` y `__ordenViejo` (el orden de antes, sin boceto) para medir contra lo mismo; `__vigiliaPedidos()` y
+  `__vigilia()` dan `msBoceto`, `ms1`, `msPares`, `msReposo`, `msGesto` y `msTodo`. t1100 acepta `BANDERAS=`.
+  Medidas (pc 720, K 2,6, en la nube con la máquina cargada por otras sesiones, carga de 6 a 23 en 4 núcleos: el mismo
+  héroe tardó de 38 a 106 s según la corrida): un héroe sin precalentar daba su primer cuadro en 2,5 a 9,6 s y el bucle a 12
+  por segundo recién con los 48 (55 a 100 s); ahora el boceto en 0,8 a 2,4 s (0,8 a 1,4 en 1080 y el teléfono), el primer
+  cuadro de verdad en 2,6 a 11, el bucle a 6 por segundo en 12 a 43 s (19 cuadros de 49) y el reposo entero en 17 a 81. En
+  el lab, un cuadro a K 2,6 cuesta 1,45 s ya caliente y el boceto 0,55 (sin cargar, con 3 obreros: boceto ~1 s, bucle ~10 s,
+  todo ~25 s). El total no baja (son los mismos 48 cuadros): baja lo que se espera para ver algo.
+- **Lo demás de la vigilia** (`ui/vigilia.ts`): el orbe azul junto a la cadera de la arcanista era el **portal azul del
+  campamento** del fondo (no estaba horneado: el motor lo pinta limpio); detrás de la vigilia y Opciones ya no se pinta
+  (`sinPortal` en `fondoVigilia`, `__portalFondo` lo vuelve a poner), y un velo de noche detrás del héroe lo despega del fondo
+  (`__sinVelo`). La luz avanzada quemaba lo claro cerca del fuego (el cuello de piel): `quema` en `LuzSprite` (luz_gpu.ts, 0 por
+  omisión: lo demás igual) calienta menos lo claro y dobla el techo antes; la vigilia va con 1 (`__quemaVieja`). La fogata va
+  con la grilla fina (`fuegoSueltoFino` y `dibujarVivosPixel` en fuego_vivo.ts, `specFuego` con la celda forzada: unos 2,5
+  puntos del aparato por celda, sin suavizar; a 1080 eran de 7, `__fogataGruesa`). Las chispas del gesto son un estallido
+  (fogonazo, aro de pixel que se rompe, 46 chispas de toda la hoja con su estela y brasas que suben, a la escala de K;
+  `__chispasViejas`). La llama del arma en el gesto quedaba medio paso atrás: `armaRapida` en fuego_especial.ts enfría la llama
+  vieja y da un paso más, y en el gesto no va el barrido del cuadro anterior (`__llamaLenta`).
+- Pruebas: `t1102_menus_gotico.cjs <etiqueta> [pc,pc1080,movil]` (portada con Continuar, Opciones con una llave encendida y la
+  vigilia con un nombre de otro alfabeto y uno largo; en el teléfono falla si un toque mide menos de 44 pt) y
+  `python3 juego/herramientas/t1102_lamina.py <antes> <ahora>` (`/tmp/requiem-pruebas/gotico/lamina_<vista>.png` y `_cerca`).
+  Ojo al medir la vigilia en la nube: con otras sesiones corriendo pruebas la carga pasa de 15 en 4 núcleos y el mismo héroe
+  tarda de 38 a 100 s; comparar siempre de a pares alternados (`BANDERAS=__ordenViejo`) y contar cuadros.
+
 ## La presentación de las clases
 
 En la pantalla de elegir clase el héroe es **pixel art** (grupo `r`) y se dibuja a puntos enteros, igual que la fogata y
@@ -1304,8 +1364,8 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   pinta en relieve con su canto oscuro alrededor y la sombra que cae: 'hierro' apagado y frío sin elegir, 'brasa' el oro del
   renglón encendido. Cada punto de la letra mide `puntoGotico(tam, RES)` puntos del aparato (2 a 720, 3 a 1080) y se pega
   con `pegarPixel`. El canto de brasa del renglón usa la misma grilla de la letra (`brasaRenglon(..., gotico)`). Solo en
-  los renglones de la portada (`menuPrincipal`): el detalle de Continuar (nombre, clase, nivel) y los otros menús siguen con
-  la letra de siempre. `__letraVieja` vuelve a la letra de antes con el canto de brasa. `HEROE=1` en t681 guarda un héroe
+  los renglones de la portada (`menuPrincipal`); desde el pulido de la interfaz (abajo) también el detalle de Continuar,
+  Opciones y la vigilia. `__letraVieja` vuelve a la letra de antes con el canto de brasa. `HEROE=1` en t681 guarda un héroe
   para que salga Continuar, y la lámina `t681_lamina.py menu <antes> <ahora> <vistas>` arma el menú al doble con un
   renglón encendido y los demás en hierro.
 - Banderas: `__tituloViejo` (el fuego liso de antes y sin golpe), `__menuViejo` (el dorado de antes). `__portadaReloj`

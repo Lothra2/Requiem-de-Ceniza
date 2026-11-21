@@ -7,8 +7,9 @@ import { acc } from '../nucleo/accesible';
 import { lab, hayGPU } from '../render/luz_gpu';
 import { prefsRecoger } from '../juego/mundo';
 import { barrasVida } from '../render/barras_vida';
-import { ctx, W, H, E, RES, vistaActual, fijarVista, hudForja, fijarHud, ajustar } from '../nucleo/lienzo';
-import { texto, T, TT, IDI, boton, dentro, envolver, TITULO, fijarIdioma } from './comun';
+import { ctx, W, H, E, RES, ESCALA, SEGURO, vistaActual, fijarVista, hudForja, fijarHud, ajustar } from '../nucleo/lienzo';
+import { texto, T, TT, IDI, boton, dentro, envolver, TITULO, fijarIdioma, anotarToque, DEDO } from './comun';
+import { textoGotico, gotica, medirGotico } from './texto_gotico';
 import { cuadrosHeroe, cuadrosPiso, variantePiso, cuadrosRetrato, RETRATO_ALTO, objetoMeta, dibujar, dibujarTenido, cuadrosMonstruo } from '../motor/assets';
 import { generarPaisaje, type MapaGotico } from '../../../src/engine/gotico/index';
 import { CLASES } from '../datos/clases';
@@ -46,6 +47,7 @@ function pintarMapa(m: MapaGotico, camX: number, camY: number, t: number, extra?
   }
   const items: { prof: number; draw: () => void }[] = [];
   for (const o of m.objetos) {
+    if (sinPortal && o.id.includes('portal')) continue;
     const meta = objetoMeta(o.id, o.v); if (!meta || !meta.f.length) continue;
     const [px, py] = aP(o.cx + 0.5, o.cy + 0.5);
     items.push({ prof: o.cx + o.cy, draw: () => dibujar(ctx, meta.f[Math.floor(f25 / meta.t) % meta.f.length], px, py) });
@@ -326,14 +328,17 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
   const alfa = pt.botones; if (alfa <= 0) { menuP.t0 = -1; return null; }
   if (menuP.t0 < 0) menuP.t0 = t;
   const dt = Math.min(0.05, Math.max(0, t - menuP.ult)); menuP.ult = t;
-  const filas: { id: string; s: string; sub?: string }[] = [];
-  if (ultimo) filas.push({ id: 'continuar', s: T('Continuar', 'Continue'), sub: `${ultimo.nombre} · ${TT(CLASES.find((c) => c.id === ultimo.clase)!.nombre)} · ${T('Nivel', 'Level')} ${ultimo.nivel} · ${T('Acto', 'Act')} ${ultimo.acto}` });
+  const filas: { id: string; s: string; sub?: string; sub2?: [string, string] }[] = [];
+  const subG = !(window as any).__menuViejo && !(window as any).__letraVieja;
+  if (ultimo) filas.push({ id: 'continuar', s: T('Continuar', 'Continue'), sub: `${ultimo.nombre} · ${TT(CLASES.find((c) => c.id === ultimo.clase)!.nombre)} · ${T('Nivel', 'Level')} ${ultimo.nivel} · ${T('Acto', 'Act')} ${ultimo.acto}`,
+    // (en la letra gótica el detalle va en dos renglones: el nombre, y debajo la clase, el nivel y el acto; en uno no entraba)
+    sub2: [ultimo.nombre, `${TT(CLASES.find((c) => c.id === ultimo.clase)!.nombre)} · ${T('Nivel', 'Level')} ${ultimo.nivel} · ${T('Acto', 'Act')} ${ultimo.acto}`] });
   filas.push({ id: 'jugar', s: hayPartidas ? T('Héroes', 'Heroes') : T('Nueva partida', 'New game') });
   filas.push({ id: 'intro', s: T('Ver la intro', 'Watch intro') });
   filas.push({ id: 'opciones', s: T('Opciones', 'Options') });
   { const ins = renglonMenu(IDI === 1); if (ins) filas.push({ id: 'instalar', s: ins }); }
   filas.push({ id: 'idioma', s: IDI ? 'Español' : 'English' });
-  const angosto = W < 760, tam = Math.max(17, Math.min(25, H * 0.034)), paso = Math.round(tam * 2.05), altoSub = ultimo ? Math.round(tam * 0.95) : 0;
+  const angosto = W < 760, tam = Math.max(17, Math.min(25, H * 0.034)), paso = Math.round(tam * 2.05), altoSub = ultimo ? Math.round(tam * (subG ? 1.55 : 0.95)) : 0;
   const alto = filas.length * paso + altoSub, ancho = Math.min(W - 40, Math.max(300, tam * 15));
   const x0 = angosto ? Math.round(W / 2 - ancho / 2) : Math.round(Math.max(28, W * 0.065)), y0 = Math.round(Math.min(H - alto - 46, Math.max(H * 0.5, H - alto - 70)));
   let r: string | null = null;
@@ -392,7 +397,14 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
     if (k > 0.01 && brasa) brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'adelante', gotica);
     // la raya que crece debajo, con su rombo en la punta
     if (k > 0.01) { const lg = ctx.createLinearGradient(tx, 0, tx + wt * k, 0); lg.addColorStop(0, 'rgba(230,180,90,0.95)'); lg.addColorStop(1, 'rgba(230,180,90,0.15)'); ctx.fillStyle = lg; ctx.fillRect(tx, ty + 7, wt * k, 1.5); rombo(tx + wt * k + 5, ty + 7.5, 2.6, `rgba(240,200,110,${k})`); }
-    if (fl.sub) { ctx.font = `500 ${Math.round(tam * 0.56)}px ${TITULO}`; ctx.fillStyle = k > 0.5 ? '#e8c890' : '#9a8a68'; ctx.fillText(fl.sub, tx + 1, ty + Math.round(tam * 0.95)); }
+    if (fl.sub) {
+      // el detalle de Continuar (nombre, clase, nivel, acto) en la letra gótica: hueso, oro cuando el renglón está encendido
+      if (gotica && fl.sub2) {
+        textoGotico(fl.sub2[0], tx + 1, ty + Math.round(tam * 1.02), Math.round(tam * 0.62), { tono: k > 0.5 ? 'oro' : 'hueso', max: ancho - 30 });
+        textoGotico(fl.sub2[1], tx + 1, ty + Math.round(tam * 1.62), Math.round(tam * 0.5), { tono: k > 0.5 ? 'hueso' : 'ceniza', max: ancho - 30 });
+      }
+      else { ctx.font = `500 ${Math.round(tam * 0.56)}px ${TITULO}`; ctx.fillStyle = k > 0.5 ? '#e8c890' : '#9a8a68'; ctx.fillText(fl.sub, tx + 1, ty + Math.round(tam * 0.95)); }
+    }
     ctx.globalAlpha = alfa;
     ((window as any).__menuFilas ??= {})[fl.id] = [x0 + ancho / 2, y + h / 2];
     if (enc && E.clicIzq && alfa > 0.6) { r = fl.id; Sonido.efecto('click'); }
@@ -423,6 +435,8 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
 const rombo2 = (x: number, y: number, q: number, c: string) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(x, y - q); ctx.lineTo(x + q, y); ctx.lineTo(x, y + q); ctx.lineTo(x - q, y); ctx.closePath(); ctx.fill(); };
 /** Un título grabado en oro (Cinzel, mayúsculas espaciadas), con sombra dura y, si se pide, resplandor de brasa. */
 function grabado(sx: string, x: number, y: number, tam: number, o: { alin?: CanvasTextAlign; brillo?: number; apagado?: boolean } = {}) {
+  // (pulido del 21 nov 2026: en la letra gótica de pixel, oro o ceniza; `__letraVieja` vuelve a Cinzel espaciada)
+  if (gotica()) return textoGotico(sx, x, y, tam, { alin: o.alin, tono: o.apagado ? 'ceniza' : 'oro', brillo: o.brillo });
   ctx.save(); ctx.font = `700 ${Math.round(tam)}px ${TITULO}`; ctx.textAlign = o.alin ?? 'left'; ctx.textBaseline = 'alphabetic';
   const S = sx.toUpperCase().split('').join(' ');
   ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillText(S, x + 1, y + 2);
@@ -437,8 +451,13 @@ function rayaOro(x: number, y: number, w: number, a = 1) {
   ctx.fillStyle = g; ctx.fillRect(x, y, w, 1.5); rombo2(x + w / 2, y + 0.75, 4, `rgba(232,186,100,${a})`);
 }
 /** El fondo de las pantallas de menú: el campamento casi a oscuras, con un pozo de luz de fuego donde se pide. */
+/**
+ * Detrás de la vigilia y de Opciones el portal azul del campamento quedaba justo al lado del héroe elegido (en la cadera
+ * de la arcanista se leía como un orbe horneado en su gesto): ahí no se pinta (`__portalFondo` lo vuelve a poner).
+ */
+let sinPortal = false;
 function fondoVigilia(t: number, lx: number, ly: number, r: number) {
-  dibujarFondoMenu(t);
+  sinPortal = !(window as any).__portalFondo; try { dibujarFondoMenu(t); } finally { sinPortal = false; }
   ctx.fillStyle = 'rgba(6,4,4,0.5)'; ctx.fillRect(0, 0, W, H);
   const parpa = 1 + Math.sin(t * 8.3) * 0.04 + Math.sin(t * 13.1) * 0.03;
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(lx, ly); ctx.scale(1, 0.5);
@@ -474,6 +493,7 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
   const dt = Math.min(0.05, Math.max(0, t - selP.ult)); selP.ult = t; if (dt === 0 || selP.t0 < 0 || t - selP.t0 > 600 || t < selP.t0) selP.t0 = t;
   if (selP.sel !== sel) { selP.sel = sel; selP.tCambio = t; }
   const chico = H < 520 || W < 760, pant: Record<string, [number, number]> = ((window as any).__pantalla = {});
+  (window as any).__toquesMenu = {};
   // ---- medidas
   const nichoH = Math.round(chico ? Math.max(74, H * 0.23) : Math.min(150, H * 0.2)), nichoW = Math.round(nichoH * 0.78), galY = H - nichoH - (chico ? 8 : 20);
   const hx = Math.round(chico ? W * 0.27 : W * 0.33), hy = Math.round(galY - (chico ? 14 : 34)), esc = Math.max(1.5, Math.min(3, Math.floor(((galY - (chico ? 60 : 110)) / 92) * 2) / 2));
@@ -481,8 +501,9 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
   brasas(t, 26);
   // ---- cabecera
   const tt = chico ? 17 : 24; grabado(T('Tus héroes', 'Your heroes'), W / 2, chico ? 26 : 46, tt, { alin: 'center' }); rayaOro(W / 2 - 150, (chico ? 26 : 46) + 9, 300);
-  if (boton('‹ ' + T('Volver', 'Back'), 14, chico ? 8 : 20, chico ? 96 : 120, chico ? 26 : 32, { tam: 13 })) accion = 'volver';
-  pant.volver = [14 + 50, (chico ? 8 : 20) + 14];
+  const vx0 = chico && E.tactil ? Math.max(14, SEGURO.l / Math.max(0.1, ESCALA)) : 14;
+  if (boton('‹ ' + T('Volver', 'Back'), vx0, chico ? 8 : 20, chico ? 96 : 120, chico ? 26 : 32, { tam: 13, gotico: true, id: 'volver' })) accion = 'volver';
+  pant.volver = [vx0 + 50, (chico ? 8 : 20) + 14];
   const hr = heroes[sel];
   // ---- el héroe: de pie junto a su fuego, con su equipo si el pintor ya lo tiene
   if (hr && !viejo) {
@@ -504,30 +525,63 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
     for (let c = 0; c < 9; c++) { const u = (t * 0.45 + c * 0.113) % 1, sx = hx + 60 * esc * 0.36 + Math.sin(u * 9 + c * 1.7) * 14; ctx.fillStyle = `rgba(255,${150 + (c % 3) * 30},70,${(1 - u) * 0.85})`; ctx.fillRect(Math.round(sx), Math.round(hy + 6 - u * 130 * esc * 0.4), 2, 2); }
     rombo2(hx + 60 * esc * 0.36, hy + 6, 7 + Math.sin(t * 9) * 1.2, '#ff8a2a'); rombo2(hx + 60 * esc * 0.36, hy + 6, 3.2, '#fff0b0');
     }
-    // ---- su ficha: nombre grabado, clase y lo vivido
-    const fx = Math.round(chico ? W * 0.47 : W * 0.54), fw = Math.min(W - fx - 20, chico ? 380 : 460); let fy = Math.round(chico ? 52 : H * 0.2);
-    const tn = chico ? 24 : Math.min(44, Math.max(30, H * 0.058));
-    ctx.save(); ctx.globalAlpha = entra;
+    // ---- su ficha (pulido del 21 nov 2026: antes eran el nombre, una fila de clase y seis cifras iguales, todo en Cinzel). En
+    // la letra gótica y con jerarquía: el nombre en oro grande con su resplandor, la clase en su color (la dificultad y el
+    // ciclo en sangre), el nivel destacado a la izquierda en su nicho y el resto en dos filas más chicas, y los botones.
+    const fx = Math.round(chico ? W * 0.47 : W * 0.54), fw = Math.min(W - fx - (chico ? 52 : 20), chico ? 380 : 470); let fy = Math.round(chico ? 50 : H * 0.19);
     const clase = CLASES.find((c) => c.id === hr.clase)!;
-    fy += tn; grabado(hr.nombre, fx + (1 - entra) * 18, fy, tn, { brillo: 0.5 });
-    const lc = FICHA[hr.clase]?.luz ?? [200, 176, 136], colClase = viejo ? '#c8b088' : `rgb(${Math.round(lc[0] * 0.55 + 200 * 0.45)},${Math.round(lc[1] * 0.55 + 176 * 0.45)},${Math.round(lc[2] * 0.55 + 136 * 0.45)})`;
-    fy += chico ? 17 : 24; texto(`${TT(clase.nombre)}${hr.dificultad ? ' · ' + [T('Normal', 'Normal'), T('Pesadilla', 'Nightmare'), T('Infierno', 'Hell')][hr.dificultad] : ''}${hr.ciclo ? ' · ' + T('Ciclo', 'Cycle') + ' ' + (hr.ciclo + 1) : ''}`, fx + 2, fy, { tam: chico ? 12 : 15, color: hr.dificultad ? '#ff9070' : colClase, fuente: TITULO });
-    fy += chico ? 8 : 14; { const g = ctx.createLinearGradient(fx, 0, fx + fw, 0); g.addColorStop(0, 'rgba(214,168,88,0.9)'); g.addColorStop(1, 'rgba(214,168,88,0)'); ctx.fillStyle = g; ctx.fillRect(fx, fy, fw, 1.5); rombo2(fx, fy + 0.75, 4, '#e8ba64'); }
-    // lo vivido, en dos columnas: la cifra grande en oro y debajo qué es
-    const datos: [string, string][] = [[String(hr.nivel), T('Nivel', 'Level')], [String(hr.acto), T('Acto', 'Act')], [horas(hr.jugado), T('Jugado', 'Played')], [String(hr.muertes ?? 0), T('Muertes', 'Deaths')], [String((hr as any).oro ?? 0), T('Oro', 'Gold')], [String((hr.actosHechos ?? []).length) + ' / 7', T('Actos hechos', 'Acts done')]];
-    const cols = chico ? 6 : 3, cw = fw / cols, dh = chico ? 34 : 58; fy += chico ? 8 : 18;
-    datos.forEach(([v, n], q) => { const dx = fx + (q % cols) * cw, dy = fy + Math.floor(q / cols) * dh; grabado(v, dx, dy + (chico ? 15 : 24), chico ? 14 : 22); texto(n.toUpperCase(), dx + 1, dy + (chico ? 27 : 42), { tam: chico ? 8 : 10, color: '#8a7a5a', fuente: TITULO }); });
-    fy += Math.ceil(datos.length / cols) * dh + (chico ? 4 : 10);
+    const lc = FICHA[hr.clase]?.luz ?? [200, 176, 136], colC: [number, number, number] = [Math.round(lc[0] * 0.55 + 200 * 0.45), Math.round(lc[1] * 0.55 + 176 * 0.45), Math.round(lc[2] * 0.55 + 136 * 0.45)];
+    const dif = hr.dificultad ? [T('Normal', 'Normal'), T('Pesadilla', 'Nightmare'), T('Infierno', 'Hell')][hr.dificultad] : '', cic = hr.ciclo ? T('Ciclo', 'Cycle') + ' ' + (hr.ciclo + 1) : '';
+    ctx.save(); ctx.globalAlpha = entra;
+    if (gotica()) {
+      const tn = chico ? 30 : Math.min(52, Math.max(36, H * 0.066));
+      fy += Math.round(tn * 0.78); textoGotico(hr.nombre, fx + (1 - entra) * 18, fy, tn, { tono: 'oro', brillo: 0.5, max: fw });
+      fy += chico ? 20 : 30;
+      let xx = fx + 2; const tc = chico ? 12 : 16;
+      xx += textoGotico(TT(clase.nombre), xx, fy, tc, { tono: viejo ? 'hueso' : colC });
+      for (const extra of [dif, cic]) if (extra) { xx += textoGotico(' · ', xx, fy, tc, { tono: 'ceniza' }); xx += textoGotico(extra, xx, fy, tc, { tono: 'sangre' }); }
+      fy += chico ? 9 : 14; { const g = ctx.createLinearGradient(fx, 0, fx + fw, 0); g.addColorStop(0, 'rgba(214,168,88,0.9)'); g.addColorStop(1, 'rgba(214,168,88,0)'); ctx.fillStyle = g; ctx.fillRect(fx, fy, fw, 1.5); rombo2(fx, fy + 0.75, 4, '#e8ba64'); }
+      // el nivel en su nicho: la cifra grande, con el rótulo encima
+      fy += chico ? 10 : 18;
+      const nw = chico ? 70 : 112, nh = chico ? 58 : 86;
+      { const g = ctx.createLinearGradient(0, fy, 0, fy + nh); g.addColorStop(0, 'rgba(60,34,16,0.55)'); g.addColorStop(1, 'rgba(10,6,4,0.25)'); ctx.fillStyle = g; ctx.fillRect(fx, fy, nw, nh); }
+      ctx.strokeStyle = 'rgba(214,168,88,0.55)'; ctx.lineWidth = 1; ctx.strokeRect(Math.round(fx) + 0.5, Math.round(fy) + 0.5, nw - 1, nh - 1);
+      rombo2(fx + nw / 2, fy, 3.5, '#e8ba64'); rombo2(fx + nw / 2, fy + nh, 3.5, '#e8ba64');
+      textoGotico(T('Nivel', 'Level'), fx + nw / 2, fy + (chico ? 15 : 22), chico ? 10 : 12, { alin: 'center', tono: 'ceniza', talla: 'menuda' });
+      textoGotico(String(hr.nivel), fx + nw / 2, fy + nh * 0.62, chico ? 30 : 44, { alin: 'center', medio: true, tono: 'oro', brillo: 0.35, max: nw - 8 });
+      // lo demás en dos filas de tres: la cifra en hueso y su rótulo menudo
+      const datos: [string, string][] = [[String(hr.acto), T('Acto', 'Act')], [horas(hr.jugado), T('Jugado', 'Played')], [String(hr.muertes ?? 0), T('Muertes', 'Deaths')], [String((hr as any).oro ?? 0), T('Oro', 'Gold')], [String((hr.actosHechos ?? []).length) + ' / 7', T('Actos hechos', 'Acts done')]];
+      const gx = fx + nw + (chico ? 12 : 20), gw = fw - nw - (chico ? 12 : 20), cw = gw / 3, dh = nh / 2;
+      // (las cinco cifras a la misma talla: la más grande en que entran todas)
+      const tv = [chico ? 20 : 28, chico ? 14 : 19, chico ? 12 : 15].find((tt) => datos.every(([v]) => medirGotico(v, tt, { talla: 'grande' }).w <= cw - 18)) ?? 12;
+      datos.forEach(([v, n], q) => {
+        const dx = gx + (q % 3) * cw, dy = fy + Math.floor(q / 3) * dh;
+        textoGotico(v, dx, dy + dh * 0.5, tv, { tono: 'hueso', talla: 'grande', max: cw - 6 });
+        textoGotico(n, dx, dy + dh * 0.5 + (chico ? 11 : 16), chico ? 8 : 10, { tono: 'ceniza', max: cw - 6 });
+      });
+      fy += nh + (chico ? 12 : 22);
+    } else {
+      const tn = chico ? 24 : Math.min(44, Math.max(30, H * 0.058));
+      fy += tn; grabado(hr.nombre, fx + (1 - entra) * 18, fy, tn, { brillo: 0.5 });
+      const colClase = viejo ? '#c8b088' : `rgb(${colC[0]},${colC[1]},${colC[2]})`;
+      fy += chico ? 17 : 24; texto(`${TT(clase.nombre)}${dif ? ' · ' + dif : ''}${cic ? ' · ' + cic : ''}`, fx + 2, fy, { tam: chico ? 12 : 15, color: hr.dificultad ? '#ff9070' : colClase, fuente: TITULO });
+      fy += chico ? 8 : 14; { const g = ctx.createLinearGradient(fx, 0, fx + fw, 0); g.addColorStop(0, 'rgba(214,168,88,0.9)'); g.addColorStop(1, 'rgba(214,168,88,0)'); ctx.fillStyle = g; ctx.fillRect(fx, fy, fw, 1.5); rombo2(fx, fy + 0.75, 4, '#e8ba64'); }
+      const datos: [string, string][] = [[String(hr.nivel), T('Nivel', 'Level')], [String(hr.acto), T('Acto', 'Act')], [horas(hr.jugado), T('Jugado', 'Played')], [String(hr.muertes ?? 0), T('Muertes', 'Deaths')], [String((hr as any).oro ?? 0), T('Oro', 'Gold')], [String((hr.actosHechos ?? []).length) + ' / 7', T('Actos hechos', 'Acts done')]];
+      const cols = chico ? 6 : 3, cw = fw / cols, dh = chico ? 34 : 58; fy += chico ? 8 : 18;
+      datos.forEach(([v, n], q) => { const dx = fx + (q % cols) * cw, dy = fy + Math.floor(q / cols) * dh; grabado(v, dx, dy + (chico ? 15 : 24), chico ? 14 : 22); texto(n.toUpperCase(), dx + 1, dy + (chico ? 27 : 42), { tam: chico ? 8 : 10, color: '#8a7a5a', fuente: TITULO }); });
+      fy += Math.ceil(datos.length / cols) * dh + (chico ? 4 : 10);
+    }
     ctx.restore();
-    // ---- jugar: la placa grande, con su brasa
-    const jw = Math.min(fw, chico ? 190 : 280), jh = chico ? 36 : 50;
-    if (boton(T('Jugar', 'Play'), fx, fy, jw, jh, { tam: chico ? 16 : 21, color: '#ffe9b0' })) accion = 'jugar';
+    // ---- jugar: la placa grande, con su brasa; borrar al lado, chico y en ceniza (en sangre cuando pide confirmar)
+    const tact = E.tactil, jw = Math.min(fw, chico ? 180 : 280), jh = chico ? (tact ? 44 : 36) : 50;
+    if (boton(T('Jugar', 'Play'), fx, fy, jw, jh, { tam: chico ? 18 : 24, color: '#ffe9b0', gotico: true, tono: 'oro', id: 'jugar' })) accion = 'jugar';
     pant.jugar = [fx + jw / 2, fy + jh / 2];
     const lat = 0.6 + 0.4 * Math.sin(t * 3); ctx.strokeStyle = `rgba(255,150,50,${0.35 * lat})`; ctx.lineWidth = 2; ctx.strokeRect(fx - 3, fy - 3, jw + 6, jh + 6);
-    const bw2 = chico ? 120 : 150, by2 = chico ? fy + 4 : fy + jh + 12, bx2 = chico ? fx + jw + 10 : fx;
-    if ((hr.actosHechos ?? []).includes(7) && boton(T('Volver a empezar: ', 'Start over: ') + TT(siguienteCiclo(hr)), bx2, by2 + (chico ? 0 : 38), chico ? 200 : 280, 28, { tam: 12, color: '#ff8060' })) accion = 'dificultad';
-    const seguro = (window as any).__borrar === hr.id;
-    if (boton(seguro ? T('¿Seguro? Otra vez', 'Sure? Again') : T('Borrar héroe', 'Delete hero'), chico ? bx2 : fx + jw - bw2, by2 + (chico && (hr.actosHechos ?? []).includes(7) ? 32 : 0), bw2, 28, { tam: 12, color: seguro ? '#ff6060' : '#a89878' })) accion = 'borrar';
+    const seguro = (window as any).__borrar === hr.id, bh2 = chico ? (tact ? 44 : 30) : 32;
+    const bw2 = chico ? 130 : 160, by2 = chico ? fy + (jh - bh2) / 2 : fy + jh + 14, bx2 = chico ? fx + jw + 12 : fx;
+    const fin = (hr.actosHechos ?? []).includes(7);
+    if (fin && boton(T('Volver a empezar: ', 'Start over: ') + TT(siguienteCiclo(hr)), chico ? fx : bx2, chico ? fy + jh + 8 : by2 + bh2 + 10, chico ? 260 : 280, chico ? bh2 : 30, { tam: 12, color: '#ff8060', gotico: true, tono: 'sangre', id: 'empezar' })) accion = 'dificultad';
+    if (boton(seguro ? T('¿Seguro? Otra vez', 'Sure? Again') : T('Borrar héroe', 'Delete hero'), chico ? bx2 : fx + jw - bw2, by2, bw2, bh2, { tam: 12, color: seguro ? '#ff6060' : '#a89878', gotico: true, tono: seguro ? 'sangre' : 'ceniza', id: 'borrar' })) accion = 'borrar';
   } else {
     grabado(T('Todavía no hay héroes', 'No heroes yet'), W / 2, H * 0.42, chico ? 18 : 26, { alin: 'center', apagado: true });
     texto(T('Enciende el primero en el nicho vacío.', 'Light the first one in the empty niche.'), W / 2, H * 0.42 + 30, { alin: 'center', tam: 14, color: '#a09070' });
@@ -536,6 +590,9 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
   const n = heroes.length + 1, sep = chico ? 8 : 14, caben = Math.max(2, Math.floor((W - 40 + sep) / (nichoW + sep)));
   if (sel < selP.desde) selP.desde = sel; if (sel >= selP.desde + caben - 1) selP.desde = Math.max(0, sel - caben + 2); selP.desde = Math.max(0, Math.min(selP.desde, Math.max(0, n - caben)));
   const vis = Math.min(n, caben), gx0 = Math.round(W / 2 - (vis * nichoW + (vis - 1) * sep) / 2);
+  // (todos los nombres de las cartas en la misma talla: si alguno no entra en la grande, van todos en la menuda)
+  let tallaCarta: 'grande' | 'menuda' = 'grande';
+  for (let q = 0; q < vis; q++) { const h3 = heroes[selP.desde + q]; if (h3 && medirGotico(h3.nombre, chico ? 10 : 12, { max: nichoW - 10 }).talla === 'menuda') tallaCarta = 'menuda'; }
   for (let q = 0; q < vis; q++) {
     const i = selP.desde + q, x = gx0 + q * (nichoW + sep), nuevo = i >= heroes.length, act = i === sel && !nuevo, enc = dentro(x, galY, nichoW, nichoH);
     selP.k[i] = Math.max(0, Math.min(1, (selP.k[i] ?? 0) + (act || enc ? dt * 6 : -dt * 4))); const k = suave(selP.k[i]), y = galY - k * (chico ? 4 : 8);
@@ -555,17 +612,27 @@ export function dibujarSeleccion(t: number, heroes: DatosHeroe[], sel: number): 
     if (nuevo) {
       const cx = x + nichoW / 2, cy = y + nichoH * 0.5, q2 = nichoH * 0.13;
       if (!viejo) { ctx.save(); arco(); ctx.clip(); forjaNueva(cx, cy, y + nichoH * 0.9, nichoW, t, Math.max(k, kh)); ctx.restore(); } ctx.strokeStyle = k > 0.3 ? '#ffd080' : '#8a7046'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx - q2, cy); ctx.lineTo(cx + q2, cy); ctx.moveTo(cx, cy - q2); ctx.lineTo(cx, cy + q2); ctx.stroke();
-      texto(T('Nuevo héroe', 'New hero').toUpperCase(), cx, y + nichoH - (chico ? 8 : 14), { alin: 'center', tam: chico ? 8 : 10, color: k > 0.3 ? '#ffe0a0' : '#9a8866', fuente: TITULO });
+      if (gotica()) textoGotico(T('Nuevo héroe', 'New hero'), cx, y + nichoH - (chico ? 9 : 14), chico ? 9 : 11, { alin: 'center', tono: k > 0.3 ? 'oro' : 'ceniza', encendido: Math.max(0, kh - 0.3), max: nichoW - 10 });
+      else texto(T('Nuevo héroe', 'New hero').toUpperCase(), cx, y + nichoH - (chico ? 8 : 14), { alin: 'center', tam: chico ? 8 : 10, color: k > 0.3 ? '#ffe0a0' : '#9a8866', fuente: TITULO });
+      anotarToque('crear', nichoW, nichoH);
       pant.crear = [cx, galY + nichoH / 2];
       if (enc && E.clicIzq) { accion = 'crear'; Sonido.efecto('click'); }
     } else {
-      const h2 = heroes[i], fs = cuadrosHeroe(h2.clase, 'quieto', 'so'), e2 = Math.max(0.6, (nichoH - (chico ? 30 : 44)) / 88);
+      // (los pies van más arriba que antes y el héroe un poco más chico: casi tocaban el nombre)
+      const nueva = gotica(), h2 = heroes[i], fs = cuadrosHeroe(h2.clase, 'quieto', 'so'), e2 = Math.max(0.6, (nichoH - (nueva ? (chico ? 36 : 54) : chico ? 30 : 44)) / 88);
       ctx.save(); arco(); ctx.clip(); if (!act) ctx.globalAlpha = 0.62 + 0.38 * Math.max(k, kh); ctx.imageSmoothingEnabled = false;
       // con su equipo (el reposo del mundo pintado a la escala de la carta); vivo si es la elegida o la que tiene el ratón
-      if (!viejo) heroeCarta(h2, x + nichoW / 2, y + nichoH - (chico ? 22 : 34), e2 * 84, t, act || kh > 0.2, (act ? 0.22 * resp : 0) + 0.3 * kh, i);
+      if (!viejo) heroeCarta(h2, x + nichoW / 2, y + nichoH - (nueva ? (chico ? 27 : 42) : chico ? 22 : 34), e2 * 84, t, act || kh > 0.2, (act ? 0.22 * resp : 0) + 0.3 * kh, i);
       else if (fs.length) dibujar(ctx, fs[Math.floor(t * 6 + i * 2) % fs.length], x + nichoW / 2, y + nichoH - (chico ? 20 : 30), e2); ctx.restore();
-      texto(h2.nombre.toUpperCase(), x + nichoW / 2, y + nichoH - (chico ? 9 : 15), { alin: 'center', tam: chico ? 9 : 11, color: act ? '#fff0c0' : '#c8b890', fuente: TITULO, max: nichoW - 8 });
-      texto(`${T('Nv', 'Lv')} ${h2.nivel}`, x + nichoW / 2, y + nichoH - (chico ? 1 : 4), { alin: 'center', tam: chico ? 8 : 9, color: h2.dificultad ? '#ff9070' : '#8a7a5a', fuente: TITULO });
+      if (nueva) {
+        // el nombre en la letra gótica (oro la elegida, hueso las demás) y el nivel menudo debajo; lo que no entra se achica
+        textoGotico(h2.nombre, x + nichoW / 2, y + nichoH - (chico ? 12 : 18), chico ? 10 : 12, { alin: 'center', tono: act ? 'oro' : 'hueso', talla: tallaCarta, encendido: act ? 0 : Math.max(0, kh - 0.3) * 0.8, max: nichoW - 10 });
+        textoGotico(`${T('Nv', 'Lv')} ${h2.nivel}`, x + nichoW / 2, y + nichoH - (chico ? 3 : 6), chico ? 8 : 9, { alin: 'center', tono: h2.dificultad ? 'sangre' : 'ceniza', talla: 'menuda' });
+      } else {
+        texto(h2.nombre.toUpperCase(), x + nichoW / 2, y + nichoH - (chico ? 9 : 15), { alin: 'center', tam: chico ? 9 : 11, color: act ? '#fff0c0' : '#c8b890', fuente: TITULO, max: nichoW - 8 });
+        texto(`${T('Nv', 'Lv')} ${h2.nivel}`, x + nichoW / 2, y + nichoH - (chico ? 1 : 4), { alin: 'center', tam: chico ? 8 : 9, color: h2.dificultad ? '#ff9070' : '#8a7a5a', fuente: TITULO });
+      }
+      anotarToque('heroe' + i, nichoW, nichoH);
       pant['heroe' + i] = [x + nichoW / 2, galY + nichoH / 2];
       if (enc && E.clicIzq && !act) { sel = i; E.clicIzq = false; Sonido.efecto('click'); (window as any).__borrar = null; }
     }
@@ -588,26 +655,51 @@ const opcP = { agarra: '' };
  * perilla (se arrastra, y muestra su tanto por ciento); el idioma y la pantalla completa son llaves de dos posiciones.
  */
 export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
-  const chico = H < 520;
+  const chico = H < 520, got = gotica();
+  // en el teléfono (táctil y bajo) va en rejilla de tres columnas con el rótulo encima: así cada mando mide 44 puntos de
+  // pantalla (en una columna de 15 filas cada fila quedaba en 18 puntos: no se podía tocar bien)
+  const rejilla = chico && E.tactil && W >= 600 && !(window as any).__opcionesViejas;
   if (fondo) { fondoVigilia(t, W / 2, H * 0.62, 320); brasas(t, 22); } else { ctx.fillStyle = 'rgba(0,0,0,0.78)'; ctx.fillRect(0, 0, W, H); }
-  // 15 filas (6 varas y 9 llaves): el alto de la fila baja lo que haga falta para que la losa entre en la pantalla
-  const FILAS = 15, cab = chico ? 44 : 74, pie = chico ? 46 : 70, sep = chico ? 10 : 34;
-  const fh = Math.max(18, Math.min(chico ? (H < 420 ? 21 : 26) : H < 800 ? 35 : 43, Math.floor((H - 12 - cab - sep - pie) / FILAS)));
-  const w = Math.min(W - 24, chico ? 560 : 600), h = Math.min(H - 12, cab + fh * FILAS + sep + pie), x = Math.round(W / 2 - w / 2), y = Math.round(H / 2 - h / 2);
   const pant: Record<string, [number, number]> = ((window as any).__pantalla = {});
+  (window as any).__toquesMenu = {};
+  const D44 = DEDO();
+  // ---- la disposición: cada mando en su celda (el rótulo, dónde va el mando y de qué tamaño)
+  interface Celda { lx: number; ly: number; vx: number; vy: number; vw: number; vh: number; pct: [number, number]; arriba: boolean }
+  const FILAS = 15;
+  let w: number, h: number, x: number, y: number, tituloY: number, celda: (i: number) => Celda, sepY = -1, volverR: [number, number, number, number];
+  if (rejilla) {
+    const mg = Math.max(SEGURO.l / Math.max(0.1, ESCALA), SEGURO.r / Math.max(0.1, ESCALA), 46), cab = 56, rows = 5, cols = 3, gap = 14;
+    x = Math.round(mg - 18); w = Math.round(W - 2 * x); y = 4; h = H - 8; tituloY = y + 30;
+    const gx = mg, gw = W - 2 * mg, cw = (gw - gap * (cols - 1)) / cols, top = y + cab, rh = (H - 10 - top) / rows;
+    celda = (i: number) => { const c = Math.floor(i / rows), r = i % rows, cx = gx + c * (cw + gap), cy = top + r * rh; const vh = Math.max(D44, Math.min(rh - 16, D44 + 4)); return { lx: cx, ly: cy + 11, vx: cx, vy: cy + 14, vw: cw, vh, pct: [cx + cw, cy + 11], arriba: true }; };
+    volverR = [mg - 4, y + 4, 112, D44];
+  } else {
+    const cab = chico ? 44 : 74, pie = chico ? 46 : 70, sep = chico ? 10 : 34;
+    const fh = Math.max(18, Math.min(chico ? (H < 420 ? 21 : 26) : H < 800 ? 35 : 43, Math.floor((H - 12 - cab - sep - pie) / FILAS)));
+    w = Math.min(W - 24, chico ? 560 : 600); h = Math.min(H - 12, cab + fh * FILAS + sep + pie); x = Math.round(W / 2 - w / 2); y = Math.round(H / 2 - h / 2);
+    tituloY = y + (chico ? 28 : 46);
+    const lx = x + (chico ? 22 : 36), vx = x + w * 0.44, vw = w * 0.56 - (chico ? 70 : 96);
+    celda = (i: number) => { const yy = y + cab + i * fh + (i >= 6 ? (chico ? 6 : 18) : 0); return { lx, ly: yy + fh / 2, vx, vy: yy, vw, vh: fh, pct: [x + w - (chico ? 20 : 34), yy + fh / 2], arriba: false }; };
+    sepY = y + cab + 6 * fh + (chico ? 2 : 6);
+    const bw = chico ? 150 : 200, bh = chico ? 30 : 40;
+    volverR = [W / 2 - bw / 2, y + h - pie / 2 - bh / 2 - (chico ? 0 : 4), bw, bh];
+  }
   // la losa: esquinas cortadas, hierro oscuro, doble filo de oro y rombos en los cuatro costados
   const c = 14, losa = (m: number) => { ctx.beginPath(); ctx.moveTo(x + c + m, y + m); ctx.lineTo(x + w - c - m, y + m); ctx.lineTo(x + w - m, y + c + m); ctx.lineTo(x + w - m, y + h - c - m); ctx.lineTo(x + w - c - m, y + h - m); ctx.lineTo(x + c + m, y + h - m); ctx.lineTo(x + m, y + h - c - m); ctx.lineTo(x + m, y + c + m); ctx.closePath(); };
   ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 40;
   const g = ctx.createLinearGradient(0, y, 0, y + h); g.addColorStop(0, 'rgba(34,26,20,0.97)'); g.addColorStop(0.5, 'rgba(18,14,11,0.97)'); g.addColorStop(1, 'rgba(8,6,5,0.98)'); ctx.fillStyle = g; losa(0); ctx.fill(); ctx.restore();
   ctx.lineWidth = 1.5; ctx.strokeStyle = '#b08a4a'; losa(0); ctx.stroke(); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(176,138,74,0.35)'; losa(5); ctx.stroke();
   for (const [rx, ry] of [[x + w / 2, y], [x + w / 2, y + h], [x, y + h / 2], [x + w, y + h / 2]]) rombo2(rx, ry, 6, '#e0b060');
-  grabado(T('Opciones', 'Options'), W / 2, y + (chico ? 28 : 46), chico ? 18 : 26, { alin: 'center', brillo: 0.4 }); rayaOro(W / 2 - 130, y + (chico ? 34 : 56), 260);
-  const lx = x + (chico ? 22 : 36), vx = x + w * 0.44, vw = w * 0.56 - (chico ? 70 : 96);
-  let yy = y + cab;
-  const rotulo = (sx: string) => texto(sx.toUpperCase(), lx, yy + fh / 2 + 4, { tam: chico ? 11 : 13, color: '#d8c8a0', fuente: TITULO });
+  grabado(T('Opciones', 'Options'), W / 2, tituloY, rejilla ? 20 : chico ? 18 : 26, { alin: 'center', brillo: 0.4 }); rayaOro(W / 2 - 130, tituloY + (chico ? 6 : 10), 260);
+  let n = 0;
+  const rotulo = (sx: string, cc: Celda) => {
+    if (got) textoGotico(sx, cc.lx, cc.ly, rejilla ? 10 : chico ? 12 : 14, { tono: 'hueso', medio: !cc.arriba, max: cc.arriba ? cc.vw * 0.7 : w * 0.4 });
+    else texto(sx.toUpperCase(), cc.lx, cc.arriba ? cc.ly + 4 : cc.ly + 4, { tam: chico ? 11 : 13, color: '#d8c8a0', fuente: TITULO });
+  };
   const vara = (nom: string, k: keyof Opciones) => {
-    rotulo(nom);
-    const v = opciones[k] as number, cy = yy + fh / 2, enc = dentro(vx - 12, yy, vw + 24, fh);
+    const cc = celda(n++); rotulo(nom, cc);
+    const v = opciones[k] as number, cy = cc.vy + cc.vh / 2, vx = cc.vx + (cc.arriba ? 10 : 0), vw = cc.vw - (cc.arriba ? 20 : 0), enc = dentro(vx - 12, cc.vy, vw + 24, cc.vh);
+    anotarToque(k as string, vw + 24, cc.vh);
     if (E.izq && (opcP.agarra === k || (enc && !opcP.agarra))) { opcP.agarra = k; (opciones as any)[k] = Math.max(0, Math.min(1, (E.x - vx) / vw)); aplicarVolumen(); guardarOpciones(); }
     const act = opcP.agarra === k || enc;
     ctx.fillStyle = '#050403'; ctx.fillRect(vx - 1, cy - 4, vw + 2, 8); ctx.fillStyle = '#231b14'; ctx.fillRect(vx, cy - 3, vw, 6);
@@ -617,8 +709,10 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
     const px = vx + vw * v, lat = 0.8 + 0.2 * Math.sin(t * 9 + vx);
     const hg = ctx.createRadialGradient(px, cy, 0, px, cy, act ? 22 : 15); hg.addColorStop(0, `rgba(255,150,50,${(act ? 0.7 : 0.4) * lat})`); hg.addColorStop(1, 'rgba(255,120,30,0)'); ctx.fillStyle = hg; ctx.fillRect(px - 24, cy - 24, 48, 48);
     rombo2(px, cy, act ? 9 : 7.5, '#1a0e06'); rombo2(px, cy, act ? 7.5 : 6, '#ff8a2a'); rombo2(px, cy, 3, '#fff0b0');
-    texto(`${Math.round(v * 100)} %`, x + w - (chico ? 20 : 34), cy + 5, { alin: 'right', tam: chico ? 12 : 14, color: act ? '#ffe0a0' : '#b8a480', fuente: TITULO });
-    pant[k as string] = [vx + vw / 2, cy]; yy += fh;
+    const pt = `${Math.round(v * 100)} %`;
+    if (got) textoGotico(pt, cc.pct[0], cc.pct[1], rejilla ? 10 : chico ? 12 : 14, { alin: 'right', medio: !cc.arriba, tono: act ? 'brasa' : 'hueso' });
+    else texto(pt, cc.pct[0], cc.pct[1] + 5, { alin: 'right', tam: chico ? 12 : 14, color: act ? '#ffe0a0' : '#b8a480', fuente: TITULO });
+    pant[k as string] = [vx + vw / 2, cy];
   };
   if (!E.izq) opcP.agarra = '';
   vara(T('Volumen general', 'Master volume'), 'general');
@@ -627,18 +721,22 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   vara(T('Horror', 'Horror'), 'horror');
   vara(T('Brillo', 'Brightness'), 'brillo');
   vara(T('Temblor', 'Shake'), 'temblor');
-  yy += chico ? 4 : 12; rayaOro(x + 40, yy - (chico ? 2 : 6), w - 80, 0.5); yy += chico ? 2 : 6;
-  // llave de dos posiciones: la elegida al rojo, la otra apagada
+  if (sepY > 0) rayaOro(x + 40, sepY, w - 80, 0.5);
+  // llave de dos o tres posiciones: la elegida al rojo, la otra apagada
   const llave = (nom: string, ops: string[], cual: number, id: string): number | null => {
-    rotulo(nom); let r: number | null = null; const tw = Math.min(150, (w * 0.56 - (chico ? 30 : 40) - (ops.length - 2) * 8) / ops.length), th = fh - (chico ? 6 : 12), ty = yy + (fh - th) / 2;
-    ops.forEach((o, q) => { const bx = vx + q * (tw + 8), sel2 = q === cual, enc = dentro(bx, ty, tw, th);
+    const cc = celda(n++); rotulo(nom, cc); let r: number | null = null;
+    const gap = cc.arriba ? 6 : 8, tw = cc.arriba ? (cc.vw - gap * (ops.length - 1)) / ops.length : Math.min(150, (w * 0.56 - (chico ? 30 : 40) - (ops.length - 2) * 8) / ops.length);
+    const th = cc.arriba ? cc.vh : cc.vh - (chico ? 6 : 12), ty = cc.arriba ? cc.vy : cc.vy + (cc.vh - th) / 2;
+    ops.forEach((o, q) => { const bx = cc.vx + q * (tw + gap), sel2 = q === cual, enc = dentro(bx, ty, tw, th);
+      anotarToque(id + q, tw, th);
       const gg = ctx.createLinearGradient(0, ty, 0, ty + th); gg.addColorStop(0, sel2 ? '#5a2a10' : '#1e1812'); gg.addColorStop(1, sel2 ? '#2a1206' : '#0c0a08'); ctx.fillStyle = gg; ctx.fillRect(bx, ty, tw, th);
       ctx.strokeStyle = sel2 ? '#f0b858' : enc ? '#a08450' : '#4e4028'; ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, ty + 0.5, tw - 1, th - 1);
-      if (sel2) rombo2(bx + 11, ty + th / 2, 3.5, '#ffb050');
-      texto(o.toUpperCase(), bx + tw / 2 + (sel2 ? 5 : 0), ty + th / 2 + 4, { alin: 'center', tam: chico ? 10 : 12, color: sel2 ? '#fff0c0' : enc ? '#d8c8a0' : '#8a7a5c', fuente: TITULO });
+      if (sel2) rombo2(bx + 9, ty + th / 2, 3.5, '#ffb050');
+      if (got) textoGotico(o, bx + tw / 2 + (sel2 ? 4 : 0), ty + th / 2, rejilla ? 11 : chico ? 10 : 12, { alin: 'center', medio: true, max: tw - (sel2 ? 16 : 6), tono: sel2 ? 'brasa' : enc ? 'hueso' : 'ceniza' });
+      else texto(o.toUpperCase(), bx + tw / 2 + (sel2 ? 5 : 0), ty + th / 2 + 4, { alin: 'center', tam: chico ? 10 : 12, color: sel2 ? '#fff0c0' : enc ? '#d8c8a0' : '#8a7a5c', fuente: TITULO });
       if (enc && E.clicIzq && !sel2) { r = q; Sonido.efecto('click'); }
       pant[id + q] = [bx + tw / 2, ty + th / 2]; });
-    yy += fh; return r;
+    return r;
   };
   const li = llave(T('Idioma', 'Language'), ['Español', 'English'], IDI ? 1 : 0, 'idioma');
   if (li !== null) { opciones.idioma = li as 0 | 1; fijarIdioma(opciones.idioma); guardarOpciones(); E.clicIzq = false; }
@@ -650,13 +748,13 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   if (lz !== null && (lz === 0 || hayGPU)) { opciones.luz = lz as 0 | 1; guardarOpciones(); E.clicIzq = false; }
   const ld = llave(T('Destellos', 'Flashes'), [T('Normales', 'Normal'), T('Suaves', 'Soft')], opciones.destellos ? 1 : 0, 'destellos');
   if (ld !== null) { opciones.destellos = ld as 0 | 1; guardarOpciones(); E.clicIzq = false; }
-  // el equipo del piso: solo con clic (como en Diablo) o también al pasarle por encima, el mágico o mejor
   // el HUD: el forjado (por omisión) o la barra de siempre
   const lh = llave('HUD', [T('Forjado', 'Forged'), T('Clásico', 'Classic')], hudForja() ? 0 : 1, 'hud');
   if (lh !== null) { opciones.hud = lh === 0 ? 'forja' : 'clasico'; fijarHud(opciones.hud); ajustar(); guardarOpciones(); E.clicIzq = false; }
   // las barras de vida sobre los enemigos: siempre, solo en pelea (por omisión) o nunca
   const lb = llave(T('Barras de vida', 'Health bars'), [T('Siempre', 'Always'), T('En pelea', 'In combat'), T('Nunca', 'Never')], opciones.barras === 'siempre' ? 0 : opciones.barras === 'nunca' ? 2 : 1, 'barras');
   if (lb !== null) { opciones.barras = (['siempre', 'pelea', 'nunca'] as const)[lb]; guardarOpciones(); E.clicIzq = false; }
+  // el equipo del piso: solo con clic (como en Diablo) o también al pasarle por encima, el mágico o mejor
   const lr = llave(T('Recoger equipo', 'Pick up gear'), [T('Con clic', 'On click'), T('Al pasar', 'Walk over')], opciones.recogerEquipo === 1 ? 1 : 0, 'recoger');
   if (lr !== null) { opciones.recogerEquipo = lr as 0 | 1; guardarOpciones(); E.clicIzq = false; }
   const completa = typeof document !== 'undefined' && !!document.fullscreenElement;
@@ -665,11 +763,11 @@ export function dibujarOpciones(t: number, fondo: boolean): 'volver' | null {
   // la partida: sacarla como código o traerla de otro sitio (el guardado es de cada dirección web)
   const lt = llave(T('Partida', 'Save'), [T('Sacar', 'Export'), T('Traer', 'Import'), T('Copias', 'Backups')], -1, 'partida');
   if (lt !== null) { E.clicIzq = false; E.izq = false; if (lt === 0) void abrirExportar(IDI === 1); else if (lt === 1) abrirImportar(IDI === 1); else abrirCopias(IDI === 1); }
-  const bw = chico ? 150 : 200, bh = chico ? 30 : 40;
-  pant.volver = [W / 2, y + h - pie / 2 - (chico ? 0 : 4)];
-  if (boton(T('Volver', 'Back'), W / 2 - bw / 2, y + h - pie / 2 - bh / 2 - (chico ? 0 : 4), bw, bh, { tam: chico ? 14 : 16 })) { E.clicIzq = false; return 'volver'; }
+  const [bx, by, bw, bh] = volverR;
+  pant.volver = [bx + bw / 2, by + bh / 2];
+  if (boton((rejilla ? '‹ ' : '') + T('Volver', 'Back'), bx, by, bw, bh, { tam: chico ? 14 : 16, gotico: true, id: 'volver' })) { E.clicIzq = false; return 'volver'; }
   // créditos de terceros (licencia MIT)
-  texto(T('Efectos: pixelfx (MIT) de Patch, Hugo Duprez y Hollow Crown', 'Effects: pixelfx (MIT) by Patch, Hugo Duprez and Hollow Crown'), W / 2, Math.min(H - 4, y + h + 14), { alin: 'center', tam: 10, color: '#7a6a50' });
+  if (!rejilla) texto(T('Efectos: pixelfx (MIT) de Patch, Hugo Duprez y Hollow Crown', 'Effects: pixelfx (MIT) by Patch, Hugo Duprez and Hollow Crown'), W / 2, Math.min(H - 4, y + h + 14), { alin: 'center', tam: 10, color: '#7a6a50' });
   return null;
 }
 

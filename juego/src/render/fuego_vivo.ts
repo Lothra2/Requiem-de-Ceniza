@@ -3,7 +3,8 @@
 // de la llama, así las sombras tiemblan con ella. Hay un tope de fuegos vivos (12 en táctil, 24 en escritorio), los más
 // cercanos al héroe; los demás muestran el sprite original con la llama horneada.
 import * as D from '../../../src/engine/gotico/fuego_doom';
-import { FUEGOS_DOOM, opcionesDeSpec, TEMAS_FRIOS, type FuegoMundoDoom } from '../../../src/engine/gotico/datos/fuegos_doom';
+import { FUEGOS_DOOM, opcionesDeSpec, TEMAS_FRIOS, specFuego, type FuegoMundoDoom } from '../../../src/engine/gotico/datos/fuegos_doom';
+import { MEDIDAS_FUEGO } from '../../../src/engine/gotico/datos/fuegos_doom_medidas';
 import { ZONAS } from '../mundo/actos';
 import { E } from '../nucleo/lienzo';
 import { BASE } from '../motor/assets';
@@ -179,4 +180,32 @@ export function fuegoSuelto(clave: string, dt: number): Vivo[] | null {
   if (!vs) { const ss = FUEGOS_DOOM[clave]; if (!ss) return null; vs = ss.map((s) => crear(s, null)).filter(Boolean) as Vivo[]; for (const v of vs) D.pasos(v.f, 30); sueltos.set(clave, vs); }
   for (const v of vs) { D.paso(v.f, Math.min(0.1, dt)); pintarVivo(v); }
   return vs.length ? vs : null;
+}
+
+/**
+ * El mismo fuego suelto con la grilla más fina: `celda` puntos lógicos por celda en vez de los de la tabla (la vigilia lo
+ * pide para que la fogata tenga el grano del título, 2 o 3 puntos del aparato por celda en cualquier pantalla; con la
+ * celda de la tabla a 1080 cada celda medía 7 puntos). Se pinta con `dibujarVivosPixel` (sin suavizar).
+ */
+export function fuegoSueltoFino(clave: string, celda: number, dt: number): Vivo[] | null {
+  const k = clave + '@' + celda;
+  let vs = sueltos.get(k);
+  if (!vs) {
+    const m = (MEDIDAS_FUEGO as any)[clave]; if (!m) return null;
+    let ss: FuegoMundoDoom[]; try { ss = specFuego(clave, m, celda); } catch { return null; }
+    vs = ss.map((s) => crear(s, null)).filter(Boolean) as Vivo[]; for (const v of vs) D.pasos(v.f, 40); sueltos.set(k, vs);
+  }
+  for (const v of vs) { D.paso(v.f, Math.min(0.1, dt)); pintarVivo(v); }
+  return vs.length ? vs : null;
+}
+/** Como `dibujarVivos` pero sin suavizar: cada celda queda en puntos enteros del aparato (2 o 3), como el fuego del título. */
+export function dibujarVivosPixel(ctx: CanvasRenderingContext2D, vs: Vivo[], px: number, py: number, alfa = 1) {
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = alfa;
+  for (const v of vs) {
+    const { s, f } = v, w = f.w * s.celda, h = f.h * s.celda, x = px + s.boca[0] - w / 2, y = py + s.boca[1] - h;
+    if (v.normal) { ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(v.llama.cv, x, y, w, h); continue; }
+    if (v.humo && s.humo > 0) { ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(v.humo.cv, x, y, w, h); }
+    ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(v.llama.cv, x, y, w, h);
+  }
+  ctx.restore();
 }

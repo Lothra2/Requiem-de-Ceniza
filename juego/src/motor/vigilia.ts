@@ -10,9 +10,11 @@
 // 45 s en la nube hasta el bucle entero y el primer cuadro 5 a 7 s):
 // 1. el boceto: el cuadro con que arranca el reposo a la mitad de K (un cuarto de los puntos: sale en un segundo, y se ve a
 //    puntos dobles, ya con su luz y su fogata, mientras llega el de verdad);
-// 2. el reposo de a dos (los 18 cuadros pares: quien dibuja usa el pintado más cercano, así el bucle entero respira a 6 por
-//    segundo antes de la mitad del trabajo);
-// 3. los impares del reposo, que lo dejan a 12 por segundo (el reposo entero antes que nada más: es lo que se mira);
+// 2. las claves del reposo, una cada 3 cuadros (12, regadas por el bucle: quien dibuja usa el pintado más cercano);
+// 3. lo de entre medio (24 cuadros) no se pinta: se arma de sus dos claves siguiendo el movimiento de cada punto
+//    (motor/intermedio.ts, `entrePend`, en el obrero, unos 0,2 s cada uno en vez de 1,5) en cuanto las dos están: el bucle
+//    entero a 12 por segundo sale con la mitad de lo que se pintaba (segunda pasada del 21 nov: con el orden solo el total
+//    no bajaba);
 // 4. el gesto (no sale hasta tener sus 12; sale al elegir y cada 10 s). Lo pintado se guarda en su propia base de IndexedDB ('marca_vigilia'): la segunda vez
 // sale entero de una. La clave lleva __PINTOR__: si cambia cómo se pinta el cuerpo, se vuelve a pintar solo.
 import Obrero from './pintor.worker.ts?worker&inline';
@@ -41,6 +43,10 @@ export interface Pedido {
   boceto: Crudo | null; bocetoV: CuadroV | null; bocetoPide: boolean; tBoceto: number;
   /** cuándo quedó el reposo de a dos (el bucle entero a 6 por segundo), el gesto y el reposo entero (ms desde el pedido) */
   tPares: number; tGesto: number; tReposo: number;
+  /** lo que tardó cada intermedio en el obrero (ms) */
+  msEntre: number[];
+  /** lo armado que no casó (falla alta): se pinta */
+  sinEntre: Set<number>;
 }
 /** El cuadro del boceto en la cola de los obreros (no es un índice de la acción). */
 const BOCETO = -1;
@@ -58,11 +64,49 @@ export function ordenGrande(): number[] {
     for (let f = SEL_ENT; f < SEL_N; f++) pon(f);
     return o;
   }
-  for (const f of [12, 30, 20, 38, 16, 24, 34, 42]) pon(f);
-  for (let f = SEL_ENT; f < SEL_N; f += 2) pon(f);
-  for (let f = SEL_ENT + 1; f < SEL_N; f += 2) pon(f);
+  if (!entreVivo()) {
+    for (const f of [12, 30, 20, 38, 16, 24, 34, 42]) pon(f);
+    for (let f = SEL_ENT; f < SEL_N; f += 2) pon(f);
+    for (let f = SEL_ENT + 1; f < SEL_N; f += 2) pon(f);
+  } else {
+    // las claves del reposo, regadas (cada una lejos de las que ya están: el bucle se afina parejo mientras llegan); lo
+    // de entre medio no se pinta, se arma de sus dos claves (`entrePend`)
+    const G = pasoEntre(), claves: number[] = []; for (let f = SEL_ENT; f < SEL_N; f += G) claves.push(f);
+    const dist = (a: number, b: number) => { const d = Math.abs(a - b); return Math.min(d, SEL_N - SEL_ENT - d); };
+    pon(SEL_ENT);
+    while (o.length < claves.length) { let mej = -1, md = -1; for (const f of claves) if (!o.includes(f)) { const d = Math.min(...o.map((x) => dist(x, f))); if (d > md) { md = d; mej = f; } } pon(mej); }
+  }
   for (let f = 0; f < SEL_ENT; f++) pon(f);
   return o;
+}
+/** Cada cuántos cuadros del reposo hay una clave pintada (3: 12 claves y 24 armados; `__pasoEntre = 2` las 18 pares). */
+const pasoEntre = () => { const g = +((window as any).__pasoEntre ?? 3); return g === 2 || g === 3 || g === 4 ? g : 3; };
+/** Entre qué claves cae el cuadro f del reposo y a qué altura (0 a 1). */
+function clavesDe(f: number): [number, number, number] {
+  const G = pasoEntre(), a = SEL_ENT + Math.floor((f - SEL_ENT) / G) * G, b = a + G < SEL_N ? a + G : SEL_ENT;
+  return [a, b, (f - a) / G];
+}
+/**
+ * Lo de entre las claves del reposo se arma de ellas (motor/intermedio.ts, siguiendo el movimiento de cada punto, en el
+ * obrero). El reposo respira despacio y se corre unos puntos de una clave a la otra: el armado no se distingue del pintado
+ * (lab, berserker a K 2,6: 8 a 12 de diferencia media contra el pintado, lo mismo que hay entre dos pintados seguidos, que
+ * es el grano que cambia; arcanista 3 a 5). El gesto no: se mueve mucho (22 % de la silueta cambia de un cuadro al otro, y
+ * entre dos claves que se parecen puede pasar otra cosa) y se pinta entero. `__sinIntermedios` vuelve a pintar los 48 y
+ * `__pasoEntre = 2` pinta las 18 pares (una clave cada dos).
+ */
+const entreVivo = () => !(window as any).__sinIntermedios && !(window as any).__ordenViejo;
+/** Hasta dónde un armado vale (lab: el reposo da 0,004 a 0,017; el gesto, que no se arma así, hasta 0,3). */
+const FALLA_MAX = 0.04;
+/** El próximo cuadro del reposo para armar que ya tiene sus dos claves (el 45 empalma con el 12), o -1. */
+function entrePend(p: Pedido): number {
+  if (p.tipo !== 'grande' || !entreVivo()) return -1;
+  const G = pasoEntre();
+  for (let f = SEL_ENT; f < SEL_N; f++) {
+    if ((f - SEL_ENT) % G === 0 || p.crudos[f] || p.enVuelo.has(f) || p.sinEntre.has(f)) continue;
+    const [a, b] = clavesDe(f);
+    if (p.crudos[a] && p.crudos[b]) return f;
+  }
+  return -1;
 }
 /** ¿Están todos los cuadros de f0 a f1 (de a `paso`)? */
 const todos = (p: Pedido, f0: number, f1: number, paso: number) => { for (let f = f0; f < f1; f += paso) if (!p.crudos[f]) return false; return true; };
@@ -97,20 +141,25 @@ async function escribir(p: Pedido) {
 const obreros: Worker[] = [];
 const libres: Worker[] = [];
 const enMano = new Map<Worker, { p: Pedido; f: number }>();
-const N_OBREROS = () => Math.max(1, Math.min(3, (navigator.hardwareConcurrency || 4) - 1));
+// (de 3 a 5: en una máquina de 8 núcleos el tope de 3 dejaba la mitad parada; en 4 núcleos siguen 3)
+const N_OBREROS = () => Math.max(1, Math.min(5, (navigator.hardwareConcurrency || 4) - 1));
 /** El próximo cuadro a pintar: el del pedido con más prioridad que se usó hace poco (lo que no se mira hace 1,5 s espera: al salir de la pantalla el juego tiene los núcleos). */
-function siguiente(): { p: Pedido; f: number } | null {
+function siguiente(): { p: Pedido; f: number; entre?: boolean } | null {
   const ahora = performance.now();
   // (primero el cuadro con que arranca el grande, después el primero de cada carta, que son baratos, después el resto)
   const nota = (p: Pedido) => p.prio * 10 + (p.bocetoPide ? 200 : 0) + (p.hechos + p.enVuelo.size < 1 ? (p.tipo === 'grande' ? 50 : p.prio > 1 ? 70 : 30) : 0);
   let mejor: Pedido | null = null, nm = -1;
   for (const p of pedidos.values()) {
-    if (!p.cargado || (!p.cola.length && !p.bocetoPide) || ahora - p.usado > 1500) continue;
+    if (!p.cargado || (!p.cola.length && !p.bocetoPide && entrePend(p) < 0) || ahora - p.usado > 1500) continue;
     const v = nota(p);
     if (v > nm || (v === nm && mejor && p.usado > mejor.usado + 50)) { mejor = p; nm = v; }
   }
   if (!mejor) return null;
   if (mejor.bocetoPide) { mejor.bocetoPide = false; mejor.enVuelo.add(BOCETO); return { p: mejor, f: BOCETO }; }
+  // (un intermedio listo para armar va antes que el próximo cuadro: es barato y completa el bucle)
+  const fe = entrePend(mejor);
+  if (fe >= 0) { mejor.enVuelo.add(fe); return { p: mejor, f: fe, entre: true }; }
+  if (!mejor.cola.length) return null;
   const f = mejor.cola.shift()!; mejor.enVuelo.add(f);
   return { p: mejor, f };
 }
@@ -119,7 +168,8 @@ function dar(w: Worker) {
   if (!t) { enMano.delete(w); libres.push(w); return; }
   enMano.set(w, t);
   const { p, f } = t;
-  if (p.tipo === 'grande') w.postMessage({ id: p.clave, cuerpo: p.cuerpo, equipo: p.equipo, acc: 'seleccion', dir: 'so', vigilia: f === BOCETO ? kBoceto(p.K) : p.K, fs: [f === BOCETO ? SEL_ENT : f], clave: String(f), calidad: 1 });
+  if (t.entre) { const [a, b, S] = clavesDe(f); w.postMessage({ id: p.clave, cuerpo: p.cuerpo, equipo: p.equipo, acc: 'seleccion', dir: 'so', entre: { a: p.crudos[a], b: p.crudos[b], S, R: pasoEntre() > 2 ? 4 : 3, K: p.K, f }, clave: String(f) }); }
+  else if (p.tipo === 'grande') w.postMessage({ id: p.clave, cuerpo: p.cuerpo, equipo: p.equipo, acc: 'seleccion', dir: 'so', vigilia: f === BOCETO ? kBoceto(p.K) : p.K, fs: [f === BOCETO ? SEL_ENT : f], clave: String(f), calidad: 1 });
   else { const n = accionesClase(p.clase).find((a) => a[0] === 'quieto')?.[1] ?? 4; w.postMessage({ id: p.clave, cuerpo: p.cuerpo, equipo: p.equipo, acc: 'quieto', dir: 'so', muneco: p.K, fs: [(f * n) / CARTA_N], clave: String(f), calidad: 1 }); }
 }
 function trabajar() {
@@ -135,6 +185,8 @@ function trabajar() {
         if (!m.error && c) llego(p, f, c); else if (m.error) console.warn('vigilia', m.error);
       }
       dar(w);
+      // (lo que llegó puede dejar listo un intermedio: que lo tome un obrero que estaba parado)
+      if (libres.length) trabajar();
     };
     w.onerror = () => { const t = enMano.get(w); if (t) t.p.enVuelo.delete(t.f); dar(w); };
     dar(w);
@@ -146,7 +198,9 @@ export const kBoceto = (K: number) => K / 2;
 function llego(p: Pedido, f: number, c: Crudo) {
   if (f === BOCETO) { if (!p.boceto) { p.boceto = { w: c.w, h: c.h, ax: c.ax, ay: c.ay, data: c.data, hoja: c.hoja }; p.tBoceto = performance.now() - p.t0; } return; }
   if (p.crudos[f]) return;
-  if ((c as any).ms) p.msPinta.push(Math.round((c as any).ms));
+  // un intermedio cuyos vecinos no casaron (algo se movió de más entre los dos): ese cuadro se pinta, primero en la cola
+  if ((c as any).entre && ((c as any).falla ?? 0) > FALLA_MAX) { p.sinEntre.add(f); p.cola.unshift(f); return; }
+  if ((c as any).ms) ((c as any).entre ? p.msEntre : p.msPinta).push(Math.round((c as any).ms));
   // (sin tarjeta no se usa el relieve: no se guarda, y la carta tampoco lo necesita)
   const guardaRel = p.tipo === 'grande' && (hayGPU || !!(window as any).__vigiliaRel);
   p.crudos[f] = { w: c.w, h: c.h, ax: c.ax, ay: c.ay, data: c.data, hoja: c.hoja, rel: guardaRel ? c.rel : undefined, alt: guardaRel ? c.alt : undefined };
@@ -154,7 +208,7 @@ function llego(p: Pedido, f: number, c: Crudo) {
   const ya = performance.now() - p.t0;
   if (p.hechos === 1) p.tListo1 = ya;
   if (p.tipo === 'grande') {
-    if (p.tPares < 0 && todos(p, SEL_ENT, SEL_N, 2)) p.tPares = ya;
+    if (p.tPares < 0 && todos(p, SEL_ENT, SEL_N, entreVivo() ? pasoEntre() : 2)) p.tPares = ya;
     if (p.tGesto < 0 && todos(p, 0, SEL_ENT, 1)) p.tGesto = ya;
     if (p.tReposo < 0 && todos(p, SEL_ENT, SEL_N, 1)) p.tReposo = ya;
   }
@@ -172,7 +226,7 @@ export function pedirVigilia(tipo: 'grande' | 'carta', clase: string, cuerpo: an
   if (!p) {
     const n = tipo === 'grande' ? SEL_N : CARTA_N;
     const q: Pedido = { clave, tipo, K, clase, cuerpo, equipo, n, crudos: new Array(n).fill(null), listos: new Array(n).fill(null), cola: [], enVuelo: new Set(), hechos: 0, usado: performance.now(), prio, cargado: false, t0: performance.now(), tListo1: -1, tListo: -1, msPinta: [],
-      boceto: null, bocetoV: null, bocetoPide: false, tBoceto: -1, tPares: -1, tGesto: -1, tReposo: -1 };
+      boceto: null, bocetoV: null, bocetoPide: false, tBoceto: -1, tPares: -1, tGesto: -1, tReposo: -1, msEntre: [], sinEntre: new Set() };
     p = q; pedidos.set(clave, q);
     void (async () => {
       const c = await leer(clave);
@@ -186,7 +240,7 @@ export function pedirVigilia(tipo: 'grande' | 'carta', clase: string, cuerpo: an
     podar();
   }
   p.usado = performance.now(); p.prio = prio;
-  const hay = p.cola.length || p.bocetoPide;
+  const hay = p.cola.length || p.bocetoPide || entrePend(p) >= 0;
   if (p.cargado && hay && libres.length) trabajar();
   else if (p.cargado && hay && obreros.length < N_OBREROS()) trabajar();
   return p;
@@ -264,6 +318,6 @@ export function cercano(p: Pedido, f: number, desde: number, hasta: number): num
  * ¿Hay un grande a medio pintar que se está mirando? Mientras tanto el pintor del mundo (el héroe elegido en todas sus
  * acciones, main.ts) espera: los dos a la vez se peleaban los núcleos y el de la vigilia tardaba el triple.
  */
-export const vigiliaOcupada = () => { const a = performance.now(); for (const p of pedidos.values()) if (p.tipo === 'grande' && a - p.usado < 1500 && (p.cola.length || p.enVuelo.size || p.bocetoPide || !p.cargado)) return true; return false; };
+export const vigiliaOcupada = () => { const a = performance.now(); for (const p of pedidos.values()) if (p.tipo === 'grande' && a - p.usado < 1500 && (p.cola.length || p.enVuelo.size || p.bocetoPide || !p.cargado || entrePend(p) >= 0)) return true; return false; };
 /** Para las pruebas y el informe. */
-(window as any).__vigiliaPedidos = () => [...pedidos.values()].map((p) => ({ tipo: p.tipo, clase: p.clase, K: p.K, hechos: p.hechos, n: p.n, msBoceto: Math.round(p.tBoceto), ms1: Math.round(p.tListo1), msPares: Math.round(p.tPares), msGesto: Math.round(p.tGesto), msReposo: Math.round(p.tReposo), ms: Math.round(p.tListo), pinta: p.msPinta.slice(0, 6) }));
+(window as any).__vigiliaPedidos = () => [...pedidos.values()].map((p) => ({ tipo: p.tipo, clase: p.clase, K: p.K, hechos: p.hechos, n: p.n, msBoceto: Math.round(p.tBoceto), ms1: Math.round(p.tListo1), msPares: Math.round(p.tPares), msGesto: Math.round(p.tGesto), msReposo: Math.round(p.tReposo), ms: Math.round(p.tListo), pinta: p.msPinta.slice(0, 6), entre: p.msEntre.slice(0, 6), nEntre: p.msEntre.length }));

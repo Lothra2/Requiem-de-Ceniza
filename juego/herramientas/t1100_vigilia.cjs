@@ -9,6 +9,7 @@
 // Uso: node juego/herramientas/t1100_vigilia.cjs <etiqueta> [vistas] [cuantos héroes] (vistas: pc,pc1080,ipad,movil)
 //   VIDEO=1 graba los cuadros del video (solo en la primera vista), ANTES=1 no usa los ganchos nuevos (para el antes),
 //   BANDERAS=__ordenViejo el orden de pintado de antes (sin boceto) con todo lo demás de ahora, para medir contra lo mismo.
+// El uid de cada pieza va fijo (el traje sale del uid): dos corridas visten igual y se pueden comparar lado a lado.
 // En la nube: CHROMIUM=/opt/pw-browsers/chromium URL=http://127.0.0.1:5199/
 const { chromium, devices } = require('playwright');
 const fs = require('fs');
@@ -37,7 +38,7 @@ const HEROES = [
     const c = await b.newContext(VISTAS[vista]);
     const p = await c.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
-    await p.addInitScript((ban) => { localStorage.setItem('marca.intro', '1'); for (const k of ban) window[k] = true; }, (process.env.BANDERAS || '').split(',').filter(Boolean));
+    await p.addInitScript((ban) => { localStorage.setItem('marca.intro', '1'); for (const k of ban) { const [n, v] = k.split('='); window[n] = v === undefined ? true : +v; } }, (process.env.BANDERAS || '').split(',').filter(Boolean));
     // LUZ=1: la luz avanzada a la fuerza (en la nube el WebGL es por software y no se enciende sola)
     if (process.env.LUZ) await p.addInitScript(() => { window.__vigiliaRel = true; const f = () => { if (window.__lab) window.__lab.on = true; else setTimeout(f, 50); }; f(); });
     const aMenu = async () => { for (let i = 0; i < 120; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
@@ -49,7 +50,7 @@ const HEROES = [
         const d = T.H.nuevoHeroe(clase, nombre); d.nivel = nivel; d.acto = 1 + Math.floor(nivel / 14); d.jugado = nivel * 1500; d.muertes = nivel % 7; d.oro = nivel * 913;
         for (const [cas, [id, rar, vivo]] of Object.entries(eq)) {
           const bs = T.D.BASES.find((x) => x.id === id); if (!bs) { console.error('falta base ' + id); continue; }
-          const o = T.O.crearBase(bs, Math.max(1, nivel)); o.rareza = rar; if (vivo) o.vivo = vivo; d.equipo[cas] = o;
+          const o = T.O.crearBase(bs, Math.max(1, nivel)); o.rareza = rar; if (vivo) o.vivo = vivo; o.uid = 7000 + out.length * 16 + Object.keys(d.equipo).indexOf(cas); d.equipo[cas] = o;
         }
         out.push(d);
       }
@@ -91,6 +92,7 @@ const HEROES = [
       await tap(pc[0], pc[1]); const a = Date.now();
       await p.waitForTimeout(300); await p.screenshot({ path: `${OUT}/${ET}_${vista}_${n}_pronto.png` });
       await esperar(150); const vi = await listo(); console.log(vista, 'héroe', n, 'listo en', ((Date.now() - a) / 1000).toFixed(1), 's', vi ? JSON.stringify({ msBoceto: vi.msBoceto, ms1: vi.ms1, msPares: vi.msPares, msGesto: vi.msGesto, msReposo: vi.msReposo, msTodo: vi.msTodo }) : '');
+      if (process.env.PEDIDOS) console.log('  pedidos', JSON.stringify(await p.evaluate(() => window.__vigiliaPedidos && window.__vigiliaPedidos().filter((q) => q.tipo === 'grande'))));
       await fotos(n);
     }
     // el ratón sobre una carta que no está elegida, y sobre «Nuevo héroe»

@@ -335,7 +335,7 @@ const ultimoEfecto = new Map<string, number>();
 const REVERB_EXTRA: Record<string, number> = {
   campana: 0.55, trueno: 0.4, muerte_heroe: 0.5, santuario: 0.5, mision: 0.4, rugido_jefe: 0.35,
   portal: 0.35, nivel: 0.35, objeto_unico: 0.35, invocar: 0.3, sombra: 0.3, luz: 0.3, nova: 0.2,
-  explosion: 0.2, susurro: 0.6, teletransporte: 0.3, chillido: 0.25, forma_lobo: 0.45, forma_oso: 0.25, forma_hombre: 0.2, festin: 0.15,
+  explosion: 0.2, susurro: 0.6, teletransporte: 0.3, chillido: 0.25, forma_lobo: 0.15, forma_oso: 0.25, forma_hombre: 0.2, festin: 0.15,
 };
 
 function hayHueco(): boolean {
@@ -447,65 +447,232 @@ function voz(o: AudioNode, t: number, dur: number, curvaF: [number, number][], v
   }
 }
 
-// ---------- las formas del druida y el Festín de tumba (sexta pasada de poderes) ----------
+// ---------- las formas del druida y el Festín de tumba (sexta pasada de poderes, rehechos en la séptima) ----------
+//
+// La séptima (pulido del 21 nov 2026, "los sonidos nuevos no los oyó nadie"): lo de antes eran tonos casi puros con un LFO
+// parejo y se oían de sintetizador. Ahora cada uno se arma como suena la cosa de verdad: la fuente (pliegues con sus
+// armónicos, la garganta, el hueso, el líquido) y el filtro que la vuelve voz (la boca que cambia de vocal, la garganta
+// grande), con lo que tiembla y se rompe al azar y el lugar donde suena (el bosque). Se revisan sin oído: espectrograma y
+// volumen con `t1120_sonidos.cjs` (WAV en /tmp/requiem-pruebas/sonidos).
 
-/** Huesos que se rompen y se vuelven a acomodar: chasquidos secos regados en `dur`, el tendón que se estira (ruido que
- * baja con temblor) y un golpe sordo de pecho al final. `n` chasquidos, `grave` corre todo hacia abajo (el oso). */
-function huesosCambian(o: AudioNode, t: number, dur: number, n: number, v: number, grave = 1): void {
-  for (let i = 0; i < n; i++) { const u = i / Math.max(1, n - 1), tt = t + dur * (u * 0.85 + Math.random() * 0.15); chasquido(o, tt, al(1300, 3600) / grave, al(4, 10), v * al(0.35, 0.8), al(0.008, 0.026)); if (Math.random() < 0.35) chasquido(o, tt + al(0.006, 0.014), al(700, 1400) / grave, 5, v * 0.3, 0.03); }
-  const g = gan(0, o); envSost(g.gain, t, dur * 0.3, v * 0.32, dur * 0.4, dur * 0.4);
-  const b = filt('bandpass', 620 / grave, 3, g); b.frequency.exponentialRampToValueAtTime(190 / grave, t + dur);
-  const am = gan(0.55, b); lfo(31, 0.45, am.gain, t, t + dur + 0.1, 'square'); ruido(t, t + dur + 0.1, am, ROSA);
-  golpeSordo(o, t + dur * 0.9, 120 / grave, 48, v * 0.55, 0.14);
+/** Onda con los armónicos de unos pliegues que vibran (cae unos 9 dB por octava, el 2.º y el 3.º fuertes como en el aullido). */
+const ondas = new WeakMap<BaseAudioContext, Map<string, PeriodicWave>>();
+function ondaDe(nombre: string, arm: number[]): PeriodicWave {
+  let m = ondas.get(ac); if (!m) { m = new Map(); ondas.set(ac, m); }
+  let w = m.get(nombre);
+  if (!w) { const re = new Float32Array(arm.length + 1), im = new Float32Array(arm.length + 1); arm.forEach((a, i) => { im[i + 1] = a; }); w = ac.createPeriodicWave(re, im); m.set(nombre, w); }
+  return w;
 }
-/** El aullido: casi un tono puro con sus armónicos que sube de golpe, se sostiene temblando y cae, con el aliento debajo. */
-function aullido(o: AudioNode, t: number, p: number, v: number): void {
-  const dur = 1.45, fin = t + dur + 0.1, g = gan(0, o);
-  g.gain.setValueAtTime(EPS, t); g.gain.exponentialRampToValueAtTime(v, t + 0.12); g.gain.setValueAtTime(v * 0.9, t + 0.95); g.gain.exponentialRampToValueAtTime(EPS, t + dur);
-  const lp = filt('lowpass', 2400, 0.8, g), fb = formantes('u', gan(0.5, lp), 1.15);
-  const curva: [number, number][] = [[0, 330], [0.14, 520], [0.4, 585], [0.9, 600], [1.2, 520], [dur, 380]];
-  for (const [arm, a] of [[1, 1], [2, 0.28], [3, 0.09]] as [number, number][]) {
-    const s = osc('sine', curva[0][1] * p * arm, t, fin, gan(a, lp)); s.connect(fb.entrada);
-    for (const [dt, f] of curva) s.frequency.linearRampToValueAtTime(f * p * arm, t + dt);
-    lfo(5.2, 7 * arm * p, s.frequency, t + 0.3, fin);
+/** Un oscilador con onda propia (sin `osc`, que pide un tipo). */
+function oscOnda(w: PeriodicWave, f: number, t: number, fin: number, dest: AudioNode): OscillatorNode {
+  const o = ac.createOscillator(); o.setPeriodicWave(w); o.frequency.setValueAtTime(f, t); o.connect(dest); o.start(t); o.stop(fin); return o;
+}
+/**
+ * Un temblor que no se repite: ruido marrón muy filtrado (por debajo de `fc` Hz) que empuja un parámetro, con `prof` de
+ * desvío típico. Para el vibrato irregular y la aspereza de una garganta: un LFO solo suena a máquina.
+ */
+function temblor(param: AudioParam, t: number, fin: number, fc: number, prof: number): GainNode {
+  // (el marrón de `ruidos` tiene un desvío de ~0,1 a estas frecuencias: el pasabajos de dos polos lo deja en ~0,05)
+  const g = gan(prof * 14); g.connect(param);
+  ruido(t, fin, filt('lowpass', fc, 0.6, filt('lowpass', fc, 0.6, g)), MARRON);
+  return g;
+}
+/** La reverberación del bosque: corta y oscura, con reflejos tempranos regados (los troncos) y la cola que muere en el agudo. */
+const impBosque = new WeakMap<BaseAudioContext, AudioBuffer>();
+function bosque(dest: AudioNode, seco: number, mojado: number): GainNode {
+  let b = impBosque.get(ac);
+  if (!b) {
+    const sr = ac.sampleRate, len = Math.floor(sr * 2.4), pre = Math.floor(sr * 0.022);
+    b = ac.createBuffer(2, len, sr);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = b.getChannelData(ch); let y = 0;
+      for (let i = pre; i < len; i++) { const x = (i - pre) / (len - pre), a = 0.35 * (1 - x) ** 3 + 0.02; y += a * (Math.random() * 2 - 1 - y); d[i] = y * Math.exp(-x * 5.2) * 0.8; }
+      // los troncos: 40 reflejos tempranos de 8 a 140 ms, cada uno un golpecito apagado
+      for (let r = 0; r < 40; r++) { const i0 = pre + Math.floor(sr * al(0.008, 0.14)), k = al(0.15, 0.6) * (1 - r / 50) * (Math.random() < 0.5 ? -1 : 1); for (let j = 0; j < 24 && i0 + j < len; j++) d[i0 + j] = (d[i0 + j] as number) + k * Math.exp(-j / 6); }
+    }
+    impBosque.set(ac, b);
   }
-  const ga = gan(0, o); envSost(ga.gain, t, 0.1, v * 0.07, dur * 0.7, 0.3); ruido(t, fin, filt('bandpass', 900 * p, 4, ga), ROSA);
+  const ent = gan(1); ent.connect(gan(seco, dest));
+  const c = ac.createConvolver(); c.buffer = b; ent.connect(filt('lowpass', 5200, 0.7, filt('highpass', 180, 0.7, c))); c.connect(gan(mojado, dest));
+  return ent;
 }
-/** El gruñido que se vuelve rugido: sierras graves con un traqueteo de garganta, por formantes de boca grande y algo
- * de distorsión, que crecen y bajan; el golpe del pecho al empezar. */
+/** Tres o cuatro formantes en paralelo cuyas frecuencias van de una vocal a otra siguiendo `tramos` ([s, vocal, escala]). */
+function bocaQueCambia(dest: AudioNode, t: number, tramos: [number, string, number][], qs = [6, 9, 13], gs = [1, 0.6, 0.22]): GainNode {
+  const ent = gan(1);
+  for (let k = 0; k < 3; k++) {
+    const b = filt('bandpass', ((VOCALES[tramos[0]![1]] ?? VOCALES.u!)[k] as number) * tramos[0]![2], qs[k] as number, gan(gs[k] as number, dest));
+    for (const [dt, voc, esc] of tramos) b.frequency.linearRampToValueAtTime(((VOCALES[voc] ?? VOCALES.u!)[k] as number) * esc, t + dt);
+    ent.connect(b);
+  }
+  return ent;
+}
+
+/**
+ * Huesos que se rompen y se acomodan: ráfagas irregulares de chasquidos de ruido en banda corta (de 2 a 5 golpecitos a 4
+ * a 18 ms, con huecos de 25 a 110 ms entre ráfaga y ráfaga), cada uno con el cuerpo del hueso que resuena un instante, y
+ * dos o tres que revientan más fuerte y más grave (la articulación que salta). Debajo el tendón que se estira (ruido que
+ * baja, áspero) y algo húmedo; al final el golpe sordo del pecho. `grave` corre todo hacia abajo (el oso).
+ */
+function huesosCambian(o: AudioNode, t: number, dur: number, n: number, v: number, grave = 1): void {
+  let tt = t + al(0, 0.02), golpes = 0;
+  const grandes = new Set([Math.floor(al(1, 3)), Math.floor(al(3, 6)), Math.random() < 0.6 ? Math.floor(al(6, 9)) : -1]);
+  for (let r = 0; tt < t + dur && golpes < n * 2.4; r++) {
+    const big = grandes.has(r), k = big ? 1 : Math.floor(al(2, 5.99));
+    for (let i = 0; i < k; i++) {
+      const f = (big ? al(900, 1700) : al(1500, 4800)) / grave, vv = v * (big ? al(0.75, 1) : al(0.22, 0.6)) * (1 - i * 0.12);
+      // el chasquido: ruido en una banda corta que se apaga en 2 a 9 ms, con el filo de arriba de 1 ms
+      const g = gan(0, o); env(g.gain, tt, 0.0006, vv, big ? al(0.01, 0.018) : al(0.003, 0.009));
+      ruido(tt, tt + 0.03, filt('bandpass', f, al(5, 14), g));
+      const gc = gan(0, o); env(gc.gain, tt, 0.0003, vv * 0.5, 0.0012); ruido(tt, tt + 0.006, filt('highpass', 5000 / Math.sqrt(grave), 0.7, gc));
+      // el cuerpo del hueso: un tono que cae en 20 a 40 ms
+      if (big || Math.random() < 0.45) { const gb = gan(0, o); env(gb.gain, tt, 0.001, vv * (big ? 0.55 : 0.25), big ? 0.045 : 0.022); const s = osc('triangle', al(320, 700) / grave, tt, tt + 0.07, filt('lowpass', 1400 / grave, 0.8, gb)); s.frequency.exponentialRampToValueAtTime(al(160, 260) / grave, tt + 0.04); }
+      if (big) golpeSordo(o, tt + 0.002, 150 / grave, 60, vv * 0.5, 0.09);
+      tt += al(0.004, 0.018); golpes++;
+    }
+    tt += big ? al(0.06, 0.12) : al(0.025, 0.11);
+  }
+  // el tendón que se estira: ruido rosa que baja con un temblor irregular (no un LFO parejo)
+  const g = gan(0, o); envSost(g.gain, t, dur * 0.3, v * 0.22, dur * 0.45, dur * 0.35);
+  const b = filt('bandpass', 700 / grave, 3.5, g); b.frequency.exponentialRampToValueAtTime(210 / grave, t + dur);
+  const am = gan(0.5, b); temblor(am.gain, t, t + dur + 0.1, 45, 0.35); ruido(t, t + dur + 0.1, am, ROSA);
+  for (let i = 0; i < 2; i++) golpeHumedo(o, t + al(0.1, dur * 0.8), al(420, 800) / grave, v * 0.12);
+  golpeSordo(o, t + dur * 0.92, 120 / grave, 46, v * 0.55, 0.16);
+}
+
+/** Una voz de aullido: los pliegues (armónicos claros), la boca de u a o y de vuelta a u, el aliento debajo. */
+function vozLobo(dest: AudioNode, t: number, curva: [number, number][], v: number, vib: number): number {
+  const dur = curva[curva.length - 1]![0], fin = t + dur + 0.15;
+  const g = gan(0, dest);
+  g.gain.setValueAtTime(EPS, t); g.gain.exponentialRampToValueAtTime(v * 0.55, t + 0.05); g.gain.linearRampToValueAtTime(v, t + 0.3);
+  g.gain.setValueAtTime(v, t + dur * 0.72); g.gain.linearRampToValueAtTime(v * 0.75, t + dur * 0.88); g.gain.exponentialRampToValueAtTime(EPS, t + dur);
+  // la boca: se abre de u a o mientras sube y se cierra hacia u al caer (el lobo baja la cabeza)
+  const boca = bocaQueCambia(g, t, [[0, 'u', 1.1], [0.35, 'o', 1.12], [dur * 0.7, 'o', 1.15], [dur, 'u', 1.05]], [5, 8, 12], [1, 0.55, 0.16]);
+  // un poco de la fuente sin filtro: los armónicos se ven claros como en un aullido de verdad
+  const seco = gan(0.42, g), lp = filt('lowpass', 3600, 0.7, seco);
+  const s = oscOnda(ondaDe('lobo', [1, 0.62, 0.36, 0.2, 0.12, 0.07, 0.045, 0.03]), curva[0]![1], t, fin, boca);
+  s.connect(lp);
+  for (const [dt, f] of curva) s.frequency.linearRampToValueAtTime(f, t + dt);
+  // vibrato irregular: entra de a poco después del ataque, a unos 5 Hz que se corren, más un temblor que no se repite
+  const lg = gan(0); lg.gain.setValueAtTime(0, t); lg.gain.linearRampToValueAtTime(vib, t + 0.55); lg.gain.setValueAtTime(vib, t + dur * 0.8); lg.gain.linearRampToValueAtTime(vib * 1.6, t + dur);
+  lg.connect(s.frequency);
+  const l1 = osc('sine', 5.1, t, fin, lg); temblor(l1.frequency, t, fin, 3, 0.6);
+  const l2 = gan(0.35); l2.connect(lg); osc('sine', 3.3, t, fin, l2);
+  temblor(s.frequency, t, fin, 10, vib * 0.12);
+  // el aliento: soplo en la banda de la boca y el filo del aire, más fuerte al entrar y al morir
+  const ga = gan(0, dest); ga.gain.setValueAtTime(EPS, t); ga.gain.exponentialRampToValueAtTime(v * 0.16, t + 0.04); ga.gain.exponentialRampToValueAtTime(v * 0.045, t + 0.35);
+  ga.gain.setValueAtTime(v * 0.045, t + dur * 0.75); ga.gain.linearRampToValueAtTime(v * 0.09, t + dur * 0.97); ga.gain.exponentialRampToValueAtTime(EPS, t + dur + 0.12);
+  const ba = filt('bandpass', 1300, 1.3, ga); ruido(t, fin, ba, ROSA); ruido(t, fin, filt('highpass', 4200, 0.7, gan(0.35, ga)), BLANCO);
+  return dur;
+}
+/**
+ * El aullido: arranca con un quiebre que sube de golpe (el "ou"), sube despacio hasta lo más alto, se sostiene temblando
+ * con un vibrato que no es parejo, baja un poco, vuelve y cae quebrándose. Fundamental de unos 300 a 600 Hz con armónicos
+ * claros. Suena en el bosque (su reverberación) y a lo lejos otro le contesta, más bajo y más grave.
+ */
+function aullido(o: AudioNode, t: number, p: number, v: number): void {
+  const rev = bosque(o, 0.85, 0.5), q = p * al(0.97, 1.03);
+  vozLobo(rev, t, [[0, 290 * q], [0.09, 360 * q], [0.22, 470 * q], [0.55, 535 * q], [0.95, 565 * q], [1.25, 548 * q], [1.45, 520 * q], [1.62, 540 * q], [1.85, 500 * q], [2.05, 410 * q], [2.2, 330 * q]], v, 7 * q);
+  // el otro, lejos: más bajo, más grave, entra cuando este baja
+  const lejos = gan(1, bosque(o, 0.25, 0.9)), lp = filt('lowpass', 1600, 0.7, lejos);
+  const q2 = q * 0.84;
+  vozLobo(lp, t + 1.55, [[0, 300 * q2], [0.2, 450 * q2], [0.6, 500 * q2], [1.0, 490 * q2], [1.3, 420 * q2], [1.5, 340 * q2]], v * 0.32, 7 * q2);
+}
+
+/**
+ * El oso: se llena de aire (un resoplido), y el gruñido crece a rugido y vuelve a gruñido. La fuente es una sierra grave
+ * con sus subarmónicos (media y tercio de la fundamental: la garganta que no vibra pareja), áspera (amplitud modulada
+ * rápido y al azar, de 25 a 45 Hz), un poco saturada, por una garganta grande (formantes graves que se abren al rugir) y
+ * con el aire turbulento que pasa por la misma garganta. El pecho golpea al arrancar y al llegar arriba.
+ */
 function grunidoOso(o: AudioNode, t: number, p: number, v: number): void {
-  const dur = 1.15, fin = t + dur + 0.1, g = gan(0, o);
-  g.gain.setValueAtTime(EPS, t); g.gain.exponentialRampToValueAtTime(v * 0.45, t + 0.1); g.gain.exponentialRampToValueAtTime(v, t + 0.5); g.gain.setValueAtTime(v, t + 0.75); g.gain.exponentialRampToValueAtTime(EPS, t + dur);
-  const am = gan(0.6, g); lfo(24, 0.42, am.gain, t, fin, 'triangle');
-  const lp = filt('lowpass', 520, 1.2, am); lp.frequency.linearRampToValueAtTime(1300, t + 0.55); lp.frequency.exponentialRampToValueAtTime(480, t + dur);
-  const fb = formantes('o', lp, 0.62), d = dist(3.5, fb.entrada);
-  for (const [f, det] of [[72, 0], [74.5, 7], [108, -5]] as [number, number][]) { const s = osc('sawtooth', f * p, t, fin, d, det); s.frequency.linearRampToValueAtTime(f * p * 1.32, t + 0.55); s.frequency.exponentialRampToValueAtTime(f * p * 0.86, t + dur); }
-  ruido(t, fin, gan(0.35, d), ROSA);
-  golpeSordo(o, t, 85 * p, 34, v * 0.8, 0.3);
+  // el resoplido de antes: aire que entra por la nariz
+  { const g = gan(0, o); envSost(g.gain, t, 0.03, v * 0.28, 0.08, 0.06); const b = filt('bandpass', 650 * p, 2, g); b.frequency.exponentialRampToValueAtTime(1500 * p, t + 0.14); ruido(t, t + 0.2, b, ROSA); }
+  const t0 = t + 0.16, dur = 1.35, fin = t0 + dur + 0.12;
+  const g = gan(0, o);
+  g.gain.setValueAtTime(EPS, t0); g.gain.exponentialRampToValueAtTime(v * 0.4, t0 + 0.08); g.gain.linearRampToValueAtTime(v * 0.55, t0 + 0.3);
+  g.gain.linearRampToValueAtTime(v, t0 + 0.6); g.gain.setValueAtTime(v, t0 + 0.82); g.gain.linearRampToValueAtTime(v * 0.45, t0 + 1.1); g.gain.exponentialRampToValueAtTime(EPS, t0 + dur);
+  // la aspereza: la amplitud tiembla rápido y no parejo (dos golpes que se corren y un temblor que no se repite)
+  const asp = gan(0.55, g);
+  const a1 = gan(0.32); a1.connect(asp.gain); const m1 = osc('triangle', 31, t0, fin, a1); temblor(m1.frequency, t0, fin, 6, 6);
+  const a2 = gan(0.18); a2.connect(asp.gain); osc('sine', 19.5, t0, fin, a2);
+  temblor(asp.gain, t0, fin, 40, 0.18);
+  // la garganta grande: formantes graves que se abren cuando ruge
+  const garg = gan(1);
+  for (const [f0, f1, q, k] of [[230, 330, 4, 1], [520, 760, 5, 0.75], [980, 1350, 6, 0.4], [1900, 2400, 8, 0.12]] as [number, number, number, number][]) {
+    const b = filt('bandpass', f0 * p, q, gan(k, asp)); garg.connect(b);
+    b.frequency.setValueAtTime(f0 * p, t0); b.frequency.linearRampToValueAtTime(f1 * p, t0 + 0.65); b.frequency.linearRampToValueAtTime(f0 * p * 0.95, t0 + dur);
+  }
+  // un poco del cuerpo sin la garganta, por debajo (el pecho)
+  const pecho = filt('lowpass', 240, 0.8, gan(0.5, asp)); garg.connect(pecho);
+  const sat = dist(2.6, garg);
+  const curvaF: [number, number][] = [[0, 82], [0.3, 92], [0.62, 118], [0.85, 112], [1.1, 88], [dur, 70]];
+  for (const [div, k, det] of [[1, 1, 0], [1, 0.5, 9], [2, 0.6, 0], [3, 0.3, 0]] as [number, number, number][]) {
+    const s = osc('sawtooth', (curvaF[0]![1] * p) / div, t0, fin, gan(k, sat), det);
+    for (const [dt, f] of curvaF) s.frequency.linearRampToValueAtTime((f * p) / div, t0 + dt);
+    temblor(s.frequency, t0, fin, 8, (3 * p) / div);
+  }
+  // el aire que pasa por la garganta, áspero igual
+  const gn = gan(0.5, sat); ruido(t0, fin, filt('lowpass', 1800, 0.7, gn), ROSA);
+  // el resuello al terminar
+  { const ge = gan(0, o); envSost(ge.gain, t0 + dur - 0.25, 0.08, v * 0.2, 0.2, 0.35); ruido(t0 + dur - 0.25, t0 + dur + 0.5, filt('bandpass', 520 * p, 1.6, ge), ROSA); }
+  golpeSordo(o, t0, 80 * p, 34, v * 0.75, 0.28);
+  golpeSordo(o, t0 + 0.6, 70 * p, 32, v * 0.5, 0.25);
+}
+
+/** Una burbuja de líquido: un tono que sube rápido mientras se apaga (la resonancia de la burbuja que se cierra). */
+function burbuja(o: AudioNode, t: number, f: number, v: number): void {
+  const d = al(0.035, 0.07), g = gan(0, o); env(g.gain, t, 0.002, v, d);
+  const s = osc('sine', f, t, t + d + 0.03, g); s.frequency.exponentialRampToValueAtTime(f * al(1.5, 2.1), t + d);
+  if (Math.random() < 0.5) chasquido(o, t, f * 3.2, 6, v * 0.18, 0.004);
 }
 
 const EFECTOS: Record<string, Fx> = {
-  /** Piel de lobo: los huesos se rompen y se acomodan y el lobo aúlla (sexta pasada). */
-  forma_lobo(o, t, p) { huesosCambian(o, t, 0.42, 9, 0.7); aullido(o, t + 0.3, p, 0.2); return 1.9; },
-  /** Piel de oso: los huesos crujen más graves, el pecho golpea y el gruñido sube a rugido. */
-  forma_oso(o, t, p) { huesosCambian(o, t, 0.46, 10, 0.75, 1.5); grunidoOso(o, t + 0.24, p, 0.62); return 1.5; },
-  /** De vuelta a hombre: los huesos vuelven a su sitio, más espaciados, algo húmedo y el aliento de un hombre que se ahoga. */
+  /** Piel de lobo: los huesos se rompen y se acomodan y el lobo aúlla en el bosque, y otro le contesta lejos. */
+  forma_lobo(o, t, p) { huesosCambian(o, t, 0.42, 9, 0.7); aullido(o, t + 0.32, p, 0.18); return 4.2; },
+  /** Piel de oso: los huesos crujen más graves, el oso resopla y el gruñido sube a rugido. */
+  forma_oso(o, t, p) { huesosCambian(o, t, 0.46, 10, 0.75, 1.5); grunidoOso(o, t + 0.22, p, 0.4); return 2.2; },
+  /** De vuelta a hombre: los huesos vuelven a su sitio, algo húmedo, y el hombre traga aire de golpe y lo suelta gimiendo. */
   forma_hombre(o, t, p) {
     huesosCambian(o, t, 0.5, 6, 0.55, 1.15); chapoteo(o, t + 0.12, p * 1.1, false);
-    voz(o, t + 0.42, 0.5, [[0, 150 * p], [0.12, 138 * p], [0.5, 96 * p]], 'a', 0.12, { ruido: 0.9, ataque: 0.04 });
-    const g = gan(0, o); envSost(g.gain, t + 0.4, 0.05, 0.22, 0.2, 0.35); ruido(t + 0.4, t + 1.05, filt('bandpass', 1400 * p, 1.4, g), ROSA);
-    return 1.1;
+    // el jadeo: aire que entra por la boca abierta (ruido por formantes de a, que sube) ...
+    { const g = gan(0, o); envSost(g.gain, t + 0.44, 0.06, 0.2, 0.16, 0.08); const b = bocaQueCambia(g, t + 0.44, [[0, 'a', 1.05], [0.25, 'e', 1.1]], [4, 6, 9], [1, 0.5, 0.3]); ruido(t + 0.44, t + 0.8, b, ROSA); }
+    // ... y lo suelta en un gemido grave, mitad voz y mitad aire
+    { const t1 = t + 0.74, g = gan(0, o); envSost(g.gain, t1, 0.05, 0.4, 0.3, 0.35);
+      const b = bocaQueCambia(g, t1, [[0, 'o', 1], [0.5, 'u', 0.95]], [5, 8, 12], [1, 0.5, 0.2]);
+      const s = oscOnda(ondaDe('hombre', [1, 0.5, 0.33, 0.25, 0.18, 0.12, 0.08]), 128 * p, t1, t1 + 0.8, gan(0.35, b)); s.frequency.linearRampToValueAtTime(112 * p, t1 + 0.2); s.frequency.exponentialRampToValueAtTime(84 * p, t1 + 0.65);
+      temblor(s.frequency, t1, t1 + 0.8, 9, 3);
+      ruido(t1, t1 + 0.8, gan(0.9, b), ROSA); }
+    return 1.5;
   },
-  /** Festín de tumba: el sorbo largo y borboteante (la sangre que sube por el chorro) y el latido húmedo del pecho cuando
-   * le llega (con el chorro y el latido de render/poderes_vivos.ts: 0,3 s y 0,55 s). */
+  /**
+   * Festín de tumba: el sorbo largo (ruido que barre hacia arriba por una banda que se angosta, a tragos que no son
+   * parejos), burbujas que revientan con su tono que sube, lo líquido grave por debajo, el trago que cierra la garganta y
+   * el latido grave del pecho cuando llega (lub-dub a los 0,3 y 0,52 s, con el chorro y el latido de render/poderes_vivos.ts).
+   */
   festin(o, t, p) {
-    const g = gan(0, o); envSost(g.gain, t, 0.08, 0.42, 0.42, 0.2);
-    const b = filt('bandpass', 320 * p, 4, g); b.frequency.exponentialRampToValueAtTime(900 * p, t + 0.45); b.frequency.exponentialRampToValueAtTime(520 * p, t + 0.68);
-    const am = gan(0.5, b); lfo(17, 0.5, am.gain, t, t + 0.75); lfo(5.5, 0.25, am.gain, t, t + 0.75);
-    ruido(t, t + 0.75, am, ROSA);
-    for (let i = 0; i < 7; i++) golpeHumedo(o, t + al(0.04, 0.6), al(380, 950) * p, al(0.1, 0.22));
-    for (const [dt, k] of [[0.3, 1], [0.52, 0.75]] as [number, number][]) { latidoGolpe(o, t + dt, 0.75 * k); chapoteo(o, t + dt + 0.01, p * 0.7, false); }
-    return 1;
+    const dur = 0.78;
+    // el sorbo: cuatro tirones con su hueco, la banda sube de 380 a 1100 y se angosta
+    const g = gan(0, o); g.gain.setValueAtTime(EPS, t);
+    let tt = t; const tirones = [al(0.1, 0.14), al(0.14, 0.2), al(0.12, 0.16), al(0.16, 0.22)];
+    for (const d of tirones) { g.gain.linearRampToValueAtTime(al(0.27, 0.38), tt + d * 0.3); g.gain.linearRampToValueAtTime(al(0.08, 0.14), tt + d); tt += d + al(0.015, 0.04); }
+    g.gain.exponentialRampToValueAtTime(EPS, tt + 0.06);
+    const b = filt('bandpass', 380 * p, 3, g); b.frequency.exponentialRampToValueAtTime(1100 * p, t + dur * 0.8); b.frequency.exponentialRampToValueAtTime(760 * p, tt);
+    b.Q.linearRampToValueAtTime(7, t + dur * 0.8);
+    const am = gan(0.6, b); temblor(am.gain, t, tt + 0.1, 60, 0.4); ruido(t, tt + 0.1, am, ROSA);
+    // lo líquido grave, con los mismos tirones
+    const gl = gan(0.55, g); ruido(t, tt + 0.1, filt('lowpass', 260, 1, gl), MARRON);
+    // las burbujas: regadas pero más juntas en cada tirón
+    let tb = t + 0.02;
+    for (let i = 0; i < 18 && tb < tt; i++) { burbuja(o, tb, al(320, 1150) * p, al(0.08, 0.22)); tb += Math.random() < 0.35 ? al(0.008, 0.02) : al(0.03, 0.07); }
+    // el trago: la garganta que se cierra (un tono que cae) con su golpecito
+    { const t2 = tt + 0.02, gt = gan(0, o); env(gt.gain, t2, 0.006, 0.4, 0.09); const s = osc('sine', 190 * p, t2, t2 + 0.14, filt('lowpass', 700, 0.8, gt)); s.frequency.exponentialRampToValueAtTime(85 * p, t2 + 0.09); golpeHumedo(o, t2 + 0.01, 300 * p, 0.12); }
+    // el latido: lub (grave) y dub (más corto y un poco más agudo), dos veces
+    for (const [dt, k] of [[0.3, 1], [0.52, 0.78]] as [number, number][]) {
+      latidoGolpe(o, t + dt, 0.62 * k);
+      const gd = gan(0, o), t3 = t + dt + 0.13; env(gd.gain, t3, 0.006, 0.42 * k, 0.12);
+      const s = osc('sine', 78, t3, t3 + 0.18, filt('lowpass', 220, 0.7, gd)); s.frequency.exponentialRampToValueAtTime(48, t3 + 0.12);
+    }
+    return 1.1;
   },
   golpe_carne(o, t, p) {
     golpeSordo(o, t, 150 * p, 45 * p, 0.9, 0.16);
@@ -2244,13 +2411,23 @@ export function _detenerSonido(): void {
 }
 
 /** Solo para pruebas: renderiza un efecto fuera de línea y devuelve su pico, su RMS y la duración con sonido. */
-export async function _renderEfecto(id: string, seg = 2.5, datos = false): Promise<{ pico: number; rms: number; activo: number; d?: number[] }> {
+/** `juego`: como suena en el juego, con la cadena de una voz (crearVoz), la reverberación y el compresor y el limitador del
+ * maestro, con los volúmenes por omisión (general y efectos al 80 %). Sin `juego`, el efecto seco. */
+export async function _renderEfecto(id: string, seg = 2.5, datos = false, juego = false): Promise<{ pico: number; rms: number; activo: number; d?: number[] }> {
   const viejoAc = ac, viejos = ruidos;
   const off = new OfflineAudioContext(1, Math.floor(44100 * seg), 44100);
   ac = off as unknown as AudioContext;
   try {
     crearRuidos();
-    const salida = off.createGain(); salida.connect(off.destination);
+    let salida: GainNode;
+    if (juego) {
+      const comp = off.createDynamicsCompressor(); comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.3;
+      const limi = off.createDynamicsCompressor(); limi.threshold.value = -4; limi.knee.value = 0; limi.ratio.value = 20; limi.attack.value = 0.002; limi.release.value = 0.15;
+      comp.connect(limi); limi.connect(off.destination);
+      const mae = gan(0.8, comp), conv = off.createConvolver(); conv.buffer = crearImpulso(3.4); conv.connect(gan(0.9, mae));
+      const bus = gan(0.8, mae), ent = filt('highpass', 120, 0.7, conv);
+      salida = gan(1); const lp = filt('lowpass', 18000, 0.5, bus); salida.connect(lp); lp.connect(gan(0.18 + (REVERB_EXTRA[id] ?? 0), ent));
+    } else { salida = off.createGain(); salida.connect(off.destination); }
     const fx = EFECTOS_HORROR[id] ?? EFECTOS[id];
     if (!fx) throw new Error('no existe ' + id);
     fx(salida, 0.01, 1);

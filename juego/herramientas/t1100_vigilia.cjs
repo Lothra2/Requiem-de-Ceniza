@@ -7,7 +7,8 @@
 //   <et>_<vista>_hover.png     el ratón sobre una carta
 //   <et>_<vista>_video/        cuadros a 25 por segundo de 6 s para armar el video (ffmpeg)
 // Uso: node juego/herramientas/t1100_vigilia.cjs <etiqueta> [vistas] [cuantos héroes] (vistas: pc,pc1080,ipad,movil)
-//   VIDEO=1 graba los cuadros del video (solo en la primera vista), ANTES=1 no usa los ganchos nuevos (para el antes).
+//   VIDEO=1 graba los cuadros del video (solo en la primera vista), ANTES=1 no usa los ganchos nuevos (para el antes),
+//   BANDERAS=__ordenViejo el orden de pintado de antes (sin boceto) con todo lo demás de ahora, para medir contra lo mismo.
 // En la nube: CHROMIUM=/opt/pw-browsers/chromium URL=http://127.0.0.1:5199/
 const { chromium, devices } = require('playwright');
 const fs = require('fs');
@@ -36,7 +37,7 @@ const HEROES = [
     const c = await b.newContext(VISTAS[vista]);
     const p = await c.newPage(); const errs = [];
     p.on('pageerror', (e) => errs.push(e.message)); p.on('console', (m) => { if (m.type() === 'error') errs.push(m.text()); });
-    await p.addInitScript(() => { localStorage.setItem('marca.intro', '1'); });
+    await p.addInitScript((ban) => { localStorage.setItem('marca.intro', '1'); for (const k of ban) window[k] = true; }, (process.env.BANDERAS || '').split(',').filter(Boolean));
     // LUZ=1: la luz avanzada a la fuerza (en la nube el WebGL es por software y no se enciende sola)
     if (process.env.LUZ) await p.addInitScript(() => { window.__vigiliaRel = true; const f = () => { if (window.__lab) window.__lab.on = true; else setTimeout(f, 50); }; f(); });
     const aMenu = async () => { for (let i = 0; i < 120; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__estado && window.__estado()) === 'menu') break; } };
@@ -61,7 +62,7 @@ const HEROES = [
     { let cc = null; for (let i = 0; i < 60 && !cc; i++) { await p.waitForTimeout(250); cc = await p.evaluate(() => window.__menuFilas && window.__menuFilas.jugar); } await p.waitForTimeout(800); await tap(cc[0], cc[1]); }
     for (let i = 0; i < 40; i++) { await p.waitForTimeout(100); if (await p.evaluate(() => window.__estado()) === 'seleccion') break; }
     const t0 = Date.now();
-    for (const ms of [150, 600, 1500]) { const w = ms - (Date.now() - t0); if (w > 0) await p.waitForTimeout(w); await p.screenshot({ path: `${OUT}/${ET}_${vista}_pronto${ms}.png` }); }
+    for (const ms of [150, 600, 1500, 2000]) { const w = ms - (Date.now() - t0); if (w > 0) await p.waitForTimeout(w); await p.screenshot({ path: `${OUT}/${ET}_${vista}_pronto${ms}.png` }); }
     const listo = async () => p.evaluate(() => (window.__vigilia ? window.__vigilia() : null));
     const esperar = async (seg) => { const a = Date.now(); for (let i = 0; i < seg * 2; i++) { const v = await listo(); if (v && v.listo) break; if (!v && process.env.ANTES && i > 30) break; await p.waitForTimeout(500); } return (Date.now() - a) / 1000; };
     const s0 = await esperar(150);
@@ -89,7 +90,7 @@ const HEROES = [
       if (!pc) { console.log('sin carta', n); continue; }
       await tap(pc[0], pc[1]); const a = Date.now();
       await p.waitForTimeout(300); await p.screenshot({ path: `${OUT}/${ET}_${vista}_${n}_pronto.png` });
-      await esperar(150); console.log(vista, 'héroe', n, 'listo en', ((Date.now() - a) / 1000).toFixed(1), 's');
+      await esperar(150); const vi = await listo(); console.log(vista, 'héroe', n, 'listo en', ((Date.now() - a) / 1000).toFixed(1), 's', vi ? JSON.stringify({ msBoceto: vi.msBoceto, ms1: vi.ms1, msPares: vi.msPares, msGesto: vi.msGesto, msReposo: vi.msReposo, msTodo: vi.msTodo }) : '');
       await fotos(n);
     }
     // el ratón sobre una carta que no está elegida, y sobre «Nuevo héroe»

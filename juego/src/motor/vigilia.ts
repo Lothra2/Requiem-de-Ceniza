@@ -6,9 +6,14 @@
 //   a K veces su alto, con la luz de la fogata horneada (luz_retrato.ts) y su relieve (para la luz avanzada).
 // - La carta: el reposo del mundo ('quieto', 8 cuadros) a la escala de la carta, con la luz del juego.
 //
-// Se pinta de a un cuadro y en un orden que deja ver algo enseguida: primero el cuadro con que arranca el reposo, después
-// el reposo salteado (quien dibuja usa el pintado más cercano al que toca, así el bucle se afina mientras llegan), el
-// gesto y al final lo que falta. Lo pintado se guarda en su propia base de IndexedDB ('marca_vigilia'): la segunda vez
+// Se pinta de a un cuadro y en un orden que deja ver algo enseguida (pulido del 21 nov 2026: la primera vez tardaba 30 a
+// 45 s en la nube hasta el bucle entero y el primer cuadro 5 a 7 s):
+// 1. el boceto: el cuadro con que arranca el reposo a la mitad de K (un cuarto de los puntos: sale en un segundo, y se ve a
+//    puntos dobles, ya con su luz y su fogata, mientras llega el de verdad);
+// 2. el reposo de a dos (los 18 cuadros pares: quien dibuja usa el pintado más cercano, así el bucle entero respira a 6 por
+//    segundo antes de la mitad del trabajo);
+// 3. los impares del reposo, que lo dejan a 12 por segundo (el reposo entero antes que nada más: es lo que se mira);
+// 4. el gesto (no sale hasta tener sus 12; sale al elegir y cada 10 s). Lo pintado se guarda en su propia base de IndexedDB ('marca_vigilia'): la segunda vez
 // sale entero de una. La clave lleva __PINTOR__: si cambia cómo se pinta el cuerpo, se vuelve a pintar solo.
 import Obrero from './pintor.worker.ts?worker&inline';
 import { accionesClase } from '../juego/anim';
@@ -32,19 +37,35 @@ export interface Pedido {
   clave: string; tipo: 'grande' | 'carta'; K: number; clase: string; cuerpo: any; equipo: any; n: number;
   crudos: (Crudo | null)[]; listos: (CuadroV | null)[]; cola: number[]; enVuelo: Set<number>; hechos: number;
   usado: number; prio: number; cargado: boolean; t0: number; tListo1: number; tListo: number; msPinta: number[];
+  /** el boceto (solo el grande): el cuadro 12 a la mitad de K, lo primero que se pinta */
+  boceto: Crudo | null; bocetoV: CuadroV | null; bocetoPide: boolean; tBoceto: number;
+  /** cuándo quedó el reposo de a dos (el bucle entero a 6 por segundo), el gesto y el reposo entero (ms desde el pedido) */
+  tPares: number; tGesto: number; tReposo: number;
 }
+/** El cuadro del boceto en la cola de los obreros (no es un índice de la acción). */
+const BOCETO = -1;
 const pedidos = new Map<string, Pedido>();
 
 // ------------------------------------------------------------------ el orden en que se pinta
-/** El grande: el arranque del reposo, el reposo de a 9, de a 4 o 5, el gesto y lo que falta. */
+/** El grande: el arranque del reposo, los pares del reposo salteados (de a 8, de a 4, de a 2), los impares y el gesto. */
 export function ordenGrande(): number[] {
   const o: number[] = [], pon = (f: number) => { if (!o.includes(f)) o.push(f); };
-  for (const f of [12, 30, 21, 39, 16, 25, 34, 43]) pon(f);
+  // (`__ordenViejo`: el de antes, para medir contra lo mismo: el arranque, el reposo de a 9, el gesto, de a 4 y lo que falta)
+  if ((window as any).__ordenViejo) {
+    for (const f of [12, 30, 21, 39, 16, 25, 34, 43]) pon(f);
+    for (let f = 0; f < SEL_ENT; f++) pon(f);
+    for (const f of [14, 18, 23, 27, 32, 36, 41, 45]) pon(f);
+    for (let f = SEL_ENT; f < SEL_N; f++) pon(f);
+    return o;
+  }
+  for (const f of [12, 30, 20, 38, 16, 24, 34, 42]) pon(f);
+  for (let f = SEL_ENT; f < SEL_N; f += 2) pon(f);
+  for (let f = SEL_ENT + 1; f < SEL_N; f += 2) pon(f);
   for (let f = 0; f < SEL_ENT; f++) pon(f);
-  for (const f of [14, 18, 23, 27, 32, 36, 41, 45]) pon(f);
-  for (let f = SEL_ENT; f < SEL_N; f++) pon(f);
   return o;
 }
+/** ¿Están todos los cuadros de f0 a f1 (de a `paso`)? */
+const todos = (p: Pedido, f0: number, f1: number, paso: number) => { for (let f = f0; f < f1; f += paso) if (!p.crudos[f]) return false; return true; };
 const ordenCarta = () => [0, 4, 2, 6, 1, 3, 5, 7];
 
 // ------------------------------------------------------------------ IndexedDB propia (si no hay, se pinta igual)
@@ -81,14 +102,15 @@ const N_OBREROS = () => Math.max(1, Math.min(3, (navigator.hardwareConcurrency |
 function siguiente(): { p: Pedido; f: number } | null {
   const ahora = performance.now();
   // (primero el cuadro con que arranca el grande, después el primero de cada carta, que son baratos, después el resto)
-  const nota = (p: Pedido) => p.prio * 10 + (p.hechos + p.enVuelo.size < 1 ? (p.tipo === 'grande' ? 50 : p.prio > 1 ? 70 : 30) : 0);
+  const nota = (p: Pedido) => p.prio * 10 + (p.bocetoPide ? 200 : 0) + (p.hechos + p.enVuelo.size < 1 ? (p.tipo === 'grande' ? 50 : p.prio > 1 ? 70 : 30) : 0);
   let mejor: Pedido | null = null, nm = -1;
   for (const p of pedidos.values()) {
-    if (!p.cargado || !p.cola.length || ahora - p.usado > 1500) continue;
+    if (!p.cargado || (!p.cola.length && !p.bocetoPide) || ahora - p.usado > 1500) continue;
     const v = nota(p);
     if (v > nm || (v === nm && mejor && p.usado > mejor.usado + 50)) { mejor = p; nm = v; }
   }
   if (!mejor) return null;
+  if (mejor.bocetoPide) { mejor.bocetoPide = false; mejor.enVuelo.add(BOCETO); return { p: mejor, f: BOCETO }; }
   const f = mejor.cola.shift()!; mejor.enVuelo.add(f);
   return { p: mejor, f };
 }
@@ -97,7 +119,7 @@ function dar(w: Worker) {
   if (!t) { enMano.delete(w); libres.push(w); return; }
   enMano.set(w, t);
   const { p, f } = t;
-  if (p.tipo === 'grande') w.postMessage({ id: p.clave, cuerpo: p.cuerpo, equipo: p.equipo, acc: 'seleccion', dir: 'so', vigilia: p.K, fs: [f], clave: String(f), calidad: 1 });
+  if (p.tipo === 'grande') w.postMessage({ id: p.clave, cuerpo: p.cuerpo, equipo: p.equipo, acc: 'seleccion', dir: 'so', vigilia: f === BOCETO ? kBoceto(p.K) : p.K, fs: [f === BOCETO ? SEL_ENT : f], clave: String(f), calidad: 1 });
   else { const n = accionesClase(p.clase).find((a) => a[0] === 'quieto')?.[1] ?? 4; w.postMessage({ id: p.clave, cuerpo: p.cuerpo, equipo: p.equipo, acc: 'quieto', dir: 'so', muneco: p.K, fs: [(f * n) / CARTA_N], clave: String(f), calidad: 1 }); }
 }
 function trabajar() {
@@ -119,14 +141,23 @@ function trabajar() {
     if (!enMano.has(w)) return;
   }
 }
+/** El K del boceto: la mitad (se ve a puntos dobles). */
+export const kBoceto = (K: number) => K / 2;
 function llego(p: Pedido, f: number, c: Crudo) {
+  if (f === BOCETO) { if (!p.boceto) { p.boceto = { w: c.w, h: c.h, ax: c.ax, ay: c.ay, data: c.data, hoja: c.hoja }; p.tBoceto = performance.now() - p.t0; } return; }
   if (p.crudos[f]) return;
   if ((c as any).ms) p.msPinta.push(Math.round((c as any).ms));
   // (sin tarjeta no se usa el relieve: no se guarda, y la carta tampoco lo necesita)
   const guardaRel = p.tipo === 'grande' && (hayGPU || !!(window as any).__vigiliaRel);
   p.crudos[f] = { w: c.w, h: c.h, ax: c.ax, ay: c.ay, data: c.data, hoja: c.hoja, rel: guardaRel ? c.rel : undefined, alt: guardaRel ? c.alt : undefined };
   p.hechos++;
-  if (p.hechos === 1) p.tListo1 = performance.now() - p.t0;
+  const ya = performance.now() - p.t0;
+  if (p.hechos === 1) p.tListo1 = ya;
+  if (p.tipo === 'grande') {
+    if (p.tPares < 0 && todos(p, SEL_ENT, SEL_N, 2)) p.tPares = ya;
+    if (p.tGesto < 0 && todos(p, 0, SEL_ENT, 1)) p.tGesto = ya;
+    if (p.tReposo < 0 && todos(p, SEL_ENT, SEL_N, 1)) p.tReposo = ya;
+  }
   if (p.hechos === p.n) { p.tListo = performance.now() - p.t0; void escribir(p); }
   else if (p.tipo === 'grande' && p.hechos % 16 === 0) void escribir(p);
 }
@@ -140,19 +171,24 @@ export function pedirVigilia(tipo: 'grande' | 'carta', clase: string, cuerpo: an
   let p = pedidos.get(clave);
   if (!p) {
     const n = tipo === 'grande' ? SEL_N : CARTA_N;
-    const q: Pedido = { clave, tipo, K, clase, cuerpo, equipo, n, crudos: new Array(n).fill(null), listos: new Array(n).fill(null), cola: [], enVuelo: new Set(), hechos: 0, usado: performance.now(), prio, cargado: false, t0: performance.now(), tListo1: -1, tListo: -1, msPinta: [] };
+    const q: Pedido = { clave, tipo, K, clase, cuerpo, equipo, n, crudos: new Array(n).fill(null), listos: new Array(n).fill(null), cola: [], enVuelo: new Set(), hechos: 0, usado: performance.now(), prio, cargado: false, t0: performance.now(), tListo1: -1, tListo: -1, msPinta: [],
+      boceto: null, bocetoV: null, bocetoPide: false, tBoceto: -1, tPares: -1, tGesto: -1, tReposo: -1 };
     p = q; pedidos.set(clave, q);
     void (async () => {
       const c = await leer(clave);
       if (c && c.length === n) { c.forEach((x, f) => { if (x) { q.crudos[f] = x; q.hechos++; } }); if (q.hechos) q.tListo1 = performance.now() - q.t0; if (q.hechos === n) q.tListo = q.tListo1; }
       q.cola = (tipo === 'grande' ? ordenGrande() : ordenCarta()).filter((f) => !q.crudos[f]);
+      // (sin el cuadro con que arranca el reposo, el boceto va primero; si ya vino de IndexedDB, no hace falta)
+      if (tipo === 'grande' && !q.crudos[SEL_ENT] && !(window as any).__sinBoceto && !(window as any).__ordenViejo) q.bocetoPide = true;
+      if (tipo === 'grande' && q.hechos) { const a = q.tListo1; if (todos(q, SEL_ENT, SEL_N, 2)) q.tPares = a; if (todos(q, 0, SEL_ENT, 1)) q.tGesto = a; if (todos(q, SEL_ENT, SEL_N, 1)) q.tReposo = a; }
       q.cargado = true; trabajar();
     })();
     podar();
   }
   p.usado = performance.now(); p.prio = prio;
-  if (p.cargado && p.cola.length && libres.length) trabajar();
-  else if (p.cargado && p.cola.length && obreros.length < N_OBREROS()) trabajar();
+  const hay = p.cola.length || p.bocetoPide;
+  if (p.cargado && hay && libres.length) trabajar();
+  else if (p.cargado && hay && obreros.length < N_OBREROS()) trabajar();
   return p;
 }
 /** Suelta de la memoria los pedidos grandes que hace rato no se miran (quedan en IndexedDB). */
@@ -206,6 +242,15 @@ export function cuadroV(p: Pedido, f: number): CuadroV | null {
   p.listos[f] = q;
   return q;
 }
+/** El boceto listo para dibujar (a la mitad de K: se pega a puntos dobles), o null. */
+export function bocetoV(p: Pedido): CuadroV | null {
+  if (p.bocetoV) return p.bocetoV;
+  const c = p.boceto; if (!c) return null;
+  const sil = new Uint8ClampedArray(c.data.length);
+  for (let i = 3; i < c.data.length; i += 4) if (c.data[i] > 40) sil[i] = 255;
+  p.bocetoV = { cv: lienzo(c.data, c.w, c.h), w: c.w, h: c.h, ax: c.ax, ay: c.ay, hoja: c.hoja, atlas: p.clave + '#b', sil: lienzo(sil, c.w, c.h), calor: lienzo(calorDe(c), c.w, c.h) };
+  return p.bocetoV;
+}
 /** El cuadro pintado más cercano a `f` dentro de [desde, hasta) (cíclico), o null si no hay ninguno. */
 export function cercano(p: Pedido, f: number, desde: number, hasta: number): number | null {
   const n = hasta - desde;
@@ -219,6 +264,6 @@ export function cercano(p: Pedido, f: number, desde: number, hasta: number): num
  * ¿Hay un grande a medio pintar que se está mirando? Mientras tanto el pintor del mundo (el héroe elegido en todas sus
  * acciones, main.ts) espera: los dos a la vez se peleaban los núcleos y el de la vigilia tardaba el triple.
  */
-export const vigiliaOcupada = () => { const a = performance.now(); for (const p of pedidos.values()) if (p.tipo === 'grande' && a - p.usado < 1500 && (p.cola.length || p.enVuelo.size || !p.cargado)) return true; return false; };
+export const vigiliaOcupada = () => { const a = performance.now(); for (const p of pedidos.values()) if (p.tipo === 'grande' && a - p.usado < 1500 && (p.cola.length || p.enVuelo.size || p.bocetoPide || !p.cargado)) return true; return false; };
 /** Para las pruebas y el informe. */
-(window as any).__vigiliaPedidos = () => [...pedidos.values()].map((p) => ({ tipo: p.tipo, clase: p.clase, K: p.K, hechos: p.hechos, n: p.n, ms1: Math.round(p.tListo1), ms: Math.round(p.tListo), pinta: p.msPinta.slice(0, 6) }));
+(window as any).__vigiliaPedidos = () => [...pedidos.values()].map((p) => ({ tipo: p.tipo, clase: p.clase, K: p.K, hechos: p.hechos, n: p.n, msBoceto: Math.round(p.tBoceto), ms1: Math.round(p.tListo1), msPares: Math.round(p.tPares), msGesto: Math.round(p.tGesto), msReposo: Math.round(p.tReposo), ms: Math.round(p.tListo), pinta: p.msPinta.slice(0, 6) }));

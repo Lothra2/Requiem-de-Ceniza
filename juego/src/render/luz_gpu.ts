@@ -245,7 +245,7 @@ const texS = new Map<string, { t: WebGLTexture; usado: number; b: number }>();
 const FS_SPRITE = `#version 300 es
 precision highp float; out vec4 o;
 uniform sampler2D tC, tN, tA; uniform ivec4 rect; uniform vec2 ancla; uniform float kz;
-uniform vec4 fuego; uniform vec3 fCol; uniform float fK, sombraK, filoK, aire; uniform vec3 rimDir; uniform vec3 rimCol; uniform float rimK;
+uniform vec4 fuego; uniform vec3 fCol; uniform float fK, sombraK, filoK, aire; uniform vec3 rimDir; uniform vec3 rimCol; uniform float rimK; uniform float quema;
 void main() {
   ivec2 q = ivec2(gl_FragCoord.xy); q.y = rect.w - 1 - q.y;
   ivec2 t = rect.xy + q;
@@ -268,13 +268,16 @@ void main() {
   // la cara que mira al fuego se calienta y aclara con su latido; la de atrás cae a la sombra (más lejos, más honda)
   vec3 calor = fCol * fK * att * max(dif, 0.0);
   float sombra = sombraK * (max(-dif, 0.0) * 0.8 + 0.25) * (1.0 - att * 0.6) + aire * (1.0 - att);
-  c = c * (1.0 - min(0.7, sombra)) + c * calor * 1.6 + calor * 0.04;
+  // (quema: lo claro y cerca del fuego, como el cuello de piel de la arcanista, se calentaba hasta el blanco; con quema el
+  // calor suma menos cuanto más claro es el material, y el techo se dobla antes: queda dorado, no quemado)
+  float lum = dot(C.rgb, vec3(0.3, 0.59, 0.11));
+  c = c * (1.0 - min(0.7, sombra)) + c * calor * 1.6 * (1.0 - quema * 0.62 * lum) + calor * 0.04;
   // el filo del lado del fuego: los bordes de la silueta que lo miran se encienden de su color
   c += fCol * filoK * att * canto * max(dif, 0.0) * (0.25 + dot(C.rgb, vec3(0.3, 0.5, 0.2)));
   // la contraluz fría de atrás, apenas
   c += rimCol * rimK * canto * max(dot(n, rimDir), 0.0) * (0.3 + 0.7 * smoothstep(0.0, 120.0, z));
   // sin quemar: lo que pasa de 0.86 se dobla suave hacia el blanco cálido
-  vec3 sobre = max(c - 0.86, 0.0); c = min(c, 0.86) + sobre / (1.0 + sobre * 3.0);
+  float rodilla = mix(0.86, 0.72, quema); vec3 sobre = max(c - rodilla, 0.0); c = min(c, rodilla) + sobre / (1.0 + sobre * (3.0 + 6.0 * quema));
   o = vec4(c, C.a);
 }`;
 function iniciarS(): boolean {
@@ -316,6 +319,8 @@ export interface LuzSprite {
   sx: number; sy: number; alto: number; radio: number;
   color: [number, number, number]; fuerza: number; sombra: number; filo: number; aire?: number;
   rim?: { dir: [number, number, number]; color: [number, number, number]; fuerza: number };
+  /** 0 a 1: cuánto se protege lo claro de quemarse al blanco (la vigilia, 1; lo demás, 0: como siempre). */
+  quema?: number;
 }
 /**
  * El cuadro `q` reiluminado por la fogata, en un lienzo de su mismo tamaño en puntos (para dibujar a escala entera sin
@@ -338,7 +343,7 @@ export function spriteConLuz(q: Cuadro, luz: LuzSprite): HTMLCanvasElement | nul
   const S = 2 * (luz.sy + KZ * luz.alto), D = luz.sx;
   g.uniform4i(u('rect'), q.x, q.y, q.w, q.h); g.uniform2f(u('ancla'), q.ax, q.ay); g.uniform1f(u('kz'), KZ);
   g.uniform4f(u('fuego'), (S + D) / 2, (S - D) / 2, luz.alto, luz.radio);
-  g.uniform3f(u('fCol'), luz.color[0], luz.color[1], luz.color[2]); g.uniform1f(u('fK'), luz.fuerza); g.uniform1f(u('sombraK'), luz.sombra); g.uniform1f(u('filoK'), luz.filo); g.uniform1f(u('aire'), luz.aire ?? 0);
+  g.uniform3f(u('fCol'), luz.color[0], luz.color[1], luz.color[2]); g.uniform1f(u('fK'), luz.fuerza); g.uniform1f(u('sombraK'), luz.sombra); g.uniform1f(u('filoK'), luz.filo); g.uniform1f(u('aire'), luz.aire ?? 0); g.uniform1f(u('quema'), luz.quema ?? 0);
   const r = luz.rim ?? { dir: [0, 0, 1], color: [0, 0, 0], fuerza: 0 }, rl = Math.hypot(...r.dir) || 1;
   g.uniform3f(u('rimDir'), r.dir[0] / rl, r.dir[1] / rl, r.dir[2] / rl); g.uniform3f(u('rimCol'), r.color[0], r.color[1], r.color[2]); g.uniform1f(u('rimK'), r.fuerza);
   g.bindFramebuffer(g.FRAMEBUFFER, null); g.disable(g.BLEND); g.clearColor(0, 0, 0, 0); g.clear(g.COLOR_BUFFER_BIT);

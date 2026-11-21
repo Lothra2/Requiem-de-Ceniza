@@ -561,7 +561,8 @@ function exterior(def: DefZona, semilla: number): Zona {
     // La explanada queda reservada como un claro más (nada alto cae ahí). `__hitoViejo` vuelve a lo de antes. Después de los
     // claros no se tira más `rl`, así que esto no mueve ningún otro lugar
     const viejoH = !!(globalThis as any).__hitoViejo, frente = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6);
-    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
+    const frente2 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4);
+    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 12, 6, frente2) ?? elegir(5, 8, 4, frente2)) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
     for (const l of lugares) { const rr = l.r + 0.5; for (let y = Math.floor(l.cy - rr); y <= l.cy + rr; y++) for (let x = Math.floor(l.cx - rr); x <= l.cx + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - l.cx, y - l.cy) <= rr) z.claros[y * z.W + x] = 1; }
     { const lh = lugares.find((l) => l.papel === 'hito'); if (lh && !viejoH) { const ex = lh.cx + 8, ey = lh.cy + 8, rr = 5.5; for (let y = Math.floor(ey - rr); y <= ey + rr; y++) for (let x = Math.floor(ex - rr); x <= ex + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - ex, y - ey) <= rr) z.claros[y * z.W + x] = 1; } }
   }

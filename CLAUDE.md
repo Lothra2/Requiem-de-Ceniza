@@ -427,6 +427,11 @@ Rick: "haz todo lo que falte, lo que quedó flojo y lo que falta de los actos 3 
   `resplandor` menos la puerta. Lab: `t1020_pieza_lab.mts "acto_hito:a3_tambor+..."` (láminas en `/tmp/requiem-pruebas/e3`);
   en el juego `DX=7 DY=7 _m_hitos_vista.cjs <etiqueta> <zonas>`.
 
+- **Entrega 3 revisada**: pasaron t1000 (exterior arena 57 a 59, obra 56 a 57, montados exterior 16 a 18 por el corrimiento de
+  a1_bosque, a1_cementerio y a4_picos), t1001, t855 (0 distintas en 192), t370 (288, 0 malas), t440, t450, t500 y
+  conectividad 20 (1920). t1011 da 1 o 2 atascados de unos 2500 en cada corrida, igual que en cc59d12 (a1_mina1, un zombi
+  pegado a 3 de Thor): ya estaba, no es de esto. `MAPA_V` sigue en 3: los pisos no cambiaron, solo objetos.
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

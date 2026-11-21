@@ -1,5 +1,6 @@
 import { registrar, type Arma, type Pieza, type V3 } from '../objeto';
 import { campanario, robleSogas, pozoOasis, obeliscoSol } from './hitos_mayores';
+import { HITOS_LEJANOS } from './hitos_lejanos';
 
 // Una pieza grande y única por acto (se ve una o dos veces por mundo abierto, de lejos se reconoce dónde estás) y el
 // aderezo de los muros de las mazmorras de obra: contrafuertes y derrumbes del estilo de cada una.
@@ -14,9 +15,11 @@ const pena = (a: Arma, x: number, y: number, r: number, mat: string) => a.elipso
 registrar(
   {
     id: 'acto_hito', nombre: ['Hito del acto', 'Act landmark'], tema: 'comun',
-    variantes: ['a1_cruz', 'a2_coloso', 'a3_idolo', 'a4_tumulo', 'a5_costillar', 'a6_ancla', 'a7_anillo', 'a1_campanario', 'a1_roble', 'a2_pozo', 'a2_obelisco'], huella: [4, 4], bloquea: true,
+    variantes: ['a1_cruz', 'a2_coloso', 'a3_idolo', 'a4_tumulo', 'a5_costillar', 'a6_ancla', 'a7_anillo', 'a1_campanario', 'a1_roble', 'a2_pozo', 'a2_obelisco', ...Object.keys(HITOS_LEJANOS)], huella: [4, 4], bloquea: true,
     armar: (v, _f, a) => {
       const ps: Pieza[] = [];
+      // los de los actos 3 a 7 (hitos_lejanos.ts)
+      if (HITOS_LEJANOS[v]) { const e = HITOS_LEJANOS[v](a); if (Array.isArray(e)) { ps.push(...e, suelo(a)); return ps; } ps.push(...e.piezas, suelo(a)); return { ...e, piezas: ps }; }
       if (v === 'a1_cruz') {
         // cruz de término del páramo: gradas, fuste alto, brazos con nudo, una soga colgando y musgo
         const m = 'bor_paramo';

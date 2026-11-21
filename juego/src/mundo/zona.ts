@@ -742,7 +742,10 @@ function exterior(def: DefZona, semilla: number): Zona {
   return z;
 }
 
-const HITO_ZONA: Record<string, string> = { a1_bosque: 'a1_roble', a1_cementerio: 'a1_campanario', a2_oasis_muerto: 'a2_pozo', a2_ruinas: 'a2_obelisco' };
+const HITO_ZONA: Record<string, string> = { a1_bosque: 'a1_roble', a1_cementerio: 'a1_campanario', a2_oasis_muerto: 'a2_pozo', a2_ruinas: 'a2_obelisco',
+  // (entrega 3) los de los actos 3 a 7, uno por mundo abierto (catalogo/hitos_lejanos.ts)
+  a3_selva: 'a3_tambor', a3_pantano: 'a3_barco', a4_picos: 'a4_puerta', a4_glaciar: 'a4_gigante', a5_llanuras: 'a5_yunque', a5_rio: 'a5_crisol',
+  a6_costa: 'a6_campana', a6_arrecife: 'a6_abadesa', a6_barrio1: 'a6_campanario', a6_barrio2: 'a6_coro', a7_cielo: 'a7_escalera', a7_jardin: 'a7_caliz' };
 /** Islas sobre el vacío: cada cuarto es una isla con su borde de precipicio y cada pasillo un puente; en el vacío flota lo que vive ahí. */
 function islas(k: Constructor, o: NonNullable<Tematica['islas']>, suelo: Uint8Array, sala: Uint8Array) {
   const z = k.z, { tw, th } = z, r = k.r;

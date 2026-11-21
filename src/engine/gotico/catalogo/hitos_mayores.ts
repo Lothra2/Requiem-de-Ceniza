@@ -34,11 +34,11 @@ M.hit_barro_seco = {
 };
 
 const ang = (x: number, y: number) => Math.atan2(y, x);
-const mezV = (p: V3, q: V3, t: number): V3 => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+export const mezV = (p: V3, q: V3, t: number): V3 => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
 
 /** Un muro de sillares entre (x0,y0) y (x1,y1) de grueso T con su perfil de alto `alto(t)` (t de 0 a 1): sólido hasta el
  * alto más bajo y por encima sillar a sillar, así el borde roto sale en escalones de hilada. */
-function muroRoto(g: G, x0: number, y0: number, x1: number, y1: number, T: number, alto: (t: number) => number, mat: string, hilada = 6.5) {
+export function muroRoto(g: G, x0: number, y0: number, x1: number, y1: number, T: number, alto: (t: number) => number, mat: string, hilada = 6.5) {
   const a = g.a, L = Math.hypot(x1 - x0, y1 - y0), giro = (ang(x1 - x0, y1 - y0) * 180) / Math.PI;
   let zmin = 999; for (let i = 0; i <= 20; i++) zmin = Math.min(zmin, alto(i / 20));
   const z0 = Math.max(0, Math.floor(zmin / hilada) * hilada - hilada);
@@ -55,7 +55,7 @@ function muroRoto(g: G, x0: number, y0: number, x1: number, y1: number, T: numbe
   }
 }
 /** Contrafuerte escalonado contra una cara (sale hacia +y del grupo), con el talud de cada cuerpo. */
-function contrafuerte(g: G, x: number, w: number, d: number, H: number, mat: string) {
+export function contrafuerte(g: G, x: number, w: number, d: number, H: number, mat: string) {
   for (const [k, f0, f1] of [[1, 0, 0.42], [0.72, 0.42, 0.74], [0.48, 0.74, 1]] as [number, number, number][]) {
     const dd = d * k, z0 = H * f0, z1 = H * f1;
     g.caja(x, dd / 2 - 0.5, z0, w, dd + 1, z1 - z0, { mat });
@@ -63,7 +63,7 @@ function contrafuerte(g: G, x: number, w: number, d: number, H: number, mat: str
   }
 }
 /** Campana tumbada: perfil de verdad (hombro, cintura, falda que se abre, labio grueso) girado alrededor de `e`. */
-function campana(g: G, c: V3, e: V3, R: number, mat: string) {
+export function campana(g: G, c: V3, e: V3, R: number, mat: string) {
   // perfil (radio, largo) desde la corona hacia la boca
   const perfil: [number, number][] = [[0.55, 0], [0.82, 0.08], [0.86, 0.22], [0.8, 0.42], [0.84, 0.6], [0.98, 0.8], [1.12, 0.94], [1.15, 1.0]];
   const L = R * 1.55, P = (t: number): V3 => [c[0] + e[0] * t * L, c[1] + e[1] * t * L, c[2] + e[2] * t * L];
@@ -152,7 +152,7 @@ export function campanario(a: Arma): Pieza[] {
 }
 
 /** Rama de masa que se tuerce: tramos de hueso de `p` hacia `d` (largo L), afinándose de r0 a r1; devuelve los puntos. */
-function ramaM(g: G, cs: Comp[], p: V3, d: V3, L: number, r0: number, r1: number, n: number, tor: number, cae = 0): V3[] {
+export function ramaM(g: G, cs: Comp[], p: V3, d: V3, L: number, r0: number, r1: number, n: number, tor: number, cae = 0): V3[] {
   const a = g.a, pts: V3[] = [p]; let q = p, dir = d;
   for (let i = 1; i <= n; i++) {
     const t = i / n; dir = [dir[0] + (a.r() - 0.5) * tor, dir[1] + (a.r() - 0.5) * tor, dir[2] + (a.r() - 0.5) * tor * 0.6 - cae * t]; const l = Math.hypot(...dir); dir = [dir[0] / l, dir[1] / l, dir[2] / l];
@@ -162,7 +162,7 @@ function ramaM(g: G, cs: Comp[], p: V3, d: V3, L: number, r0: number, r1: number
   return pts;
 }
 /** Soga con su lazo colgando de `t` (punto de la rama): cuerda, el nudo de vueltas y el lazo abierto. `corta` la deja deshilachada. */
-function soga(g: G, t: V3, largo: number, giro: number, corta = false) {
+export function soga(g: G, t: V3, largo: number, giro: number, corta = false) {
   const a = g.a, n: V3 = [t[0] + (a.r() - 0.5) * 1.2, t[1] + (a.r() - 0.5) * 1.2, t[2] - largo];
   g.palo([t[0], t[1], t[2] + 1.2], [t[0], t[1], t[2] - 0.8], 1.1, { mat: 'cuerda', tono: -0.3 });
   g.palo(t, n, 0.55, { mat: 'cuerda', tono: -0.25 });
@@ -245,7 +245,7 @@ export function robleSogas(a: Arma): Escena {
 }
 
 /** Palmera seca a escala `k`: tronco anillado que se curva, la copa de pencas muertas que cuelgan; `quebrada` la parte. */
-function palmaSeca(g: G, b: V3, H: number, curva: number, giro: number, k: number, quebrada = false) {
+export function palmaSeca(g: G, b: V3, H: number, curva: number, giro: number, k: number, quebrada = false) {
   const a = g.a, d: V3 = [Math.cos(giro), Math.sin(giro), 0], n = 6, cs: Comp[] = [g.bu([b[0], b[1], b[2] + 1.5 * k], [4.6 * k, 4.6 * k, 3 * k])];
   let p = b; const tope = quebrada ? 0.5 : 1;
   for (let i = 1; i <= n; i++) { const t = (i / n) * tope, q: V3 = [b[0] + d[0] * curva * t * t, b[1] + d[1] * curva * t * t, b[2] + H * t]; cs.push(g.hu(p, q, (3 - 1.1 * ((i - 1) / n)) * k, (3 - 1.1 * (i / n)) * k)); p = q; }
@@ -264,13 +264,13 @@ function palmaSeca(g: G, b: V3, H: number, curva: number, giro: number, k: numbe
   return p;
 }
 /** Arena amontonada: masa de bultos alargados a lo largo del viento (giro en grados), con la cresta corrida a sotavento. */
-function duna(g: G, c: V3, L: number, W: number, H: number, giro: number, n = 4) {
+export function duna(g: G, c: V3, L: number, W: number, H: number, giro: number, n = 4, mat = 'arena') {
   const a = g.a, cs: Comp[] = [], cg = Math.cos((giro * Math.PI) / 180), sg = Math.sin((giro * Math.PI) / 180);
   for (let i = 0; i < n; i++) { const u = (i / (n - 1) - 0.5) * L * 0.8, w = (a.r() - 0.5) * W * 0.3, h = H * (1 - Math.abs(u / L) * 1.1) * (0.8 + a.r() * 0.3); cs.push(g.bu([c[0] + u * cg - w * sg, c[1] + u * sg + w * cg, c[2] - h * 0.35], [L / n * 0.9 + W * 0.3, W * (0.5 + a.r() * 0.2), h], { giro: giro + (a.r() - 0.5) * 12 })); }
-  g.masa(cs, { mat: 'arena', suave: Math.min(W, L) * 0.35 });
+  g.masa(cs, { mat, suave: Math.min(W, L) * 0.35 });
 }
 /** Ánfora de barro: cuerpo, cuello, labio y asas; `rota` le saca medio cuerpo y deja los cascos al lado. */
-function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = false) {
+export function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = false) {
   const a = g.a, s = g.sub(x, y, tumbada ? 3.2 * k : 0, a.r() * 360, tumbada, 'x');
   s.elip(0, 0, 5 * k, 3.4 * k, 3.4 * k, 5 * k, { mat: 'des2_barro' });
   s.cil(0, 0, 9 * k, 1.6 * k, 3 * k, { mat: 'des2_barro', r1: 1.3 * k }); s.cil(0, 0, 11.6 * k, 1.9 * k, 0.8 * k, { mat: 'des2_barro', tono: 0.06 });

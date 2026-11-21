@@ -2,44 +2,21 @@
 // las decisiones que tomaste y las cinemáticas para volver a ver.
 import { ctx, E } from '../nucleo/lienzo';
 import { texto, T, TT, marco, titulo, boton, envolver, dentro } from './comun';
-import { MISIONES, DIARIOS, PAGINAS, ZONAS, RESTOS_ACTO, FANTASMAS } from '../mundo/actos';
+import { MISIONES, ZONAS } from '../mundo/actos';
 import { MONSTRUOS } from '../datos/monstruos';
 import { TEXTO_DECISION, NOMBRE_DECISION, EPILOGOS } from '../mundo/decisiones';
-import { hist, decisionesDe, eleccionDe, finalCompleto, prog, tituloRestos } from '../juego/historia';
+import { hist, decisionesDe, eleccionDe, finalCompleto } from '../juego/historia';
+import { alternarLibro } from './libro';
+import { ui } from './juego_ui';
 import { cuadrosMonstruo, dibujar as dibujarCuadro } from '../motor/assets';
 import type { Juego } from '../juego/mundo';
 import type { DatosHeroe } from '../juego/heroe';
 
 type Pestana = 'notas' | 'bestiario' | 'decisiones' | 'cine';
 interface Entrada { titulo: string; sub: string; texto: string }
-const est = { pestana: 'notas' as Pestana, sel: 0, desde: 0 };
+const est = { pestana: 'bestiario' as Pestana, sel: 0, desde: 0 };
 export const codice = est;
 
-/** Todo lo leído: diarios de cada acto, el diario del primer abad y las pistas de las misiones. */
-function notas(d: DatosHeroe): Entrada[] {
-  const h = hist(d), out: Entrada[] = [];
-  for (const [a, di] of Object.entries(DIARIOS)) {
-    const n = Math.min(di.paginas.length, h.diarios?.[+a] ?? 0);
-    for (let i = 0; i < n; i++) out.push({ titulo: TT(di.titulo), sub: `${T('Acto', 'Act')} ${a} · ${i + 1}/${di.paginas.length}`, texto: TT(di.paginas[i]) });
-  }
-  for (let i = 0; i < Math.min(PAGINAS.length, h.paginas ?? 0); i++) out.push({ titulo: T('Diario del primer abad', 'Diary of the First Abbot'), sub: `${i + 1}/${PAGINAS.length}`, texto: TT(PAGINAS[i]) });
-  const p = prog(d);
-  for (const m of MISIONES) {
-    const o = m.objetivo; if (o.tipo !== 'pistas') continue;
-    const bits = (d.misiones[m.id] ?? 0) >= 2 ? (1 << o.pistas.length) - 1 : (p[m.id] ?? 0);
-    o.pistas.forEach((pi, i) => { if (bits & (1 << i)) out.push({ titulo: TT(m.nombre), sub: TT(ZONAS[o.zona]?.nombre ?? ['', '']), texto: TT(pi.texto) }); });
-  }
-  // los restos leídos en las matanzas, por acto
-  for (const k of [...(h.restos ?? [])].sort()) {
-    const [a, i] = k.split(':').map(Number), t = RESTOS_ACTO[a]?.[i]; if (!t) continue;
-    out.push({ titulo: TT(tituloRestos(a, i)), sub: `${T('Restos', 'Remains')} · ${T('Acto', 'Act')} ${a}`, texto: TT(t) });
-  }
-  // las voces de los muertos que escuchaste enteras (Vesperio con todo lo que dijo)
-  for (const f of FANTASMAS) if ((h.fantasmas ?? []).includes(f.id)) {
-    out.push({ titulo: TT(f.titulo ?? ['Un muerto que no se fue', 'One who did not leave']), sub: TT(ZONAS[f.zona]?.nombre ?? ['', '']), texto: [f.texto, ...(f.mas ?? [])].map((l) => `«${TT(l)}»`).join(' ') });
-  }
-  return out;
-}
 /** Jefes vistos, con su título. */
 function bestiario(d: DatosHeroe): Entrada[] {
   const vis: string[] = (d as any).jefesVistos ?? [];
@@ -79,9 +56,9 @@ function lista(es: Entrada[], x: number, y: number, vacio: string, dibujarSel?: 
 export function panelCodice(j: Juego, x: number, y: number) {
   const d = j.heroe.d;
   marco(x, y, 320, 432); titulo(T('Códice', 'Codex'), x, y, 320);
-  const pes: [Pestana, string][] = [['notas', T('Notas', 'Notes')], ['bestiario', T('Jefes', 'Bosses')], ['decisiones', T('Decisiones', 'Choices')], ['cine', T('Cine', 'Films')]];
-  pes.forEach(([id, s], i) => { if (boton(s, x + 14 + i * 74, y + 44, 70, 24, { tam: 12, color: est.pestana === id ? '#ffd080' : undefined })) { est.pestana = id; est.sel = 0; est.desde = 0; E.clicIzq = false; } });
-  if (est.pestana === 'notas') return lista(notas(d), x, y, T('Todavía no leíste nada. Los libros malditos, los diarios, las pistas de las misiones y los restos quedan anotados aquí.', 'You have not read anything yet. Cursed books, diaries, quest clues and remains are recorded here.'));
+  const pes: [Pestana, string][] = [['notas', T('Libro', 'Book')], ['bestiario', T('Jefes', 'Bosses')], ['decisiones', T('Decisiones', 'Choices')], ['cine', T('Cine', 'Films')]];
+  // (21 nov 2026) las notas ahora viven en el Libro de Odrán (J), ordenadas por hilo: la pestaña lo abre
+  pes.forEach(([id, s], i) => { if (boton(s, x + 14 + i * 74, y + 44, 70, 24, { tam: 12, color: est.pestana === id ? '#ffd080' : undefined })) { E.clicIzq = false; if (id === 'notas') { ui.izq = null; alternarLibro(d); return; } est.pestana = id; est.sel = 0; est.desde = 0; } });
   if (est.pestana === 'bestiario') return lista(bestiario(d), x, y, T('Todavía no viste a ningún jefe cara a cara.', 'You have not yet seen any boss face to face.'), (e, cx, cy) => {
     const m = MONSTRUOS[(e as any).id]; if (!m) return;
     const fs = cuadrosMonstruo(m.sprite, 'quieto', 's'); const q = fs[Math.floor(performance.now() / 160) % Math.max(1, fs.length)];

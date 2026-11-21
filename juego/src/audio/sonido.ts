@@ -627,6 +627,53 @@ function burbuja(o: AudioNode, t: number, f: number, v: number): void {
 }
 
 const EFECTOS: Record<string, Fx> = {
+  // ---------------- el Libro de Odrán (síntesis, sin archivos)
+  /** Abrir el libro: el broche que suelta, el cuero que cruje al doblar el lomo y el golpe sordo de la tapa sobre la mesa. */
+  libro_abrir(o, t, p) {
+    chasquido(o, t, 2400 * p, 8, 0.35, 0.02); chasquido(o, t + 0.03, 1700 * p, 6, 0.2, 0.03);
+    // el crujido del cuero: ruido en banda angosta a tirones
+    for (let i = 0; i < 7; i++) { const tt = t + 0.12 + i * al(0.035, 0.06), g = gan(0, o); env(g.gain, tt, 0.004, al(0.12, 0.28), al(0.03, 0.06)); ruido(tt, tt + 0.1, filt('bandpass', al(500, 900) * p, 6, g), MARRON); }
+    // la hoja de guarda que se despega y el aire que mueve la tapa
+    silbido(o, t + 0.35, 380 * p, 900 * p, 300 * p, 0.42, 0.8, 0.18, ROSA);
+    golpeSordo(o, t + 0.78, 110 * p, 55 * p, 0.55, 0.22); ruido(t + 0.78, t + 0.92, filt('lowpass', 700, 0.7, (() => { const g = gan(0, o); env(g.gain, t + 0.78, 0.003, 0.25, 0.12); return g; })()), ROSA);
+    return 1.1;
+  },
+  /** Cerrar: el aire que sale de entre las hojas y la tapa que cae. */
+  libro_cerrar(o, t, p) {
+    silbido(o, t, 900 * p, 500 * p, 260 * p, 0.22, 0.7, 0.16, ROSA);
+    golpeSordo(o, t + 0.2, 130 * p, 60 * p, 0.6, 0.18);
+    { const g = gan(0, o); env(g.gain, t + 0.2, 0.002, 0.3, 0.08); ruido(t + 0.2, t + 0.32, filt('bandpass', 1400 * p, 1.2, g), BLANCO); }
+    return 0.6;
+  },
+  /** Pasar la hoja: el roce del papel (ruido que sube y baja por una banda que se abre), un chasquido del borde y el aire. */
+  libro_pagina(o, t, p) {
+    const dur = al(0.26, 0.34), g = gan(0, o); g.gain.setValueAtTime(EPS, t);
+    g.gain.linearRampToValueAtTime(al(0.2, 0.28), t + dur * 0.35); g.gain.linearRampToValueAtTime(al(0.08, 0.12), t + dur * 0.7); g.gain.exponentialRampToValueAtTime(EPS, t + dur);
+    const b = filt('bandpass', 1800 * p, 0.9, g); b.frequency.linearRampToValueAtTime(4200 * p, t + dur * 0.4); b.frequency.linearRampToValueAtTime(2400 * p, t + dur);
+    const am = gan(0.8, b); temblor(am.gain, t, t + dur, 45, 0.35); ruido(t, t + dur + 0.05, am, ROSA);
+    chasquido(o, t + dur * 0.55, 3200 * p, 4, 0.12, 0.015);
+    silbido(o, t + dur * 0.2, 300 * p, 700 * p, 250 * p, dur * 0.8, 0.6, 0.08, ROSA);
+    return dur + 0.1;
+  },
+  /** La pluma que rasca: dos o tres raspones cortos y finos, con el golpecito de la punta. */
+  libro_pluma(o, t, p) {
+    let tt = t;
+    for (let i = 0; i < 2 + Math.floor(Math.random() * 2); i++) {
+      const d = al(0.03, 0.07), g = gan(0, o); env(g.gain, tt, 0.003, al(0.05, 0.1), d);
+      const b = filt('bandpass', al(3500, 6000) * p, al(3, 6), g); b.frequency.linearRampToValueAtTime(al(2500, 5000) * p, tt + d);
+      ruido(tt, tt + d + 0.02, b, BLANCO); tt += d + al(0.01, 0.04);
+    }
+    chasquido(o, t, 5200 * p, 10, 0.04, 0.008);
+    return tt - t + 0.05;
+  },
+  /** La hoja que late: un latido grave, lub-dub, apagado como bajo la piel. */
+  libro_latido(o, t) { latidoGolpe(o, t, 0.5); latidoGolpe(o, t + 0.23, 0.34); return 0.7; },
+  /** La carta que arde: chisporroteo de papel seco y el soplo de la llama. */
+  libro_arde(o, t, p) {
+    for (let i = 0; i < 6; i++) chasquido(o, t + al(0, 0.16), al(1800, 4800) * p, al(4, 9), al(0.06, 0.16), al(0.005, 0.02));
+    { const g = gan(0, o); env(g.gain, t, 0.04, 0.12, 0.2); ruido(t, t + 0.3, filt('bandpass', 700 * p, 0.7, g), ROSA); }
+    return 0.35;
+  },
   /** Piel de lobo: los huesos se rompen y se acomodan y el lobo aúlla en el bosque, y otro le contesta lejos. */
   forma_lobo(o, t, p) { huesosCambian(o, t, 0.42, 9, 0.7); aullido(o, t + 0.32, p, 0.18); return 4.2; },
   /** Piel de oso: los huesos crujen más graves, el oso resopla y el gruñido sube a rugido. */

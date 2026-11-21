@@ -112,6 +112,8 @@ function glifo(ch: string): Glifo {
   }
   g = { w, px }; glifos.set(ch, g); return g;
 }
+/** El glifo crudo (puntos de tinta y ancho) si la letra lo tiene, o null: lo usa la mano de Odrán (ui/libro_pixel.ts). */
+export function glifoLetra(ch: string): { w: number; px: [number, number][] } | null { return G[ch] || ACENTO[ch] ? glifo(ch) : null; }
 /** El ancho de un texto en puntos de la letra (sin el canto). */
 export function anchoLetra(s: string): number { let w = 0; for (const ch of s) w += glifo(ch).w + 1; return Math.max(0, w - 1); }
 

@@ -39,6 +39,9 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
   menús, la vigilia con boceto y sus arreglos. Ver "Pulido de la interfaz". Segunda pasada de la vigilia (`pulido2`): se pintan 24 cuadros y
   24 se arman (ver "La vigilia, segunda pasada"). Flojo: con la nube cargada por otras sesiones no llega a 15 y 25 s.
 
+- **Libro de Odrán** (rama `odran`, 21 nov 2026): el Códice ordenado por hilos, un libro de pixel que se va llenando. Ver "El
+  Libro de Odrán". Los cierres y textos nuevos (`mundo/libro_cierres.ts`) esperan que Rick los lea.
+
 ## Dónde está cada cosa
 
 - `juego/src`: el juego (`main.ts`, `juego/mundo.ts` la lógica, `render/` el dibujo, `ui/` paneles y HUD, `motor/` el
@@ -1634,6 +1637,66 @@ Dónde vive cada hilo nuevo (nada de esto toca la partida salvo `restos`, campo 
   si te vas, termina, queda anotado y entra al epílogo; `__finalT(s)` pone el epílogo en un segundo, `__ecosFinal()`).
 - Prueba: `node juego/herramientas/t960_historia.cjs [pc|movil]` (clic de verdad en los restos de las Catacumbas, voz de la
   Marca en el Camposanto, Ívola en la Cripta, capturas en `/tmp/requiem-pruebas/historia`).
+
+## El Libro de Odrán (21 nov 2026)
+
+Rick: "El libro de Odrán, que se vaya llenando y pueda explorarlo como libro mientras se va desarrollando la historia, buenas
+animaciones de libro, gore, sangre, misterio". Reemplaza la pestaña de notas del Códice (que era una lista plana por fuente):
+la historia ordenada por **hilos**, no por dónde se leyó.
+
+- **Dónde vive**: `mundo/libro_hilos.ts` (los 12 hilos y sus piezas: cada pieza apunta a un texto que el jugador ya lee, con su
+  fuente y lo que la desbloquea), `mundo/libro_cierres.ts` (**todo lo escrito nuevo, para que Rick lo revise**: nombre y línea de
+  apertura de cada hilo, los 12 cierres de Odrán, los hilos rojos, las notas al margen de Vesperio, las pistas de lo que falta),
+  `juego/libro.ts` (qué tiene el héroe, huecos, cierres, novedades), `juego/libro_oido.ts` (lo que se anota al oírse),
+  `ui/libro.ts` (el libro: armado de hojas, animaciones, entrada) y `ui/libro_pixel.ts` (papel, mano de Odrán, capitulares,
+  dibujos, sangre, huecos, cuero, guardas). Sonidos `libro_abrir`, `libro_cerrar`, `libro_pagina`, `libro_pluma`, `libro_latido`,
+  `libro_arde` en `audio/sonido.ts` (síntesis).
+- **Hilos**: el pozo, la Marca, Vesperio, Tomás, los cinco sellos, Ama y su hija, la sangre tibia, las siete voces (Auren),
+  Ysmeral, los siete que subieron, Aun-Saar y la pregunta (el fantasma de Vesperio). Las piezas `extra` (líneas de saludo que
+  dependen de cuándo se habló) se escriben si se oyen pero no cuentan ni dejan hueco. Una pieza con varias fuentes vale con
+  cualquiera (las variantes según lo elegido). Un hilo sin ninguna pieza sale como "un hilo que todavía no tiene nombre".
+- **Qué se tiene**: casi todo se deriva del guardado (misiones, `diarios`, `paginas`, `restos`, `fantasmas`, `heraldo`,
+  `actosHechos`, `elecciones`, `finalElegido`, `jefesVistos`, `viajes`): una partida vieja abre el libro con lo que ya encontró.
+  Lo que no se puede derivar (lo que cuenta alguien, un rincón apartado, frases que no tienen misión) se anota desde ahora:
+  `msg` y los diálogos (`saludoDe`, `relatoDe`) pasan por `oirLibro`, que reconoce el texto por identidad del arreglo. Campo
+  nuevo y opcional `libro` en el héroe: `o` oídos, `v` piezas ya escritas (quedan aunque la historia vuelva a empezar), `el`
+  la opción de cada elección escrita, `c` cierres, `m` notas al margen, `q` hojas quemadas. Nada más del guardado cambia.
+- **Nada del futuro**: lo de un acto que no se alcanzó (`actoAlcanzado`) no sale ni como hueco; al final del hilo, hojas en
+  blanco ("lo demás todavía no pasó"). Las pistas nombran la tierra del acto, el lugar solo si ya se pisó y a quien preguntar
+  por su oficio (`EPITETO`), nunca por su nombre. t1200 lo revisa con nombres prohibidos por altura.
+- **El libro**: doble hoja (una en vertical) en pixel a puntos enteros del aparato (`calcGeo`: D = 2 a 720, 3 a 1080; en
+  táctil al menos 2 y la letra nunca bajo 9,5 puntos CSS). La tapa de cuero con gofrado, título dorado gastado, sello de los
+  cinco pedazos, cantoneras de hierro, broche y sangre; las guardas jaspeadas con el ex libris de Odrán; la cinta roja que lleva
+  al índice. Al abrir: aparece cerrado, se corre y la tapa gira. Pasar hoja: la hoja se curva columna a columna (lo de afuera gira
+  primero, `hojaQueGira`), con su sombra, por rueda, flechas, clic en una mitad, arrastrar o deslizar (se suelta a medias y
+  vuelve). El índice salta pasando hojas de corrido. Lo nuevo, la primera vez que se ve, primero es un borrón que se disuelve
+  (el hueco que se llena) y después se escribe solo con la pluma, tinta negra mojada que se seca a sepia (o al rojo de la
+  rúbrica). Cada hilo abre con su capitular iluminada (campo de su color, filete de oro, la letra gótica al doble y un
+  zarcillo), y lleva su portadilla. Huecos: mancha de tinta, hoja arrancada o sangre seca, con la pista a lápiz. Gotas, huellas
+  de dedos con sangre y cera de vela en algunas hojas. El hilo al que le falta una sola pieza clave **late** (corazón de sangre
+  lub-dub y venas desde el canto, con sonido). La carta de Vesperio que dice "quema esta carta" se quema sola la primera vez
+  (brasa que corre, humo, la esquina se va). En los actos 6 y 7, con Vesperio muerto, aparecen notas de **otra mano** (la suya,
+  violeta, inclinada al revés). El cierre de Odrán ("Lo que ahora entiendo") se escribe cuando el hilo junta sus claves, con su
+  firma y sello de cera.
+- **En el juego**: J lo abre y lo cierra (Esc también), K el Códice (jefes, decisiones, cine; la pestaña Libro del Códice abre el
+  libro y en el índice hay un renglón que lleva al Códice). El mundo espera mientras está abierto. Cuando entra una pieza nueva
+  jugando: "Odrán anota algo en su libro." y en PC una pluma junto al mapa (late, se toca y abre); en táctil un botón siempre,
+  junto al del registro (44 pt). Cerrado solo cuesta `cuentaLibro` cada 1,2 s (sin armar textos: 0,8 ms en la nube con un
+  héroe del acto 7). Abierto, las hojas quietas se pintan una vez y se guardan (24 a lo sumo); solo se repinta cada cuadro la que
+  se escribe, late o arde, y el libro entero es un lienzo de unos 400 x 300 puntos que se pega a D.
+- Banderas: `__sinMargen` (sin notas de otra mano), `__libroReloj` y `__libroT` (fijan los relojes, para las pruebas). Ganchos:
+  `__libro`, `__libroAbrir`, `__libroCerrar`, `__libroIr`, `__libroPasar`, `__libroHojas`, `__libroHilos`, `__libroGeo`,
+  `__libroRotas` (fuentes que no apuntan a nada), `__libroDatos`.
+- Prueba: `CHROMIUM=... URL=http://127.0.0.1:5193/ node juego/herramientas/t1200_libro.cjs [pc|pc1080|movil|ipad] [acto1,acto3,acto7,vieja]`
+  (capturas en `/tmp/requiem-pruebas/libro/<vista>`: apertura, índice, hueco que se llena, escribiéndose, hilo a medias, hoja a
+  25, 50 y 78 % de la curva, cierre, nota de otra mano, carta que arde, hoja que late, aviso del HUD).
+- Pasaron (21 nov 2026): t1200 en pc, pc1080, movil e ipad, tsc, t500, t1001, t960, t950 pc y movil (17 toques, ninguno chico)
+  y t440. t961 falla de a ratos (un fantasma distinto cada corrida) y falla igual contra 187f377 sin el libro: ya estaba.
+- Flojo: los textos nuevos (cierres, notas, pistas, nombres) esperan la lectura de Rick. Las piezas que son líneas de saludo
+  (`extra`) solo se escriben si el jugador habló con esa persona justo en ese momento. En el teléfono la hoja es angosta (unas
+  22 letras por renglón) y el índice no llega a 44 pt por fila si hay muchos hilos (se pasa a la hoja siguiente). La hoja que
+  gira se ve comprimida de a columnas (es pixel: no hay perspectiva lisa). El cierre de la tapa solo se anima desde la primera
+  hoja; desde otra, el libro se levanta y se apaga. Nada se oyó con oídos humanos: los sonidos son síntesis sin medir.
 
 ## Publicar
 

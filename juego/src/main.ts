@@ -16,6 +16,7 @@ import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { dibujarHudForja } from './ui/hud_forja';
 import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe, vozMarca, leerRestos, ecosFinal } from './juego/historia';
 import { dibujarHistoria } from './ui/historia_ui';
+import { dibujarLibro, libroAbierto, alternarLibro, pasoLibro, iconoLibro, reiniciarAvisoLibro, avisoHud } from './ui/libro';
 import { FANTASMAS, HERALDO, type FinalElegido } from './mundo/actos';
 import { fijarAvisoLuz } from './render/luz_gpu';
 import { medir, empezarCuadro, terminarCuadro, dibujarRendimiento } from './nucleo/rendimiento';
@@ -221,6 +222,7 @@ async function empezarPartida(d: DatosHeroe) {
   while (d.atajos.length < 10) d.atajos.push(null);
   for (const id of Object.keys(d.habs)) { const hb = habilidadDe(id); if (hb.tipo !== 'pasiva' && !d.atajos.includes(id)) { const i = d.atajos.findIndex((a) => !a); if (i >= 0) d.atajos[i] = id; } }
   j = crearJuego(d, IDI);
+  reiniciarAvisoLibro();
   ui.cofre = cargarCofre();
   const zid = ZONAS[d.zona] ? d.zona : PUEBLO_DE[d.acto] ?? 'a1_refugio';
   await irAZona(zid, 'centro');
@@ -291,7 +293,8 @@ function controlar(jj: Juego, dt: number) {
   if (pulso('c')) alternar('pers', 'izq');
   if (pulso('t') || pulso('s') && false) alternar('habs', 'der');
   if (pulso('q')) alternar('misiones', 'izq');
-  if (pulso('j')) alternar('codice', 'izq');
+  if (pulso('j')) { cerrarPaneles(); alternarLibro(h.d); }
+  if (pulso('k')) alternar('codice', 'izq');
   if (pulso('Tab') || pulso('m')) ui.mapa = !ui.mapa;
   if (pulso('r')) h.correr = !h.correr;
   if (hudForja()) teclasRegistro();
@@ -811,12 +814,12 @@ function paso(dt: number) {
       const jj = j!;
       if (zonaPendiente) { const z = zonaPendiente; zonaPendiente = null; if (z.entrada === '__portal') { const p = jj.portal!; irAZona(z.id, 'centro').then(() => { jj.heroe.x = p.x + 1; jj.heroe.y = p.y + 1; }); } else irAZona(z.id, z.entrada); break; }
       opcionesRender.idi = IDI;
-      const pausa = ui.izq === 'menu' || ui.confirmar;
+      const pausa = ui.izq === 'menu' || ui.confirmar || libroAbierto();
       // presentación de un jefe: el mundo va en cámara lenta y la cámara lo mira
       if (presenta) { presenta.t += dt; foco.x = presenta.m.x; foco.y = presenta.m.y; foco.k = Math.min(1, presenta.t / 0.6, Math.max(0, (DUR_PRESENTA - presenta.t) / 0.6)); if (presenta.t >= DUR_PRESENTA || presenta.m.muerto) { presenta = null; foco.k = 0; } }
       if (caida) { caida.t += dt; if (caida.m) { foco.x = caida.m.x; foco.y = caida.m.y; } foco.k = Math.min(1, caida.t / 0.4); if (caida.t >= DUR_CAIDA) { const c = caida; caida = null; foco.k = 0; empezarCine(c.acto, c.despues); } }
       const dtMundo = presenta ? dt * 0.18 : caida ? dt * 0.22 : dt;
-      if (!pausa) medir('logica', () => { actualizar(jj, dtMundo); historiaPaso(jj, dtMundo); miedoPaso(jj, dtMundo); });
+      if (!pausa) medir('logica', () => { actualizar(jj, dtMundo); historiaPaso(jj, dtMundo); miedoPaso(jj, dtMundo); pasoLibro(jj.heroe.d, dtMundo, (t) => msg(jj, t, '#d8b070')); });
       medir('mundo', () => enMundo(() => { dibujarMundo(jj, dtMundo, tiempo); dibujarMiedo(jj, tiempo); dibujarHistoria(jj, tiempo); }));
       // los blancos del clic salen del pase del mundo: se llevan a puntos del HUD, que es donde está el puntero
       if (ZM !== 1) for (const p of picks) { p.x0 *= ZM; p.y0 *= ZM; p.x1 *= ZM; p.y1 *= ZM; }
@@ -865,7 +868,11 @@ function paso(dt: number) {
       const clicAntes = E.clicIzq, manoAntes = ui.mano;
       entradaFicha(jj);
       if (alzado) E.y -= alzado;
-      try { medir('interfaz', () => { dibujarPaneles(jj, tiempo); dibujarHud(jj, tiempo); }); } finally { if (alzado) E.y += alzado; }
+      // (con el libro abierto, el HUD de abajo se dibuja pero no recibe el toque: el libro se lo come después)
+      const libroEnc = libroAbierto(), clicLibro = E.clicIzq, ruedaLibro = E.rueda; if (libroEnc) { E.clicIzq = false; E.rueda = 0; }
+      try { medir('interfaz', () => { dibujarPaneles(jj, tiempo); dibujarHud(jj, tiempo); if (!libroEnc) botonLibro(jj, tiempo); }); } finally { if (alzado) E.y += alzado; if (libroEnc) { E.clicIzq = clicLibro; E.rueda = ruedaLibro; } }
+      // el Libro de Odrán va encima de todo y se come la entrada mientras está abierto (el mundo espera)
+      if (dibujarLibro(jj.heroe.d)) { ui.sobreUI = true; dibujarCursor('senalar'); break; }
       if (clicAntes && !manoAntes && ui.mano && E.izq && !E.soltoIzq) arrastre = { x: E.x, y: E.y };
       // el clic lo usó un menú (se puso una prenda, se cerró una ficha, se tocó un botón) o el botón está apretado sobre
       // un panel: mientras siga apretado no es una orden de caminar, aunque el panel ya se haya cerrado debajo del cursor
@@ -963,6 +970,28 @@ function dibujarHud0(jj: Juego, tiempo: number) {
   }
   fijarAltoHud(96); (window as any).__hudVisto = 'clasico';
   if (E.tactil) dibujarHudTactil(jj, tiempo); else dibujarBarra(jj, tiempo);
+}
+/**
+ * El Libro de Odrán en el HUD: en PC una pluma chica junto al mapa cuando hay algo sin leer (late cuando Odrán acaba de
+ * anotar); en táctil un botón siempre, junto al del registro (es la única manera de abrirlo sin teclado). Se toca y abre.
+ */
+function botonLibro(jj: Juego, t: number) {
+  delete hud.libroBtn;
+  if (ui.izq || ui.der || ui.mapa || jj.heroe.muerto) return;
+  let r: [number, number, number, number];
+  if (aparatoTactil() || E.tactil) {
+    const rg = hud.registroBtn as [number, number, number, number] | undefined; if (!rg) return;
+    r = [rg[0] + rg[2] + 6, rg[1], rg[2], rg[3]];
+    ctx.fillStyle = 'rgba(14,8,6,0.72)'; ctx.fillRect(r[0], r[1], r[2], r[3]);
+    ctx.fillStyle = 'rgba(200,160,80,0.35)'; ctx.fillRect(r[0], r[1], r[2], 1); ctx.fillRect(r[0], r[1] + r[3] - 1, r[2], 1); ctx.fillRect(r[0], r[1], 1, r[3]); ctx.fillRect(r[0] + r[2] - 1, r[1], 1, r[3]);
+    iconoLibro(r[0] + r[2] * 0.14, r[1] + r[3] * 0.14, r[2] * 0.72, t);
+    hud.libroBtn = r;
+  } else {
+    if (avisoHud.nuevas <= 0 && !avisoHud.nuevo) return;
+    const s2 = 22; r = [W - 180 - s2 - 10, 8, s2, s2];
+    iconoLibro(r[0], r[1], s2, t);
+  }
+  if (E.x >= r[0] && E.y >= r[1] && E.x < r[0] + r[2] && E.y < r[1] + r[3]) { ui.sobreUI = true; if (E.clicIzq) { E.clicIzq = false; cerrarPaneles(); alternarLibro(jj.heroe.d); } }
 }
 /** ¿El aparato es de dedo (teléfono, tableta)? Un PC con pantalla táctil tiene puntero fino y no cuenta. */
 function aparatoTactil() { return typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches && !matchMedia('(any-pointer: fine)').matches; }

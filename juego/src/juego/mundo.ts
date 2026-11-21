@@ -12,6 +12,7 @@ import { TALISMAN_JEFE } from '../datos/talismanes';
 import type { Elemento } from './tipos_objetos';
 import { R, entre, elegir, clamp, dist, hashTxt } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
+import { oirLibro } from './libro_oido';
 import { zancada } from '../../../src/engine/gotico/figura';
 import { manifiesto, objetoMeta } from '../motor/assets';
 /**
@@ -576,6 +577,8 @@ const enemigosDe = (j: Juego, deHeroe: boolean): Ent[] => (deHeroe ? j.monstruos
 export interface LineaRegistro { txt: [string, string]; color: string; t: number }
 export const registroDe = (j: Juego): LineaRegistro[] => ((j as any).registro ??= []);
 export function msg(j: Juego, txt: [string, string], color = '#e0d0a0') {
+  // (el Libro de Odrán anota lo que es suyo: la voz de la Marca, la llegada a un lugar, lo que dice un jefe...)
+  oirLibro(j.heroe?.d, txt);
   j.mensajes.push({ txt, t: 0, color }); if (j.mensajes.length > 6) j.mensajes.shift();
   const r = registroDe(j), u = r[r.length - 1];
   if (!(u && u.txt[0] === txt[0] && j.t - u.t < 1.5)) { r.push({ txt, color, t: j.t }); if (r.length > 300) r.splice(0, r.length - 300); }

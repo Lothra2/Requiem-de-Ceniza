@@ -17,6 +17,7 @@ import { rumboSalida, nombreDestino, verboRumbo, nivelMazmorra, variosNiveles, t
 import { MONSTRUOS } from '../datos/monstruos';
 import { saludoDe, relatoDe, ofertaDe, entregaDe, activaDe, aceptar, textoHecho, eleccionDe, hist, avanceDe, decidir, finalCompleto, quienDa } from '../juego/historia';
 import { panelCodice } from './codice';
+import { alternarLibro } from './libro';
 import { miniTactil, rectJefeTactil, disposicion } from './hud_tactil';
 import { EPILOGOS } from '../mundo/decisiones';
 import { colorObj, crearObjeto, crearPocion, crearPergamino, engarzar, baseDe, textoStat, crearUnicoId, type Objeto } from '../juego/objetos';
@@ -1450,12 +1451,12 @@ function panelMenu(j: Juego, x: number, y: number) {
   op(T('Guardar partida', 'Save game'), () => { (ui as any).guardarAhora = true; });
   op(T('Opciones', 'Options'), () => j.eventos.push({ tipo: 'opciones' }));
   op(T('Misiones (Q)', 'Quests (Q)'), () => { ui.izq = 'misiones'; });
-  op(T('Códice (J)', 'Codex (J)'), () => { ui.izq = 'codice'; });
+  op(T('Libro de Odrán (J)', 'Book of Odran (J)'), () => { ui.izq = null; alternarLibro(j.heroe.d); });
   if (j.zona.tipo !== 'pueblo') op(T('Portal al campamento (B)', 'Portal to camp (B)'), () => { ui.izq = null; abrirPortal(j); });
   op(T('Guardar y salir', 'Save and quit'), () => j.eventos.push({ tipo: 'salir' }));
   texto(`${T('Versión', 'Version')} ${__VERSION__.split('-')[0]}`, x + 312, y + 424, { alin: 'right', tam: 9, color: '#6a5a40' });
   texto(T('Teclas: clic izq. caminar/atacar · clic der. habilidad · 1-4 pociones · 5-0 atajos · I inventario · C personaje · T habilidades · Q misiones · Tab mapa · Alt botín · R correr · Shift atacar sin moverse · B portal', 'Keys: left click walk/attack · right click skill · 1-4 potions · I inventory · C character · T skills · Q quests · Tab map · Alt loot · R run · Shift attack in place · B portal'), x + 18, y + 330, { tam: 1 });
-  envolver(T('Clic izquierdo camina y ataca · clic derecho usa la habilidad · 1-4 pociones · I inventario · C personaje · T habilidades · Q misiones · J códice · Tab mapa · Alt muestra el botín · R correr o caminar · Shift ataca sin moverte · B portal al campamento', 'Left click walks and attacks · right click uses the skill · 1-4 potions · I inventory · C character · T skills · Q quests · J codex · Tab map · Alt shows loot · R run or walk · Shift attacks in place · B portal to camp'), 280, 11).forEach((l, i) => texto(l, x + 20, y + 338 + i * 14, { tam: 11, color: '#a09070' }));
+  envolver(T('Clic izquierdo camina y ataca · clic derecho usa la habilidad · 1-4 pociones · I inventario · C personaje · T habilidades · Q misiones · J libro de Odrán · K códice · Tab mapa · Alt muestra el botín · R correr o caminar · Shift ataca sin moverte · B portal al campamento', 'Left click walks and attacks · right click uses the skill · 1-4 potions · I inventory · C character · T skills · Q quests · J book of Odran · K codex · Tab map · Alt shows loot · R run or walk · Shift attacks in place · B portal to camp'), 280, 11).forEach((l, i) => texto(l, x + 20, y + 338 + i * 14, { tam: 11, color: '#a09070' }));
 }
 
 // ------------------------------------------------------------------ mapa (Tab) y minimapa

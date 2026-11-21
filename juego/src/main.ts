@@ -21,7 +21,7 @@ import { medir, empezarCuadro, terminarCuadro, dibujarRendimiento } from './nucl
 import { cargarOpciones, opciones, guardarOpciones, dibujarIntro, menuPrincipal, dibujarSeleccion, dibujarCrear, dibujarOpciones, pantallaCarga } from './ui/menus';
 import { hud, etiquetasMundo } from './ui/hud_rects';
 import { abrirTienda, cerrarPaneles, cambiarAgresivo, rectPanel, compacto } from './ui/juego_ui';
-import { ui, dibujarBarra, dibujarPaneles, dibujarArriba, dibujarCursor, dibujarTooltipObjeto, entradaFicha, dibujarFicha, dibujarMapa, dibujarMuerte, hablarCon, alternar, prepararHud, lugarEn, COFRE_W, COFRE_H } from './ui/juego_ui';
+import { ui, alzadoMano, dibujarBarra, dibujarPaneles, dibujarArriba, dibujarCursor, dibujarTooltipObjeto, entradaFicha, dibujarFicha, dibujarMapa, dibujarMuerte, hablarCon, alternar, prepararHud, lugarEn, COFRE_W, COFRE_H } from './ui/juego_ui';
 import { dibujarMundo, picks, aMundo, aPantUI, foco, opciones as opcionesRender, type Pick } from './render/escena';
 import { vinetaSangre, dibujarPresentacion, dibujarCaida, DUR_PRESENTA } from './ui/horror';
 import { prepararPortada, esperarPortada, reiniciarPortada, durForjaTitulo, tituloFijo } from './ui/portada';
@@ -254,6 +254,7 @@ function enSitio(jj: Juego, lado: 'izq' | 'der', x: number, y: number, obj: Mons
   if (guardar && ocupado(jj)) colchon = { lado, x, y, obj, t: COLCHON_T };
 }
 /** Arrastrar y soltar: dónde se agarró lo que está en la mano (si el botón sigue apretado). */
+let toqueMano: { x: number; y: number; t: number; dif: boolean; lev: boolean } | null = null;
 let arrastre: { x: number; y: number } | null = null;
 function encimaDe(): Pick | null {
   let best: Pick | null = null;
@@ -834,11 +835,27 @@ function paso(dt: number) {
       ui.sobreUI = false;
       // arrastrar y soltar: si se agarró algo con el botón apretado y se suelta en otro lado, cuenta como clic ahí
       (ui as any).clicSoltar = false;
+      // táctil con algo en la mano: el dedo tapa lo que lleva. El toque no suelta al apoyar sino al levantar el dedo, y
+      // mientras se arrastra (se movió o lo sostiene) el objeto va arriba del dedo con su casilla de arriba a la vista: la
+      // rejilla, el equipo y el cinturón miran ese punto (`ui.alzado`). Un toque corto sin mover suelta donde tocó.
+      if (toqueMano && !E.izq && !E.soltoIzq) toqueMano = null;
+      if (!ui.mano) toqueMano = null;
+      if (E.tactil && ui.mano && !(window as any).__arrastreViejo) {
+        if (!toqueMano && E.izq) { toqueMano = { x: E.x, y: E.y, t: performance.now(), dif: E.clicIzq, lev: false }; E.clicIzq = false; }
+        if (toqueMano) {
+          if (!toqueMano.lev && E.izq && (Math.hypot(E.x - toqueMano.x, E.y - toqueMano.y) > 8 || performance.now() - toqueMano.t > 300)) toqueMano.lev = true;
+          if (E.soltoIzq && toqueMano.dif) E.clicIzq = true;
+          presaEnMenu = true;
+        }
+      }
+      const alzado = toqueMano?.lev && ui.mano ? alzadoMano(ui.mano) : 0;
+      (ui as any).alzado = alzado;
       if (E.soltoIzq && arrastre && ui.mano && Math.hypot(E.x - arrastre.x, E.y - arrastre.y) > 10) { E.clicIzq = true; (ui as any).clicSoltar = true; }
       if (E.soltoIzq || !ui.mano) arrastre = null;
       const clicAntes = E.clicIzq, manoAntes = ui.mano;
       entradaFicha(jj);
-      medir('interfaz', () => { dibujarPaneles(jj, tiempo); dibujarHud(jj, tiempo); });
+      if (alzado) E.y -= alzado;
+      try { medir('interfaz', () => { dibujarPaneles(jj, tiempo); dibujarHud(jj, tiempo); }); } finally { if (alzado) E.y += alzado; }
       if (clicAntes && !manoAntes && ui.mano && E.izq && !E.soltoIzq) arrastre = { x: E.x, y: E.y };
       // el clic lo usó un menú (se puso una prenda, se cerró una ficha, se tocó un botón) o el botón está apretado sobre
       // un panel: mientras siga apretado no es una orden de caminar, aunque el panel ya se haya cerrado debajo del cursor

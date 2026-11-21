@@ -71,7 +71,25 @@ def lamina_golpe(etq, k):
     for i, c in enumerate(cs): L.paste(c, ((i % col) * W, (i // col) * 220))
     L.save(f'{S}/golpe_{etq}_{k}.png')
 
-if sys.argv[1] == 'golpe': lamina_golpe(sys.argv[2], sys.argv[3])
+def lamina_menu(antes, ahora, k):
+    # el menú al doble: un renglón encendido y los otros en hierro (bucle2 en el táctil, boton y boton2 en PC)
+    cs = []
+    for etq in (antes, ahora):
+        for n in ('boton', 'boton2', 'bucle2'):
+            p = f'{R}/{etq}/{k}_{n}.png'
+            if not os.path.exists(p): continue
+            im = Image.open(p).convert('RGB'); c = im.crop((0, int(im.height * 0.47), int(im.width * 0.42), int(im.height * 0.97)))
+            sc = 2 if c.width < 700 else 1
+            c = c.resize((c.width * sc, c.height * sc), Image.NEAREST); cs.append(rotulo(c, f'{etq} {n} x{sc}'))
+            if n == 'bucle2' and len([x for x in ('boton',) if os.path.exists(f'{R}/{etq}/{k}_boton.png')]): cs.pop()
+    if not cs: return
+    L = Image.new('RGB', (max(c.width for c in cs), sum(c.height for c in cs))); y = 0
+    for c in cs: L.paste(c, (0, y)); y += c.height
+    L.save(f'{S}/menu_{antes}_{ahora}_{k}.png')
+
+if sys.argv[1] == 'menu':
+    for k in sys.argv[4:]: lamina_menu(sys.argv[2], sys.argv[3], k)
+elif sys.argv[1] == 'golpe': lamina_golpe(sys.argv[2], sys.argv[3])
 else:
     for k in (sys.argv[3:] or ['pc_es', 'pc1080_es', 'movil_es', 'pc_en']):
         try: lamina_momentos(sys.argv[1], sys.argv[2], k)

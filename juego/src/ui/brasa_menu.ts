@@ -4,21 +4,31 @@
 // aparato, en bandas con su trama. `__menuViejo` lo apaga (queda el dorado con resplandor de antes).
 import * as D from '../../../src/engine/gotico/fuego_doom';
 import { ctx, E } from '../nucleo/lienzo';
+import { rasterGotico, puntoGotico } from './letra_gotica';
 import { BANDAS_LLAMA, banda, capa, pintarCalor, pegarPixel, moverChispas, dibujarChispas, type Capa, type Chispa } from './fuego_pixel';
 
 interface Renglon { f: D.Fuego; mk: Float32Array; borde: Int32Array; fuego: Capa; canto: Capa; celda: number; cw: number; ch: number; px: number; arriba: number; alto: number; ult: number; chispas: Chispa[] }
 const renglones = new Map<string, Renglon>();
 
-function armar(S: string, tam: number, familia: string, celda: number, ka: number): Renglon | null {
-  ctx.save(); ctx.font = `700 ${tam}px ${familia}`; const wt = ctx.measureText(S).width; ctx.restore();
-  const px = tam * 0.5, arriba = tam * 1.45, abajo = tam * 0.4, sc = ka / celda;
-  const cw = Math.ceil((wt + px * 2) * sc), ch = Math.ceil((arriba + abajo) * sc);
-  if (cw < 4 || ch < 4) return null;
-  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
-  const g = c.getContext('2d', { willReadFrequently: true }); if (!g) return null;
-  g.font = `700 ${tam * sc}px ${familia}`; g.textBaseline = 'alphabetic'; g.fillStyle = '#fff'; g.fillText(S, px * sc, arriba * sc);
-  const d = g.getImageData(0, 0, cw, ch).data, mk = new Float32Array(cw * ch);
-  for (let i = 0; i < cw * ch; i++) mk[i] = d[i * 4 + 3] / 255;
+function armar(S: string, tam: number, familia: string, celda: number, ka: number, gotico: boolean): Renglon | null {
+  let cw: number, ch: number, px: number, arriba: number, mk: Float32Array;
+  if (gotico) {
+    // con la letra gótica de pixel la grilla es la de la letra (una celda por punto): la máscara sale tal cual
+    const r = rasterGotico(S), pad = 4, sobre = 12, cel = celda / ka;
+    cw = r.w + pad * 2; ch = r.h + sobre; mk = new Float32Array(cw * ch);
+    for (let y = 0; y < r.h; y++) for (let x = 0; x < r.w; x++) mk[(y + sobre) * cw + x + pad] = r.tinta[y * r.w + x];
+    px = (pad + 2) * cel; arriba = (r.base + 1 + sobre) * cel;
+  } else {
+    ctx.save(); ctx.font = `700 ${tam}px ${familia}`; const wt = ctx.measureText(S).width; ctx.restore();
+    px = tam * 0.5; arriba = tam * 1.45; const abajo = tam * 0.4, sc = ka / celda;
+    cw = Math.ceil((wt + px * 2) * sc); ch = Math.ceil((arriba + abajo) * sc);
+    if (cw < 4 || ch < 4) return null;
+    const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+    const g = c.getContext('2d', { willReadFrequently: true }); if (!g) return null;
+    g.font = `700 ${tam * sc}px ${familia}`; g.textBaseline = 'alphabetic'; g.fillStyle = '#fff'; g.fillText(S, px * sc, arriba * sc);
+    const d = g.getImageData(0, 0, cw, ch).data; mk = new Float32Array(cw * ch);
+    for (let i = 0; i < cw * ch; i++) mk[i] = d[i * 4 + 3] / 255;
+  }
   const a = (x: number, y: number) => (x < 0 || y < 0 || x >= cw || y >= ch ? 0 : mk[y * cw + x]);
   const fuente = new Float32Array(cw * ch), borde: number[] = [];
   let arribaL = ch, abajoL = 0;
@@ -38,11 +48,11 @@ function armar(S: string, tam: number, familia: string, celda: number, ka: numbe
  * La brasa de un renglón. (tx, ty) es donde va el texto (izquierda y línea de base, lógicos), `k` cuánto está encendido
  * (0 a 1). `pasada` 'atras' va antes del texto (el fuego que lo lame), 'adelante' después (el canto encendido y chispas).
  */
-export function brasaRenglon(id: string, S: string, tam: number, familia: string, tx: number, ty: number, k: number, t: number, pasada: 'atras' | 'adelante') {
+export function brasaRenglon(id: string, S: string, tam: number, familia: string, tx: number, ty: number, k: number, t: number, pasada: 'atras' | 'adelante', gotico = false) {
   if ((window as any).__menuViejo) return;
-  const T = ctx.getTransform(), celda = 2, clave = `${id}|${S}|${tam}|${celda}|${T.a}`;
+  const T = ctx.getTransform(), celda = gotico ? puntoGotico(tam, T.a) : 2, clave = `${id}|${S}|${tam}|${celda}|${T.a}|${gotico}`;
   let r = renglones.get(clave);
-  if (!r) { const nr = armar(S, tam, familia, celda, T.a); if (!nr) return; r = nr; for (const k2 of renglones.keys()) if (k2.startsWith(id + '|')) renglones.delete(k2); renglones.set(clave, r); }
+  if (!r) { const nr = armar(S, tam, familia, celda, T.a, gotico); if (!nr) return; r = nr; for (const k2 of renglones.keys()) if (k2.startsWith(id + '|')) renglones.delete(k2); renglones.set(clave, r); }
   const cel = celda / T.a, x0 = tx - r.px, y0 = ty - r.arriba;
   if (pasada === 'atras') {
     const dt = r.ult < 0 || t < r.ult ? 1 / 30 : Math.min(0.1, t - r.ult); r.ult = t;

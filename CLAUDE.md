@@ -1206,6 +1206,17 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   después del encendido y el encendido suena 0,4 s detrás del golpe si llegan juntos. `__sonidosPortada` anota lo que
   sonó. Prueba: `t683_portada_video.cjs <etiqueta> [pc|pc1080|movil]` (video real con el grabador de Playwright a mp4 de
   25 por segundo y cuadros sueltos, la API de audio interceptada, sin gesto y ya desbloqueado).
+- **La letra gótica del menú** (Rick, 21 nov 2026: "los que no quedan seleccionados están como con una letra no acorde.
+  Quiero una letra pixelada que haga honor al horror y a Diablo 2"). `ui/letra_gotica.ts`: versales talladas propias de 11
+  puntos de alto (fustes de dos, perfiles de uno, remates en cuña, patas que se abren), las tildes, la ü, la ñ, cifras y
+  signos (las minúsculas van a versal). `rasterGotico` (sin DOM) da la tinta por punto; `lienzoGotico(texto, tono)` la
+  pinta en relieve con su canto oscuro alrededor y la sombra que cae: 'hierro' apagado y frío sin elegir, 'brasa' el oro del
+  renglón encendido. Cada punto de la letra mide `puntoGotico(tam, RES)` puntos del aparato (2 a 720, 3 a 1080) y se pega
+  con `pegarPixel`. El canto de brasa del renglón usa la misma grilla de la letra (`brasaRenglon(..., gotico)`). Solo en
+  los renglones de la portada (`menuPrincipal`): el detalle de Continuar (nombre, clase, nivel) y los otros menús siguen con
+  la letra de siempre. `__letraVieja` vuelve a la letra de antes con el canto de brasa. `HEROE=1` en t681 guarda un héroe
+  para que salga Continuar, y la lámina `t681_lamina.py menu <antes> <ahora> <vistas>` arma el menú al doble con un
+  renglón encendido y los demás en hierro.
 - Banderas: `__tituloViejo` (el fuego liso de antes y sin golpe), `__menuViejo` (el dorado de antes). `__portadaReloj`
   fija el tiempo de la escena y `__portadaMed` suma lo que cuesta por cuadro (fondo y título, ms de JS).
 - Pruebas: `t681_portada_fuego.cjs <etiqueta> [pc,pc1080,ultra,ipad,movil,vertical] [es,en]` (ocho momentos, el botón encendido y el costo;

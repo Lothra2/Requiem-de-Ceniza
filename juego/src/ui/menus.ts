@@ -20,6 +20,8 @@ import { dibujarPortada, tituloFijo, dibujarCarta, prepararCarta } from './porta
 import { brasaRenglon } from './brasa_menu';
 import { heroeVigilia, heroeCarta, brasaCanto, forjaNueva, vigiliaVieja, infoVigilia, medidasVigilia } from './vigilia';
 import { FICHA } from './seleccion';
+import { lienzoGotico, puntoGotico } from './letra_gotica';
+import { pegarPixel } from './fuego_pixel';
 
 export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number; temblor?: number; destellos?: 0 | 1; luz?: 0 | 1; recogerEquipo?: 0 | 1; /** el HUD: 'forja' (por omisión) o 'clasico' (la barra de siempre) */ hud?: 'forja' | 'clasico' }
 export const opciones: Opciones = { general: 0.8, musica: 0.6, efectos: 0.8, horror: 0.8, idioma: 0, brillo: 1, temblor: 1, destellos: 0 };
@@ -365,16 +367,28 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
     // el título: grabado (sombra dura abajo), dorado y con resplandor cuando está encendido
     const tamF = Math.round(tam * (grande ? 1.16 : 1));
     ctx.font = `700 ${tamF}px ${TITULO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    const S = fl.s.toUpperCase().split('').join(' '), brasa = !(window as any).__menuViejo;
-    ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillText(S, tx + 1, ty + 2);
-    // el canto de brasa: la llama de pixel que lame el renglón por detrás (brasa_menu.ts)
-    if (k > 0.01 && brasa) { brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'atras'); ctx.font = `700 ${tamF}px ${TITULO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
-    if (k > 0.01) { ctx.shadowColor = `rgba(255,140,40,${(brasa ? 0.5 : 0.85) * k})`; ctx.shadowBlur = (brasa ? 10 : 16) * k; }
-    const tg = ctx.createLinearGradient(0, ty - tam, 0, ty + 2);
-    tg.addColorStop(0, k > 0.5 ? '#fff3c8' : '#d6c6a0'); tg.addColorStop(0.55, k > 0.5 ? '#f0c060' : '#b09a70'); tg.addColorStop(1, k > 0.5 ? '#b0702a' : '#7a6848');
-    ctx.fillStyle = tg; ctx.fillText(S, tx, ty); ctx.shadowBlur = 0;
-    const wt = ctx.measureText(S).width;
-    if (k > 0.01 && brasa) brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'adelante');
+    const brasa = !(window as any).__menuViejo, gotica = brasa && !(window as any).__letraVieja;
+    const S = gotica ? fl.s.toUpperCase() : fl.s.toUpperCase().split('').join(' ');
+    let wt: number;
+    if (gotica) {
+      // la letra gótica de pixel (letra_gotica.ts): hierro frío sin elegir, oro de brasa encendido, a puntos enteros
+      const kp = puntoGotico(tamF, ctx.getTransform().a), cel = kp / ctx.getTransform().a, hierro = lienzoGotico(S, 'hierro'), r = hierro.r;
+      const ox = tx - 2 * cel, oy = ty - (r.base + 1) * cel, a0 = ctx.globalAlpha;
+      if (k > 0.01) brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'atras', true);
+      if (k < 0.99) pegarPixel(hierro.c, ox, oy, kp, a0);
+      if (k > 0.01) pegarPixel(lienzoGotico(S, 'brasa').c, ox, oy, kp, a0 * k);
+      wt = (r.w - 4) * cel;
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillText(S, tx + 1, ty + 2);
+      // el canto de brasa: la llama de pixel que lame el renglón por detrás (brasa_menu.ts)
+      if (k > 0.01 && brasa) { brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'atras'); ctx.font = `700 ${tamF}px ${TITULO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
+      if (k > 0.01) { ctx.shadowColor = `rgba(255,140,40,${(brasa ? 0.5 : 0.85) * k})`; ctx.shadowBlur = (brasa ? 10 : 16) * k; }
+      const tg = ctx.createLinearGradient(0, ty - tam, 0, ty + 2);
+      tg.addColorStop(0, k > 0.5 ? '#fff3c8' : '#d6c6a0'); tg.addColorStop(0.55, k > 0.5 ? '#f0c060' : '#b09a70'); tg.addColorStop(1, k > 0.5 ? '#b0702a' : '#7a6848');
+      ctx.fillStyle = tg; ctx.fillText(S, tx, ty); ctx.shadowBlur = 0;
+      wt = ctx.measureText(S).width;
+    }
+    if (k > 0.01 && brasa) brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'adelante', gotica);
     // la raya que crece debajo, con su rombo en la punta
     if (k > 0.01) { const lg = ctx.createLinearGradient(tx, 0, tx + wt * k, 0); lg.addColorStop(0, 'rgba(230,180,90,0.95)'); lg.addColorStop(1, 'rgba(230,180,90,0.15)'); ctx.fillStyle = lg; ctx.fillRect(tx, ty + 7, wt * k, 1.5); rombo(tx + wt * k + 5, ty + 7.5, 2.6, `rgba(240,200,110,${k})`); }
     if (fl.sub) { ctx.font = `500 ${Math.round(tam * 0.56)}px ${TITULO}`; ctx.fillStyle = k > 0.5 ? '#e8c890' : '#9a8a68'; ctx.fillText(fl.sub, tx + 1, ty + Math.round(tam * 0.95)); }

@@ -22,6 +22,12 @@ const dir = `/tmp/requiem-pruebas/portada2/${etq}`; fs.mkdirSync(dir, { recursiv
     await p.addInitScript(([idi, ban]) => { localStorage.setItem('marca.intro', '1'); localStorage.setItem('marca.opciones', JSON.stringify({ idioma: idi === 'en' ? 1 : 0 })); for (const k of ban) window[k] = true; }, [idi, ban]);
     await p.goto(process.env.URL || 'http://127.0.0.1:5197/');
     await p.waitForFunction(() => window.__estado && window.__estado() === 'menu', null, { timeout: 60000 });
+    // HEROE=1: con un héroe guardado (aparece Continuar con su renglón de detalle)
+    if (process.env.HEROE) {
+      await p.waitForFunction(() => window.__T && window.__T.H, null, { timeout: 60000 });
+      await p.evaluate(() => { const d = window.__T.H.nuevoHeroe('berserker', 'Ívola'); d.nivel = 12; localStorage.setItem('marca.heroes', JSON.stringify([d])); localStorage.setItem('marca.ultimo', String(d.id)); });
+      await p.reload(); await p.waitForFunction(() => window.__estado && window.__estado() === 'menu', null, { timeout: 60000 });
+    }
     // que bajen las hojas del título antes de medir: se recarga la portada desde cero
     await p.waitForTimeout(6000);
     await p.evaluate(() => { const m = window.__reiniciarPortada; if (m) m(); });
@@ -35,9 +41,14 @@ const dir = `/tmp/requiem-pruebas/portada2/${etq}`; fs.mkdirSync(dir, { recursiv
     }
     out[k].bucle = await p.evaluate(() => window.__portadaMed);
     // un botón encendido: el ratón sobre la segunda fila
-    const fil = await p.evaluate(() => window.__menuFilas);
+    // (las filas vienen en puntos lógicos: el ratón va en puntos de la página)
+    const esc = await p.evaluate(() => { const c = document.getElementById('juego'), r = c.getBoundingClientRect(); return [r.width / window.__vista().W, r.left, r.top]; });
+    const fil0 = await p.evaluate(() => window.__menuFilas), fil = fil0 && Object.fromEntries(Object.entries(fil0).map(([k, v]) => [k, [esc[1] + v[0] * esc[0], esc[2] + v[1] * esc[0]]]));
     const fila = fil && (fil.jugar || Object.values(fil)[0]);
     if (fila && !tactil) { await p.mouse.move(fila[0], fila[1]); await p.waitForTimeout(700); await p.screenshot({ path: `${dir}/${k}_boton.png` }); }
+    // y otro renglón encendido (Opciones): el resto queda en hierro
+    const f2 = fil && fil.opciones;
+    if (f2 && !tactil) { await p.mouse.move(f2[0], f2[1]); await p.waitForTimeout(900); await p.screenshot({ path: `${dir}/${k}_boton2.png` }); }
     out[k].errores = errs.slice(0, 3);
     const f = (m) => m && m.n ? `${(m.fondo / m.n).toFixed(2)} + ${(m.titulo / m.n).toFixed(2)} ms (peor ${m.peor.toFixed(1)}, ${m.n} cuadros)` : '-';
     console.log(k, 'entrada', f(out[k].entrada), '| bucle', f(out[k].bucle), errs.length ? errs.slice(0, 2) : '');

@@ -18,8 +18,8 @@ ARPG gótico isométrico original de Rick, en Vite + TypeScript + Canvas 2D. Est
 Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 8 publicadas en main
-  (la 8, atascos mirados con la cuenta estricta y minas apuntaladas, el 21 nov). Cada entrega tiene su sección abajo. Nada
-  abierto: lo flojo que queda está dicho al final de "Mundos, entrega 8".
+  (la 8, atascos mirados con la cuenta estricta y minas apuntaladas, el 21 nov). La 9 (atascos repetibles, espera con hueco y
+  cuenta objetiva) está en `mundos` sin publicar. Cada entrega tiene su sección abajo; lo flojo que queda, al final de la 9.
 - **Libro de Odrán** (rama `odran`, copia en `/home/user/requiem-odran`, 21 nov 2026, en marcha): el Códice por hilos de la historia.
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
@@ -746,6 +746,62 @@ maquillaje de la criba (y arreglar lo que sí era atasco) y dejar las minas apun
   el hueco a más de 20 casillas de camino sigue esperando hasta 5 s (dar esa vuelta se lee peor). Las minas suben a 50 a 64
   adornos por pantalla, todo contra la roca y el medio libre; si a Rick le parece mucho, `vestirMina` tiene las dos
   probabilidades (faenas y suelto) a mano. Los cofres de las minas suben (nichos que ahora salen y más sitio contra la roca).
+
+## Mundos, entrega 9 (21 nov 2026)
+
+Rick: "corrige todo hasta que quede". Lo flojo de la entrega 8: un atascado cada unas 10 corridas de t1011 que no se podía repetir,
+el que esperaba hasta 5 s con un hueco libre lejos y una cuenta estricta que no distinguía al que rodea del que está trabado.
+
+- **Por qué no se repetía** (t1011): el juego guarda `R = Math.random` al cargar y el contador de ids (`nid`) es de toda la
+  corrida. Correr una zona sola cambiaba el id de Thor, su lado (`lado` sale del id) y con eso a quién perseguía cada cuerpo:
+  la misma semilla daba otra pelea. Ahora `SEMILLA` cambia la fuente del azar por debajo, cada zona y semilla tira de su propio
+  azar, los cuerpos y Thor llevan ids fijos y el reloj arranca en un punto propio por zona (los topes de caminos por cuadro van
+  por `j.t`). `SEMILLA=n S=s t1011 <zona>` da lo mismo que esa zona dentro de la corrida entera (`FIRMA=1` lo comprueba). Cada
+  caso deja su traza entera (cada cuadro de los 6 cuerpos y el progreso cada medio segundo) en
+  `/tmp/requiem-pruebas/atascos/<semilla>/` con la línea para repetirlo. El atascado raro era uno de estos: un cuerpo que perdía
+  su hueco o esperaba con uno libre a 10 a 20 casillas y salía a rodear tarde. Con el código de la entrega 8,
+  `RAIZ=<copia de main> SEMILLA=1002 S=1 t1011 a5_abismo2` lo repite siempre. Con lo de ahora ese mismo lugar llega.
+- **Lo que se arregló en el juego** (`avanzar`, `rodeoCuerpos`, `rodeoAceptable`, `rondaHueco`, `huecoEnAro` en
+  `juego/mundo.ts`. `__colaE8` vuelve a todo lo de la entrega 8):
+  - "Ya llegó" era radio + radio + 0,9, pero el golpe llega a 0,75: el que quedaba a 1,6 o 1,7 detrás de los que pegan caminaba en
+    el sitio sin pegar nunca. Ahora 0,72. Y la meta de la búsqueda es todo el aro desde donde se pega (0,7, antes 0,65).
+  - La búsqueda entre los cuerpos no dejaba salir en diagonal desde donde está el cuerpo (casi nunca es un punto libre de la
+    grilla): el apretado en un rincón no veía la salida y esperaba con un hueco a 3 casillas. La grilla pasa de 13 x 13 a 20 x 20.
+  - Paciencia: desde 0,5 s de espera acepta 16 casillas más de rodeo por segundo, hasta 26 (antes desde 1,2 s, 8 por segundo). El
+    que espera vuelve a mirar cada 0,25 s, el que iba rodeando y perdió su hueco acepta 10 más y se queda en la espera con la
+    paciencia que juntó (antes volvía al montón y empezaba de cero). A menos de 4, con un hueco solo lejano, espera desde donde
+    está en vez de meterse en el montón. Ya en el corro (menos de 3,8) va siempre al hueco libre más cercano y no a su punto
+    fijo del aro (le daba la vuelta pegado al héroe, a4_barbaro).
+  - Hueco lejano (más de 26 casillas o fuera de la grilla): desde 1,4 s no se queda clavado, ronda por el aro de espera (3 a 3,8
+    casillas) hacia ese lado, a media marcha, y da la vuelta si topa. Si en el aro no hay por dónde (islas) va por la vuelta
+    larga de los muros (`porLejos`).
+  - Paso angosto que abren y cierran los cuerpos: si el rodeo nuevo sale 4 casillas o más largo que lo que le quedaba, aguanta
+    quieto hasta 0,75 s (antes seguía empujando por el camino tapado). Con el mismo hueco no cambia de camino por otro apenas más
+    corto si el suyo sigue libre. Sin nadie pegándole al objetivo, el que espera vuelve a mirar en el mismo cuadro.
+- **La cuenta objetiva** (t1011, `objetiva`, no mira nada del juego salvo los huecos que otros ya tomaron): cada medio segundo
+  arma con los cuerpos de ese momento el campo de distancias por donde cabe el cuerpo entero hasta el aro libre de golpe, y suma
+  cuánto lo acercó lo que caminó (o, si va al hueco que tomó o por la vuelta larga, cuánto se acercó a ese sitio). En los últimos
+  3 s cada uno es `llegaron`, `avanzan`, `actuan` (maniobra), `corroLleno`, `otroObjetivo` (se fue tras Thor), `rondan`, `esperan`
+  (menos de 2,5 s sin acercarse teniendo adónde), `vaiven` (3 casillas sin acercarse) o `atascados` (2,5 s o más sin acercarse
+  teniendo adónde ir). La cuenta principal ahora es la de la entrega 8 que además la objetiva da por atascada, y `atascadosE8` es
+  la de antes sola (`CRIBA_E8=1`). `esperaHueco` mide la racha más larga de quieto con el aro libre alcanzable, por largo.
+- **Medidas** (`t1011 todas 2`, ahora 30 corridas seguidas, semillas 5000 a 5009, 6000 a 6009 y 7000 a 7009, 82.560 casos. Antes
+  10 corridas con el código de la entrega 8, `RAIZ=` una copia de main): atascados 0 en las 30 (antes sin semilla 1 cada unas 10,
+  con la semilla fija la cuenta de la entrega 8 daba 0 en esas 10). Objetiva: atascados 182 en 10 corridas (0,66 %) a 0 en 30,
+  vaivén 1 a 0. Espera parada con un hueco libre: máximo 7 s a 2,5 s (con el camino de 20 casillas o menos 6,5 a 2 s), esperas de
+  más de 2,5 s 212 en 10 corridas a 0 en 30. `atascadosE8` da 8 en 30 corridas: miradas en su traza, 6 avanzan por su rodeo (la
+  cuenta vieja no ve el rodeo que se rehízo tarde) y 2 se fueron tras Thor. `vacio` 21 cuadros en 30 corridas (el corro se
+  vació entre dos vistazos). t995 dos tandas 0 y 0 (esperan 0 y 1). Video (`_m_video_camp.cjs`, ahora en `e9/video`, cuenta la
+  espera parada sin el que ronda): a7_islas2, a1_mina1 y a1_paramo a cielo abierto, nadie se desliza, tiembla, se congela ni
+  empuja (láminas `lamina_*` y `cerca_*` en `/tmp/requiem-pruebas/e9/video`). t1010 (niveles 35 y 50, 3 semillas, contra main):
+  muertes por hora 8,9 a 9,9 y 0 a 0, pociones por 100 bajas 21,9 a 18,6 y 6,5 a 7,0, a la vez 6,0 a 5,9 y 4,9 a 4,7 (ruido).
+- Pruebas: tsc, t1000 (todo en su piso), t1001, t1014 (96 iguales), t1015 (0 tapados), t855 (0 distintas), t370 (147, 0 malas),
+  conectividad 20 (980 conectados), t440, t450, t500, t961. `MAPA_V` sigue en 4. Una corrida de `todas 2` tarda unos 45 s sola
+  (2 min con tres a la vez y la nube cargada).
+- Flojo: la prueba no pega (cd 999) y el corro lleno queda lleno los 9 s, así que la espera con corro lleno sigue llegando a 6,9 s
+  (`esperaMax`, igual que antes: es de la prueba). El que ronda hacia un hueco lejano a veces topa a los dos lados y queda quieto
+  hasta 0,6 s antes de ir por la vuelta larga. La cuenta objetiva mira el campo cada medio segundo: un paso que se abre y se cierra
+  entre dos vistazos no lo ve. `atascadosE8` no llega a 0 porque su criba se confunde con rodeos buenos, no por atascos.
 
 ## Armas vivas, cofres, poderes y siluetas
 

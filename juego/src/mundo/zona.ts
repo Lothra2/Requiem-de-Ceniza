@@ -697,7 +697,9 @@ function exterior(def: DefZona, semilla: number): Zona {
       if (o) sal.obj = o;
     } else if (s.lado === 'casa') {
       // una casa abandonada: la puerta queda de frente, sobre el punto de la salida
-      const ids = CASAS_PIEZA[def.tema] ?? CASAS_PIEZA.paramo, d = REGISTRO.find((q) => q.id === ids[Math.floor(r() * ids.length)]) ?? REGISTRO.find((q) => q.id === 'casa_piedra');
+      // (entrega 4: el azar iba adentro del `find`, una tirada por cada pieza del catálogo hasta dar con la casa; agregar
+      //  cualquier pieza corría el azar de todo lo que venía después. Ahora se tira una vez)
+      const ids = CASAS_PIEZA[def.tema] ?? CASAS_PIEZA.paramo, idCasa = ids[Math.floor(r() * ids.length)], d = REGISTRO.find((q) => q.id === idCasa) ?? REGISTRO.find((q) => q.id === 'casa_piedra');
       if (d) { const v = d.variantes[Math.floor(r() * d.variantes.length)], [, hh] = huellaDe(d, v); const o = k.poner(d, cx, cy - Math.ceil(hh / 2) - 1, v, true); if (o) sal.obj = o; }
     }
     z.salidas.push(sal);
@@ -1348,8 +1350,33 @@ const DESVIO: Record<string, FilaDesvio> = {
     nombre: ['El escondite del aguador', 'The Water-Bearer\'s Cache'], texto: ['Guardaba agua para los que venían detrás. La sed que cae de arriba llegó primero.', 'He kept water for those coming after. The thirst that falls from above came first.'] },
   a2_ruinas: { marca: [['des2_columnas', 'portico']], cuello: ['des2_roca_viento', 'hongo'], relato: [['des2_estela', 'rota'], ['des2_huesos', 'dispersos']], borde: [['des2_arbusto', 'seco'], ['des2_arbusto', 'tamarisco'], ['des2_arbusto', 'espinoso']],
     nombre: ['El pórtico del vigía', 'The Watcher\'s Portico'], texto: ['El vigía del sol vio caer la brasa desde aquí. Escondió lo suyo y no bajó más.', 'The sun-watcher saw the ember fall from here. He hid his things and never came down.'] },
+  // (entrega 4) los de los actos 3 a 7: lo que se ve de lejos, el relato del tema y el cofre escondido de siempre
+  a3_selva: { marca: [['sel2_totem', 'plumas'], ['sel2_calaveras_estacas', 'antorcha']], cuello: ['sel2_idolo', 'estela'], relato: [['sel2_fogata_tribal', 'tambores'], ['sel2_cadaver', 'tribal']], borde: [['sel2_helecho', 'mata'], ['sel2_planta', 'taro'], ['sel2_helecho', 'rizado']],
+    nombre: ['El tambor callado', 'The Silent Drum'], texto: ['Aquí tocaban para que la selva no se durmiera. El último quedó con las manos sobre el cuero.', 'They drummed here so the jungle would not fall asleep. The last one stayed with his hands on the skin.'] },
+  a3_pantano: { marca: [['sel2_calaveras_estacas', 'antorcha'], ['sel2_totem', 'mascara']], cuello: ['sel2_manglar', 'chico'], relato: [['sel2_cadaver', 'enredado'], ['sel2_jaula', 'colgada']], borde: [['sel2_helecho', 'grupo'], ['sel2_planta', 'taro'], ['sel2_helecho', 'mata']],
+    nombre: ['El embarcadero de los que esperaban', 'The Landing of Those Who Waited'], texto: ['Esperaron aquí el barco de Ama con la antorcha prendida. El barco llegó sin nadie a bordo.', 'They waited here for Ama\'s ship with the torch lit. The ship came in with no one aboard.'] },
+  a4_picos: { marca: [['nie2_piedra_runica', 'alta']], cuello: ['nie2_roca', 'aguja'], relato: [['nie2_hoguera', 'brasas'], ['nie2_cadaver', 'congelado']], borde: [['nie2_roca', 'chica'], ['nie2_ventisquero', 'duna'], ['nie2_pino', 'joven']],
+    nombre: ['El vigía del jarl', 'The Jarl\'s Watchman'], texto: ['Hrimgard puso un hombre aquí a mirar el cielo. Miró trescientos inviernos.', 'Hrimgard set a man here to watch the sky. He watched for three hundred winters.'] },
+  a4_glaciar: { marca: [['nie2_totem', 'cuervo']], cuello: ['nie2_roca', 'penasco'], relato: [['nie2_trineo', 'volcado'], ['nie2_cadaver', 'congelado']], borde: [['nie2_roca', 'chica'], ['nie2_ventisquero', 'duna'], ['nie2_pino', 'joven']],
+    nombre: ['El refugio del cazador', 'The Hunter\'s Shelter'], texto: ['Se metió bajo la nieve a esperar que pasara la tormenta. La tormenta sigue aquí.', 'He dug under the snow to wait out the storm. The storm is still here.'] },
+  a5_llanuras: { marca: [['inf2_obelisco', 'apagado']], cuello: ['inf2_roca', 'basalto'], relato: [['inf2_cuerpos', 'calcinado'], ['inf2_caldero', 'restos']], borde: [['inf2_roca', 'chica'], ['inf2_espina', 'espina'], ['inf2_roca', 'chica']],
+    nombre: ['La forja del desertor', 'The Deserter\'s Forge'], texto: ['Huyó de la fragua con una hoja sin templar. La templó aquí, en lo único que tenía.', 'He fled the forge with an untempered blade. He tempered it here, in the only thing he had.'] },
+  a5_rio: { marca: [['inf2_columna_fuego', 'alta']], cuello: ['inf2_obsidiana', 'entero'], relato: [['inf2_altar', 'velas'], ['inf2_cuerpos', 'arrastrado']], borde: [['inf2_roca', 'chica'], ['inf2_fumarola', 'chica'], ['inf2_espina', 'grupo']],
+    nombre: ['La orilla de los que cantaban', 'The Shore of the Singers'], texto: ['Cantaban para que el río no subiera. Una voz se cansó.', 'They sang so the river would not rise. One voice grew tired.'] },
+  a6_costa: { marca: [['ahg_farol_pescador', 'doble']], cuello: ['ahg_roca_percebes', 'grande'], relato: [['ahg_marino_ahogado', 'contra_ancla'], ['ahg_peces_muertos', 'pocos']], borde: [['ahg_roca_percebes', 'chica'], ['ahg_peces_muertos', 'pocos'], ['ahg_charco_marea', 'chico']],
+    nombre: ['La caleta de las viudas', 'The Widows\' Cove'], texto: ['Prendían faroles para que los suyos encontraran la costa. Ysmeral también los vio.', 'They lit lanterns so their men could find the shore. Ysmeral saw them too.'] },
+  a6_arrecife: { marca: [['ahg_coral_hueso', 'con_luz']], cuello: ['ahg_roca_percebes', 'grande'], relato: [['ahg_concha_gigante', 'con_perla'], ['ahg_marino_ahogado', 'enredado']], borde: [['ahg_coral_hueso', 'rama'], ['ahg_roca_percebes', 'chica'], ['ahg_charco_marea', 'con_estrellas']],
+    nombre: ['La perla del buzo', 'The Diver\'s Pearl'], texto: ['Bajó tres veces por la perla de la Abadesa. A la cuarta, la Abadesa subió por él.', 'He dove three times for the Abbess\'s pearl. The fourth time, the Abbess came up for him.'] },
+  a6_barrio1: { marca: [['ahg_estatua_santo', 'con_llave']], cuello: ['ahg_columna_percebes', 'rota'], relato: [['ahg_pila_ahogada', 'con_velas'], ['ahg_marino_ahogado', 'sentado']], borde: [['ahg_nasa', 'una'], ['ahg_peces_muertos', 'pocos'], ['ahg_charco_marea', 'chico']],
+    nombre: ['El patio del sacristán', 'The Sexton\'s Yard'], texto: ['Guardó la llave de la catedral hasta que el agua le llegó al pecho. No la soltó.', 'He kept the cathedral key until the water reached his chest. He never let go.'] },
+  a6_barrio2: { marca: [['ahg_pescadora_estatua', 'con_farol']], cuello: ['ahg_columna_percebes', 'entera'], relato: [['ahg_farol_altar', 'velas'], ['ahg_peces_muertos', 'en_cesta']], borde: [['ahg_nasa', 'una'], ['ahg_peces_muertos', 'pocos'], ['ahg_charco_marea', 'chico']],
+    nombre: ['El altar de la pescadora', 'The Fisherwoman\'s Altar'], texto: ['Le rezaban para que el mar devolviera a los suyos. Lo que devolvió está en la cesta.', 'They prayed to her for the sea to give their people back. What it gave back is in the basket.'] },
+  a7_cielo: { marca: [['cel_brasero_blanco', 'alto'], ['cel_columna_rota', 'partida']], cuello: ['cel_columna_rota', 'corta'], relato: [['cel_estatua_suplica', 'tendiendo'], ['cel_escombros_marmol', 'monton']], borde: [['cel_escombros_marmol', 'monton'], ['cel_columna_rota', 'corta']],
+    nombre: ['El último descanso de los siete', 'The Seven\'s Last Rest'], texto: ['Aquí descansaron los siete marcados antes de la escalera. Seis dejaron su nombre en la piedra.', 'Here the seven marked rested before the stair. Six left their names on the stone.'] },
+  a7_jardin: { marca: [['cel_columna_rota', 'entera']], cuello: ['cel_columna_rota', 'partida'], relato: [['cel_estatua_suplica', 'abrazados'], ['cel_brasero_blanco', 'apagado']], borde: [['cel_escombros_marmol', 'monton'], ['cel_columna_rota', 'corta']],
+    nombre: ['Los que se abrazaron', 'Those Who Embraced'], texto: ['Llegaron juntos hasta aquí y pidieron juntos. El dios le dio de beber a uno solo.', 'They came this far together and asked together. The god gave only one of them to drink.'] },
 };
-function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number, number][], lugares: Lugar[], centro: [number, number]): Desvio | null {
+function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number, number][], lugares: Lugar[], centro: [number, number], holgura = false): Desvio | null {
   const z = k.z, { W, H, tw, th } = z, rd = rng((sem ^ 0x61d3a7) >>> 0), R = 4;
   const tile = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)];
   const libreEn = (x: number, y: number, r0: number) => { for (let dy = -r0; dy <= r0; dy++) for (let dx = -r0; dx <= r0; dx++) if (dx * dx + dy * dy <= r0 * r0 + 1) { const X = x + dx, Y = y + dy; if (!tile(X, Y) || z.bloq[Y * W + X] || k.reserva[Y * W + X] || z.claros![Y * W + X]) return false; } return true; };
@@ -1359,15 +1386,18 @@ function trazarDesvio(k: Constructor, def: DefZona, sem: number, puntos: [number
   for (let i = 0; i < 1500; i++) {
     const x = 6 + Math.floor(rd() * (W - 12)), y = 6 + Math.floor(rd() * (H - 12));
     if (!libreEn(x, y, R)) continue;
-    if (puntos.some(([a, b]) => Math.hypot(a - x, b - y) < 20) || lugares.some((l) => Math.hypot(l.cx - x, l.cy - y) < l.r + 12) || Math.hypot(centro[0] - x, centro[1] - y) < 26) continue;
+    if (puntos.some(([a, b]) => Math.hypot(a - x, b - y) < (holgura ? 14 : 20)) || lugares.some((l) => Math.hypot(l.cx - x, l.cy - y) < l.r + (holgura ? 7 : 12) + (l.escena === 'jefe' && def.acto >= 3 ? 14 : 0)) || Math.hypot(centro[0] - x, centro[1] - y) < (holgura ? 16 : 26)) continue;
     // a 12 a 30 del camino más cercano (un sendero que se recorre, no un rincón pegado ni uno perdido)
     let dc = 1e9; for (let yy = y - 32; yy <= y + 32; yy += 2) for (let xx = x - 32; xx <= x + 32; xx += 2) if (xx >= 0 && yy >= 0 && xx < W && yy < H && k.reserva[yy * W + xx]) dc = Math.min(dc, Math.hypot(xx - x, yy - y));
-    if (dc < 10 || dc > 34) continue;
+    if (dc < (holgura ? 7 : 10) || dc > (holgura ? 44 : 34)) continue;
     cands.push([x, y, vacio(x, y) * 2 - Math.abs(dc - 18) * 0.4 + rd()]);
   }
   cands.sort((a, b) => b[2] - a[2]);
   for (const [cx, cy] of cands.slice(0, 12)) { const d = senderoDesvio(k, def, cx, cy, R, centro, lugares); if (d) return d; }
-  return null;
+  // (entrega 4) en los mundos angostos (el Paso del Glaciar) no salía ninguno: una segunda vuelta más floja, solo si la
+  // primera no dio (así no mueve los desvíos que ya salían)
+  if (holgura) return null;
+  return trazarDesvio(k, def, sem ^ 0x2b, puntos, lugares, centro, true);
 }
 function senderoDesvio(k: Constructor, def: DefZona, cx: number, cy: number, R: number, centro: [number, number], lugares: Lugar[]): Desvio | null {
   const z = k.z, { W, H, tw } = z, rd = rng((cx * 7919 + cy * 104729) >>> 0);
@@ -2256,8 +2286,69 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   curarAdornos(z, def);
   asentarJefe(z);
   asentarCampamentos(z);
+  ponerTrampas(z, def);
   esquinasMuro(z);
   return z;
+}
+
+/**
+ * Trampas con intención (oleada 4, Rick: "trampas visibles que se puedan esquivar o usar contra los enemigos, pocas y donde
+ * tengan sentido"). Van al final, ya asentados los campamentos, con su propio azar y sin tocar nada de lo de antes:
+ *  - losas de púas en los pasillos de las mazmorras de obra (de 2 a 4, lejos de las entradas y del ruedo del jefe): saltan con
+ *    quien las pise, héroe o monstruo; se esquivan, o se espera detrás de una a que vengan;
+ *  - un brasero flojo delante de algunos campamentos de obra (entre el frente y el campamento): de un clic se vuelca hacia ellos;
+ *  - barriles de aceite delante de los campamentos de los mundos abiertos y las minas (los de siempre, `com_barril_explosivo`);
+ *  - grietas que respiran en las tierras del acto 5 (por donde se pasa, no encima de nadie);
+ *  - lazos de cazador en la selva, a la vuelta de los campamentos.
+ * La lógica va en juego/mundo.ts (`actualizarTrampas`, `volcarBrasero`). Capa `trampa`. `__sinTrampas` las apaga.
+ */
+function ponerTrampas(z: Zona, def: DefZona) {
+  if ((globalThis as any).__sinTrampas || def.tipo === 'pueblo' || def.casa) return;
+  const r = rng(z.semilla * 6151 + 97 + def.id.length * 131), { W, H } = z, t = tematica(def.tema), cueva = !!t.organica;
+  const obra = def.tipo === 'mazmorra' && !cueva && !t.islas, afuera = def.tipo === 'exterior';
+  const piso = (x: number, y: number) => x >= 1 && y >= 1 && x < W - 1 && y < H - 1 && !!z.pisos[Math.floor(y / 5) * z.tw + Math.floor(x / 5)] && !(z.hueco && z.hueco[y * W + x]);
+  const libre = (x: number, y: number, rr: number) => { for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) { const X = x + dx, Y = y + dy; if (!piso(X, Y) || z.bloq[Y * W + X]) return false; } return true; };
+  // (lo que ya hay de pie, en una grilla de una vez: nada de trampas pegadas a un adorno)
+  const ocupa = new Uint8Array(W * H), esPlano = new Map<string, boolean>();
+  for (const o of z.objetos) { let pl = esPlano.get(o.id); if (pl === undefined) { pl = !!REGISTRO.find((d) => d.id === o.id)?.plano; esPlano.set(o.id, pl); } if (pl) continue; for (let y = Math.floor(o.cy - o.hh / 2); y <= o.cy + o.hh / 2; y++) for (let x = Math.floor(o.cx - o.hw / 2); x <= o.cx + o.hw / 2; x++) if (x >= 0 && y >= 0 && x < W && y < H) ocupa[y * W + x] = 1; }
+  const ocupadoObj = (x: number, y: number, rr: number) => { for (let dy = -Math.ceil(rr); dy <= Math.ceil(rr); dy++) for (let dx = -Math.ceil(rr); dx <= Math.ceil(rr); dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && ocupa[Y * W + X]) return true; } return false; };
+  const entradas = [...Object.values(z.entradas), ...z.salidas.map((s): [number, number] => [s.cx, s.cy])];
+  const jefe = z.spawns.find((s) => s.tipo === 'jefe'), camps = z.spawns.filter((s) => s.tipo !== 'jefe');
+  const puestos: [number, number][] = [];
+  const sirve = (x: number, y: number, dEnt: number, dTr: number) => entradas.every(([a, b]) => Math.hypot(a - x, b - y) >= dEnt) && (!jefe || Math.hypot(jefe.cx - x, jefe.cy - y) >= 14) && puestos.every(([a, b]) => Math.hypot(a - x, b - y) >= dTr);
+  const poner = (id: string, v: string, x: number, y: number, trampa: string | null, bloquea = false, tag?: string, hw = 1) => {
+    const o: ObjZ = { id, v, cx: x, cy: y, hw, hh: hw, bloquea, capa: 'trampa', tag }; if (trampa) o.dato = { trampa };
+    z.objetos.push(o); if (bloquea) z.bloq[y * W + x] = 1; puestos.push([x, y]); ocupa[y * W + x] = 1;
+  };
+  // delante de un campamento: entre su frente (de donde llega el héroe) y él, a d0 a d1 celdas del centro
+  const delante = (s: Spawn, d0: number, d1: number, rr: number, ok: (x: number, y: number) => boolean): [number, number] | null => {
+    const [fx, fy] = s.frente ?? [0, 1];
+    for (let i = 0; i < 40; i++) { const a = Math.atan2(fy, fx) + (r() - 0.5) * 1.6, d = d0 + r() * (d1 - d0), x = Math.round(s.cx + Math.cos(a) * d), y = Math.round(s.cy + Math.sin(a) * d); if (libre(x, y, rr) && !ocupadoObj(x, y, rr) && ok(x, y)) return [x, y]; }
+    return null;
+  };
+  if (obra) {
+    // las losas de púas: en los pasillos (muro a los dos lados a menos de 4 celdas, paso libre a lo largo)
+    const n = 2 + Math.floor(r() * 3);
+    for (let k = 0, i = 0; k < n && i < 3000; i++) {
+      const x = 3 + Math.floor(r() * (W - 6)), y = 3 + Math.floor(r() * (H - 6)); if (!libre(x, y, 0) || ocupadoObj(x, y, 0.5)) continue;
+      const muro = (dx: number, dy: number) => { for (let s = 1; s <= 3; s++) { const X = x + dx * s, Y = y + dy * s; if (!piso(X, Y) || z.bloq[Y * W + X] === 1 || z.bloq[Y * W + X] === 2) return true; } return false; };
+      const enX = muro(0, 1) && muro(0, -1) && libre(x - 2, y, 0) && libre(x + 2, y, 0), enY = muro(1, 0) && muro(-1, 0) && libre(x, y - 2, 0) && libre(x, y + 2, 0);
+      if (!(enX || enY) || !sirve(x, y, 12, 14)) continue;
+      poner('trampa_puas', 'abajo', x, y, 'puas'); k++;
+    }
+    // el brasero flojo delante de uno de cada dos campamentos (no en la cripta del agua ni en el cielo)
+    if (!/ahogada|celestial/.test(def.tema)) { let nb = 0; for (const s of camps) { if (nb >= 3 || r() < 0.5) continue; const p = delante(s, 5, 8, 1, (x, y) => sirve(x, y, 8, 8)); if (p) { poner('trampa_brasero', 'en_pie', p[0], p[1], null, true, 'volcar'); nb++; } } }
+  }
+  // barriles de aceite delante de los campamentos de afuera y de las minas
+  if ((afuera && def.tema !== 'celestial') || def.tema === 'mina') { let nb = 0; for (const s of camps) { if (nb >= 4 || r() < 0.45) continue; const p = delante(s, 5, 8, 1, (x, y) => sirve(x, y, 10, 8)); if (p) { poner('com_barril_explosivo', 'entero', p[0], p[1], null, true, 'romper'); nb++; } } }
+  // las grietas del acto 5: donde se pasa (a 6 a 14 de un campamento), de a dos o tres por zona
+  if (def.acto === 5 && (afuera || def.tema === 'infierno' || def.tema === 'santuario')) {
+    const n = afuera ? 3 + Math.floor(r() * 2) : 2;
+    for (let k = 0, i = 0; k < n && i < 400; i++) { const s = camps[Math.floor(r() * camps.length)]; if (!s) break; const a = r() * Math.PI * 2, d = 6 + r() * 8, x = Math.round(s.cx + Math.cos(a) * d), y = Math.round(s.cy + Math.sin(a) * d);
+      if (!libre(x, y, 1) || !libre(x + 1, y + 1, 0) || ocupadoObj(x, y, 1.5) || !sirve(x, y, 10, 10) || camps.some((c) => Math.hypot(c.cx - x, c.cy - y) < 5)) continue; poner('trampa_grieta', 'quieta', x, y, 'grieta', false, undefined, 2); k++; }
+  }
+  // los lazos de la selva, a la vuelta de los campamentos
+  if (def.tema === 'selva' && afuera) { let nl = 0; for (const s of camps) { if (nl >= 4 || r() < 0.4) continue; const p = delante(s, 4, 9, 0, (x, y) => sirve(x, y, 8, 6)); if (p) { poner('trampa_lazo', 'armado', p[0], p[1], 'lazo'); nl++; } } }
 }
 
 /**
@@ -2746,8 +2837,10 @@ function curarAdornos(z: Zona, def: DefZona) {
         for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) bajoPlano[yy * W + xx] = 1;
       }
     };
-    const MUERTO: Record<number, [string, string[]]> = { 1: ['par_cadaver', ['campesino', 'soldado', 'flechado']], 2: ['par_cadaver', ['soldado', 'esqueleto', 'flechado']], 3: ['sel2_cadaver', []], 4: ['nie2_cadaver', []], 5: ['for2_cadaver', []], 6: ['for2_cadaver', []], 7: ['for2_cadaver', []] };
-    const FOGATA: Record<number, string> = { 1: 'par_fogata_bandidos', 2: 'des2_fogata', 3: 'sel2_fogata_tribal', 4: 'nie2_hoguera', 5: 'camp_fogata', 6: 'camp_fogata', 7: 'camp_fogata' };
+    const MUERTO: Record<number, [string, string[]]> = { 1: ['par_cadaver', ['campesino', 'soldado', 'flechado']], 2: ['par_cadaver', ['soldado', 'esqueleto', 'flechado']], 3: ['sel2_cadaver', []], 4: ['nie2_cadaver', []], 5: ['inf2_cuerpos', ['calcinado', 'arrastrado', 'desollado']], 6: ['ahg_marino_ahogado', ['tendido', 'boca_abajo', 'enredado']], 7: ['sed_cuerpo_seco', ['tendido', 'boca_abajo', 'sentado']] };
+    // (entrega 4: en los actos 5 a 7 el muerto era el soldado de la fortaleza en todas partes; ahora el quemado de la fragua, el
+    //  ahogado de Ysmeral y el bebido del dios, y la fogata de cada tierra)
+    const FOGATA: Record<number, string> = { 1: 'par_fogata_bandidos', 2: 'des2_fogata', 3: 'sel2_fogata_tribal', 4: 'nie2_hoguera', 5: 'inf2_pira', 6: 'camp_fogata', 7: 'cel_brasero_blanco' };
     const muerto = (cx: number, cy: number, r0: number, r1: number, donde?: (x: number, y: number) => boolean) => { const [id, vs] = MUERTO[def.acto] ?? MUERTO[1]; return pon(id, vs.length ? vs[Math.floor(r() * vs.length)] : undefined, cx, cy, r0, r1, donde); };
     // el castigo de cada tierra: un ancla y lo que se ve alrededor (piezas horneadas que no salían en ningún mapa)
     const CASTIGO: Record<string, [string, string | undefined][]> = {
@@ -2761,14 +2854,14 @@ function curarAdornos(z: Zona, def: DefZona) {
       desierto: [['nie2_osamenta', 'completa'], ['campo_empalado', 'envuelto'], ['cat_monton_huesos', 'de_calaveras']],
       tumba: [['cri_tumba_abierta', 'escalones'], ['cri_cuerpo_amortajado', 'momia'], ['cat_monton_huesos', 'chico']],
       templo: [['sel_poste_craneos', 'craneos'], ['cri_cuerpo_amortajado', 'momia'], ['cat_monton_huesos', 'de_calaveras']],
-      selva: [['sel_poste_craneos', 'cornamenta'], ['campo_empalado', 'ensangrentado'], ['cat_monton_huesos', 'de_calaveras']],
-      nieve: [['nie2_osamenta', 'costillar'], ['par_jaula_colgante', 'esqueleto'], ['campo_empalado', 'envuelto']],
+      selva: [['sel2_jaula', 'preso'], ['sel_poste_craneos', 'cornamenta'], ['sel2_cadaver', 'tribal'], ['sel2_calaveras_estacas', 'fila']],
+      nieve: [['nie2_horca', 'ahorcado'], ['nie2_cadaver', 'congelado'], ['nie2_escudos', 'trofeo'], ['par_jaula_colgante', 'esqueleto']],
       hielo: [['par_jaula_colgante', 'preso'], ['nie2_osamenta', 'craneo'], ['cat_monton_huesos', 'chico']],
-      infierno: [['inf_cerca_pinchos', 'torcida'], ['campo_empalado', 'ensangrentado'], ['mue_doncella_hierro', 'abierta']],
+      infierno: [['inf2_empalado', 'dos'], ['inf2_cuerpos', 'desollado'], ['inf2_sangre', 'charca'], ['mue_doncella_hierro', 'abierta']],
       santuario: [['for2_potro', 'rueda'], ['mue_doncella_hierro', 'oxidada'], ['mue_jaula_colgante', 'esqueleto']],
       fortaleza: [['for2_potro', 'potro'], ['mue_potro', 'cadenas'], ['mue_jaula_colgante', 'esqueleto']],
       abismo: [['mue_jaula_colgante', 'vacia'], ['hor_manos', 'muchas'], ['cat_monton_huesos', 'grande']],
-      ahogada: [['par_jaula_colgante', 'esqueleto'], ['cue_costillar', 'hundido'], ['cat_monton_huesos', 'chico']],
+      ahogada: [['ahg_marino_ahogado', 'contra_ancla'], ['ahg_red_huesos', 'tendida'], ['ahg_marino_ahogado', 'enredado'], ['ahg_peces_muertos', 'podridos']],
       catedral_ahogada: [['cri_cadenas_pared', 'con_esqueleto'], ['cri_cuerpo_amortajado', 'putrefacto'], ['cat_monton_huesos', 'chico']],
       // (en los actos 6 y 7 el dios tira directo: lo que dejó es la sed)
       celestial: [['sed_brasa', 'fria'], ['sed_cuerpo_seco', 'de_rodillas'], ['sed_cuerpo_seco', 'sentado'], ['cel_corona_caida', undefined]],
@@ -2795,7 +2888,7 @@ function curarAdornos(z: Zona, def: DefZona) {
           ancla = pon(ia, va, s.cx, s.cy, 9, 12.5, fondo) ?? pon(ia, va, s.cx, s.cy, 8.5, 13);
           if (ancla) { const A = ancla; for (const [id, v] of c.slice(1)) pon(id, v, A.cx, A.cy, 2.2, 4.2, undefined, true); } // (lo de alrededor no tranca el paso: se pisa)
           else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
-        } else if (k === 0) { ancla = pon(FOGATA[def.acto] ?? 'camp_fogata', undefined, s.cx, s.cy, 7.5, 10.5, fondo); if (ancla) { const A = ancla; pon('camp_asador', 'con_carne', A.cx, A.cy, 2.2, 3.4); muerto(A.cx, A.cy, 2.4, 4); } }
+        } else if (k === 0) { ancla = pon(FOGATA[def.acto] ?? 'camp_fogata', undefined, s.cx, s.cy, 7.5, 10.5, fondo); if (ancla) { const A = ancla; if (def.acto === 7) pon('sed_cuerpo_seco', 'sentado', A.cx, A.cy, 2.2, 3.4); else if (def.acto === 6) pon('ahg_peces_muertos', 'en_cesta', A.cx, A.cy, 2.2, 3.4); else pon('camp_asador', 'con_carne', A.cx, A.cy, 2.2, 3.4); muerto(A.cx, A.cy, 2.4, 4); } }
         else if (k === 1) { ancla = pon('sed_cuerpo_seco', 'tendido', s.cx, s.cy, 6, 9.5, fondo); if (ancla) { const A = ancla; pon('sed_cuerpo_seco', 'boca_abajo', A.cx, A.cy, 2, 3.6); if (r() < 0.6) pon('sed_cuerpo_seco', 'sentado', A.cx, A.cy, 2, 4); } }
         else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
       }

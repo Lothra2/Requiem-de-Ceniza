@@ -432,6 +432,44 @@ Rick: "haz todo lo que falte, lo que quedó flojo y lo que falta de los actos 3 
   conectividad 20 (1920). t1011 da 1 o 2 atascados de unos 2500 en cada corrida, igual que en cc59d12 (a1_mina1, un zombi
   pegado a 3 de Thor): ya estaba, no es de esto. `MAPA_V` sigue en 3: los pisos no cambiaron, solo objetos.
 
+## Mundos, entrega 4 (21 nov 2026)
+
+- **El azar de las casas iba adentro de un `REGISTRO.find`** (las salidas `casa` de los exteriores): una tirada por cada pieza
+  del catálogo hasta dar con la casa, así que registrar cualquier pieza nueva corría el azar de todo lo que venía después
+  (a1_bosque, a1_cementerio, a4_picos). Ahora se tira una vez. Nada de `r()` adentro de un callback de `find`, `filter` o
+  `some` sobre el catálogo. Prueba: `node juego/herramientas/t1014_catalogo_azar.mjs [semilla]` genera las 96 zonas con y sin
+  una pieza de más y falla si alguna cambia. El arreglo movió una vez las zonas con casa (los pisos no).
+- **Desvíos de los actos 3 a 7** (filas nuevas en `DESVIO`): el tambor callado (a3_selva), el embarcadero de los que esperaban
+  el barco de Ama (a3_pantano), el vigía del jarl (a4_picos), el refugio del cazador (a4_glaciar), la forja del desertor
+  (a5_llanuras), la orilla de los que cantaban (a5_rio), la caleta de las viudas (a6_costa), la perla del buzo (a6_arrecife),
+  el patio del sacristán (a6_barrio1), el altar de la pescadora (a6_barrio2), el último descanso de los siete (a7_cielo) y
+  los que se abrazaron (a7_jardin). Cada uno con lo que se ve de lejos, su cuello, su relato y su sendero (`FAM_SENDERO`). En
+  los mundos angostos (el Paso del Glaciar) `trazarDesvio` da una segunda vuelta más floja solo si la primera no dio (así no
+  mueve los de antes). 36 de 36 con cofre alcanzable en 3 semillas (`ZONAS=... _m_desvios.mjs`, no se sube).
+- **Relatos de los actos 5 a 7**: el muerto de cada tierra (`MUERTO`: quemados de la fragua, ahogados de Ysmeral, bebidos
+  del dios; antes era el soldado de la fortaleza en todas partes), la fogata (`FOGATA`: la pira del acto 5, el brasero
+  blanco del 7) y lo de al lado (en el 6 la cesta de pescado, en el 7 un bebido sentado: sed, nunca hambre). Castigos nuevos:
+  selva (la jaula con el preso, el poste de cuernos, el muerto tribal y las estacas con cráneos), nieve (la horca con su
+  ahorcado, el congelado, el trofeo de escudos y la jaula), infierno (los empalados, el desollado, la charca de sangre y la
+  doncella) y la costa de Ysmeral (la red llena de huesos, los ahogados enredados y contra el ancla, el pescado podrido).
+- **Trampas con intención** (oleada 4; `ponerTrampas` al final de `generarZona`, azar propio, capa `trampa`; piezas en
+  `catalogo/trampas.ts`; lógica en `actualizarTrampas` y `volcarBrasero` de `juego/mundo.ts`; `__sinTrampas` apaga las dos).
+  Losas de púas (`trampa_puas`) en los pasillos de la obra, 2 a 4 por mazmorra, lejos de entradas y del ruedo: saltan con
+  quien las pise (héroe 5 % de su vida, monstruo común 30 %, élite 12 %, jefe 4 %; 2,4 s de respiro). Brasero flojo
+  (`trampa_brasero`, tag `volcar`) delante de uno de cada dos campamentos de obra (no en el agua ni en el cielo): de un clic
+  se vuelca hacia el lado contrario al héroe y deja una lengua de fuego de 4 celdas que quema 6 s (al monstruo 6 % por medio
+  segundo, al héroe 3 %). Barriles de aceite (`com_barril_explosivo`, el `romper` de siempre) delante de los campamentos de
+  afuera y de las minas. Grietas que respiran (`trampa_grieta`) en el acto 5: quieta de 4 a 6 s, aviso 1 s, erupción que
+  quema al que esté encima (héroe 6 %, monstruo 35 %). Lazos (`trampa_lazo`) en la selva: agarran al primero que pisa el aro (héroe 1,1 s, monstruo
+  3,5 s) y quedan saltados. Nada se guarda (el estado vive en `dato`). Prueba en el juego: `_m_trampas.cjs <etiqueta> <zonas>`
+  (no se sube): pisa las púas, el lazo, mira la grieta y vuelca el brasero con un monstruo delante.
+- **Hitos rehechos tras la revisión**: el gigante del glaciar ahora es un cuerpo atrapado (pecho, hombros, el brazo derecho
+  afuera con el hacha, el izquierdo comido por el hielo, cara de carne helada con cuencas hondas y barba de carámbanos,
+  melena en mechones) en un glaciar de cristales (`cristal`: prismas de seis caras con punta, cantos duros) con la losa
+  rajada; el yunque y el coro de campanas más grandes; el campanario con el campanario más alto y la campana a la vista entre
+  los arcos; el tambor de Yhuantl con el arco de la llamada (dos postes pintados con cráneos y plumas, el travesaño con
+  cráneos y tamborcitos), la pintura verde que brilla en el tambor, fuego más alto y su luz más grande.
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

@@ -421,7 +421,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       else if (meta.luz && !tieneFuegoDoom(o) && ES_FUEGO.test(o.id) && !/^(arma_|mis_)/.test(o.id) && !/apagad/.test(o.v)) fuegoMundo(ctx, px, py - meta.luz[2] * 1.1, Math.max(0.3, Math.min(1.3, meta.luz[0] / 160)), tiempo, cam.x, cam.y, o.cx + o.cy);
     } });
     if (o.dato?.mision && (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'destino')) items.push({ prof: prof - 0.01, draw: () => haloMision(px, py, tiempo, o.tag === 'destino') });
-    if (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'libro' || o.tag === 'cofre' || o.tag === 'santuario' || o.tag === 'pozo' || o.tag === 'baul' || o.tag === 'romper' || o.id === 'com_piedra_viaje') picks.push({ tipo: 'objeto', ref: o, x0: px - q.ax, y0: py - q.ay, x1: px - q.ax + q.w, y1: py - q.ay + q.h, prof });
+    if (o.tag === 'pista' || o.tag === 'reliquia' || o.tag === 'altar' || o.tag === 'libro' || o.tag === 'cofre' || o.tag === 'santuario' || o.tag === 'pozo' || o.tag === 'baul' || o.tag === 'romper' || o.tag === 'volcar' || o.id === 'com_piedra_viaje') picks.push({ tipo: 'objeto', ref: o, x0: px - q.ax, y0: py - q.ay, x1: px - q.ax + q.w, y1: py - q.ay + q.h, prof });
     // los restos de una matanza se leen, pero solo desde el bulto del medio: la pieza entera es grande y se robaba los clics para caminar
     else if (o.tag === 'restos') { const w = Math.max(24, q.w * 0.5), hh = Math.max(20, q.h * 0.55), x0 = px - q.ax + (q.w - w) / 2, y0 = py - q.ay + q.h - hh - q.h * 0.1; picks.push({ tipo: 'objeto', ref: o, x0, y0, x1: x0 + w, y1: y0 + hh, prof }); }
   }

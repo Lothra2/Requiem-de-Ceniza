@@ -49,12 +49,13 @@ type Op =
   | { k: 'dibujo'; x: number; y: number; id: string; esc: number }
   | { k: 'hueco'; x: number; y: number; w: number; h: number; tipo: 'mancha' | 'arrancada' | 'sangre'; key?: string }
   | { k: 'raya'; x: number; y: number; w: number; tipo: 'simple' | 'doble' | 'flor' }
-  | { k: 'gotas'; x: number; y: number; n: number }
+  | { k: 'gotas'; x: number; y: number; n: number; chato?: boolean }
   | { k: 'huella'; x: number; y: number }
   | { k: 'sello'; x: number; y: number; key?: string; r?: number }
   | { k: 'latido'; x: number; y: number; grande?: boolean }
   | { k: 'nuevo'; x: number; y: number; hilo: string }
-  | { k: 'hilo'; x: number; y: number; w: number };
+  | { k: 'hilo'; x: number; y: number; w: number }
+  | { k: 'corrida'; x: number; y: number; w: number };
 interface Clic { x: number; y: number; w: number; h: number; ir?: string; pieza?: string; codice?: boolean }
 interface Hoja { ops: Op[]; clics: Clic[]; hilo?: string; quema?: string; latido?: boolean; claves: string[] }
 interface Escrito { key: string; texto: number; tipo: 'pieza' | 'margen' | 'cierre'; v?: VistaPieza; hilo?: string; hueco?: boolean }
@@ -71,7 +72,7 @@ const est = {
   tapaL: null as HTMLCanvasElement | null, guardasL: null as HTMLCanvasElement | null, tapaK: '',
   quema: null as null | { pid: string; t0: number }, humo: [] as { x: number; y: number; vx: number; vy: number; t: number }[],
   ultimaVista: 0, sinMarcar: false, pluma: null as null | { x: number; y: number; lado: number },
-  latidoT: 0, d: null as DatosHeroe | null, reloj: 0,
+  latidoT: 0, d: null as DatosHeroe | null, reloj: 0, volviendo: false,
 };
 /** Para las pruebas: el estado del libro. */
 (window as any).__libro = est;
@@ -102,18 +103,21 @@ function armar(d: DatosHeroe, g: Geo) {
     hoja.ops.push({ k: 'raya', x: X(), y, w: tw, tipo: 'doble' }); y += 8;
     if (!vs.length) { for (const l of cortarMano(L2(PORTADA.vacio), tw)) { hoja.ops.push({ k: 'texto', x: X(), y, s: l, tinta: 'tinta', i0: 0 }); y += LH; } }
     vs.forEach((vh, i) => {
-      if (!cabe(F)) nueva();
+      if (!cabe(F + 16)) nueva();
       const xx = X(), num = ROMANO[i + 1] ?? String(i + 1);
-      const cuenta = `${vh.tiene} ${L2(PORTADA.de)} ${vh.total}`;
-      const nw = tw - 24 - anchoMano(cuenta) - 26;
+      // (un hilo sin nombre todavía no da cuenta: va su raya en tinta corrida y un signo de pregunta)
+      const sinNombre = vh.tiene === 0 && !vh.cierre, cuenta = sinNombre ? '?' : `${vh.tiene} ${L2(PORTADA.de)} ${vh.total}`;
+      const nw = tw - 24 - anchoMano(cuenta) - 16;
       let nom = L2(vh.corto); while (anchoMano(nom) > nw && nom.length > 4) nom = nom.slice(0, -2).trimEnd() + '…';
       const yy = y + Math.floor((F - 9) / 2);
       hoja.ops.push({ k: 'texto', x: xx, y: yy, s: num, tinta: 'rubrica', i0: 0, inclina: 0 });
-      hoja.ops.push({ k: 'texto', x: xx + 24, y: yy, s: nom, tinta: 'tinta', i0: 0 });
-      hoja.ops.push({ k: 'hilo', x: xx + 24 + anchoMano(nom) + 10, y: yy + 6, w: tw - 24 - anchoMano(nom) - anchoMano(cuenta) - (vh.cierre || vh.late ? 24 : 14) });
+      hoja.ops.push({ k: 'texto', x: xx + 24, y: yy, s: nom, tinta: sinNombre ? 'lapiz' : 'tinta', i0: 0, tenue: sinNombre ? 0.25 : 0 });
+      if (sinNombre) hoja.ops.push({ k: 'corrida', x: xx + 24, y: yy + 3, w: anchoMano(nom) });
+      else hoja.ops.push({ k: 'hilo', x: xx + 24 + anchoMano(nom) + 10, y: yy + 6, w: tw - 24 - anchoMano(nom) - anchoMano(cuenta) - 14 });
       hoja.ops.push({ k: 'texto', x: xx + tw - anchoMano(cuenta), y: yy, s: cuenta, tinta: vh.cierre ? 'rubrica' : 'lapiz', i0: 0, inclina: 0 });
-      if (vh.cierre) hoja.ops.push({ k: 'sello', x: xx + tw - anchoMano(cuenta) - 7, y: yy + 3, r: 4 });
-      else if (vh.late) hoja.ops.push({ k: 'latido', x: xx + tw - anchoMano(cuenta) - 7, y: yy + 4 });
+      // el sello del hilo cerrado (o el corazón del que late) va en el margen, nunca encima de la cuenta
+      if (vh.cierre) hoja.ops.push({ k: 'sello', x: xx + tw + 4, y: yy + 3, r: 3 });
+      else if (vh.late) hoja.ops.push({ k: 'latido', x: xx + tw + 4, y: yy + 4 });
       hoja.ops.push({ k: 'nuevo', x: xx + 24 + anchoMano(nom) + 5, y: yy + 4, hilo: vh.h.id });
       hoja.clics.push({ x: xx - 2, y, w: tw + 10, h: F, ir: vh.h.id });
       y += F;
@@ -121,9 +125,14 @@ function armar(d: DatosHeroe, g: Geo) {
     y += 6;
     if (cabe(30)) {
       if (E.tactil) for (const l of cortarMano(L2(PORTADA.ayudaTactil), tw)) { if (!cabe(LH)) break; hoja.ops.push({ k: 'texto', x: X(), y, s: l, tinta: 'lapiz', i0: 0, tenue: 0.2 }); y += 10; }
-      for (const l of cortarMano(L2(E.tactil ? PORTADA.codiceTactil : PORTADA.codice), tw)) { if (!cabe(Math.max(LH, g.fila))) break; hoja.ops.push({ k: 'texto', x: X(), y, s: l, tinta: 'rubrica', i0: 0, tenue: 0.1 }); hoja.clics.push({ x: X() - 2, y: y - 2, w: tw, h: Math.max(LH, g.fila), codice: true }); y += Math.max(10, g.fila); }
+
     }
-    hoja.ops.push({ k: 'huella', x: g.PW - 26, y: g.PH - 34 });
+    // la nota al pie, en un renglón: lleva al Códice (jefes, decisiones y cine)
+    { const nota = L2(E.tactil ? PORTADA.codiceTactil : PORTADA.codice), yp = g.PH - MB - 4, xn = X() + Math.floor((tw - anchoMano(nota)) / 2);
+      hoja.ops.push({ k: 'raya', x: X() + 30, y: yp - 6, w: tw - 60, tipo: 'simple' });
+      hoja.ops.push({ k: 'texto', x: xn, y: yp, s: nota, tinta: 'rubrica', i0: 0, tenue: 0.1 });
+      const hh = Math.max(LH, g.fila); hoja.clics.push({ x: X(), y: yp - Math.floor((hh - 9) / 2), w: tw, h: hh, codice: true }); }
+    if (y < g.PH - MB - 50) hoja.ops.push({ k: 'huella', x: g.PW - 30, y: y + 14 });
     nueva();
   }
   // ------ cada hilo
@@ -185,8 +194,12 @@ function armar(d: DatosHeroe, g: Geo) {
         if (!hoja.claves.includes(v.p.id)) hoja.claves.push(v.p.id);
       }
       if (!hoja.claves.includes(v.p.id)) hoja.claves.push(v.p.id);
-      if (v.p.gore === 'gotas') hoja.ops.push({ k: 'gotas', x: X() + tw - 12 - (hashS(v.p.id) % 30), y: y - 6, n: 2 + (hashS(v.p.id) % 3) });
-      if (v.p.gore === 'huella') hoja.ops.push({ k: 'huella', x: X() + tw - 6, y: Math.max(MT + 8, y - 14) });
+      // la sangre va en papel vacío: se le deja un hueco debajo de la pieza (nunca encima de lo que hay que leer)
+      if (v.p.gore && cabe(20)) {
+        if (v.p.gore === 'gotas') hoja.ops.push({ k: 'gotas', x: X() + tw - 24 - (hashS(v.p.id) % 40), y: y + 8, n: 2 + (hashS(v.p.id) % 2), chato: true });
+        else hoja.ops.push({ k: 'huella', x: X() + tw - 14 - (hashS(v.p.id) % 30), y: y + 9 });
+        y += 18;
+      }
       if (nota.length) {
         if (!cabe(nota.length * 10 + 4)) nueva();
         y += 2; let j0 = 0;
@@ -201,7 +214,7 @@ function armar(d: DatosHeroe, g: Geo) {
         hoja.ops.push({ k: 'dibujo', x: X() + 1, y: y + 1, id: 'hilo_rojo', esc: 1 });
         const yy0 = y;
         for (const l of rl) { hoja.ops.push({ k: 'texto', x: X() + 11, y, s: l, tinta: 'rubrica', i0: 0, tenue: 0.15 }); y += 10; }
-        hoja.clics.push({ x: X(), y: yy0 - 2, w: tw, h: y - yy0 + 2, pieza: r.hacia });
+        { const hh = Math.max(y - yy0 + 2, g.fila); hoja.clics.push({ x: X(), y: yy0 - 2 - Math.floor((hh - (y - yy0 + 2)) / 2), w: tw, h: hh, pieza: r.hacia }); }
       }
       if (v.p.quema) nueva(); else separar();
       nPieza++;
@@ -219,8 +232,9 @@ function armar(d: DatosHeroe, g: Geo) {
       const cl = cortarMano(L2(vh.cierre), tw);
       if (!cabe(Math.min(cl.length, 4) * LH + 14)) nueva();
       if (!cabe(Math.min(cl.length, 4) * LH + 34)) nueva();
-      const ent = L2(PORTADA.entiendo);
-      hoja.ops.push({ k: 'gotico', x: X() + Math.max(0, Math.floor((tw - anchoGot(ent, 'menuda')) / 2)), y: y + 2, s: ent, rojo: true, menuda: true }); y += 12;
+      // (en la hoja angosta del teléfono el encabezado va en dos renglones)
+      const ent = L2(PORTADA.entiendo), pe = ent.split(' '), ents = anchoGot(ent, 'menuda') <= tw ? [ent] : [pe.slice(0, Math.ceil(pe.length / 2)).join(' '), pe.slice(Math.ceil(pe.length / 2)).join(' ')];
+      for (const e2 of ents) { hoja.ops.push({ k: 'gotico', x: X() + Math.max(0, Math.floor((tw - anchoGot(e2, 'menuda')) / 2)), y: y + 2, s: e2, rojo: true, menuda: true }); y += 12; }
       hoja.ops.push({ k: 'raya', x: X(), y: y + 2, w: tw, tipo: 'doble' }); y += 10;
       let i0 = 0;
       for (const l of cl) { if (!cabe(LH)) nueva(); hoja.ops.push({ k: 'texto', x: X(), y, s: l, tinta: 'tinta', i0, key: 'c:' + vh.h.id }); i0 += l.length + 1; y += LH; if (!hoja.claves.includes('c:' + vh.h.id)) hoja.claves.push('c:' + vh.h.id); }
@@ -231,7 +245,7 @@ function armar(d: DatosHeroe, g: Geo) {
     } else if (vh.late) {
       if (!cabe(30)) nueva();
       hoja.latido = true;
-      const l = L2(LATE); hoja.ops.push({ k: 'texto', x: X() + Math.floor((tw - anchoMano(l)) / 2), y: y + 2, s: l, tinta: 'rubrica', i0: 0 });
+      for (const l of cortarMano(L2(LATE), tw)) { hoja.ops.push({ k: 'texto', x: X() + Math.floor((tw - anchoMano(l)) / 2), y: y + 2, s: l, tinta: 'rubrica', i0: 0 }); y += LH; } y -= LH;
       hoja.ops.push({ k: 'latido', x: X() + Math.floor(tw / 2), y: y + 24, grande: true }); y += 40;
     }
     // un dibujo del margen donde sobra hoja
@@ -306,7 +320,7 @@ function pintarHoja(i: number, g: Geo): Lamina {
       case 'dibujo': dibujo(L, o.id, o.x, o.y, o.esc, sem); break;
       case 'hueco': hueco(L, o.tipo, o.x, o.y, o.w, o.h, hashS(`${i}:${o.y}`)); break;
       case 'raya': raya(L, o.x, o.y, o.w, o.tipo, sem + o.y); break;
-      case 'gotas': { const r = azar(sem + o.x); for (let k = 0; k < o.n; k++) gota(L, o.x + Math.floor((r() - 0.5) * 34), o.y + Math.floor((r() - 0.5) * 26), k === 0 ? 3 + Math.floor(r() * 2) : 2 + Math.floor(r() * 2), sem + k); break; }
+      case 'gotas': { const r = azar(sem + o.x); for (let k = 0; k < o.n; k++) gota(L, o.x + Math.floor((r() - 0.5) * 34), o.y + Math.floor((r() - 0.5) * (o.chato ? 4 : 26)), o.chato ? 2 + Math.floor(r() * 2) : k === 0 ? 3 + Math.floor(r() * 2) : 2 + Math.floor(r() * 2), sem + k, false, o.chato); break; }
       case 'huella': huella(L, o.x, o.y, sem, 0.2 + (sem % 10) / 10); break;
       case 'sello': { const e = o.key ? est.escr.get(o.key) : undefined; if (o.key && nuevaClave(o.key) && (!e || ahora < e.t0 + e.dur + e.hueco)) break; selloCera(L, o.x, o.y, o.r ?? 8, sem); break; }
       case 'latido': {
@@ -325,16 +339,16 @@ function pintarHoja(i: number, g: Geo): Lamina {
           for (let c = 0; c < 3; c++) { const cx = o.x + Math.round((r() - 0.5) * r0 * 1.2), largo = 4 + Math.floor(r() * 10) + Math.round(k * 3); for (let s2 = 0; s2 < largo; s2++) pon(L, cx, o.y + r0 - 2 + s2, s2 > largo - 2 ? R[2] : R[1]); pon(L, cx, o.y + r0 - 2 + largo, R[0]); }
         }
         if (h.latido && o.grande) {
-          // las venas: desde el canto de afuera hacia adentro, que se encienden con el latido
-          const r = azar(sem + 77), borde = lado === 'izq' ? 1 : g.PW - 2, dx = lado === 'izq' ? 1 : -1;
-          for (let vn = 0; vn < 5; vn++) {
-            let vx = borde, vy = 20 + r() * (g.PH - 40); const largo = 26 + r() * 40, grosor = vn < 2 ? 2 : 1;
+          // las venas: por el margen de afuera, de arriba abajo, que se encienden con el latido (nunca sobre el texto)
+          const r = azar(sem + 77), x0v = lado === 'izq' ? 2 : g.PW - 3, ancho = 7, dentro = lado === 'izq' ? 1 : -1;
+          for (let vn = 0; vn < 4; vn++) {
+            let vx = x0v + dentro * Math.floor(r() * 3), vy = 16 + r() * (g.PH - 70); const largo = 22 + r() * 34;
             for (let s2 = 0; s2 < largo; s2++) {
               const c = lee(L, vx | 0, vy | 0), f = 1 - s2 / largo;
               const col: C3 = k > 0.35 ? SANGRE_FRESCA[f > 0.5 ? 2 : 1] : [c[0] * 0.62 + 50 * f, c[1] * 0.42, c[2] * 0.4];
-              pon(L, vx, vy, col); if (grosor > 1 && s2 < largo * 0.6) pon(L, vx, vy + 1, col);
-              if (r() < 0.06) { let bx = vx, by = vy; const bd = r() < 0.5 ? -1 : 1; for (let b = 0; b < 6 + r() * 8; b++) { bx += dx; by += bd * (r() < 0.6 ? 1 : 0); pon(L, bx, by, col); } }
-              vx += dx; vy += (r() - 0.5) * 1.4;
+              pon(L, vx, vy, col); if (vn < 2 && s2 < largo * 0.6) pon(L, vx + dentro, vy, col);
+              if (r() < 0.08) { let bx = vx, by = vy; for (let b2 = 0; b2 < 2 + r() * 3; b2++) { bx += dentro; by += 1; if (Math.abs(bx - x0v) < ancho) pon(L, bx, by, col); } }
+              vy += 1; vx += r() < 0.15 ? (r() < 0.5 ? -1 : 1) : 0; if (Math.abs(vx - x0v) >= ancho) vx = x0v + dentro * (ancho - 1); if (dentro * (vx - x0v) < 0) vx = x0v;
             }
           }
         }
@@ -347,6 +361,12 @@ function pintarHoja(i: number, g: Geo): Lamina {
         pon(L, o.x - 1, o.y - 1, [120, 96, 70]); pon(L, o.x, o.y + 3, TINTA[2]); break;
       }
       case 'hilo': for (let xx = 0; xx < o.w; xx += 3) pon(L, o.x + xx, o.y, TINTA[4]); break;
+      case 'corrida': {
+        // tinta corrida: la raya mojada que se llevó el nombre, con sus hilos que bajan
+        const r = azar(sem + o.x + o.y);
+        for (let xx = -2; xx < o.w + 3; xx++) { const yy = o.y + Math.round(Math.sin(xx * 0.3) * 0.6); pon(L, o.x + xx, yy, TINTA[2]); if (r() < 0.5) pon(L, o.x + xx, yy + 1, TINTA[3]); if (r() < 0.07) for (let k = 2; k < 3 + r() * 4; k++) pon(L, o.x + xx, yy + k, TINTA[3]); }
+        break;
+      }
     }
   }
   // la carta que se quema: desde la esquina de abajo de afuera
@@ -402,13 +422,19 @@ function asegurarTapa(g: Geo) {
   const m = 4; for (let x = ex + m; x < ex + ew - m; x++) { pon(Lg, x, ey + m, RUBRICA[2]); pon(Lg, x, ey + eh - 1 - m, RUBRICA[2]); pon(Lg, x, ey + m + 2, TINTA[3]); pon(Lg, x, ey + eh - 3 - m, TINTA[3]); }
   for (let y = ey + m; y < ey + eh - m; y++) { pon(Lg, ex + m, y, RUBRICA[2]); pon(Lg, ex + ew - 1 - m, y, RUBRICA[2]); pon(Lg, ex + m + 2, y, TINTA[3]); pon(Lg, ex + ew - 3 - m, y, TINTA[3]); }
   let y = ey + 14; const tw = ew - 20;
-  const tit = L2(PORTADA.titulo); gotico(Lg, tit, ex + Math.floor((ew - anchoGot(tit)) / 2), y, RUBRICA); y += 16;
+  // el título con aire dentro del marco: si no entra holgado en un renglón, va en dos ("Libro de" / "Odrán")
+  { const tit = L2(PORTADA.titulo), libre = ew - 2 * (m + 8);
+    const ls = anchoGot(tit) <= libre ? [tit] : (() => { const p = tit.split(' '); const a2 = p.slice(0, -1).join(' '), b2 = p[p.length - 1]; return [a2, b2]; })();
+    for (const l of ls) { const talla = anchoGot(l) <= libre ? 'grande' : 'menuda'; gotico(Lg, l, ex + Math.floor((ew - anchoGot(l, talla)) / 2), y, RUBRICA, talla); y += talla === 'grande' ? 15 : 11; } y += 1; }
   for (const l of cortarMano(L2(PORTADA.sub), tw)) { escribir(Lg, l, ex + Math.floor((ew - anchoMano(l)) / 2), y, { semilla: 3 }); y += LH; }
   y += 2; dibujo(Lg, 'sello', ex + Math.floor(ew / 2) - 8, y, 1, 7); y += 20;
   raya(Lg, ex + 10, y, ew - 20, 'flor', 9); y += 8;
-  for (const l of cortarMano(L2(PORTADA.epigrafe), tw)) { if (y > ey + eh - 34) break; escribir(Lg, l, ex + 10, y, { semilla: 11 }); y += LH; }
+  // lo que escribió Odrán: frases enteras, las que entran (nunca cortado a la mitad)
+  { const frases = L2(PORTADA.epigrafe).match(/[^.]+\./g) ?? [L2(PORTADA.epigrafe)]; let n = frases.length, ls: string[] = [];
+    for (; n > 0; n--) { ls = cortarMano(frases.slice(0, n).join(' ').trim(), tw); if (y + ls.length * LH <= ey + eh - 26) break; }
+    for (const l of ls) { escribir(Lg, l, ex + 10, y, { semilla: 11 }); y += LH; } }
   const fi = L2(PORTADA.firma); escribir(Lg, fi, ex + ew - 10 - anchoMano(fi), ey + eh - 20, { tinta: 'rubrica', semilla: 5 });
-  huella(Lg, ex + 16, ey + eh - 16, 77, 1.1); gota(Lg, ex + ew - 18, ey + 20, 2, 31);
+  huella(Lg, ex + 16, ey + eh - 16, 77, 1.1); gota(Lg, ex + ew + Math.max(3, Math.floor((g.PW - ew) / 4)), ey + Math.floor(eh * 0.35), 2, 31, false, true);
   est.guardasL = canvasDe(Lg);
 }
 function guardasCanvas(g: Geo) { asegurarTapa(g); return est.guardasL!; }
@@ -421,7 +447,7 @@ function guardasCanvas(g: Geo) { asegurarTapa(g); return est.guardasL!; }
  */
 function hojaQueGira(G: CanvasRenderingContext2D, der: HTMLCanvasElement, izq: HTMLCanvasElement, q: number, adelante: boolean, gx: number, gy: number, fw: number, fh: number, sombra = true) {
   // la hoja se toma del canto de afuera: lo de afuera gira primero y lo del lomo lo sigue (se curva), y al final se alcanzan
-  const qa = Math.max(0, Math.min(1, q)), qin = Math.pow(qa, 1.45), qout = Math.min(1, Math.pow(qa, 0.62) * 1.04);
+  const qa = Math.max(0, Math.min(1, q)), qin = Math.pow(qa, 1.9), qout = Math.min(1, Math.pow(qa, 0.45) * 1.02);
   const cols: { x: number; w: number; u: number; cara: 'd' | 'i'; luz: number; lev: number }[] = [];
   let x = gx, minx = gx, maxx = gx;
   for (let u = 0; u < fw; u++) {
@@ -430,25 +456,43 @@ function hojaQueGira(G: CanvasRenderingContext2D, der: HTMLCanvasElement, izq: H
     cols.push({ x: Math.min(x, nx), w: Math.abs(nx - x), u, cara: c >= 0 ? 'd' : 'i', luz: Math.abs(c), lev: Math.sin(ph) * f });
     x = nx; minx = Math.min(minx, x); maxx = Math.max(maxx, x);
   }
-  const th = Math.PI * (adelante ? (qin + qout) / 2 : 1 - (qin + qout) / 2);
-  // la sombra que cae sobre la hoja de abajo (a pasos, con trama)
+  const th = Math.PI * (adelante ? (qin + qout) / 2 : 1 - (qin + qout) / 2), st = Math.sin(th);
+  // la sombra que la hoja echa sobre la de abajo: ancha mientras está levantada, a bandas (pixel, no degradé liso),
+  // más negra pegada al canto libre, y un hueco de sombra junto al lomo donde la hoja se despega
   if (sombra) {
-    const lejos = th < Math.PI / 2 ? maxx : minx, dir = th < Math.PI / 2 ? 1 : -1, ancho = Math.round(26 * Math.sin(th));
+    const lejos = th < Math.PI / 2 ? maxx : minx, dir = th < Math.PI / 2 ? 1 : -1, ancho = Math.round(8 + 40 * st);
     for (let s = 0; s < ancho; s++) {
-      const a = 0.42 * (1 - s / ancho); const X = Math.round(lejos + dir * s);
+      const X = Math.round(lejos + dir * s);
       if ((dir > 0 && X >= gx + fw) || (dir < 0 && X < gx - fw)) continue;
-      G.fillStyle = `rgba(14,6,2,${(Math.round(a * 6) / 6).toFixed(3)})`; G.fillRect(X, gy, 1, fh);
+      const a = (0.5 * st + 0.08) * Math.pow(1 - s / ancho, 1.4);
+      G.fillStyle = `rgba(12,5,2,${(Math.round(a * 7) / 7).toFixed(3)})`; G.fillRect(X, gy + 1, 1, fh - 1);
     }
+    for (let s = 0; s < 7; s++) { const a = 0.32 * st * (1 - s / 7); G.fillStyle = `rgba(12,5,2,${(Math.round(a * 6) / 6).toFixed(3)})`; G.fillRect(gx + s, gy, 1, fh); G.fillRect(gx - 1 - s, gy, 1, fh); }
   }
-  // de lo de abajo (lo de atrás) a lo de arriba: las columnas de cara a la vista van al final
+  // la luz viene de arriba a la izquierda: cada columna se aclara u oscurece según hacia dónde mira (Lambert),
+  // el lomo de la hoja queda en sombra, la cresta de la curva prende un filo de luz y el canto libre tiene su grosor
+  const LX = -0.45, LZ = 0.89, plano = LZ;
   const orden = cols.slice().sort((a, b) => a.lev - b.lev);
+  let cresta = -1, mejor = 2;
+  for (const c of cols) if (c.lev > 0.25 && c.luz < mejor) { mejor = c.luz; cresta = c.u; }
   for (const c of orden) {
     const src = c.cara === 'd' ? der : izq, sx = c.cara === 'd' ? c.u : fw - 1 - c.u;
-    const hh = Math.round(fh * (1 + 0.05 * c.lev)), yy = gy - Math.round((hh - fh) / 2) - Math.round(c.lev * 3);
-    const X0 = Math.floor(c.x), X1 = Math.max(X0 + 1, Math.ceil(c.x + c.w));
-    G.drawImage(src, Math.min(src.width - 1, Math.max(0, sx)), 0, 1, src.height, X0, yy, X1 - X0, hh);
-    const osc = (1 - c.luz) * 0.55 + (c.cara === 'i' ? 0.04 : 0);
-    if (osc > 0.04) { G.fillStyle = `rgba(20,10,4,${(Math.round(osc * 8) / 8).toFixed(3)})`; G.fillRect(X0, yy, X1 - X0, hh); }
+    const hh = Math.round(fh * (1 + 0.08 * c.lev)), yy = gy - Math.round((hh - fh) / 2) - Math.round(c.lev * 5);
+    const X0 = Math.floor(c.x), X1 = Math.max(X0 + 1, Math.ceil(c.x + c.w)), w = X1 - X0;
+    G.drawImage(src, Math.min(src.width - 1, Math.max(0, sx)), 0, 1, src.height, X0, yy, w, hh);
+    // la normal de la cara que se ve, en el plano x-z
+    const f = (c.u + 0.5) / fw, a2 = Math.PI * (qin + (qout - qin) * Math.pow(f, 1.5)), ph = adelante ? a2 : Math.PI - a2;
+    const nx = c.cara === 'd' ? -Math.sin(ph) : Math.sin(ph), nz = c.cara === 'd' ? Math.cos(ph) : -Math.cos(ph);
+    let dif = Math.max(0, nx * LX + nz * LZ) / plano;
+    dif -= Math.max(0, 1 - c.u / 7) * 0.25;                       // el lomo de la hoja
+    if (c.cara === 'i') dif -= 0.04;                              // el revés, apenas más apagado
+    if (dif < 0.97) { const a = Math.min(0.72, (1 - dif) * 0.8); G.fillStyle = `rgba(22,10,4,${(Math.round(a * 10) / 10).toFixed(2)})`; G.fillRect(X0, yy, w, hh); }
+    else if (dif > 1.03) { G.globalCompositeOperation = 'lighter'; G.fillStyle = `rgba(255,214,150,${(Math.min(0.18, (dif - 1) * 0.6)).toFixed(2)})`; G.fillRect(X0, yy, w, hh); G.globalCompositeOperation = 'source-over'; }
+    // el filo de luz de la cresta y, a su lado, la sombra del pliegue
+    if (c.u === cresta) { G.fillStyle = 'rgba(255,236,196,0.55)'; G.fillRect(X0, yy + 2, 1, hh - 4); G.fillStyle = 'rgba(30,14,6,0.35)'; G.fillRect(X0 + (c.cara === 'd' ? 1 : -1), yy + 2, 1, hh - 4); }
+    // el canto libre: el grosor del papel (claro) y su borde oscuro, y el canto de arriba y abajo
+    if (c.u >= fw - 1) { G.fillStyle = 'rgba(40,24,12,0.9)'; G.fillRect(X0, yy, 1, hh); G.fillStyle = 'rgba(250,236,206,0.7)'; G.fillRect(X0 + (c.cara === 'd' ? -1 : 1), yy + 1, 1, hh - 2); }
+    G.fillStyle = 'rgba(60,36,18,0.55)'; G.fillRect(X0, yy, w, 1); G.fillRect(X0, yy + hh - 1, w, 1);
   }
 }
 
@@ -663,7 +707,10 @@ export function cerrarLibro() {
   if (est.fase === 'cerrado' || est.fase === 'cerrando') return;
   terminarEscritos(true);
   est.fase = 'cerrando'; est.t = 0; est.ultimaVista = est.vista;
-  Sonido.efecto('libro_cerrar', { vol: 0.9 });
+  // desde cualquier hoja: las hojas vuelven de corrido hasta la primera y ahí la tapa gira y cae
+  const g = est.geo, meta = g?.solo ? -1 : 0;
+  est.volviendo = est.vista > meta;
+  if (!est.volviendo) Sonido.efecto('libro_cerrar', { vol: 0.9 });
 }
 export function alternarLibro(d: DatosHeroe) { if (est.fase === 'cerrado') abrirLibro(d); else cerrarLibro(); }
 
@@ -682,7 +729,15 @@ export function dibujarLibro(d: DatosHeroe): boolean {
   est.tVista += dt; if (est.tVista > 0.5 || !est.hojas.length) { armar(d, g); est.tVista = 0; }
   est.vista = Math.max(g.solo ? -1 : 0, Math.min(maxVista(g), est.vista));
   if (est.fase === 'abriendo' && est.t > 1.15) { est.fase = 'abierto'; est.t = 0; }
-  if (est.fase === 'cerrando' && est.t > (est.vista === 0 && !g.solo ? 0.62 : 0.28)) { est.fase = 'cerrado'; est.t = 0; E.clicIzq = false; return true; }
+  if (est.fase === 'cerrando' && est.volviendo) {
+    est.t = 0;
+    const meta = g.solo ? -1 : 0;
+    if (!est.vuelta) {
+      if (est.vista <= meta) { est.volviendo = false; Sonido.efecto('libro_cerrar', { vol: 0.9 }); }
+      else { if (est.vista - meta > 4) est.vista = meta + 4; pasar(-1, true, 7.5); }
+    }
+  }
+  if (est.fase === 'cerrando' && !est.volviendo && est.t > (est.vista === 0 && !g.solo ? 0.62 : 0.28)) { est.fase = 'cerrado'; est.t = 0; E.clicIzq = false; return true; }
   // la hoja que gira sola
   if (est.vuelta && est.vuelta.auto) {
     est.vuelta.p += dt * est.vuelta.vel;
@@ -712,7 +767,8 @@ export function dibujarLibro(d: DatosHeroe): boolean {
   const c = componer(g);
   const Wc = lienzo.width, Hc = lienzo.height;
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
-  const ab = est.fase === 'abriendo' ? Math.min(1, est.t / 0.3) : est.fase === 'cerrando' ? Math.max(0, 1 - est.t / 0.5) : 1;
+  // (al cerrar desde la primera hoja la tapa gira entera y recién después se apaga)
+  const ab = est.fase === 'abriendo' ? Math.min(1, est.t / 0.3) : est.fase === 'cerrando' ? (est.vista === 0 && !g.solo ? Math.max(0, 1 - Math.max(0, est.t - 0.5) / 0.12) : Math.max(0, 1 - est.t / 0.28)) : 1;
   ctx.fillStyle = `rgba(6,3,2,${(0.8 * ab).toFixed(3)})`; ctx.fillRect(0, 0, Wc, Hc);
   const ox = Math.round((Wc - g.BW * g.D) / 2), oy = Math.round((Hc - g.BH * g.D) / 2) - (est.fase === 'abriendo' ? Math.round((1 - Math.min(1, est.t / 0.3)) * 10) * g.D : est.fase === 'cerrando' && (est.vista !== 0 || g.solo) ? -Math.round(est.t * 30) * g.D : 0);
   ctx.imageSmoothingEnabled = false; ctx.globalAlpha = Math.min(1, ab * 1.3);
@@ -865,3 +921,5 @@ W_.__libroPasar = (d: 1 | -1) => pasar(d);
 W_.__libroHojas = () => est.hojas.map((h) => ({ hilo: h.hilo, texto: h.ops.filter((o) => o.k === 'texto' || o.k === 'gotico').map((o) => (o as any).s).join(' '), claves: h.claves, quema: h.quema, latido: !!h.latido }));
 W_.__libroHilos = () => est.vistas.map((v) => ({ id: v.h.id, tiene: v.tiene, total: v.total, cierre: !!v.cierre, late: v.late, futuro: v.futuro, nuevas: v.nuevas, huecos: v.piezas.filter((p) => p.estado === 'hueco').map((p) => p.p.id), tienen: v.piezas.filter((p) => p.estado === 'tiene').map((p) => p.p.id), primera: est.porHilo.get(v.h.id) }));
 W_.__libroGeo = () => est.geo;
+/** Lo que se sale de la hoja (texto o título que pasa el margen): debe dar 0. */
+W_.__libroFuera = () => { const g = est.geo!; const out: string[] = []; est.hojas.forEach((h, i) => { for (const o of h.ops) { if (o.k === 'texto' && (o.x < 2 || o.x + anchoMano(o.s) > g.PW - 3)) out.push(`${i}: ${o.s}`); if (o.k === 'gotico' && (o.x < 2 || o.x + anchoGot(o.s, o.menuda ? 'menuda' : 'grande') > g.PW - 3)) out.push(`${i}: ${o.s}`); } }); return out; };

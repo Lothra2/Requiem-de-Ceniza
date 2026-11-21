@@ -1745,8 +1745,11 @@ la historia ordenada por **hilos**, no por dónde se leyó.
   dibujos, sangre, huecos, cuero, guardas). Sonidos `libro_abrir`, `libro_cerrar`, `libro_pagina`, `libro_pluma`, `libro_latido`,
   `libro_arde` en `audio/sonido.ts` (síntesis).
 - **Hilos**: el pozo, la Marca, Vesperio, Tomás, los cinco sellos, Ama y su hija, la sangre tibia, las siete voces (Auren),
-  Ysmeral, los siete que subieron, Aun-Saar y la pregunta (el fantasma de Vesperio). Las piezas `extra` (líneas de saludo que
-  dependen de cuándo se habló) se escriben si se oyen pero no cuentan ni dejan hueco. Una pieza con varias fuentes vale con
+  Ysmeral, los siete que subieron, Aun-Saar y la pregunta (el fantasma de Vesperio). Lo que dice alguien (relatos y saludos)
+  se anota al oírlo y además se da por sabido cuando ya pasó el acto en que se decía y se cumplió lo que pedía la línea
+  (`derivaNpc`: misión hecha, elección, heraldo, final): Odrán lo oyó en el campamento. Quedan como `extra` (se escriben si se
+  oyen, no cuentan ni dejan hueco) solo tres que dependen del camino o caen en el acto 7, que no se termina nunca: lo que dice
+  Oyá si le diste la bitácora y dos relatos de Auren arriba. Una pieza con varias fuentes vale con
   cualquiera (las variantes según lo elegido). Un hilo sin ninguna pieza sale como "un hilo que todavía no tiene nombre".
 - **Qué se tiene**: casi todo se deriva del guardado (misiones, `diarios`, `paginas`, `restos`, `fantasmas`, `heraldo`,
   `actosHechos`, `elecciones`, `finalElegido`, `jefesVistos`, `viajes`): una partida vieja abre el libro con lo que ya encontró.
@@ -1762,7 +1765,10 @@ la historia ordenada por **hilos**, no por dónde se leyó.
   cinco pedazos, cantoneras de hierro, broche y sangre; las guardas jaspeadas con el ex libris de Odrán; la cinta roja que lleva
   al índice. Al abrir: aparece cerrado, se corre y la tapa gira. Pasar hoja: la hoja se curva columna a columna (lo de afuera gira
   primero, `hojaQueGira`), con su sombra, por rueda, flechas, clic en una mitad, arrastrar o deslizar (se suelta a medias y
-  vuelve). El índice salta pasando hojas de corrido. Lo nuevo, la primera vez que se ve, primero es un borrón que se disuelve
+  vuelve). Al pasar, cada columna de la hoja se ilumina según hacia dónde mira (luz de arriba a la izquierda), el lomo de la hoja va en
+  sombra, la cresta de la curva prende un filo de luz, el canto libre muestra el grosor del papel y la hoja echa su sombra a
+  bandas sobre la de abajo y un hueco de sombra junto al lomo. El índice salta pasando hojas de corrido, y al cerrar desde
+  cualquier hoja las hojas vuelven de corrido hasta la primera y la tapa gira y cae (recién después se apaga). Lo nuevo, la primera vez que se ve, primero es un borrón que se disuelve
   (el hueco que se llena) y después se escribe solo con la pluma, tinta negra mojada que se seca a sepia (o al rojo de la
   rúbrica). Cada hilo abre con su capitular iluminada (campo de su color, filete de oro, la letra gótica al doble y un
   zarcillo), y lleva su portadilla. Huecos: mancha de tinta, hoja arrancada o sangre seca, con la pista a lápiz. Gotas, huellas
@@ -1783,13 +1789,15 @@ la historia ordenada por **hilos**, no por dónde se leyó.
 - Prueba: `CHROMIUM=... URL=http://127.0.0.1:5193/ node juego/herramientas/t1200_libro.cjs [pc|pc1080|movil|ipad] [acto1,acto3,acto7,vieja]`
   (capturas en `/tmp/requiem-pruebas/libro/<vista>`: apertura, índice, hueco que se llena, escribiéndose, hilo a medias, hoja a
   25, 50 y 78 % de la curva, cierre, nota de otra mano, carta que arde, hoja que late, aviso del HUD).
-- Pasaron (21 nov 2026): t1200 en pc, pc1080, movil e ipad, tsc, t500, t1001, t960, t950 pc y movil (17 toques, ninguno chico)
-  y t440. t961 falla de a ratos (un fantasma distinto cada corrida) y falla igual contra 187f377 sin el libro: ya estaba.
-- Flojo: los textos nuevos (cierres, notas, pistas, nombres) esperan la lectura de Rick. Las piezas que son líneas de saludo
-  (`extra`) solo se escriben si el jugador habló con esa persona justo en ese momento. En el teléfono la hoja es angosta (unas
-  22 letras por renglón) y el índice no llega a 44 pt por fila si hay muchos hilos (se pasa a la hoja siguiente). La hoja que
-  gira se ve comprimida de a columnas (es pixel: no hay perspectiva lisa). El cierre de la tapa solo se anima desde la primera
-  hoja; desde otra, el libro se levanta y se apaga. Nada se oyó con oídos humanos: los sonidos son síntesis sin medir.
+- El índice: cada hilo con su nombre corto, la cuenta a la derecha y el sello del hilo cerrado (o el corazón del que late) en el
+  margen, nunca encima de un número; el hilo sin nombre va con la tinta corrida y un «?»; la nota al pie lleva al Códice. La
+  sangre y las manchas no tapan texto que haga falta leer. `__libroFuera()` lista lo que se sale de la hoja (t1200 pide 0) y
+  t1200 mide en táctil la X, el botón del índice y las filas (44 pt o más).
+- Pasaron (21 nov 2026, segunda vuelta, con origin/main mezclado): t1200 en pc, pc1080, movil e ipad, tsc, t500, t1001, t960,
+  t961, t950 pc y movil (17 toques, ninguno chico) y t440.
+- Flojo: los textos nuevos (cierres, notas, pistas, nombres) esperan la lectura de Rick. En el teléfono la hoja es angosta (unas
+  22 letras por renglón): entra todo, pero se lee apretado, y el índice pasa a una segunda hoja con muchos hilos (cada fila
+  mide 44 pt). En una sola hoja (vertical) la tapa no gira al cerrar: el libro se apaga. Nada se oyó con oídos humanos.
 
 ## Publicar
 

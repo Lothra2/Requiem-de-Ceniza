@@ -267,9 +267,9 @@ export function capitular(L: Lamina, letra: string, x: number, y: number, campo:
 
 // ------------------------------------------------------------------ la sangre
 /** Una gota de sangre seca (o fresca) caída sobre la hoja, con sus salpicaduras y a veces su cola. */
-export function gota(L: Lamina, x: number, y: number, r0: number, sem: number, fresca = false) {
+export function gota(L: Lamina, x: number, y: number, r0: number, sem: number, fresca = false, quieta = false) {
   const R = fresca ? SANGRE_FRESCA : SANGRE, r = azar(sem);
-  const cola = r() < 0.5, ang = r() * Math.PI * 2;
+  const cola = !quieta && r() < 0.5, ang = r() * Math.PI * 2;
   for (let yy = -r0 - 2; yy <= r0 + 2; yy++) for (let xx = -r0 - 2; xx <= r0 + 2; xx++) {
     const d = Math.hypot(xx, yy) + (ruido(x + xx, y + yy, 1.6, sem) - 0.5) * 1.6;
     if (d > r0) continue;
@@ -278,7 +278,7 @@ export function gota(L: Lamina, x: number, y: number, r0: number, sem: number, f
   }
   if (cola) { let cx = x, cy = y; for (let k = 0; k < r0 * 3; k++) { cx += Math.cos(ang) * 0.9; cy += Math.sin(ang) * 0.9; pon(L, cx, cy, R[k < r0 ? 1 : 0]); if (k < r0) pon(L, cx + 1, cy, R[2]); } }
   const n = 3 + Math.floor(r() * 6);
-  for (let i = 0; i < n; i++) { const a = r() * Math.PI * 2, d = r0 + 2 + r() * r0 * 2.2; pon(L, x + Math.cos(a) * d, y + Math.sin(a) * d, R[r() < 0.5 ? 1 : 2]); if (r() < 0.3) pon(L, x + Math.cos(a) * d + 1, y + Math.sin(a) * d, R[1]); }
+  for (let i = 0; i < n; i++) { const a = r() * Math.PI * 2, d = r0 + 2 + r() * r0 * (quieta ? 0.8 : 2.2); pon(L, x + Math.cos(a) * d, y + Math.sin(a) * d, R[r() < 0.5 ? 1 : 2]); if (r() < 0.3) pon(L, x + Math.cos(a) * d + 1, y + Math.sin(a) * d, R[1]); }
 }
 /** La huella de un dedo con sangre: crestas en óvalos, más cargada de un lado, que se corta donde el dedo no apretó. */
 export function huella(L: Lamina, x: number, y: number, sem: number, ang = 0.3) {
@@ -391,15 +391,18 @@ export function tapa(w: number, h: number, sem: number, titulo: string): Lamina 
   marco(7); marco(12);
   // flores gofradas en las esquinas del marco de adentro
   for (const [cx, cy] of [[12, 12], [w - 13, 12], [12, h - 13], [w - 13, h - 13]]) for (let k = -4; k <= 4; k++) { pon(L, cx + k, cy + k, CUERO[0]); pon(L, cx + k, cy - k, CUERO[0]); pon(L, cx + k + 1, cy + k, CUERO[6]); }
-  // el título dorado a fuego, gastado
-  const tw = anchoGot(titulo);
-  { const g = rasterGotico(titulo, 'grande'), x0 = Math.floor((w - tw) / 2), y0 = 26;
+  // el título dorado a fuego, gastado, con aire dentro del marco de adentro (en dos renglones si no entra)
+  const libre = w - 2 * 20, partes = titulo.split(' ');
+  const renglones = anchoGot(titulo) <= libre ? [titulo] : [partes.slice(0, -1).join(' '), partes[partes.length - 1]];
+  renglones.forEach((ln, k) => {
+    const talla: TallaGotica = anchoGot(ln) <= libre ? 'grande' : 'menuda', g = rasterGotico(ln, talla), lw = g.w - 4, x0 = Math.floor((w - lw) / 2), y0 = 24 + k * 15;
     for (let yy = 0; yy < g.h; yy++) for (let xx = 0; xx < g.w; xx++) {
       if (!g.tinta[yy * g.w + xx]) continue; const X = x0 + xx - 2, Y = y0 + yy - g.arriba;
       if (h2(X, Y, sem) < 0.16) { pon(L, X, Y, CUERO[1]); continue; } // donde el oro se fue, queda el hundido
       const arr = !g.tinta[(yy - 1) * g.w + xx]; pon(L, X, Y, arr ? ORO[5] : (yy - g.arriba) / g.alto < 0.5 ? ORO[4] : ORO[2]);
       pon(L, X + 1, Y + 1, CUERO[0]);
-    } }
+    }
+  });
   // el sello de los cinco pedazos: un círculo hundido con cinco puntos de oro y la brasa al centro
   { const cx = Math.floor(w / 2), cy = Math.floor(h * 0.55), R0 = Math.floor(Math.min(w, h) * 0.2);
     for (let a = 0; a < 140; a++) { const t = (a / 140) * Math.PI * 2; for (const rr of [R0, R0 - 3]) { pon(L, cx + Math.round(Math.cos(t) * rr), cy + Math.round(Math.sin(t) * rr), CUERO[0]); pon(L, cx + Math.round(Math.cos(t) * rr) + 1, cy + Math.round(Math.sin(t) * rr) + 1, CUERO[6]); } }

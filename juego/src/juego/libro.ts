@@ -7,9 +7,9 @@ import { HILOS, type Hilo, type Pieza, type Fuente } from '../mundo/libro_hilos'
 import { HILO_TXT, CIERRES, ROJOS, MARGEN, PISTA_PIEZA, PISTA_TIPO, TIERRA, EPITETO, PORTADA } from '../mundo/libro_cierres';
 import { MISIONES, DIARIOS, PAGINAS, RESTOS_ACTO, FANTASMAS, HERALDO, ENTREACTO, REVELACION, TRAS_ELEGIR, VOZ_MARCA, ENTRADA_ZONA, FRASE_JEFE, FRASE_JEFE_ZONA, ZONAS, INTRO, PUEBLO_DE, daMision, type Mision } from '../mundo/actos';
 import { DESVIO } from '../mundo/zona';
-import { DIALOGOS, NPCS, GENTE } from '../datos/npcs';
+import { DIALOGOS, NPCS, GENTE, type Linea } from '../datos/npcs';
 import { MONSTRUOS } from '../datos/monstruos';
-import { hist, prog, eleccionDe, finalDe, tituloRestos, quienDa } from './historia';
+import { hist, prog, eleccionDe, finalDe, tituloRestos, quienDa, decisionDe } from './historia';
 import { OIDO } from './libro_oido';
 import type { DatosHeroe } from './heroe';
 
@@ -35,12 +35,12 @@ let misCache: Record<string, Mision> | null = null;
 const mision = (id: string) => (misCache ??= MIS())[id];
 const est = (d: DatosHeroe, id: string) => d.misiones[id] ?? 0;
 /** Lo que dice alguien: el texto exacto (el mismo arreglo que muestra el diálogo) y su acto. */
-function lineaNpc(f: Extract<Fuente, { t: 'npc' }>): { txt: T2; acto?: number } | null {
+function lineaNpc(f: Extract<Fuente, { t: 'npc' }>): { txt: T2; acto?: number; l?: Linea } | null {
   const n = NPCS[f.n]; if (!n) return null;
   if (f.ini === 'base') return f.k === 'relato' ? { txt: n.relato } : null;
   const ls = DIALOGOS[f.n]?.[f.k === 'relato' ? 'relatos' : 'lineas'] ?? [];
   const l = ls.find((q) => q.texto[0].startsWith(f.ini));
-  if (l) return { txt: l.texto, acto: l.acto };
+  if (l) return { txt: l.texto, acto: l.acto, l };
   return f.k === 'relato' && n.relato[0].startsWith(f.ini) ? { txt: n.relato } : null;
 }
 const actoNpc = (n: string) => { for (const [a, ls] of Object.entries(GENTE)) if (ls.includes(n)) return +a; return 1; };
@@ -90,8 +90,26 @@ function tieneFuente(d: DatosHeroe, f: Fuente, pid: string): boolean {
     case 'voz': case 'entrada': return estuvo(d, f.z) || oidos.includes(pid);
     case 'jefeZona': return MISIONES.some((m) => m.objetivo.zona === f.z && m.objetivo.tipo === 'matar' && est(d, m.id) >= 2) || oidos.includes(pid);
     case 'jefe': return (((d as any).jefesVistos ?? []) as string[]).includes(f.id) || oidos.includes(pid);
-    case 'npc': case 'desvio': return oidos.includes(pid);
+    case 'npc': return oidos.includes(pid) || derivaNpc(d, f);
+    case 'desvio': return oidos.includes(pid);
   }
+}
+/**
+ * Lo que alguien dijo se puede dar por sabido cuando ya pasó el acto en que lo decía y se cumplió lo que pedía la línea
+ * (la misión hecha, la elección tomada, el heraldo escapado...): Odrán lo oyó en el campamento aunque el héroe no
+ * estuviera. Mientras el acto sigue, hay que oírlo (puede que todavía se pueda preguntar).
+ */
+function derivaNpc(d: DatosHeroe, f: Extract<Fuente, { t: 'npc' }>): boolean {
+  const r = lineaNpc(f); if (!r) return false;
+  const acto = r.acto ?? actoNpc(f.n); if (actoAlcanzado(d) <= acto) return false;
+  const l = r.l; if (!l) return true;
+  if (l.hecha && !l.hecha.every((id) => est(d, id) === 3)) return false;
+  if (l.activa && est(d, l.activa) < 1) return false;
+  if (l.eleccion && (est(d, l.eleccion[0]) !== 3 || eleccionDe(d, l.eleccion[0]) !== l.eleccion[1])) return false;
+  if (l.heraldo !== undefined && !(hist(d).heraldo ?? []).includes(l.heraldo)) return false;
+  if (l.final && finalDe(d) !== l.final) return false;
+  if (l.decision && decisionDe(d, l.decision[0]) !== l.decision[1]) return false;
+  return true;
 }
 /** El texto que se anota por cada fuente: el título del renglón rojo y lo que dice. */
 function textoFuente(d: DatosHeroe, f: Fuente, pid: string): { ru: T2; tx: T2 } {

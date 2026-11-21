@@ -45,7 +45,8 @@ const H = {
 // lo que no puede asomar en cada altura (nombres y textos del futuro)
 const PROHIBIDO = {
   acto1: ['Ysmeral', 'Eskel', 'Aun-Saar', 'Hjaldur', 'Vigdis', 'Ozmaren', 'Auren', 'Khamer', 'Yhuantl', 'Ama', 'Vael', 'Abadesa de la Sal', 'Los siete que subieron', 'La sangre tibia', 'Sediento'],
-  acto3: ['Ysmeral', 'Eskel', 'Aun-Saar', 'Hjaldur', 'Vigdis', 'Vael', 'Abadesa de la Sal', 'Los siete que subieron', 'La sangre tibia', 'Sediento', 'Auren y las siete voces'],
+  acto3: ['Ysmeral', 'Eskel', 'Aun-Saar', 'Hjaldur', 'Vigdis', 'Vael', 'Abadesa de la Sal', 'La sangre tibia', 'Sediento', 'Auren y las siete voces'],
+  // (en el acto 3 «Los siete que subieron» sí puede salir: Odrán lo cuenta en el Refugio en el acto 1)
   vieja: ['Ysmeral', 'Eskel', 'Aun-Saar', 'Hjaldur', 'Vigdis', 'Vael', 'Abadesa de la Sal', 'Sediento', 'Yhuantl'],
 };
 
@@ -73,12 +74,19 @@ const PROHIBIDO = {
     const hilos = await p.evaluate(() => window.__libroHilos());
     console.log(`\n[${nombre}] hilos:`, hilos.map((h) => `${h.id} ${h.tiene}/${h.total}${h.cierre ? ' cierre' : ''}${h.late ? ' late' : ''}${h.futuro ? ' +futuro' : ''} nuevas ${h.nuevas}`).join(' | '));
     await foto('4_indice');
+    // nada se sale de la hoja y, en táctil, los botones y las filas del índice miden 44 pt o más
+    { const fuera = await p.evaluate(() => window.__libroFuera());
+      if (fuera.length) fallas.push(`${nombre}: se sale de la hoja: ${fuera.slice(0, 3).join(' | ')}`);
+      const bt = await p.evaluate(() => { const b = window.__libroBotones, g = window.__libroGeo(); return { cerrar: b.cerrar.s * b.css, indice: b.indice.s * b.css, fila: g.fila * g.D * g.css }; });
+      console.log(`[${nombre}] botones (pt): cerrar ${bt.cerrar.toFixed(1)} índice ${bt.indice.toFixed(1)} fila ${bt.fila.toFixed(1)}`);
+      if (/movil|ipad/.test(vista) && (bt.cerrar < 44 || bt.indice < 44 || bt.fila < 43.5)) fallas.push(`${nombre}: botón chico ${JSON.stringify(bt)}`);
+      if (!/movil|ipad/.test(vista) && bt.cerrar < 20) fallas.push(`${nombre}: la X chica`); }
     // ------ nada del futuro
     const hojas = await p.evaluate(() => window.__libroHojas());
     const todo = hojas.map((h) => h.texto).join(' ');
     for (const s of PROHIBIDO[nombre] ?? []) if (todo.includes(s)) { fallas.push(`${nombre}: asoma «${s}»`); }
     if (nombre === 'acto1' && hilos.some((h) => ['sed', 'ysmeral', 'pregunta', 'norte', 'auren', 'ama'].includes(h.id) || (h.id === 'siete' && h.tiene > 0))) fallas.push(`${nombre}: se ve un hilo de más adelante`);
-    if (nombre === 'acto3' && hilos.some((h) => ['ysmeral', 'pregunta', 'norte'].includes(h.id) || (h.id === 'siete' && h.tiene > 0))) fallas.push(`${nombre}: se ve un hilo de más adelante`);
+    if (nombre === 'acto3' && hilos.some((h) => ['ysmeral', 'pregunta', 'norte'].includes(h.id))) fallas.push(`${nombre}: se ve un hilo de más adelante`);
     // ------ una pieza escribiéndose y el hilo a medias
     const ir = async (hilo, desde = 0) => { const h = hilos.find((x) => x.id === hilo); if (!h) return false; await p.evaluate((n) => { const e = window.__libro, g = window.__libroGeo(); e.vuelta = null; e.vista = g.solo ? n : Math.ceil(n / 2); }, h.primera + desde); return true; };
     if (nombre === 'acto3') {
@@ -131,6 +139,15 @@ const PROHIBIDO = {
       if (tot < 12) fallas.push(`vieja: el libro sale casi vacío (${tot})`);
       const L2 = await p.evaluate(() => JSON.parse(localStorage.getItem('marca.heroes'))[0].libro);
       await ir('tomas'); await p.waitForTimeout(400); { const tf3 = await p.evaluate(() => { let t = 0; for (const e of window.__libro.escr.values()) t = Math.max(t, e.t0 + e.hueco + e.dur); return t; }); if (tf3) await reloj(tf3 + 3); } await p.waitForTimeout(300); await foto('5_tomas_desde_partida_vieja');
+    }
+    if (nombre === 'acto3') {
+      // cerrar desde una hoja del medio: las hojas vuelven de corrido y la tapa gira y cae
+      await p.evaluate(() => { delete window.__libroReloj; delete window.__libroT; const e = window.__libro; e.vuelta = null; e.vista = 9; e.fase = 'abierto'; window.__libroCerrar(); });
+      const vistos = [];
+      for (let k = 0; k < 60; k++) { const e = await p.evaluate(() => ({ f: window.__libro.fase, v: window.__libro.vista, vu: !!window.__libro.vuelta, t: window.__libro.t, vol: window.__libro.volviendo })); if (e.f === 'cerrado') break;
+        const n = e.vol ? (e.vu && !vistos.includes('a') ? 'a' : null) : e.t > 0.15 && e.t < 0.45 && !vistos.includes('b') ? 'b' : null; if (n) { vistos.push(n); await foto(n === 'a' ? '10_cierra_hojas_vuelven' : '10b_cierra_tapa_gira'); } await p.waitForTimeout(60); }
+      if (!vistos.includes('b')) fallas.push('acto3: la tapa no giró al cerrar desde una hoja del medio');
+      await p.evaluate(() => window.__libroAbrir()); await p.evaluate(() => { const e = window.__libro; e.fase = 'abierto'; e.t = 0; });
     }
     // ------ cerrar (y que el juego siga)
     await p.evaluate(() => { delete window.__libroReloj; delete window.__libroT; window.__libroCerrar(); }); for (let i = 0; i < 40 && (await p.evaluate(() => window.__libro.fase)) !== 'cerrado'; i++) await p.waitForTimeout(250);

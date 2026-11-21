@@ -11,7 +11,7 @@ import * as D from '../../../src/engine/gotico/fuego_doom';
 import { ctx, E } from '../nucleo/lienzo';
 import { acc } from '../nucleo/accesible';
 import { Sonido } from '../audio/sonido';
-import { BANDAS_METAL, banda, capa, pintarCalor, pegarPixel, moverChispas, dibujarChispas, type Capa, type Chispa } from './fuego_pixel';
+import { BANDAS_METAL, capa, pintarCalor, pegarPixel, moverChispas, dibujarChispas, type Capa, type Chispa } from './fuego_pixel';
 
 /** Cuándo pasa cada cosa, en segundos desde que aparece el título (el revelado horneado dura 20 cuadros a 12 por s). */
 export const GOLPE_T = 0.7, ENCIENDE_T = 1.45, ENCIENDE_DUR = 0.7;
@@ -25,6 +25,9 @@ interface Estado {
   atras: D.Fuego; baseA: Float32Array; idxA: Int32Array;
   frente: D.Fuego; baseF: Float32Array; idxF: Int32Array;
   calorMetal: Float32Array;
+  /** qué tan cerca del canto de abajo de su trazo está cada celda (1 en el canto, 0 a media letra): ahí vive el calor */
+  bajo: Float32Array;
+  tablas?: { sx1: Float32Array; cx1: Float32Array; sx2: Float32Array; cx2: Float32Array; sy1: Float32Array; cy1: Float32Array; sy2: Float32Array; cy2: Float32Array };
   llama: Capa; humo: Capa; adel: Capa; metal: Capa;
   brillo: HTMLCanvasElement; gb: CanvasRenderingContext2D;
 }
@@ -47,23 +50,37 @@ function armar(im: HTMLImageElement, celda: number, cw: number): Estado | null {
   for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
     const v = a(x, y), i = y * cw + x;
     forma[i] = Math.max(0, Math.min(1, (v - 0.55) / 0.35));
-    if (v >= 0.5 && a(x, y - 1) < 0.3 && a(x, y - 3) < 0.3 && azar(x, y, 1) < 0.74) { const j = (y + aire) * wA + x; fA[j] = (0.55 + 0.45 * azar(x, y, 2)) * (y > ch * 0.5 ? 0.72 : 1); idxA.push(j); }
+    if (v >= 0.5 && a(x, y - 1) < 0.3 && a(x, y - 3) < 0.3 && azar(x, y, 1) < 0.9) { const j = (y + aire) * wA + x; fA[j] = (0.8 + 0.2 * azar(x, y, 2)) * (y > ch * 0.5 ? 0.72 : 1); idxA.push(j); }
     if (v < 0.85) continue;
     // el canto de abajo (la fila de letra que tiene aire debajo, y la de arriba de esa para que no sea una raya)
-    if (a(x, y + 1) < 0.5 || (a(x, y + 2) < 0.5 && azar(x, y, 3) < 0.6)) { if (azar(x, y, 4) < 0.82) { fF[i] = 0.62 + 0.38 * azar(x, y, 5); idxF.push(i); } continue; }
+    // (lenguas finas: solo en columnas sueltas, una celda de ancho, para que el hierro de al lado quede limpio)
+    if (a(x, y + 1) < 0.5) { if (azar(x, 0, 4) < 0.28 && azar(x - 1, 0, 4) >= 0.28) { fF[i] = 0.7 + 0.3 * azar(x, y, 5); idxF.push(i); } continue; }
     // las grietas: el horneado las trae encendidas (rojo y oro sobre el hierro gris)
     const r = d[i * 4], gg = d[i * 4 + 1], b = d[i * 4 + 2];
-    if (r > 170 && r - b > 90 && gg > 70 && azar(x, y, 6) < 0.55) { fF[i] = 0.3 + 0.35 * azar(x, y, 7); idxF.push(i); }
+    if (r > 170 && r - b > 90 && gg > 70 && azar(x, y, 6) < 0.3) { fF[i] = 0.45 + 0.35 * azar(x, y, 7); idxF.push(i); }
   }
   if (!idxA.length) return null;
-  const atras = D.crearFuego({ ancho: wA, alto: hA, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fA }, altura: 0.2, viento: 0.08, rafagas: 0.35, turbulencia: 0.34, ruido: 0.78, tramo: 4, velocidadTramo: 1.5, humo: 0.5, margen: 2 });
-  const frente = D.crearFuego({ ancho: cw, alto: ch, semilla: 667, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fF, forma }, altura: 0.085, viento: 0.05, rafagas: 0.25, turbulencia: 0.35, ruido: 0.7, tramo: 3, velocidadTramo: 2.2, humo: 0, margen: 0 });
+  const atras = D.crearFuego({ ancho: wA, alto: hA, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fA }, altura: 0.3, viento: 0.08, rafagas: 0.35, turbulencia: 0.36, ruido: 0.5, tramo: 9, velocidadTramo: 1.5, humo: 0.5, margen: 2 });
+  const frente = D.crearFuego({ ancho: cw, alto: ch, semilla: 667, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fF, forma }, altura: 0.075, viento: 0, rafagas: 0.1, turbulencia: 0.12, ruido: 0.6, tramo: 4, velocidadTramo: 2.6, humo: 0, margen: 0 });
+  // la distancia al canto de abajo de cada trazo, columna por columna (de abajo hacia arriba)
+  const bajo = new Float32Array(cw * ch), largo = Math.max(6, ch * 0.13);
+  for (let x = 0; x < cw; x++) { let dd = 1e9; for (let y = ch - 1; y >= 0; y--) { const i = y * cw + x; if (mk[i] < 0.6) { dd = 1e9; continue; } dd = dd > 1e8 ? 0 : dd + 1; bajo[i] = Math.max(0, 1 - dd / largo); } }
   const brillo = document.createElement('canvas'); brillo.width = Math.ceil(wA / 4); brillo.height = Math.ceil(hA / 4);
   return {
     im, cw, ch, aire, celda, mk, atras, baseA: new Float32Array(atras.fuente), idxA: Int32Array.from(idxA),
-    frente, baseF: new Float32Array(frente.fuente), idxF: Int32Array.from(idxF), calorMetal: new Float32Array(cw * ch),
+    frente, baseF: new Float32Array(frente.fuente), idxF: Int32Array.from(idxF), calorMetal: new Float32Array(cw * ch), bajo,
     llama: capa(wA, hA), humo: capa(wA, hA), adel: capa(cw, ch), metal: capa(cw, ch), brillo, gb: brillo.getContext('2d')!,
   };
+}
+
+/** La racha del bucle: cada 5 s (corrido un poco al azar fijo), una ola de 1,4 s que cruza de izquierda a derecha. */
+let rachaN = -1;
+function racha(t: number): { k: number; x: number; nueva: boolean } {
+  const T0 = ENCIENDE_T + ENCIENDE_DUR + 2.5; if (t < T0) return { k: 0, x: 0, nueva: false };
+  const P = 5, n = Math.floor((t - T0) / P), u = (t - T0 - n * P) / 1.4, nueva = n !== rachaN; rachaN = n;
+  if (u > 1) return { k: 0, x: 0, nueva };
+  const lado = (Math.sin(n * 12.9898) * 43758.5) % 1 > 0 ? 1 : -1;
+  return { k: Math.sin(u * Math.PI) * 0.55, x: lado > 0 ? u * 1.3 - 0.15 : 1.15 - u * 1.3, nueva };
 }
 
 /** El encendido: las fuentes se prenden desde el centro hacia los lados (k 0 a 1); 1 es todo, 0 nada. */
@@ -78,19 +95,31 @@ function prender(s: Estado, k: number) {
   una(s.atras, s.baseA, s.idxA); una(s.frente, s.baseF, s.idxF);
 }
 
-/** El metal al rojo: lo que la llama de adelante toca (y el canto de arriba con la de atrás), con memoria. */
-function calentar(s: Estado, dt: number, forja: number) {
-  const { cw, ch, aire, mk, calorMetal } = s, cF = s.frente.calor, cA = s.atras.calor, d = s.metal.im.data, n = BANDAS_METAL.length;
-  const kUp = 1 - Math.exp(-dt * 7), kDn = 1 - Math.exp(-dt * 1.6), inv = 1 / D.CALOR_MAX;
+/**
+ * El metal al rojo, liso (sin trama: dentro de la letra no va ningún cuadro suelto). Junta lo que toca la llama de
+ * adelante y la de atrás en el canto de arriba, el calor que vive siempre en lo bajo de cada trazo y respira en vetas que
+ * suben, las rachas que cruzan el título y la forja de la entrada. Sube rápido y se enfría despacio.
+ */
+function calentar(s: Estado, dt: number, t: number, forja: number, racha: number, rachaX: number) {
+  const { cw, ch, aire, mk, calorMetal, bajo } = s, cF = s.frente.calor, cA = s.atras.calor, d = s.metal.im.data, n = BANDAS_METAL.length - 1;
+  const kUp = 1 - Math.exp(-dt * 7), kDn = 1 - Math.exp(-dt * 1.4), inv = 1 / D.CALOR_MAX, fx = 9 / cw, fy = 6 / ch;
+  // las vetas, separables (seno de una suma = productos de senos y cosenos por fila y por columna: nada de trigonometría por celda)
+  const tb = s.tablas ?? (s.tablas = { sx1: new Float32Array(cw), cx1: new Float32Array(cw), sx2: new Float32Array(cw), cx2: new Float32Array(cw), sy1: new Float32Array(ch), cy1: new Float32Array(ch), sy2: new Float32Array(ch), cy2: new Float32Array(ch) });
+  for (let x = 0; x < cw; x++) { const a1 = x * fx * 3.1 + t * 1.7, a2 = x * fx * 1.3 - t * 0.9; tb.sx1[x] = Math.sin(a1); tb.cx1[x] = Math.cos(a1); tb.sx2[x] = Math.sin(a2); tb.cx2[x] = Math.cos(a2); }
+  for (let y = 0; y < ch; y++) { const b1 = y * fy * 5 + t * 2.3, b2 = y * fy * 2.2; tb.sy1[y] = Math.sin(b1); tb.cy1[y] = Math.cos(b1); tb.sy2[y] = Math.sin(b2); tb.cy2[y] = Math.cos(b2); }
   for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
     const i = y * cw + x, j = i * 4, m = mk[i];
-    if (m < 0.6) { d[j + 3] = 0; continue; }
-    // lo que toca la celda y las de abajo (el calor sube por el hierro)
-    const f0 = cF[i], f1 = y + 1 < ch ? cF[i + cw] : 0, f2 = y + 2 < ch ? cF[i + 2 * cw] : 0, a0 = cA[i + aire * cw];
-    const meta = Math.min(1, (f0 * 0.55 + f1 * 0.3 + f2 * 0.2 + a0 * 0.45) * inv * 1.15 + forja);
-    const v = calorMetal[i]; calorMetal[i] = v + (meta - v) * (meta > v ? kUp : kDn);
-    const q = banda(calorMetal[i] * 0.92, n, x, y), b = BANDAS_METAL[q];
-    d[j] = b[0]; d[j + 1] = b[1]; d[j + 2] = b[2]; d[j + 3] = q ? 255 : 0;
+    // (solo el hierro de adentro: el canto oscuro del título no se enciende, así el borde queda nítido)
+    if (m < 0.9 || x === 0 || y === 0 || x === cw - 1 || y === ch - 1 || mk[i - 1] < 0.9 || mk[i + 1] < 0.9 || mk[i - cw] < 0.9 || mk[i + cw] < 0.9) { d[j + 3] = 0; continue; }
+    const f0 = cF[i], f1 = y + 1 < ch ? cF[i + cw] : 0, f2 = y + 3 < ch ? cF[i + 3 * cw] : 0, a0 = cA[i + aire * cw];
+    // las vetas: dos ondas torcidas que suben por el hierro
+    const veta = 0.5 + 0.25 * (tb.sx1[x] * tb.cy1[y] + tb.cx1[x] * tb.sy1[y]) + 0.25 * (tb.sx2[x] * tb.cy2[y] + tb.cx2[x] * tb.sy2[y]);
+    const b = bajo[i], dr = x / cw - rachaX;
+    const meta = Math.min(1, (f0 * 0.5 + f1 * 0.3 + f2 * 0.25 + a0 * 0.5) * inv + b * b * (0.32 + 0.3 * veta) + 0.08 * veta + forja + racha * Math.exp(-dr * dr * 60) * (0.25 + 0.5 * b));
+    const v = calorMetal[i], c = (calorMetal[i] = v + (meta - v) * (meta > v ? kUp : kDn));
+    // la rampa del metal, interpolada (liso)
+    const u = Math.min(n - 0.001, c * n * 0.95), k0 = Math.floor(u), q = u - k0, A = BANDAS_METAL[k0], B = BANDAS_METAL[k0 + 1];
+    d[j] = A[0] + (B[0] - A[0]) * q; d[j + 1] = A[1] + (B[1] - A[1]) * q; d[j + 2] = A[2] + (B[2] - A[2]) * q; d[j + 3] = k0 ? 255 : 255 * q;
   }
   s.metal.g.putImageData(s.metal.im, 0, 0);
 }
@@ -99,8 +128,8 @@ function chispasDeGolpe(s: Estado, x: number, oy: number, cel: number) {
   const n = E.tactil ? 60 : 130, cx = x + (s.cw * cel) / 2, cy = oy + (s.aire + s.ch * 0.5) * cel;
   for (let k = 0; k < n; k++) {
     const i = s.idxA[Math.floor(Math.random() * s.idxA.length)], px = x + ((i % s.cw) + 0.5) * cel, py = oy + Math.floor(i / s.cw) * cel;
-    const ang = Math.atan2(py - cy, px - cx), v = 90 + Math.random() * 260;
-    chispas.push({ x: px, y: py, vx: Math.cos(ang) * v * 1.3, vy: Math.sin(ang) * v - 120 - Math.random() * 120, t: 0, d: 0.5 + Math.random() * 1.2, g: 300, q: 1, s: Math.random() < 0.1 ? 2 : 1 });
+    const ang = Math.atan2(py - cy, px - cx) + (Math.random() - 0.5) * 0.5, v = 240 + Math.random() * 380;
+    chispas.push({ x: px, y: py, vx: Math.cos(ang) * v * 1.35, vy: Math.sin(ang) * v - 160 - Math.random() * 160, t: 0, d: 0.28 + Math.random() * 0.55, g: 760, q: 1, s: 1 });
   }
 }
 
@@ -112,8 +141,8 @@ function chispasDeGolpe(s: Estado, x: number, oy: number, cel: number) {
 export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w: number, h: number, t: number, alfa: number, pasada: 'atras' | 'adelante') {
   if (viejo()) { fuegoTituloViejo(im, x, y, w, h, t, alfa, pasada); return; }
   if (!im) return;
-  // la grilla: celdas de puntos enteros del aparato (unas 150 de ancho en PC, 105 en táctil)
-  const T = ctx.getTransform(), dev = w * T.a, celda = Math.max(2, Math.round(dev / (E.tactil ? 105 : 150))), cw = Math.max(16, Math.round(dev / celda));
+  // la grilla: celdas de 2 o 3 puntos enteros del aparato (el grano de las letras: 240 de ancho en PC, 260 en el teléfono)
+  const T = ctx.getTransform(), dev = w * T.a, celda = Math.max(2, Math.min(3, Math.round(dev / 240))), cw = Math.max(16, Math.round(dev / celda));
   if (!est || est.im !== im || est.cw !== cw || est.celda !== celda) { est = armar(im, celda, cw); ultT = -1; encendido = false; if (!est) return; }
   const s = est, cel = celda / T.a, oy = y - s.aire * cel, x0 = x + (w - s.cw * cel) / 2;
   if (pasada === 'atras') {
@@ -125,6 +154,9 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
     const ki = Math.max(0, Math.min(1, (t - ENCIENDE_T) / ENCIENDE_DUR));
     if (ki < 1) { prender(s, ki); encendido = false; } else if (!encendido) { prender(s, 1); encendido = true; }
     if (t >= ENCIENDE_T && t < ENCIENDE_T + dt + 0.02) { D.avivar(s.atras, 2.1, 0.9); D.avivar(s.frente, 1.8, 0.7); Sonido.efecto('fuego_lanzar' as any, { vol: 0.55, tono: 0.7 }); }
+    // las rachas: cada 4 a 6 s el fuego se aviva y una ola de calor cruza el título (el bucle no se apaga nunca)
+    const r = racha(t);
+    if (r.nueva) { D.avivar(s.atras, 1.7, 0.8); D.avivar(s.frente, 1.6, 0.6); }
     D.paso(s.atras, dt); D.paso(s.frente, dt);
     // brasas de las puntas de atrás y de las letras (pocas: son pixel y se leen una por una)
     const tope = E.tactil ? 45 : 90;
@@ -133,8 +165,8 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
       for (const b of D.brasas(s.frente, 1, 0.55)) if (Math.random() < 0.22) chispas.push({ x: x0 + b.x * cel, y: y + b.y * cel, vx: (Math.random() - 0.5) * 16, vy: -36 - Math.random() * 40, t: 0, d: 0.7 + Math.random() * 1.2, g: -4, q: 0.7 + b.calor * 0.3, s: 1 });
     }
     moverChispas(chispas, dt, t, 6);
-    pintarCalor(s.atras, s.humo, { humo: true });
-    pintarCalor(s.atras, s.llama, { brillo: 1.15, umbral: 0.14 });
+    pintarCalor(s.atras, s.humo, { humo: true, pasadas: 2 });
+    pintarCalor(s.atras, s.llama, { brillo: 1.5, umbral: 0.22, pasadas: 2 });
     pegarPixel(s.humo.c, x0, oy, celda, alfa * 0.9);
     // el resplandor: la llama achicada a un cuarto y agrandada suave (es luz, no fuego: puede ser blanda)
     s.gb.clearRect(0, 0, s.brillo.width, s.brillo.height); s.gb.imageSmoothingEnabled = true; s.gb.drawImage(s.llama.c, 0, 0, s.brillo.width, s.brillo.height);
@@ -144,12 +176,14 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
   } else {
     // el metal al rojo (sumado) y la llama que lame las letras (encima, sin tapar el hierro frío)
     // la forja: el hierro se calienta mientras aparece, al rojo en el golpe, y se enfría
-    const forja = t < GOLPE_T ? 0.6 * Math.max(0, t / GOLPE_T) ** 2 : 0.6 * Math.exp(-(t - GOLPE_T) / 0.55);
+    const forja = t < GOLPE_T ? 0.6 * Math.max(0, t / GOLPE_T) ** 2 : 0.6 * Math.exp(-(t - GOLPE_T) / 0.9);
     const dt = ultAd < 0 || t < ultAd ? 1 / 30 : Math.min(0.1, t - ultAd); ultAd = t;
-    calentar(s, dt, forja);
-    pegarPixel(s.metal.c, x0, y, celda, Math.max(alfa, forja) * 0.62, 'lighter');
-    pintarCalor(s.frente, s.adel, { brillo: 1.05, umbral: 0.4, mascara: s.mk });
-    pegarPixel(s.adel.c, x0, y, celda, alfa * 0.78);
+    const r = racha(t);
+    calentar(s, dt, t, forja, r.k * alfa, r.x);
+    pegarPixel(s.metal.c, x0, y, celda, Math.max(alfa * 0.72, forja), 'lighter');
+    // las lenguas finas que suben por los cantos y las grietas: sin trama, solo lo caliente
+    pintarCalor(s.frente, s.adel, { brillo: 1.05, umbral: 0.5, mascara: s.mk, trama: false, filtro: 0 });
+    pegarPixel(s.adel.c, x0, y, celda, alfa * 0.9);
     dibujarChispas(chispas, x0, oy, celda, 1, t);
   }
 }

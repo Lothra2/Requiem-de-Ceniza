@@ -40,7 +40,7 @@ function armar(S: string, tam: number, familia: string, celda: number, ka: numbe
  */
 export function brasaRenglon(id: string, S: string, tam: number, familia: string, tx: number, ty: number, k: number, t: number, pasada: 'atras' | 'adelante') {
   if ((window as any).__menuViejo) return;
-  const T = ctx.getTransform(), celda = Math.max(2, Math.round(T.a * 1.1)), clave = `${id}|${S}|${tam}|${celda}|${T.a}`;
+  const T = ctx.getTransform(), celda = 2, clave = `${id}|${S}|${tam}|${celda}|${T.a}`;
   let r = renglones.get(clave);
   if (!r) { const nr = armar(S, tam, familia, celda, T.a); if (!nr) return; r = nr; for (const k2 of renglones.keys()) if (k2.startsWith(id + '|')) renglones.delete(k2); renglones.set(clave, r); }
   const cel = celda / T.a, x0 = tx - r.px, y0 = ty - r.arriba;

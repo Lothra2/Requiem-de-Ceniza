@@ -32,7 +32,7 @@ def lamina_momentos(antes, ahora, k):
     for i, f in enumerate(filas):
         x = 0
         for c in f: L.paste(c, (x, i * 360)); x += c.width
-    L.save(f'{S}/momentos_{k}.png')
+    L.save(f'{S}/momentos_{antes}_{ahora}_{k}.png')
     # recortes de las letras al doble (bucle1): la palabra de arriba, punto por punto
     filas = []
     for etq in (antes, ahora):
@@ -44,7 +44,7 @@ def lamina_momentos(antes, ahora, k):
     L = Image.new('RGB', (max(c.width for c in filas), sum(c.height for c in filas)))
     yy = 0
     for c in filas: L.paste(c, (0, yy)); yy += c.height
-    L.save(f'{S}/letras_x2_{k}.png')
+    L.save(f'{S}/letras_x2_{antes}_{ahora}_{k}.png')
     # el botón encendido
     bs = [f'{R}/{e}/{k}_boton.png' for e in (antes, ahora) if os.path.exists(f'{R}/{e}/{k}_boton.png')]
     if len(bs) == 2:
@@ -52,7 +52,7 @@ def lamina_momentos(antes, ahora, k):
         for p in bs:
             im = Image.open(p).convert('RGB'); sc = im.width / json_W(antes, k, im)
             c = im.crop((int(40 * sc), int(im.height * 0.6), int(420 * sc), int(im.height * 0.76))); cs.append(c.resize((c.width * 2, c.height * 2), Image.NEAREST))
-        L = Image.new('RGB', (cs[0].width, cs[0].height * 2)); L.paste(cs[0], (0, 0)); L.paste(cs[1], (0, cs[0].height)); L.save(f'{S}/boton_x2_{k}.png')
+        L = Image.new('RGB', (cs[0].width, cs[0].height * 2)); L.paste(cs[0], (0, 0)); L.paste(cs[1], (0, cs[0].height)); L.save(f'{S}/boton_x2_{antes}_{ahora}_{k}.png')
 
 def json_W(etq, k, im):
     # el título va limitado por el alto (w = H x 0,4 / 0,6): de ahí sale la escala de lógico a captura

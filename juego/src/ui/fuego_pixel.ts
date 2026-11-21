@@ -43,17 +43,25 @@ function suavizado(src: Uint8Array, w: number, h: number, k: number): Float32Arr
   for (let y = 0; y < h; y++) { const o = y * w; for (let x = 0; x < w; x++) { const i = o + x; const f = (tmp2[y > 0 ? i - w : i] + 2 * tmp2[i] + tmp2[y < h - 1 ? i + w : i]) * 0.25; tmp[i] = src[i] + (f - src[i]) * k; } }
   return tmp;
 }
-export function pintarCalor(f: D.Fuego, cp: Capa, o: { humo?: boolean; brillo?: number; umbral?: number; alfa?: number; mascara?: Float32Array; bandas?: readonly RGBA[]; filtro?: number } = {}) {
+let otra = new Float32Array(0);
+function suavizadoF(src: Float32Array, w: number, h: number): Float32Array {
+  for (let y = 0; y < h; y++) { const o = y * w; for (let x = 0; x < w; x++) { const i = o + x; tmp2[i] = (src[x > 0 ? i - 1 : i] + 2 * src[i] + src[x < w - 1 ? i + 1 : i]) * 0.25; } }
+  for (let y = 0; y < h; y++) { const o = y * w; for (let x = 0; x < w; x++) { const i = o + x; tmp[i] = (tmp2[y > 0 ? i - w : i] + 2 * tmp2[i] + tmp2[y < h - 1 ? i + w : i]) * 0.25; } }
+  return tmp;
+}
+export function pintarCalor(f: D.Fuego, cp: Capa, o: { humo?: boolean; brillo?: number; umbral?: number; alfa?: number; mascara?: Float32Array; bandas?: readonly RGBA[]; filtro?: number; trama?: boolean; pasadas?: number } = {}) {
   const { w, h } = f, d = cp.im.data, W = cp.c.width, H = Math.min(cp.c.height, h);
   const bandas = o.bandas ?? (o.humo ? BANDAS_HUMO : BANDAS_LLAMA), n = bandas.length, inv = 1 / (o.humo ? 255 : D.CALOR_MAX);
   const br = 1 / (o.brillo ?? 1), um = o.umbral ?? 0, al = o.alfa ?? 1, mk = o.mascara;
-  const src = suavizado(o.humo ? f.humo : f.calor, w, h, o.filtro ?? (o.humo ? 1 : 0.8));
+  let src = suavizado(o.humo ? f.humo : f.calor, w, h, o.filtro ?? (o.humo ? 1 : 0.8));
+  // (con celdas finas una pasada no alcanza para juntar las lenguas: se repite sobre lo ya suavizado)
+  for (let p = 1; p < (o.pasadas ?? 1); p++) { if (otra.length < w * h) otra = new Float32Array(w * h); otra.set(src.subarray(0, w * h)); src = suavizadoF(otra, w, h); }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * w + x, j = (y * W + x) * 4;
     let v = x < w ? src[i] * inv : 0;
     if (v > 0 && br !== 1) v = Math.pow(v, br);
     if (o.humo) v *= 0.9;
-    let q = v > um ? banda(v, n, x, y) : 0;
+    let q = v > um ? (o.trama === false ? Math.min(n - 1, Math.floor(v * (n - 1) + 0.5)) : banda(v, n, x, y)) : 0;
     if (mk && mk[y * W + x] < 0.5) q = 0;
     const b = bandas[q]; d[j] = b[0]; d[j + 1] = b[1]; d[j + 2] = b[2]; d[j + 3] = b[3] * al;
   }
@@ -83,23 +91,29 @@ export function moverChispas(cs: Chispa[], dt: number, t: number, viento = 0) {
 }
 /**
  * Dibuja las chispas a puntos enteros del aparato, encajadas en la grilla de `celda` puntos que empieza en (x0, y0)
- * (lógicos): el color baja de banda con la vida y titila. Van sumadas.
+ * (lógicos). Se enfrían con la vida de blanco a amarillo, naranja y rojo (`q` es cuán caliente nace, 1 al blanco) y las
+ * rápidas dejan su estela de celdas, cada una una banda más fría. Van sumadas.
  */
 export function dibujarChispas(cs: Chispa[], x0: number, y0: number, celda: number, alfa: number, t: number) {
   if (!cs.length || alfa <= 0) return;
   const T = ctx.getTransform(), ox = Math.round(T.a * x0 + T.e), oy = Math.round(T.d * y0 + T.f), k = T.a / celda;
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalCompositeOperation = 'lighter';
-  const n = BANDAS_LLAMA.length;
+  const n = BANDAS_LLAMA.length, col = BANDAS_LLAMA.map((b) => `rgb(${b[0]},${b[1]},${b[2]})`);
   for (let i = 0; i < cs.length; i++) {
     const c = cs[i], u = c.t / c.d, cx = Math.round((c.x - x0) * k), cy = Math.round((c.y - y0) * k);
-    const q = Math.max(2, Math.min(n - 1, Math.round((n - 1) * c.q * (1 - u * 0.75) + (Math.sin(t * 31 + i * 7.3) > 0.6 ? 1 : 0))));
-    const b = BANDAS_LLAMA[q], s = c.s * celda;
-    ctx.globalAlpha = alfa * Math.min(1, (1 - u) * 2.2); ctx.fillStyle = `rgb(${b[0]},${b[1]},${b[2]})`;
+    const q0 = (n - 1) * c.q - u * (n - 1) * 0.8 + (Math.sin(t * 31 + i * 7.3) > 0.7 ? 1 : 0);
+    const q = Math.max(2, Math.min(n - 1, Math.round(q0))), s = c.s * celda;
+    ctx.globalAlpha = alfa * Math.min(1, (1 - u) * 2.5); ctx.fillStyle = col[q];
     ctx.fillRect(ox + cx * celda, oy + cy * celda, s, s);
-    // las rápidas dejan una celda de cola, una banda más fría
-    if (Math.abs(c.vy) + Math.abs(c.vx) > 140 && q > 2) {
-      const b2 = BANDAS_LLAMA[q - 2], tx = -Math.sign(c.vx) * (Math.abs(c.vx) > Math.abs(c.vy) * 0.6 ? 1 : 0), ty = -Math.sign(c.vy) * (Math.abs(c.vy) > Math.abs(c.vx) * 0.6 ? 1 : 0);
-      ctx.fillStyle = `rgb(${b2[0]},${b2[1]},${b2[2]})`; ctx.fillRect(ox + (cx + tx) * celda, oy + (cy + ty) * celda, s, s);
+    // la estela: hacia atrás de la velocidad, de a una celda, cada una más fría
+    const v = Math.hypot(c.vx, c.vy), L = Math.min(6, Math.floor((v * k) / 55));
+    if (L > 0) {
+      const dx = -c.vx / v, dy = -c.vy / v;
+      for (let m = 1; m <= L; m++) {
+        const qq = q - 1 - Math.floor(m * 0.8); if (qq < 1) break;
+        ctx.globalAlpha = alfa * Math.min(1, (1 - u) * 2.5) * (1 - m / (L + 1)); ctx.fillStyle = col[qq];
+        ctx.fillRect(ox + Math.round(cx + dx * m) * celda, oy + Math.round(cy + dy * m) * celda, celda, celda);
+      }
     }
   }
   ctx.restore();

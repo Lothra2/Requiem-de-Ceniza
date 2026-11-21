@@ -19,17 +19,26 @@
 // - Las cartas llevan al héroe vestido (el reposo del mundo pintado a la escala de la carta); la elegida respira con una
 //   brasa que corre por el canto y el héroe adentro se mueve; al pasar el ratón se encienden; «Nuevo héroe» con su forja.
 //
+// Pulido (21 nov 2026, "acomodá lo flojo"): el boceto a media K sale primero (motor/vigilia.ts) y se ve a puntos dobles
+// con su luz mientras llega el de verdad; un velo oscuro detrás del héroe lo despega del campamento del fondo (se le veía
+// pegado a la cadera un farol azul del campamento, que parecía horneado en el gesto); la luz avanzada no quema lo claro
+// (`quema` en luz_gpu.ts: el cuello de piel de la arcanista salía blanco); la fogata va con la grilla fina (`fuegoSueltoFino`,
+// celdas de 2 o 3 puntos del aparato como el título: a 1080 eran de 7); las chispas del gesto son de verdad (estallido, estela
+// y brasas a la escala de la figura); y en el gesto la llama del arma sigue a la hoja (`armaRapida`: antes quedaba medio paso
+// atrás). `__sinVelo`, `__fogataGruesa`, `__chispasViejas` y `__llamaLenta` vuelven a lo de antes, cada uno lo suyo.
+//
 // `__vigiliaVieja = true` vuelve a lo de antes. `__tSel` fija el reloj de esta pantalla (las pruebas).
 import { ctx, W, H } from '../nucleo/lienzo';
 import { cuadrosHeroe, objetoMeta, dibujar, dibujarTenido, type Cuadro } from '../motor/assets';
 import { cuadrosDeFirma } from '../motor/pintor';
-import { pedirVigilia, cuadroV, cercano, SEL_N, SEL_ENT, SEL_FPS, CARTA_N, type CuadroV, type Pedido } from '../motor/vigilia';
+import { pedirVigilia, cuadroV, bocetoV, kBoceto, cercano, SEL_N, SEL_ENT, SEL_FPS, CARTA_N, type CuadroV, type Pedido } from '../motor/vigilia';
 import { equipoVisual, firmaVisual, cuerpoDe, calcular, type DatosHeroe } from '../juego/heroe';
 import { armaViva, llamaArmaAtras, dibujarDerrames, pozoArma, type ElemArma } from '../render/arma_viva';
 import { spriteConLuz, lab } from '../render/luz_gpu';
 import { luzFogataSprite, FICHA } from './seleccion';
 import { fuegoMundo, dibujarFuegosMundo } from '../render/fuego';
-import { fuegoSuelto, dibujarVivos } from '../render/fuego_vivo';
+import { fuegoSuelto, dibujarVivos, fuegoSueltoFino, dibujarVivosPixel } from '../render/fuego_vivo';
+import { armaRapida } from '../render/fuego_especial';
 
 /** Alto del héroe de la presentación por unidad de K (con la capucha o el casco), en puntos del cuadro. */
 const REF = 106;
@@ -119,13 +128,22 @@ export function heroeVigilia(hr: DatosHeroe, hx: number, hy: number, alto: numbe
   const want = cuadroVigilia(tc, gestoListo);
   const fd = want.gesto ? want.f : cercano(p, want.f, SEL_ENT, SEL_N);
   const q = fd !== null ? cuadroV(p, fd) : null;
-  if (q && estado.tAp < 0) estado.tAp = tc < 0.15 ? 0 : tc;
+  // sin ningún cuadro del reposo todavía: el boceto (el arranque del reposo a media K, sale en un segundo)
+  const qb = q ? null : bocetoV(p);
+  if ((q || qb) && estado.tAp < 0) estado.tAp = tc < 0.15 ? 0 : tc;
   // la entrada: la luz sube desde la penumbra en 0,9 s desde que hay héroe que mostrar
-  const luzK = q ? suave((tc - estado.tAp) / 0.9) : 0;
+  const luzK = q || qb ? suave((tc - estado.tAp) / 0.9) : 0;
   const pulF = 0.78 + 0.14 * Math.sin(t * 9.1) * Math.sin(t * 3.7 + 1) + 0.08 * Math.sin(t * 23);
   const aviva = 1 + 0.5 * Math.exp(-Math.max(0, tc - (estado.tAp < 0 ? tc : estado.tAp) - 0.25) * 3) * (q ? 1 : 0.3);
   // ---- la fogata: delante y a la izquierda de su cara (la luz horneada viene de ahí)
   const fx = hx - alto * (chico ? 0.42 : 0.45), fy = hy + alto * 0.075, fe = alto / 225;
+  // el velo: la noche se cierra un poco detrás del héroe, así su silueta se despega del campamento del fondo (antes un farol
+  // azul de una tienda quedaba pegado a la cadera de la arcanista y parecía parte del gesto)
+  if (!(window as any).__sinVelo) {
+    ctx.save(); ctx.translate(hx + alto * 0.04, hy - alto * 0.46); ctx.scale(alto * 0.5, alto * 0.72);
+    const gv = ctx.createRadialGradient(0, 0, 0, 0, 0, 1); gv.addColorStop(0, 'rgba(5,3,3,0.78)'); gv.addColorStop(0.55, 'rgba(5,3,3,0.55)'); gv.addColorStop(1, 'rgba(5,3,3,0)');
+    ctx.fillStyle = gv; ctx.fillRect(-1, -1, 2, 2); ctx.restore();
+  }
   // su luz en el piso (antes que todo: la sombra es justamente donde esa luz no llega)
   {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.translate(fx, fy); ctx.scale(1, 0.5);
@@ -148,19 +166,30 @@ export function heroeVigilia(hr: DatosHeroe, hx: number, hy: number, alto: numbe
   pie(c, px, py, Math.round(14 * K), luzK);
   const vivo = !!(v.el && q?.hoja && !(window as any).__sinDerrame);
   const qv = vivo ? ({ hoja: q!.hoja!.map((x, i) => (i === 4 ? x : x / K)) } as any) : null;
-  if (q) {
+  // en el gesto la hoja da media vuelta por cuadro: la llama se enfría detrás de ella y sube un paso más (fuego_especial.ts)
+  armaRapida(portador, want.gesto && !(window as any).__llamaLenta);
+  const z = q ? 1 : Math.max(1, Math.round(K / kBoceto(K))), zb = z;
+  if (q || qb) {
+    const qs = (q ?? qb)!, z = zb;
     // la sombra que tira la fogata: la silueta del mismo cuadro echada hacia el lado contrario, que late con la llama
     const gx = -fsx, gy = -fsy * 2, dd = Math.hypot(gx, gy) || 1, L = (0.95 + 0.1 * (1 - pulF)) * 1.05;
     const ssx = (gx / dd) * L, ssy = Math.min(-0.22, (gy / dd) * 0.5 * L);
     c.save(); c.translate(px, py + 1); c.transform(1, 0, -ssx, -ssy, 0, 0);
-    c.globalAlpha = 0.5 * luzK * (0.82 + 0.18 * pulF); c.drawImage(q.sil!, -q.ax, -q.ay); c.restore(); c.globalAlpha = 1;
+    c.globalAlpha = 0.5 * luzK * (0.82 + 0.18 * pulF); c.drawImage(qs.sil!, 0, 0, qs.w, qs.h, -qs.ax * z, -qs.ay * z, qs.w * z, qs.h * z); c.restore(); c.globalAlpha = 1;
   }
   pozoArma(pozo);
   try {
-    if (vivo && q) { c.save(); c.translate(px, py); c.scale(K, K); llamaArmaAtras(c, portador, qv, 0, 0, 1, v.el!, v.tipo, t, dt, 0, 0); c.restore(); }
-    if (q) {
+    // (en el gesto no va el barrido del cuadro anterior: con la hoja dando media vuelta por cuadro dejaba la llama atrás)
+    if (vivo && q) { c.save(); c.translate(px, py); c.scale(K, K); llamaArmaAtras(c, portador, qv, 0, 0, 1, v.el!, v.tipo, t + (want.gesto && !(window as any).__llamaLenta ? 1 : 0), dt, 0, 0); c.restore(); }
+    if (!q && qb) {
+      // el boceto: a puntos dobles, con su calor que late y su penumbra de entrada (todavía sin el arma viva ni la luz avanzada)
+      const bx = px - qb.ax * z, by = py - qb.ay * z;
+      c.drawImage(qb.cv, 0, 0, qb.w, qb.h, bx, by, qb.w * z, qb.h * z);
+      c.globalCompositeOperation = 'lighter'; c.globalAlpha = luzK * Math.max(0, 0.1 + 0.55 * (pulF - 0.7)) * (0.8 + 0.4 * (aviva - 1)); c.drawImage(qb.calor!, 0, 0, qb.w, qb.h, bx, by, qb.w * z, qb.h * z); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1;
+      if (luzK < 1) { c.globalAlpha = (1 - luzK) * 0.94; c.drawImage(qb.sil!, 0, 0, qb.w, qb.h, bx, by, qb.w * z, qb.h * z); c.globalAlpha = 1; }
+    } else if (q) {
       // la luz avanzada: la fogata reilumina el relieve punto por punto; si no, el horneado y su calor que late
-      const luz = luzFogataSprite(fsx, fsy, 1, t, pulF);
+      const luz = { ...luzFogataSprite(fsx, fsy, 1, t, pulF), quema: (window as any).__quemaVieja ? 0 : 1 };
       const gpu = lab.on ? spriteConLuz({ img: q.cv, atlas: q.atlas, x: 0, y: 0, w: q.w, h: q.h, ax: q.ax, ay: q.ay, rel: q.rel, alt: q.alt } as Cuadro, luz) : null;
       c.drawImage(gpu ?? q.cv, 0, 0, q.w, q.h, px - q.ax, py - q.ay, q.w, q.h);
       if (!gpu) { c.globalCompositeOperation = 'lighter'; c.globalAlpha = luzK * Math.max(0, 0.1 + 0.55 * (pulF - 0.7)) * (0.8 + 0.4 * (aviva - 1)); c.drawImage(q.calor!, px - q.ax, py - q.ay); c.globalCompositeOperation = 'source-over'; c.globalAlpha = 1; }
@@ -186,7 +215,7 @@ export function heroeVigilia(hr: DatosHeroe, hx: number, hy: number, alto: numbe
       c.restore();
     } else pozo.length = 0;
   } finally { pozoArma(); }
-  if (q) { lluvia(c, q, px, py, t, luzK); if (want.gesto) gesto(c, q, px, py, K, hr.clase, (((tc % 10) + 10) % 10) / (SEL_ENT / SEL_FPS)); }
+  if (q) { lluvia(c, q, px, py, t, luzK); if (want.gesto) ((window as any).__chispasViejas ? gestoViejo : gesto)(c, q, px, py, K, hr.clase, (((tc % 10) + 10) % 10) / (SEL_ENT / SEL_FPS)); }
   const tC = performance.now();
   // ---- a la pantalla, a puntos enteros del aparato y sin suavizar
   const HX = m.a * hx + m.e, HY = m.d * hy + m.f, OX = Math.round(HX - px * d), OY = Math.round(HY - py * d);
@@ -200,7 +229,7 @@ export function heroeVigilia(hr: DatosHeroe, hx: number, hy: number, alto: numbe
   const pr = ((window as any).__vigiliaPartes ??= { piso: 0, motas: 0, heroe: 0, pegar: 0, fogata: 0, n: 0 });
   pr.piso += tA - t0; pr.motas += tB - tA + tF - tE; pr.heroe += tC - tB; pr.pegar += tD - tC; pr.fogata += tE - tD; pr.n++;
   const rc = ctx.canvas.getBoundingClientRect(), kx = rc.width / ctx.canvas.width;
-  infoVigilia = { hechos: p.hechos, n: p.n, listo: p.hechos === p.n, gestoListo, f: fd, quiere: want.f, gesto: want.gesto, K, d, luzK: +luzK.toFixed(2), ms1: Math.round(p.tListo1), msTodo: Math.round(p.tListo), gpu: lab.on, css: [rc.left + OX * kx, rc.top + OY * kx, sw * d * kx, sh * d * kx], ms: +(performance.now() - t0).toFixed(2) };
+  infoVigilia = { hechos: p.hechos, n: p.n, listo: p.hechos === p.n, gestoListo, f: fd, quiere: want.f, gesto: want.gesto, K, d, luzK: +luzK.toFixed(2), boceto: !q && !!qb, msBoceto: Math.round(p.tBoceto), ms1: Math.round(p.tListo1), msPares: Math.round(p.tPares), msGesto: Math.round(p.tGesto), msReposo: Math.round(p.tReposo), msTodo: Math.round(p.tListo), gpu: lab.on, css: [rc.left + OX * kx, rc.top + OY * kx, sw * d * kx, sh * d * kx], ms: +(performance.now() - t0).toFixed(2) };
 }
 
 /** La sombra a los pies, en anillos de pixel. */
@@ -238,8 +267,53 @@ function lluvia(c: CanvasRenderingContext2D, q: CuadroV, px: number, py: number,
   }
 }
 
-/** El gesto de la clase: chispas de su color que nacen en la mano del arma y suben mientras dura (u de 0 a 1). */
+/**
+ * El gesto de la clase (u de 0 a 1 mientras dura): el estallido de la mano del arma. Un fogonazo y un aro de pixel que se
+ * abre al empezar, chispas que salen de todo el largo de la hoja con su estela (de blanco al color de la clase y a brasa),
+ * caen un poco y se apagan, y unas brasas gruesas que suben. Todo a la escala de la figura (K): antes eran puntos de uno o
+ * dos que no se veían.
+ */
 function gesto(c: CanvasRenderingContext2D, q: CuadroV, px: number, py: number, K: number, clase: string, u: number) {
+  const h = q.hoja; if (!h) return;
+  const col = FICHA[clase]?.luz ?? [255, 180, 90], k = Math.sin(Math.min(1, u) * Math.PI), vv = h.length >= 9 ? 5 : 0;
+  const ax = px + h[vv], ay = py + h[vv + 1], bx = px + h[vv + 2], by = py + h[vv + 3], mx = px + h[0], my = py + h[1];
+  const Z = Math.max(1, Math.round(K * 0.85)), cel = (x: number, y: number, z: number) => c.fillRect(Math.round(x / z) * z, Math.round(y / z) * z, z, z);
+  c.save(); c.globalCompositeOperation = 'lighter';
+  // el aire que se enciende alrededor de la mano y de la hoja
+  const gr = 26 * K, g = c.createRadialGradient(mx, my, 0, mx, my, gr); g.addColorStop(0, `rgba(${col[0]},${col[1]},${col[2]},${0.38 * k})`); g.addColorStop(0.5, `rgba(${col[0]},${col[1]},${col[2]},${0.12 * k})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+  c.fillStyle = g; c.fillRect(mx - gr, my - gr, gr * 2, gr * 2);
+  // el aro que se abre al empezar (puntos sueltos en un óvalo, se rompe al crecer)
+  if (u < 0.45) {
+    const e = u / 0.45, r = (4 + 26 * e) * K, n = 28;
+    for (let i = 0; i < n; i++) {
+      if (hash(i, 77) < e * 0.6) continue;
+      const a = (i / n) * Math.PI * 2, al = (1 - e) * 0.9;
+      c.fillStyle = e < 0.25 ? `rgba(255,250,230,${al})` : `rgba(${col[0]},${col[1]},${col[2]},${al})`;
+      cel(mx + Math.cos(a) * r, my + Math.sin(a) * r * 0.55, Z);
+    }
+  }
+  // chispas de la hoja: nacen a lo largo, salen hacia afuera y abajo con su estela
+  for (let i = 0; i < 46; i++) {
+    const nace = hash(i, 11) * 0.55, e = (u - nace) / (0.35 + hash(i, 12) * 0.25);
+    if (e <= 0 || e >= 1) continue;
+    const w = hash(i, 13), sx = ax + (bx - ax) * w, sy = ay + (by - ay) * w;
+    const a = hash(i, 5) * Math.PI * 2, v = (14 + hash(i, 9) * 30) * K * 0.5;
+    const pos = (ee: number) => [sx + Math.cos(a) * v * ee, sy + Math.sin(a) * v * ee * 0.7 + 22 * K * 0.5 * ee * ee] as const;
+    for (let tr = 3; tr >= 0; tr--) {
+      const ee = Math.max(0, e - tr * 0.045), [x, y] = pos(ee), cal = 1 - ee, al = (1 - tr * 0.24) * (1 - e * 0.85);
+      c.fillStyle = cal > 0.75 && tr === 0 ? `rgba(255,252,236,${al})` : cal > 0.45 ? `rgba(${col[0]},${col[1]},${col[2]},${al})` : `rgba(255,${Math.round(70 + 90 * cal)},${Math.round(20 * cal)},${al * 0.85})`;
+      cel(x, y, tr === 0 && hash(i, 2) < 0.35 ? Z * 2 : Z);
+    }
+  }
+  // brasas gruesas que suben de la mano y se mecen
+  for (let i = 0; i < 12; i++) {
+    const e = (u * 1.2 + hash(i, 31)) % 1, x = mx + (hash(i, 32) - 0.5) * 18 * K + Math.sin(e * 6 + i) * 3 * K, y = my - e * 40 * K;
+    c.fillStyle = `rgba(255,${Math.round(150 + 90 * (1 - e))},${Math.round(60 * (1 - e))},${k * (1 - e)})`; cel(x, y, Z * (hash(i, 33) < 0.3 ? 2 : 1));
+  }
+  c.restore();
+}
+/** El gesto de antes (`__chispasViejas`): chispas de su color que nacen en la mano del arma y suben. */
+function gestoViejo(c: CanvasRenderingContext2D, q: CuadroV, px: number, py: number, K: number, clase: string, u: number) {
   const h = q.hoja; if (!h) return;
   const col = FICHA[clase]?.luz ?? [255, 180, 90], k = Math.sin(Math.min(1, u) * Math.PI);
   const mx = px + h[0], my = py + h[1];
@@ -263,8 +337,10 @@ function fogata(fx: number, fy: number, e: number, t: number, aviva: number, chi
   const sm = ctx.imageSmoothingEnabled; ctx.imageSmoothingEnabled = false;
   const ef = Math.max(1, Math.round(e * 2) / 2) * (chico ? 0.85 : 1);
   if (fog) dibujar(ctx, fog.f[Math.floor((t * 25) / fog.t) % fog.f.length], fx, fy, ef);
-  const vs = fuegoSuelto('camp_fogata|grande', 1 / 60);
-  if (vs) { ctx.save(); ctx.translate(fx, fy); ctx.scale(1.6 * ef, 1.2 * ef * (0.85 + 0.15 * aviva)); dibujarVivos(ctx, vs, 0, 0); ctx.restore(); }
+  // la grilla fina: celdas de unos 2,5 puntos del aparato (como el fuego del título), a medio punto lógico de paso
+  const res = ctx.getTransform().a, cf = Math.max(0.5, Math.round((2.5 / (1.6 * ef * res)) * 2) / 2), fina = !(window as any).__fogataGruesa && cf < 3;
+  const vs = fina ? fuegoSueltoFino('camp_fogata|grande', cf, 1 / 60) : fuegoSuelto('camp_fogata|grande', 1 / 60);
+  if (vs) { ctx.save(); ctx.translate(fx, fy); ctx.scale(1.6 * ef, 1.2 * ef * (0.85 + 0.15 * aviva)); (fina ? dibujarVivosPixel : dibujarVivos)(ctx, vs, 0, 0); ctx.restore(); }
   else for (const [ox, oy, tm] of [[-9, -5, 1.5], [9, -5, 1.5], [0, -8, 1.7], [0, -30, 1.1]] as [number, number, number][]) fuegoMundo(ctx, fx + ox * ef * 0.5, fy + oy * ef * 0.5, tm * ef * 0.5, t, 0, 0);
   fuegoMundo(ctx, fx, fy - 15 * ef, 0.2 * ef * aviva, t, 0, 0);
   dibujarFuegosMundo(ctx, t, 0, 0);

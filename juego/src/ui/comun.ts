@@ -1,9 +1,11 @@
 // Piezas comunes de la interfaz: texto, marcos de piedra y latón, botones, íconos de objetos y tooltips.
 import { marcoForjado, placaTitulo } from '../../../src/engine/gotico/hud';
-import { ctx, E, W as LW, H as LH } from '../nucleo/lienzo';
+import { ctx, E, W as LW, H as LH, ESCALA } from '../nucleo/lienzo';
+import { textoGotico, gotica } from './texto_gotico';
+import type { TonoGotico } from './letra_gotica';
 import { objetoMeta, dibujar } from '../motor/assets';
 import { baseDe, colorObj, textoStat, type Objeto } from '../juego/objetos';
-import { reqNivel } from '../juego/heroe';
+import { reqNivel, FILAS_CINTO, PILA_CINTURON } from '../juego/heroe';
 import { CONJUNTOS } from '../datos/objetos_datos';
 import { afinidadDe, EFECTO_LEGENDARIO } from '../datos/arsenal';
 import { CLASES } from '../datos/clases';
@@ -67,10 +69,24 @@ export function titulo(s: string, x: number, y: number, w: number) {
   ctx.imageSmoothingEnabled = su;
 }
 export const dentro = (x: number, y: number, w: number, h: number) => E.x >= x && E.y >= y && E.x < x + w && E.y < y + h;
-/** Botón: devuelve true si se hizo clic. */
-export function boton(s: string, x: number, y: number, w: number, h: number, o: { activo?: boolean; tam?: number; color?: string } = {}): boolean {
+/**
+ * Lo que mide en puntos CSS cada objetivo de toque de los menús en este cuadro (`__toquesMenu`, lo mira t1102 en el
+ * teléfono: cada uno debe medir 44 o más). Lo vacía quien dibuja la pantalla.
+ */
+export function anotarToque(id: string, w: number, h: number) { ((window as any).__toquesMenu ??= {})[id] = [Math.round(w * ESCALA * 10) / 10, Math.round(h * ESCALA * 10) / 10]; }
+/** Los puntos lógicos que miden 44 puntos de pantalla (el dedo). */
+export const DEDO = () => 44 / Math.max(0.1, ESCALA);
+/**
+ * Botón: devuelve true si se hizo clic. En táctil, los de los menús (`gotico`) miden para el dedo al menos 44 puntos de pantalla por lado aunque la placa
+ * se vea más chica (crece parejo alrededor). Con `gotico` el rótulo va en la letra gótica de pixel (tono `tono`, el
+ * encendido de brasa con el puntero encima).
+ */
+export function boton(s: string, x: number, y: number, w: number, h: number, o: { activo?: boolean; tam?: number; color?: string; gotico?: boolean; tono?: TonoGotico; id?: string } = {}): boolean {
   // una placa grabada de esquinas cortadas: hierro oscuro, filo de oro viejo y, con el puntero encima, la brasa que la enciende
-  const encima = dentro(x, y, w, h) && o.activo !== false, c = Math.min(7, h * 0.22);
+  let hx = x, hy = y, hw = w, hh = h;
+  if (E.tactil && o.gotico) { const m = DEDO(); if (hw < m) { hx -= (m - hw) / 2; hw = m; } if (hh < m) { hy -= (m - hh) / 2; hh = m; } }
+  anotarToque(o.id ?? s, hw, hh);
+  const encima = dentro(hx, hy, hw, hh) && o.activo !== false, c = Math.min(7, h * 0.22);
   const placa = () => { ctx.beginPath(); ctx.moveTo(x + c, y); ctx.lineTo(x + w - c, y); ctx.lineTo(x + w, y + c); ctx.lineTo(x + w, y + h - c); ctx.lineTo(x + w - c, y + h); ctx.lineTo(x + c, y + h); ctx.lineTo(x, y + h - c); ctx.lineTo(x, y + c); ctx.closePath(); };
   ctx.save();
   if (encima) { ctx.shadowColor = 'rgba(255,130,40,0.55)'; ctx.shadowBlur = 14; }
@@ -87,7 +103,8 @@ export function boton(s: string, x: number, y: number, w: number, h: number, o: 
   const rb = (rx: number) => { const ry = y + h / 2, q = encima ? 3.5 : 2.5; ctx.fillStyle = encima ? '#ffb050' : `rgb(${oro})`; ctx.beginPath(); ctx.moveTo(rx, ry - q); ctx.lineTo(rx + q, ry); ctx.lineTo(rx, ry + q); ctx.lineTo(rx - q, ry); ctx.closePath(); ctx.fill(); };
   if (w > 90) { rb(x + 9); rb(x + w - 9); }
   ctx.restore();
-  texto(s, x + w / 2, y + h / 2 + (o.tam ?? 14) * 0.35, { tam: o.tam ?? 14, alin: 'center', color: o.activo === false ? '#6a6050' : o.color ?? (encima ? '#fff0c0' : '#d8c8a0'), fuente: TITULO });
+  if (o.gotico && gotica()) textoGotico(s, x + w / 2, y + h / 2, o.tam ?? 14, { alin: 'center', medio: true, max: w - (w > 90 ? 30 : 10), tono: o.activo === false ? 'ceniza' : o.tono ?? 'hueso', encendido: encima ? 1 : 0 });
+  else texto(s, x + w / 2, y + h / 2 + (o.tam ?? 14) * 0.35, { tam: o.tam ?? 14, alin: 'center', color: o.activo === false ? '#6a6050' : o.color ?? (encima ? '#fff0c0' : '#d8c8a0'), fuente: TITULO });
   return encima && E.clicIzq;
 }
 
@@ -266,6 +283,8 @@ export function lineasObjeto(o: Objeto, h?: { nivel: number; fue: number; des: n
   if (o.efecto) { const ef = Object.values(EFECTO_LEGENDARIO).find((e) => e.id === o.efecto); if (ef) out.push([TT(ef.texto), '#ffb050']); }
   if (o.def) out.push([`${T('Defensa', 'Defense')}: ${o.def}`, '#e8e0d0']);
   if (b?.bloqueo) out.push([`${T('Bloqueo', 'Block')}: ${b.bloqueo}%`, '#e8e0d0']);
+  // (sexta pasada) el cinto dice cuántas filas da al cinturón
+  if (b?.ranura === 'cinturon' && !(globalThis as any).__cinturonViejo) { const f = Math.min(PILA_CINTURON, FILAS_CINTO[b.id] ?? 3); out.push([T(`Cinturón: ${f} filas de pociones`, `Belt: ${f} rows of potions`), '#e8e0d0']); }
   if (o.durabMax > 0 && !o.stats.some((s) => s[0] === 'durabilidad_infinita')) out.push([`${T('Durabilidad', 'Durability')}: ${Math.ceil(o.durab)} ${T('de', 'of')} ${o.durabMax}`, o.durab <= 0 ? '#ff4040' : '#e8e0d0']);
   if (b) {
     const rn = Math.max(b.req.nivel ?? 1, reqNivel(o));

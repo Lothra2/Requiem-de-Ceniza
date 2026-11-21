@@ -52,6 +52,15 @@ export type TipoPocion = 'vida' | 'mana' | 'rejuv';
 export const CINTURON_DEF: TipoPocion[] = ['vida', 'vida', 'mana', 'rejuv'];
 /** Cuántas pociones caben apiladas en una casilla de la bolsa y en una del cinturón. */
 export const PILA_BOLSA = 20, PILA_CINTURON = 4;
+/**
+ * (sexta pasada) Filas del cinturón según el cinto puesto, como en Diablo 2: cuántas pociones apila cada columna. No hay
+ * dato propio en los cintos, así que va por la base: la faja de tela 2, el cinturón de cuero y el tahalí 3, el de malla,
+ * el cinto del verdugo y el ceñidor de placas 4 (PILA_CINTURON, el tope de siempre). Sin cinto 2 (en Diablo 2 es 1: acá
+ * el héroe de salida no lleva cinto y sería castigo). Una base sin fila (una reliquia nueva sobre otra base) va con 3.
+ * Lo que ya está en el cinturón no se toca nunca: si hay más que las filas, se queda; solo no entra más.
+ */
+export const FILAS_CINTO: Record<string, number> = { faja_tela: 2, cinturon_cuero: 3, tahali_cazador: 3, cinturon_malla: 4, cinto_verdugo: 4, cenidor_placas: 4 };
+export function pilaCinturon(h: DatosHeroe): number { const o = (h.equipo as any)?.cinturon as Objeto | undefined; if ((globalThis as any).__cinturonViejo) return PILA_CINTURON; return o ? Math.min(PILA_CINTURON, FILAS_CINTO[o.base] ?? 3) : 2; }
 export const BOLSA_W = 10, BOLSA_H = 5, BOLSAS = 3;
 
 export function nuevoHeroe(clase: Clase, nombre: string): DatosHeroe {
@@ -129,10 +138,10 @@ export function tiposCinturon(h: DatosHeroe): TipoPocion[] {
  */
 export function alCinturon(h: DatosHeroe, o: Objeto): boolean {
   if (o.tipo !== 'pocion') return false;
-  if (apilar(h.cinturon.filter((x): x is Objeto => !!x), o, PILA_CINTURON)) return true;
+  if (apilar(h.cinturon.filter((x): x is Objeto => !!x), o, pilaCinturon(h))) return true;
   const tipos = tiposCinturon(h);
   for (let i = 0; i < h.cinturon.length; i++) if (!h.cinturon[i] && tipos[i] === o.pocion) {
-    const n = Math.min(PILA_CINTURON, cant(o));
+    const n = Math.min(pilaCinturon(h), cant(o));
     if (n >= cant(o)) { h.cinturon[i] = o; return true; }
     h.cinturon[i] = { ...o, uid: nuevoUid(), cantidad: n }; o.cantidad = cant(o) - n;
   }
@@ -145,15 +154,15 @@ export function alCinturon(h: DatosHeroe, o: Objeto): boolean {
 export function rellenarColumna(h: DatosHeroe, i: number): boolean {
   const tipo = tiposCinturon(h)[i];
   let actual = h.cinturon[i];
-  if (actual && (actual.pocion !== tipo || cant(actual) >= PILA_CINTURON)) return false;
+  if (actual && (actual.pocion !== tipo || cant(actual) >= pilaCinturon(h))) return false;
   let movio = false;
-  while (!actual || cant(actual) < PILA_CINTURON) {
+  while (!actual || cant(actual) < pilaCinturon(h)) {
     const cands = h.bolsa.filter((e) => e.o.tipo === 'pocion' && (actual ? apilable(e.o, actual) : e.o.pocion === tipo));
     if (!cands.length) break;
     // si la columna está vacía, la poción más fuerte. Entre iguales, la pila más chica primero (así se liberan casillas)
     cands.sort((a, b) => (b.o.tam ?? 0) - (a.o.tam ?? 0) || cant(a.o) - cant(b.o));
     const e = cands[0];
-    const falta = actual ? PILA_CINTURON - cant(actual) : PILA_CINTURON;
+    const falta = actual ? pilaCinturon(h) - cant(actual) : pilaCinturon(h);
     const n = Math.min(falta, cant(e.o));
     if (!actual) {
       if (n >= cant(e.o)) { h.bolsa.splice(h.bolsa.indexOf(e), 1); actual = e.o; }

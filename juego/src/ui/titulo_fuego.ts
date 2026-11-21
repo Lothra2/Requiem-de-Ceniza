@@ -49,7 +49,7 @@ let est: Estado | null = null, ultT = -1, ultAd = -1, encendido = false, golpead
 const chispas: Chispa[] = [];
 
 function armar(im: HTMLImageElement, celda: number, cw: number): Estado | null {
-  const ch = Math.max(8, Math.round((cw * im.naturalHeight) / im.naturalWidth)), aire = Math.round(ch * 0.24);
+  const ch = Math.max(8, Math.round((cw * im.naturalHeight) / im.naturalWidth)), aire = Math.round(ch * ((window as any).__tituloCorto ? 0.24 : 0.42)); // (sexta pasada: más aire arriba, las llamas de RÉQUIEM suben más)
   const m = document.createElement('canvas'); m.width = cw; m.height = ch;
   const g = m.getContext('2d', { willReadFrequently: true }); if (!g) return null;
   g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high'; g.drawImage(im, 0, 0, cw, ch);
@@ -74,7 +74,7 @@ function armar(im: HTMLImageElement, celda: number, cw: number): Estado | null {
     if (r > 170 && r - b > 90 && gg > 70 && azar(x, y, 6) < 0.3) { fF[i] = 0.45 + 0.35 * azar(x, y, 7); idxF.push(i); }
   }
   if (!idxA.length) return null;
-  const atras = D.crearFuego({ ancho: wA, alto: hA, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fA }, altura: 0.3, viento: 0.08, rafagas: 0.35, turbulencia: 0.36, ruido: 0.5, tramo: 9, velocidadTramo: 1.5, humo: 0.5, margen: 2, encendido: 0 });
+  const atras = D.crearFuego({ ancho: wA, alto: hA, semilla: 666, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fA }, altura: (window as any).__tituloCorto ? 0.3 : 0.5, viento: 0.08, rafagas: 0.35, turbulencia: 0.36, ruido: 0.5, tramo: 9, velocidadTramo: 1.5, humo: 0.5, margen: 2, encendido: 0 });
   const frente = D.crearFuego({ ancho: cw, alto: ch, semilla: 667, paleta: 'infierno', forma: { tipo: 'mapa', fuente: fF, forma }, altura: 0.075, viento: 0, rafagas: 0.1, turbulencia: 0.12, ruido: 0.6, tramo: 4, velocidadTramo: 2.6, humo: 0, margen: 0, encendido: 0 });
   // la distancia al canto de abajo de cada trazo, columna por columna (de abajo hacia arriba)
   const bajo = new Float32Array(cw * ch), largo = Math.max(6, ch * 0.13);
@@ -192,8 +192,8 @@ export function fuegoTitulo(im: HTMLImageElement | null, x: number, y: number, w
     moverChispas(chispas, dt, t, 6);
     sonar(t);
     // las llamas mueren antes del borde de arriba de la pantalla: cada fila se enfría según dónde cae (nunca un corte)
-    const fk = s.filaK ?? (s.filaK = new Float32Array(s.ch + s.aire)), techo = Math.max(10, H * 0.06);
-    for (let r = 0; r < fk.length; r++) { const sy = (T.d * (oy + r * cel) + T.f) / T.d, u = Math.max(0, Math.min(1, (sy - 2) / techo)); fk[r] = u * u * (3 - 2 * u); }
+    const fk = s.filaK ?? (s.filaK = new Float32Array(s.ch + s.aire)), techo = Math.max(10, H * ((window as any).__tituloCorto ? 0.06 : 0.045));
+    for (let r = 0; r < fk.length; r++) { const sy = (T.d * (oy + r * cel) + T.f) / T.d, u = Math.max(0, Math.min(1, (sy - 2) / techo)), v = (window as any).__tituloCorto ? 1 : Math.max(0, Math.min(1, r / (s.aire * 0.45))); fk[r] = u * u * (3 - 2 * u) * v * v * (3 - 2 * v); } // (sexta pasada: y antes del techo de su grilla: con las llamas más altas, en el teléfono chocaban con la fila de arriba y quedaba un borde recto)
     pintarCalor(s.atras, s.humo, { humo: true, pasadas: 2, filaK: fk });
     pintarCalor(s.atras, s.llama, { brillo: 1.5, umbral: 0.22, pasadas: 2, filaK: fk, tramaDesde: E.tactil ? 3.6 : 2.6 });
     pegarPixel(s.humo.c, x0, oy, celda, alfa * 0.9);

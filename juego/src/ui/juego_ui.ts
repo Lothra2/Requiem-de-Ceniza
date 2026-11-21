@@ -22,7 +22,7 @@ import { EPILOGOS } from '../mundo/decisiones';
 import { colorObj, crearObjeto, crearPocion, crearPergamino, engarzar, baseDe, textoStat, crearUnicoId, type Objeto } from '../juego/objetos';
 import { BASES } from '../datos/objetos_datos';
 import type { DatosHeroe } from '../juego/heroe';
-import { CASILLAS, BOLSA_W, BOLSA_H, equipoVisual, ropaBase, cuerpoDe, libre, cumpleReq, nivelHab, puedeAprender, xpPara, NIVEL_MAX, recoger, type Casilla, type EnBolsa, nivelEnDificultad, cant, apilable, partir, alCinturon, meterEnBolsa, tiposCinturon, PILA_BOLSA, PILA_CINTURON, type TipoPocion } from '../juego/heroe';
+import { pilaCinturon, CASILLAS, BOLSA_W, BOLSA_H, equipoVisual, ropaBase, cuerpoDe, libre, cumpleReq, nivelHab, puedeAprender, xpPara, NIVEL_MAX, recoger, type Casilla, type EnBolsa, nivelEnDificultad, cant, apilable, partir, alCinturon, meterEnBolsa, tiposCinturon, PILA_BOLSA, type TipoPocion } from '../juego/heroe';
 import { recalc, usarPocion, beberPocion, noRellenar, abrirPortal, costoMana, danoHab, habilidadDe, msg, frascosMax, ventanaCombo, cadaveresCerca, MAX_CARGAS, colorElem, thorDe, tramoThor, type Juego, type Monstruo } from '../juego/mundo';
 import { cuadrosMonstruo, dibujar as dibujarCuadro } from '../motor/assets';
 import { Sonido } from '../audio/sonido';
@@ -300,14 +300,14 @@ const cinturonLleno = (j: Juego) => { Sonido.efecto('negado'); msg(j, ['Cinturó
 function soltarEnCinturon(j: Juego, i: number) {
   const d = j.heroe.d, m = ui.mano!, o = d.cinturon[i];
   if (!o) {
-    const n = Math.min(PILA_CINTURON, cant(m));
+    const n = Math.min(pilaCinturon(d), cant(m));
     d.cinturon[i] = partir(m, n); if (d.cinturon[i] === m) ui.mano = null;
     tiposCinturon(d)[i] = m.pocion ?? 'vida';
   } else if (apilable(o, m)) {
-    const n = Math.min(PILA_CINTURON - cant(o), cant(m));
+    const n = Math.min(pilaCinturon(d) - cant(o), cant(m));
     if (n <= 0) { cinturonLleno(j); return; }
     o.cantidad = cant(o) + n; m.cantidad = cant(m) - n; if (m.cantidad <= 0) ui.mano = null;
-  } else if (cant(m) <= PILA_CINTURON) { d.cinturon[i] = m; ui.mano = o; tiposCinturon(d)[i] = m.pocion ?? 'vida'; }
+  } else if (cant(m) <= pilaCinturon(d)) { d.cinturon[i] = m; ui.mano = o; tiposCinturon(d)[i] = m.pocion ?? 'vida'; }
   else { cinturonLleno(j); return; }
   Sonido.efecto('pocion', { vol: 0.35, tono: 1.6 });
 }

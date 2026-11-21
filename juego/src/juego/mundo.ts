@@ -790,7 +790,7 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
       // (solo lo que se ve: el arma viva revienta su materia en el blanco, lo dibuja escena.ts)
       // (solo lo que se ve: el golpe de un poder, para render/poderes_vivos.ts)
       if (habEnCurso && (habEnCurso !== 'ataque' || h.buffs.forma_lobo || h.buffs.forma_oso) && ((j as any).golpesPoder?.length ?? 0) < 24) { const o = deDonde ?? [h.x, h.y], ex = m.x - o[0], ey = m.y - o[1], el = Math.hypot(ex, ey) || 1;
-        ((j as any).golpesPoder ??= []).push({ x: m.x, y: m.y, hab: habEnCurso, elem: g.elem, crit, mata, ux: ex / el, uy: ey / el, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40), parte: g.parte, f: Math.min(1, total / Math.max(1, m.vidaMax)), hueso: sangraHueso(m) }); }
+        ((j as any).golpesPoder ??= []).push({ x: m.x, y: m.y, hab: habEnCurso, area: golpeArea, elem: g.elem, crit, mata, ux: ex / el, uy: ey / el, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40), parte: g.parte, f: Math.min(1, total / Math.max(1, m.vidaMax)), hueso: sangraHueso(m) }); }
       if (g.arma && h.c.vivo && dm < 3.4 && ((j as any).golpesVivos?.length ?? 0) < 8) ((j as any).golpesVivos ??= []).push({ x: m.x, y: m.y, el: h.c.vivo, fuerte: crit || m.vida <= 0, alto: Math.min(60, 18 + (m.radio ?? 0.4) * 40) });
       if (h.d.aura && g.arma && (h.d.aura === 'aura_fuerza' || h.d.aura === 'aura_presteza' || h.d.aura === 'aura_conviccion' || h.d.aura === 'aura_llama')) pulsoAura(j, m.x, m.y, 'golpe');
       if (S && g.arma && dm < 3.4) {
@@ -1280,7 +1280,9 @@ export function usarHabilidad(j: Juego, id: string, tx: number, ty: number, obj:
   h.habActual = id;
   (h as any).tx = tx; (h as any).ty = ty; (h as any).tobj = obj;
   h.camino = null; h.destino = null;
-  if (!basico && hb.sonido && hb.anim === 'lanzar') sonar(j, hb.sonido);
+  // (las formas del druida suenan al cambiar, con los huesos y el aullido o el rugido: el rugido de jefe al empezar a lanzar se
+  // pisaba con ellos)
+  if (!basico && hb.sonido && hb.anim === 'lanzar' && !(hb.id.startsWith('forma_') && !(globalThis as any).__sinFormas)) sonar(j, hb.sonido);
   else sonar(j, h.c.distancia && (basico || hb.tipo === 'proyectil') ? (h.c.tipoArma === 'ballesta' ? 'virote' : 'flecha') : 'tajo');
   return true;
 }
@@ -1298,7 +1300,10 @@ const EFECTO_REMATE: Partial<Record<Elemento, string>> = { fuego: 'explosion_fue
 function rematar(j: Juego, x: number, y: number, hb: Habilidad, mult: number) {
   const h = j.heroe, g = golpeArma(j, 0.6 * Math.max(1, mult));
   const veces = hb.id === 'puno_dios' ? 3 : 1;
-  for (let k = 0; k < veces; k++) j.areas.push({ x, y, radio: 2.4 + k * 1.4, dano: [g.min, g.max], elem: hb.elem === 'sangre' ? 'fisico' : hb.elem, t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: EFECTO_REMATE[hb.elem] ?? 'onda_aterrizaje', retraso: 0.01 + k * 0.18 });
+  // (sexta pasada) la onda triple del Puño de dios la dibuja render/poderes_vivos.ts en el piso (tres aros de rayo que
+  // corren): antes eran tres columnas de trueno horneadas apiladas sobre el blanco y lo dejaban en blanco puro
+  const ondaViva = hb.id === 'puno_dios' && !(globalThis as any).__blancoQuinta;
+  for (let k = 0; k < veces; k++) j.areas.push({ x, y, radio: 2.4 + k * 1.4, dano: [g.min, g.max], elem: hb.elem === 'sangre' ? 'fisico' : hb.elem, t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: ondaViva ? '' : EFECTO_REMATE[hb.elem] ?? 'onda_aterrizaje', retraso: 0.01 + k * 0.18, hab: hb.id });
   j.numeros.push({ x: h.x, y: h.y, z: 80, txt: j.idi ? 'Finisher!' : '¡Remate!', color: '#ffd060', t: 0, grande: true });
   j.sacudida = Math.max(j.sacudida, 0.3);
 }
@@ -1544,7 +1549,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
       // en un combo, el efecto y el remate van una sola vez: con el último golpe, o con el que mata
       const fin = parte === undefined || parte >= REPARTO_COMBO.length - 1 || obj.muerto;
       if (fin && !basico && hb.efecto) efecto(j, efectoDe(hb.efecto, hb.elem, hb), obj.x, obj.y, efectoDir);
-      if (hb.explota) { j.areas.push({ x: obj.x, y: obj.y, radio: hb.explota, dano: [dh[0] * kRem, dh[1] * kRem], elem: hb.elem, t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: '', retraso: 0 }); efecto(j, hb.elem === 'luz' ? 'castigo' : hb.elem === 'rayo' ? 'trueno' : hb.elem === 'fisico' ? 'onda_aterrizaje' : hb.elem === 'frio' ? 'nova_escarcha' : hb.elem === 'veneno' ? 'nube_veneno' : hb.elem === 'sombra' ? 'estallido_cadaver' : 'explosion_fuego', obj.x, obj.y, 0, hb.explota / 2); }   // (a quemarropa el virote de escarcha o de veneno reventaba en fuego)
+      if (hb.explota) { j.areas.push({ x: obj.x, y: obj.y, radio: hb.explota, dano: [dh[0] * kRem, dh[1] * kRem], elem: hb.elem, t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: '', retraso: 0 }); if (hb.id !== 'puno_dios' || (globalThis as any).__blancoQuinta) efecto(j, hb.elem === 'luz' ? 'castigo' : hb.elem === 'rayo' ? 'trueno' : hb.elem === 'fisico' ? 'onda_aterrizaje' : hb.elem === 'frio' ? 'nova_escarcha' : hb.elem === 'veneno' ? 'nube_veneno' : hb.elem === 'sombra' ? 'estallido_cadaver' : 'explosion_fuego', obj.x, obj.y, 0, hb.explota / 2); }   // (a quemarropa el virote de escarcha o de veneno reventaba en fuego)
       if (remate && fin) { rematar(j, obj.x, obj.y, hb, mult); if (cb) cb.remate = false; }
       break;
     }
@@ -1636,6 +1641,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
         h.vida = Math.min(h.vidaMax, h.vida + h.vidaMax * val(hb.bonos?.cura_pct, n) / 100);
         h.mana = Math.min(h.c.manaMax, h.mana + h.c.manaMax * val(hb.bonos?.mana_pct_cura, n) / 100);
         efecto(j, 'estallido_cadaver', cad.x, cad.y, 0, 0.6); efecto(j, 'chispas_curacion', h.x, h.y);
+        if (!(globalThis as any).__festinViejo) sonar(j, 'festin', cad.x, cad.y, 0.9); // (sexta pasada: el sorbo y el latido húmedo)
         particulas(j, cad.x, cad.y, 14, 'sangre', '#600808', 1.2);
         break;
       }
@@ -2120,6 +2126,8 @@ function actualizarMecanicas(j: Juego, dt: number) {
   // (quinta pasada: el héroe se pinta como la bestia, render/formas.ts, y el cambio lo cuenta presencias.ts; el tono y el
   // humo de antes quedan solo con `__sinFormas`. La escala sigue igual: la leen los números y lo que se dibuja encima)
   const viejo = !!(globalThis as any).__sinFormas;
+  // (sexta pasada) el cambio suena cuando se ve: huesos que crujen y el aullido, el rugido o el aliento del hombre que vuelve
+  if (h.escala !== esc && !viejo && h.escala !== undefined && !h.muerto) sonar(j, oso ? 'forma_oso' : lobo ? 'forma_lobo' : 'forma_hombre', h.x, h.y, 0.85);
   if (h.escala !== esc) { h.escala = esc; if (esc !== 1 && viejo) { efecto(j, 'transformacion_bestia', h.x, h.y, 0, 1); particulas(j, h.x, h.y, 16, 'humo', oso ? '#604028' : '#707888', 1.2, 20); } }
   h.tinte = viejo ? (oso ? '#7a5030' : lobo ? '#8898b0' : undefined) : undefined;
   if ((lobo || oso) && viejo && R() < dt * 3) particulas(j, h.x + entre(-0.3, 0.3), h.y + entre(-0.3, 0.3), 1, 'ceniza', oso ? '#a07040' : '#a0b0c8', 0.3, 40);
@@ -2930,6 +2938,8 @@ export function volcarBrasero(j: Juego, o: ObjZ) {
   particulas(j, o.cx + 0.5, o.cy + 0.5, 18, 'brasa', '#ffa040', 1.4, 20); j.sacudida = Math.max(j.sacudida, 0.25);
 }
 
+/** (solo para el dibujo) el golpe que se está repartiendo es de un área (la onda del Puño de dios no revienta como el puño) */
+let golpeArea = false;
 function actualizarAreas(j: Juego, dt: number) {
   for (const a of j.areas) {
     habEnCurso = a.deHeroe ? a.hab ?? null : null; deDonde = null;
@@ -2939,7 +2949,9 @@ function actualizarAreas(j: Juego, dt: number) {
     a.t += dt; a.prox -= dt;
     if (a.prox <= 0) {
       a.prox = a.tick;
+      golpeArea = true;
       for (const e of enemigosDe(j, a.deHeroe)) if (dist(e.x, e.y, a.x, a.y) < a.radio + e.radio) danar(j, e, { min: a.dano[0], max: a.dano[1], elem: a.elem, deHeroe: a.deHeroe, fuente: a.deHeroe ? j.heroe : undefined, sinFallo: true });
+      golpeArea = false;
       if (a.efecto === 'lluvia_flechas') for (let k = 0; k < 5; k++) particulas(j, a.x + entre(-a.radio, a.radio), a.y + entre(-a.radio, a.radio), 1, 'chispa', '#d0c090', 0.3, 2);
       if (a.elem === 'frio' && a.efecto === 'ventisca') for (let k = 0; k < 6; k++) particulas(j, a.x + entre(-a.radio, a.radio), a.y + entre(-a.radio, a.radio), 1, 'nieve', '#e0f4ff', 0.5, 90);
     }

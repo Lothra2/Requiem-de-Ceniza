@@ -48,7 +48,7 @@ export const TAJO: Record<string, EstTajo> = {
   palma_dragon: T('puno', '#6a1606', '#ff7a20', '#fff0b0', 1.2, 8, 0.24, 'fuego'),
   puno_eco: T('puno', '#1a2a74', '#a0c0ff', '#ffffff', 1, 6, 0.3, 'eco'),
   rodilla_volcan: T('puno', '#5a1004', '#ff6010', '#ffe080', 1.15, 8, 0.24, 'fuego'),
-  puno_dios: T('puno', '#2a2a74', '#c8d8ff', '#ffffff', 1.35, 10, 0.3, 'rayo'),
+  puno_dios: T('puno', '#2a2a74', '#c8d8ff', '#b4c6ff', 1.35, 10, 0.3, 'rayo'), // (sexta pasada: el filo celeste, blanco sumado lavaba al blanco)
   // druida: fauces y garras
   mordida_rabiosa: T('mordida', '#3a0a06', '#e8dcc0', '#ffffff', 1, 4, 0.22),
   zarpazo_oso: T('garra', '#2a1a0a', '#c89a5a', '#fff0d0', 1.6, 3, 0.26),
@@ -58,7 +58,11 @@ export const TAJO: Record<string, EstTajo> = {
 const TAJO_FORMA: Record<FormaDruida, EstTajo> = { lobo: T('mordida', '#2a0806', '#d8ccb0', '#ffffff', 1, 4, 0.2), oso: T('garra', '#24160a', '#b08a5a', '#fff0d0', 1.5, 3, 0.24) };
 const formaJ = (j?: Juego | null) => (j && formasVivas() ? formaDe(j) : null);
 /** El estilo del golpe del héroe con este poder, contando la forma del druida. */
-export function estiloTajoDe(id: string, j?: Juego | null): EstTajo | null { const f = formaJ(j); if (f && (id === 'ataque' || !TAJO[id])) { const hb = HABS.get(id); if (id === 'ataque' || hb?.tipo === 'golpe') return TAJO_FORMA[f]; } return TAJO[id] ?? null; }
+// (sexta pasada) la bestia es el mismo héroe: el equipo no se ve (no es una armadura puesta sobre un lobo), pero el arma viva
+// sí sigue con él. Los colmillos y las garras toman el color del elemento de su arma (`__formaSinVivo` lo apaga)
+const VIVO_FORMA: Record<string, [string, string]> = { fuego: ['#ff7a24', '#ffd890'], frio: ['#7ac4ff', '#e4f6ff'], rayo: ['#7a98ff', '#d8e4ff'], veneno: ['#6ac838', '#d4ff98'], sombra: ['#9a5aff', '#e4d0ff'], luz: ['#ffcc50', '#fff2c0'], sangre: ['#d81818', '#ffa090'], acero: ['#c8ccd8', '#ffffff'] };
+const tajoVivo = new Map<string, EstTajo>();
+export function estiloTajoDe(id: string, j?: Juego | null): EstTajo | null { const f = formaJ(j); if (f && (id === 'ataque' || !TAJO[id])) { const hb = HABS.get(id); if (id === 'ataque' || hb?.tipo === 'golpe') { const el = (j!.heroe as any).c?.vivo as string | undefined, c = el && !(window as any).__formaSinVivo ? VIVO_FORMA[el] : undefined; if (!c) return TAJO_FORMA[f]; const k = f + el; let e = tajoVivo.get(k); if (!e) { e = { ...TAJO_FORMA[f], medio: c[0], filo: c[1] }; tajoVivo.set(k, e); } return e; } } return TAJO[id] ?? null; }
 const HABS = new Map(HABILIDADES.map((h) => [h.id, h]));
 export const tajosVivos = () => poderesVivos() && !(window as any).__sinTajos;
 /** El estilo del tajo de un poder (o del golpe con el arma), si es cuerpo a cuerpo. */

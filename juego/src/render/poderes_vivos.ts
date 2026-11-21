@@ -77,24 +77,29 @@ function arco(ctx: CanvasRenderingContext2D, e: any, aP: (x: number, y: number) 
   // se apaga a tirones: algunos golpes de reloj el arco queda casi en nada, como un rayo que vuelve a pegar
   let k = (1 - u) ** 0.7; if (!nace && r() < 0.2) k *= 0.35;
   const l = Math.hypot(b[0] - a[0], b[1] - a[1]), niv = l > 170 ? 6 : l > 80 ? 5 : 4;
-  const princ = quebrar(a, b, r, 0.36, niv), hebra = quebrar(a, b, r, 0.5, niv - 1);
+  const princ = quebrar(a, b, r, e.corro ? 0.22 : 0.36, niv), hebra = quebrar(a, b, r, e.corro ? 0.3 : 0.5, niv - 1);
   const ramas: P[][] = [], ang = Math.atan2(b[1] - a[1], b[0] - a[0]);
   for (let i = 0, nr = 2 + Math.floor(r() * 3); i < nr; i++) {
-    const p = princ[2 + Math.floor(r() * (princ.length - 5))], an = ang + (r() < 0.5 ? -1 : 1) * (0.35 + r() * 0.75), ll = Math.min(64, l * (0.16 + r() * 0.2));
+    // (los del corro del Puño de dios se abren solo en lo alto: abajo, a la altura de los cuerpos, barrían al héroe y al blanco)
+    const p = princ[2 + Math.floor(r() * Math.max(1, e.corro ? princ.length * 0.5 - 2 : princ.length - 5))], an = ang + (r() < 0.5 ? -1 : 1) * (0.35 + r() * 0.75), ll = Math.min(64, l * (0.16 + r() * 0.2));
     const fin: P = [p[0] + Math.cos(an) * ll, p[1] + Math.sin(an) * ll], rama = quebrar(p, fin, r, 0.55, 3); ramas.push(rama);
     if (r() < 0.4) { const q = rama[Math.floor(rama.length / 2)], an2 = an + (r() - 0.5) * 1.6, l2 = ll * 0.5; ramas.push(quebrar(q, [q[0] + Math.cos(an2) * l2, q[1] + Math.sin(an2) * l2], r, 0.6, 2)); }
   }
   // a tierra: tres lenguas que corren por el piso desde donde cae
-  if (e.suelo) for (let i = 0; i < 3; i++) { const an = r() * 6.283, ll = 14 + r() * 18; ramas.push(quebrar(b, [b[0] + Math.cos(an) * ll, b[1] + 34 * 0 + Math.sin(an) * ll * 0.5], r, 0.6, 3)); }
+  // (sexta pasada: los del corro no echan lenguas: llegaban a los pies del héroe)
+  if (e.suelo && !e.corro) for (let i = 0; i < 3; i++) { const an = r() * 6.283, ll = 14 + r() * 18; ramas.push(quebrar(b, [b[0] + Math.cos(an) * ll, b[1] + 34 * 0 + Math.sin(an) * ll * 0.5], r, 0.6, 3)); }
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   if (!e.chico) { ctx.fillStyle = `rgba(60,95,255,${0.2 * k})`; ctx.beginPath(); trazo(ctx, princ, 5, 2); ctx.fill(); }
-  ctx.fillStyle = `rgba(110,150,255,${(e.chico ? 0.45 : 0.75) * k})`; ctx.beginPath(); trazo(ctx, princ, 3); for (const q of ramas) trazo(ctx, q, 2, 1, 0, 0.6); ctx.fill();
-  ctx.fillStyle = `rgba(160,190,255,${0.6 * k})`; ctx.beginPath(); trazo(ctx, hebra, 1); for (const q of ramas) trazo(ctx, q, 1); ctx.fill();
+  const kh = e.hondo ? 0.4 : 1; // (sexta pasada: los rayitos hondos, sumados entre sí y sobre la arena, llegaban a blanco)
+  ctx.fillStyle = `rgba(110,150,255,${(e.chico ? 0.45 : 0.75) * k * kh})`; ctx.beginPath(); trazo(ctx, princ, 3); for (const q of ramas) trazo(ctx, q, 2, 1, 0, 0.6); ctx.fill();
+  ctx.fillStyle = `rgba(160,190,255,${0.6 * k * kh})`; ctx.beginPath(); trazo(ctx, hebra, 1); for (const q of ramas) trazo(ctx, q, 1); ctx.fill();
   const chico = !!e.chico; // (los del puño: el alma blanca solo en la rama principal y a media fuerza)
-  ctx.fillStyle = `rgba(255,255,255,${Math.min(1, k * (chico ? 0.6 : 1.4))})`; ctx.beginPath(); trazo(ctx, princ, nace && !chico ? 2 : 1); if (!chico) for (const q of ramas) trazo(ctx, q, 1, 1, 0, 0.35); ctx.fill();
+  // (sexta pasada: los rayitos de la onda y del contacto del Puño de dios van con el alma celeste: blancos y de a veinte, a la
+  // altura de los pies, dejaban la maraña blanca sobre el blanco)
+  ctx.fillStyle = e.hondo ? `rgba(120,150,255,${0.45 * k})` : `rgba(255,255,255,${Math.min(1, k * (chico ? 0.6 : 1.4))})`; ctx.beginPath(); trazo(ctx, princ, nace && !chico ? 2 : 1); if (!chico) for (const q of ramas) trazo(ctx, q, 1, 1, 0, 0.35); ctx.fill();
   // donde nace y donde pega: resplandor y una estrella de pixel que late
   // (de día el resplandor del rayo suma menos: el Puño de dios quemaba a blanco)
-  const hr = haloRayo(), kd = 0.4 + 0.6 * nochePfx();
+  const hr = haloRayo(), kd = (0.4 + 0.6 * nochePfx()) * (e.corro ? 0.55 : 1);
   if (!chico) { ctx.globalAlpha = k * 0.6 * kd; ctx.drawImage(hr, a[0] - 8, a[1] - 8, 16, 16); }
   const rb = (chico ? 5 : nace ? 22 : 11) + r() * (chico ? 2 : 4); ctx.globalAlpha = k * (chico ? 0.5 : 0.85) * kd; ctx.drawImage(hr, b[0] - rb, b[1] - rb, rb * 2, rb * 2);
   ctx.globalAlpha = 1; ctx.fillStyle = `rgba(255,255,255,${k})`;
@@ -358,12 +363,18 @@ function estrella(x: number, y: number, alto: number, c: string, r = 6, d = 0.18
 
 /** El reventón de pixel de un proyectil al pegar: capas del elemento que crecen de golpe y se enfrían de adentro afuera. */
 const PAL_PUF: Record<string, string[]> = { fuego: ['#7a1608', '#e0400c', '#ff9a22', '#ffe27a', '#fffbe8'], frio: ['#2a4a7a', '#4a8ac8', '#9ad4ff', '#e0f6ff', '#ffffff'], veneno: ['#1e3a0c', '#3a7a18', '#7ac838', '#c8ff70', '#f0ffd0'],
-  luz: ['#7a5a10', '#c89a28', '#ffd860', '#fff4c0', '#ffffff'], sombra: ['#14081e', '#3a1466', '#7a3ac8', '#c08aff', '#f0e0ff'], rayo: ['#1a2a7a', '#3a5ad8', '#8ab0ff', '#d8e4ff', '#ffffff'], sangre: ['#3a0404', '#7a0808', '#c01414', '#ff5a40', '#ffd0c0'] };
+  luz: ['#7a5a10', '#c89a28', '#ffd860', '#fff4c0', '#ffffff'], sombra: ['#14081e', '#3a1466', '#7a3ac8', '#c08aff', '#f0e0ff'], rayo: ['#1a2a7a', '#3a5ad8', '#8ab0ff', '#d8e4ff', '#ffffff'], rayo_hondo: ['#10164a', '#22309a', '#3a5ad8', '#7a9aff', '#b4c6ff'], sangre: ['#3a0404', '#7a0808', '#c01414', '#ff5a40', '#ffd0c0'] };
 function puf(x: number, y: number, alto: number, el: string, esc = 1) { if (PAL_PUF[el]) mk({ k: 'puf', x, y, d: 0.32, alto, pal: el, esc }); }
 // ------------------------------------------------------------------ qué suelta cada golpe
 const FLECHA = /flecha|virote|andanada|racimo|lluvia|torreta|jabalina/;
 const MELEE = new Set(['golpe', 'carga', 'salto', 'torbellino']);
 function materiaGolpe(ev: any, k: number) {
+  // (sexta pasada) lo que reparte la onda del Puño de dios no revienta como el puño: cada uno de los tres aros pegaba a cada
+  // blanco con su onda de choque, sus tres rayos a tierra y su reventón, y la maraña dejaba al blanco en blanco puro
+  if (ev.area && ev.hab === 'puno_dios' && !(window as any).__blancoQuinta) {
+    chispasLibres(Math.round(4 * KT()), () => { const an = R() * 6.283, v = rnd(1.5, 4); return { x: ev.x, y: ev.y, z: ev.alto * rnd(0.3, 0.9), vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(30, 100), t: 0, d: rnd(0.14, 0.26), c: R() < 0.5 ? [120, 150, 255] : [70, 90, 220], s: 2, reb: 1 }; });
+    sangre(ev.x, ev.y, ev.alto, ev.ux, ev.uy, 5, ev.mata ? 1 : 0, 0.8, ev.hueso); return;
+  }
   const hb = HABS.get(ev.hab) ?? (ev.hab === 'orbe_glacial_esquirla' ? HABS.get('orbe_glacial') : undefined), el: string = ev.elem, z = ev.alto;
   const tipo = hb?.tipo ?? (ev.hab === 'ataque' ? 'golpe' : 'proyectil'), melee = MELEE.has(tipo), flecha = FLECHA.test(ev.hab) || /flecha|virote/.test(hb?.efecto ?? '');
   if ((tipo === 'area' || tipo === 'trampa' || tipo === 'maldicion') && hb?.duracion) k *= 0.4; // (lo que pega cada medio segundo, más contenido)
@@ -426,11 +437,12 @@ function choque(ev: any, et: NonNullable<ReturnType<typeof estiloTajo>>, fuerte:
   const c = hexRgb(et.filo), c2 = hexRgb(et.medio);
   chispasLibres(Math.round((fuerte ? 12 : 7) * KT()), () => { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.4, v = rnd(3, 6.5); return { x: ev.x, y: ev.y, z: z + rnd(-5, 5), vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(20, 110), t: 0, d: rnd(0.15, 0.32), c: R() < 0.5 ? c : c2, s: 2, reb: 1 }; });
   // (los rayos a tierra del puño son chicos: arco fino, sin el resplandor grande ni la luz de 220 puntos del rayo en cadena)
-  if (ex === 'rayo') { const viejo = (window as any).__blancoViejo; for (let i = 0; i < (fuerte ? 3 : 2); i++) { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.6, d = rnd(1, 1.8); jRef!.efectos.push({ id: 'arco_cadena', x: ev.x, y: ev.y, x2: ev.x + Math.cos(an) * d, y2: ev.y + Math.sin(an) * d, t: 0, dir: 0, escala: 1, z: 0, dur: 0.18, za: z, zb: 2, suelo: true, chico: !viejo, sem: Math.floor(R() * 1e6) } as any); } }
+  if (ex === 'rayo') { const viejo = (window as any).__blancoViejo; for (let i = 0, nr = ev.hab === 'puno_dios' && !(window as any).__blancoQuinta ? 1 : fuerte ? 3 : 2; i < nr; i++) { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.6, d = rnd(1, 1.8); jRef!.efectos.push({ id: 'arco_cadena', x: ev.x, y: ev.y, x2: ev.x + Math.cos(an) * d, y2: ev.y + Math.sin(an) * d, t: 0, dir: 0, escala: 1, z: 0, dur: 0.18, za: z, zb: 2, suelo: true, chico: !viejo, hondo: ev.hab === 'puno_dios' && !(window as any).__blancoQuinta, sem: Math.floor(R() * 1e6) } as any); } }
   else if (ex === 'fuego') { puf(ev.x, ev.y, z, 'fuego', 1.1 * k); brasas(ev.x, ev.y, z, 14, 4); }
   else if (ex === 'piedra') { astillas(ev.x, ev.y, z, 12, ['#8a7a62', '#a09078', '#5a4e40', '#c0ac8a'], '#2a2018', 4, 3, ev.ux, ev.uy); polvo(ev.x, ev.y, 5, '#8a7a62', 5, 12, 1.4); }
   else if (ex === 'eco') polvo(ev.x, ev.y, 3, '#9ab0d8', 4, 10, 1);
-  if (et.medio === '#c8d8ff' || ev.hab === 'puno_dios') puf(ev.x, ev.y, z, 'rayo', 1.2);
+  // (sexta pasada: el del Puño de dios revienta en azul hondo, sin las dos capas blancas del reventón del rayo)
+  if (et.medio === '#c8d8ff' || ev.hab === 'puno_dios') puf(ev.x, ev.y, z, ev.hab === 'puno_dios' && !(window as any).__blancoQuinta ? 'rayo_hondo' : 'rayo', 1.2);
   sangre(ev.x, ev.y, z, ev.ux, ev.uy, 6, fuerte ? 1 : 0, 1, ev.hueso);
 }
 
@@ -515,6 +527,10 @@ export function sinHorneado(e: Efecto): boolean {
   if (formasVivas() && (e.id === 'transformacion_bestia' || (e.id === 'pfx:fx_torbellino_hojas' && /^forma_/.test((e as any).hab ?? '')))) return true;
   const hab = (e as any).hab as string | undefined; if (!conMateria() || !hab) return false;
   if (e.id === 'salpicadura_sangre') return true;
+  // (sexta pasada) la columna horneada del Coro de los sellos y del Ascenso del espíritu que nace en el héroe: aun detrás y a
+  // menos de la mitad, sumada sobre la arena rodeaba la cabeza de blanco, y el castigo horneado dejaba su estrella blanca
+  // sobre la cabeza. La columna la hace el haz de oro de definitiva() y la ola, los anillos de oro viejo de energia.ts
+  if ((e.id === 'pilar_luz' || e.id === 'castigo') && (hab === 'coro_sellos' || hab === 'ascenso_espiritu') && !(window as any).__blancoQuinta && jRef && Math.hypot(e.x - jRef.heroe.x, e.y - jRef.heroe.y) < 0.6) return true;
   // (la cuadrícula de oro horneada de la Égida del alba: la reemplaza el haz y el sello de render/presencias.ts)
   if (!(window as any).__sinPresencias && ((hab === 'egida_alba' && e.id === 'pfx:fx_bloqueo_escudo') || (hab === 'piel_hierro' && e.id === 'pfx:fx_parada') || (hab === 'cepo_dientes' && e.id === 'pfx:fx_explosion_tierra') || (hab === 'armadura_hueso' && e.id === 'pfx:fx_calaveras_orbitan') || (hab === 'llamar_halcon' && e.id === 'pfx:fx_plumas') || (hab === 'picada' && e.id === 'tajo_garras')
     // (la burbuja de oro del escudo divino en mejoras que no son de luz: el tónico, la piel de yunque, el mantra y la cortina)
@@ -528,6 +544,21 @@ export function sinHorneado(e: Efecto): boolean {
   const de = (e as any).de as [number, number] | undefined; return !de || Math.hypot(e.x - de[0], e.y - de[1]) > 0.5;
 }
 function ola(x: number, y: number, radio: number, d: number, retraso = 0) { mk({ k: 'ola', x, y, d: d + retraso, t: -retraso, r: radio, c: '#a80c0c' }); }
+
+/** La onda del Puño de dios en el piso: un aro azul que se abre hasta su radio, rayos chicos que corren por delante del
+ * frente pegados al piso y polvo levantado. Todo en el piso y en azul profundo: lo blanco es solo el alma de cada rayo. */
+function ondaRayo(j: Juego, x: number, y: number, radio: number) {
+  const d = 0.26 + radio * 0.03;
+  anilloPiso(x, y, { d, r0: 0.5, r1: radio, c: [46, 70, 210], g: 4, a: 0.55 });
+  anilloPiso(x, y, { d: d * 0.9, r0: 0.4, r1: radio * 0.94, c: [120, 150, 255], g: 1.5, a: 0.32 });
+  const n = Math.round((4 + radio) * KT());
+  for (let i = 0; i < n; i++) {
+    const u = rnd(0.35, 1), an = R() * 6.283, rr = radio * u, tg = an + Math.PI / 2 * (R() < 0.5 ? 1 : -1), l = rnd(0.5, 1.1);
+    const px = x + Math.cos(an) * rr, py = y + Math.sin(an) * rr;
+    j.efectos.push({ id: 'arco_cadena', x: px, y: py, x2: px + Math.cos(tg) * l + Math.cos(an) * 0.3, y2: py + Math.sin(tg) * l + Math.sin(an) * 0.3, t: -d * u * 0.85, dir: 0, escala: 1, z: 0, dur: 0.16, za: 3, zb: 2, suelo: true, chico: true, sinLuz: true, hondo: true, sem: Math.floor(R() * 1e6) } as any);
+  }
+  polvo(x, y, 6, '#6a6458', 5, 10, radio * 1.1);
+}
 
 /** El golpe propio de cada definitiva, por elemento. */
 function definitiva(j: Juego, hb: Hab, x: number, y: number) {
@@ -543,9 +574,11 @@ function definitiva(j: Juego, hb: Hab, x: number, y: number) {
     // (la columna del centro, si nace en el héroe, va detrás de su cuerpo: encima lo lavaba a blanco de día)
     // (quinta pasada: si nace en el héroe la columna va más angosta, y las brasas de oro, no blancas)
     const enH = Math.hypot(x - j.heroe.x, y - j.heroe.y) < 0.6, viejo = (window as any).__blancoViejo;
-    mk({ k: 'runas', x, y, d: 1.6, c: '#ffd860', r: Math.min(3.2, r * 0.6) }); if (!enH || viejo) haz(x, y, 1.9, 1.1); else haz(x, y, 1.1, 0.8); { const ult = marcas[marcas.length - 1]; if (ult?.k === 'haz' && enH) ult.detras = true; }
-    for (let i = 0; i < 7; i++) { const an = R() * 6.283, d = rnd(1.2, Math.min(4, r * 0.75)); haz(x + Math.cos(an) * d, y + Math.sin(an) * d, rnd(0.8, 1.1), 0.7, 0.08 + i * 0.06); }
-    brasas(x, y, 30, 26, 3, viejo ? [[255, 250, 220], [255, 220, 120], [255, 200, 80]] : [[255, 228, 150], [255, 196, 90], [240, 160, 50]]); return;
+    mk({ k: 'runas', x, y, d: 1.6, c: '#ffd860', r: Math.min(3.2, r * 0.6) }); if (!enH || viejo) haz(x, y, 1.9, 1.1); else if ((window as any).__blancoQuinta) haz(x, y, 1.1, 0.8); else haz(x, y, 1.6, 1.05, 0, '#ffd070'); /* (sexta pasada: sin la columna horneada, el haz del centro es la columna: más ancho y de oro más hondo, detrás del cuerpo) */ { const ult = marcas[marcas.length - 1]; if (ult?.k === 'haz' && enH) ult.detras = true; }
+    // (sexta pasada: los siete de alrededor no caen en la columna de pantalla del héroe: el que caía delante lo cruzaba entero)
+    for (let i = 0; i < 7; i++) { let an = R() * 6.283, d = rnd(1.2, Math.min(4, r * 0.75)); if (enH && !viejo && !(window as any).__blancoQuinta) for (let k = 0; k < 12 && Math.abs(Math.cos(an) * d - Math.sin(an) * d) < 1.5; k++) { an = R() * 6.283; d = rnd(1.4, Math.min(4, r * 0.75)); }
+      haz(x + Math.cos(an) * d, y + Math.sin(an) * d, rnd(0.8, 1.1), 0.7, 0.08 + i * 0.06); }
+    brasas(x, y, 30, 26, 3, viejo ? [[255, 250, 220], [255, 220, 120], [255, 200, 80]] : enH && !(window as any).__blancoQuinta ? [[250, 190, 80], [230, 150, 40], [200, 110, 30]] : [[255, 228, 150], [255, 196, 90], [240, 160, 50]]); return;
   }
   if (id === 'lamento_osario' || id === 'legion_ceniza' || id === 'condena_osario') {
     puas(x, y, 14, id === 'condena_osario' ? 2 : 2.6, 'hueso', 34, 1.5, true); puas(x, y, 7, 1.6, 'hueso', 24, 1.3, false, 0.1);
@@ -555,7 +588,12 @@ function definitiva(j: Juego, hb: Hab, x: number, y: number) {
   if (id === 'panacea_negra') { astillas(x, y, 30, 18, ['#e8faff', '#a8dcef', '#ffffff'], '#4a7890', 4, 3, 0, 0, true); burbujas(x, y, 22, 1.6, '#7ad040'); return; }
   if (hb.elem === 'frio' && id !== 'ojo_tifon') { puas(x, y, 12, Math.min(4, r * 0.5), 'hielo', 24, 1.6, true); astillas(x, y, 24, 24, ['#f0faff', '#bfe6ff', '#86c4f0'], '#3a6a98', 5, 3, 0, 0, true); return; }
   if (id === 'ojo_tifon') { mk({ k: 'remolino', x, y, d: 1.4, c: '#e0f4ff', r: 4 }); mk({ k: 'remolino', x, y, d: 1.2, t: -0.15, c: '#a8d8ff', r: 2.6 }); hojas(x, y, 14, ['#c8d8e0', '#8aa0b0', '#e8f0f4']); return; }
-  if (hb.elem === 'rayo') { for (let i = 0; i < 5; i++) { const an = R() * 6.283, d = i ? rnd(0.8, 2.8) : 0; j.efectos.push({ id: 'arco_cadena', x: x + Math.cos(an) * d + (R() - 0.5), y: y + Math.sin(an) * d - 0.8, x2: x + Math.cos(an) * d, y2: y + Math.sin(an) * d, t: -i * 0.05, dir: 0, escala: 1, z: 0, dur: 0.32, za: 240 + R() * 60, zb: 0, suelo: true, cielo: true, sem: Math.floor(R() * 1e6) } as any); }
+  // (sexta pasada) los cinco rayos del Puño de dios caen en corro alrededor del blanco, no encima: el primero le pegaba en
+  // la cabeza con su resplandor y su luz entera y lo dejaba blanco con el héroe al lado. Van con el resplandor contenido
+  if (hb.elem === 'rayo') { const corro = id === 'puno_dios' && !(window as any).__blancoQuinta; // (la columna de cada uno no pasa por delante del héroe ni del blanco: se elige dónde cae con su x de pantalla lejos de los dos)
+  const cuerpos: number[] = corro ? [x - y, j.heroe.x - j.heroe.y] : [], libre = (qx: number, qy: number) => cuerpos.every((c) => Math.abs(qx - qy - c) > 2.1);
+  for (let i = 0; i < 5; i++) { let an = R() * 6.283, d = i ? rnd(0.8, 2.8) : 0;
+    if (corro) for (let k = 0; k < 24; k++) { an = (i / 5) * 6.283 + R() * 1.6; d = rnd(2.2, 4); if (libre(x + Math.cos(an) * d, y + Math.sin(an) * d)) break; } j.efectos.push({ id: 'arco_cadena', x: x + Math.cos(an) * d + (R() - 0.5), y: y + Math.sin(an) * d - 0.8, x2: x + Math.cos(an) * d, y2: y + Math.sin(an) * d, t: -i * 0.05, dir: 0, escala: 1, z: 0, dur: 0.32, za: 240 + R() * 60, zb: 0, suelo: true, cielo: true, corro, sem: Math.floor(R() * 1e6) } as any); }
     grieta(x, y, 1.6, 1.8, '#8ab0ff'); return; }
   // (la Ira de la estación ya trae sus meteoros: solo la grieta de lava, la bola encima quemaba la pantalla entera)
   if (id === 'ira_estacion') { grieta(x, y, 1.8, 2.4, '#ff6a10'); return; }
@@ -596,6 +634,8 @@ function seguirMateria(j: Juego, dt: number) {
   if (!conMateria()) { if (gp) gp.length = 0; piezas.length = marcas.length = 0; return; }
   if (gp?.length) { const k = Math.max(0.35, 1 / Math.sqrt(gp.length)); for (const ev of gp) materiaGolpe(ev, k); gp.length = 0; }
   for (const e of j.efectos as any[]) { if (!e.hab || vistosHab.has(e)) continue; vistosHab.add(e); if (e.t < 0.2) materiaEfecto(j, e); }
+  // (sexta pasada) la onda triple del Puño de dios: cada área, al caer, corre por el piso como un aro de rayo
+  for (const a of j.areas as any[]) if (a.hab === 'puno_dios' && a.retraso <= 0 && !vistosHab.has(a) && !(window as any).__blancoQuinta) { vistosHab.add(a); ondaRayo(j, a.x, a.y, a.radio); }
   enVuelo(j, dt);
   const h = j.heroe;
   for (let i = piezas.length - 1; i >= 0; i--) {

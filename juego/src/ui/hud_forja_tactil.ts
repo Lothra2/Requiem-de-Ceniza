@@ -18,8 +18,8 @@ import { hud, type Rect } from './hud_rects';
 import { msg, type Juego } from '../juego/mundo';
 import { cant, tiposCinturon } from '../juego/heroe';
 import { dibujarRoseton } from './sello_nivel';
-import { espacio, aumentar, cuadroOrbe, cuadroLiq, nuevoCuadroOrbes, frascoVacio, perla, filasCinturon, siluetaNegra } from './hud_forja';
-import { pulsoHud, grietas, enPiedra, grietasLuz, marcaFondo, marcaChispas, sangreRacha, cenizaJefe, estadosOrbe } from './forja_viva';
+import { espacio, aumentar, cuadroOrbe, cuadroLiq, nuevoCuadroOrbes, frascoVacio, perla, filasColumna, siluetaNegra } from './hud_forja';
+import { pulsoHud, grietas, enPiedra, grietasLuz, grietasHondas, marcaFondo, marcaChispas, sangreRacha, cenizaJefe, estadosOrbe } from './forja_viva';
 import { reliquiaClase, AYUDA_RELIQUIA } from './forja_reliquia';
 import { Taller, M, enOjiva, altoOjiva, bordeOjiva } from './forja_taller';
 
@@ -140,7 +140,7 @@ export function dibujarBaseForja(j: Juego, P: DispForja, t: number) {
       ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gl; ctx.fillRect(gx - r0 * 1.8, gy - r0 * 1.8, r0 * 3.6, r0 * 3.6); ctx.globalCompositeOperation = 'source-over';
     }
     // la vida baja raja la piedra de la casa: las grietas sangran luz con el latido
-    if (id === 'v' && kV < 0.3 && !h.muerto) { const q = (0.3 - kV) / 0.3; grietasLuz(mc.fisV, ccx, ccy, D, '255,40,24', 0.3 * q + 0.7 * lat, 0.3 + 0.7 * q); }
+    if (id === 'v' && kV < 0.3 && !h.muerto) { const q = (0.3 - kV) / 0.3, hasta = 0.3 + 0.7 * q; grietasHondas(mc.fisV, ccx, ccy, D, 0.5 + 0.5 * q, hasta); grietasLuz(mc.fisV, ccx, ccy, D, '255,40,24', 0.35 + 0.35 * q + 0.5 * lat, hasta); }
     estadosOrbe(j, ccx, ccy, R, D, id as 'v' | 'm', V);
   }
   // la sangre de la racha por la piedra (las casas, el muro y la bandeja)
@@ -184,7 +184,7 @@ export function pocionForja(j: Juego, i: number, r: Rect, apretado: boolean) {
   ctx.restore();
   // (el ícono del objeto se dibuja en puntos lógicos, como en la bolsa)
   if (o) { const pad = r[2] * 0.12; icono(o, r[0] + pad, r[1] + pad * 0.5, r[2] - pad * 2, r[3] - pad * 2.3); }
-  const cap = filasCinturon(d), n = o ? Math.min(cap, cant(o)) : 0, pip = Math.max(3, Math.round(s / 12)), sep = pip + 2, w0 = cap * sep - 2;
+  const cap = filasColumna(d, o), n = o ? Math.min(cap, cant(o)) : 0, pip = Math.max(3, Math.round(s / 12)), sep = pip + 2, w0 = cap * sep - 2;
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
   const px0 = x + Math.round((s - w0) / 2) * e.D, py = y + (s - pip - 3) * e.D;
   for (let k = 0; k < cap; k++) perla(px0 + k * sep * e.D, py, pip, e.D, k < n ? COLOR_POCION[o?.pocion ?? tipos[i]] : null);

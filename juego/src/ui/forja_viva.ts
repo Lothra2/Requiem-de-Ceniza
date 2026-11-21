@@ -91,6 +91,14 @@ export function grietasLuz(g: [number, number, number][], cx: number, cy: number
   ctx.save(); ctx.globalCompositeOperation = 'lighter'; puntos(pts, D, `rgba(${rgbc},${cl(a)})`); ctx.restore();
 }
 
+/** (sexta pasada) La grieta tallada: el surco oscuro en la piedra (con su labio de luz abajo) antes de la luz que sangra.
+ * Sola, la luz sumada sobre la piedra gris se leía como un rayado tenue; con el surco se lee rota. */
+export function grietasHondas(g: [number, number, number][], cx: number, cy: number, D: number, a: number, hasta = 1) {
+  if (a <= 0.01 || !g.length) return;
+  const pts: number[] = [], lab: number[] = []; for (const [x, y, o] of g) if (o <= hasta) { pts.push(cx + x * D, cy + y * D); lab.push(cx + x * D, cy + (y + 1) * D); }
+  puntos(lab, D, `rgba(150,128,108,${cl(a * 0.45)})`); puntos(pts, D, `rgba(12,5,4,${cl(a * 0.9)})`);
+}
+
 // ------------------------------------------------------------------ la Marca
 /** Debajo del rosetón: el resplandor de la brasa en la piedra y las fisuras que arden. */
 export function marcaFondo(cx: number, cy: number, D: number, P: Pulso, fis: [number, number, number][]) {
@@ -172,22 +180,26 @@ export function cenizaJefe(P: Pulso, mat: Uint8Array, w: number, hh: number, cla
     for (let x = 0; x < w; x++) { let y = 0; while (y < hh && !mat[y * w + x]) y++; cumbre[x] = y; }
   }
   const j = P.jefe; let hay = false;
-  if (j > 0.6) { const n = Math.ceil(P.dt * w * 0.35); for (let i = 0; i < n; i++) { const x = Math.floor(Math.random() * w); if (cumbre[x] >= hh) continue; const vec = (x > 0 ? monton[x - 1] : 0) + (x < w - 1 ? monton[x + 1] : 0); if (monton[x] < 2 && (monton[x] === 0 ? vec > 0 || Math.random() < 0.12 : vec >= 2 && Math.random() < 0.3)) monton[x]++; } }
+  // (sexta pasada: el montón sube hasta 3 y se junta más rápido, los copos son más y uno de cada tres es de 2 x 2: se leía
+  // como polvo de la pantalla. Lo que cae va solo por encima del panel y no tapa el mundo de la pelea)
+  if (j > 0.6) { const n = Math.ceil(P.dt * w * 0.6); for (let i = 0; i < n; i++) { const x = Math.floor(Math.random() * w); if (cumbre[x] >= hh) continue; const vec = (x > 0 ? monton[x - 1] : 0) + (x < w - 1 ? monton[x + 1] : 0); if (monton[x] < 4 && (monton[x] === 0 ? vec > 0 || Math.random() < 0.2 : vec >= monton[x] * 2 - 1 && Math.random() < 0.4)) monton[x]++; } }
   else if (j < 0.5) { const n = Math.ceil(P.dt * w * 0.5); for (let i = 0; i < n; i++) { const x = Math.floor(Math.random() * w); if (monton[x]) monton[x]--; } }
   // la ceniza juntada: tramos iguales en un solo rectángulo
-  ctx.fillStyle = '#a39c92'; ctx.beginPath();
+  ctx.fillStyle = '#8a8276'; ctx.beginPath();
   for (let x = 0; x < w;) { const m = monton[x]; if (!m) { x++; continue; } hay = true; let x2 = x + 1; while (x2 < w && monton[x2] === m && cumbre[x2] === cumbre[x]) x2++; ctx.rect(dx(x), dy(cumbre[x] - m), (x2 - x) * D, m * D); x = x2; }
   ctx.fill();
   // la cresta de cada montón, más clara
-  ctx.fillStyle = '#d2ccc2'; ctx.beginPath(); for (let x = 0; x < w; x++) if (monton[x] === 2) ctx.rect(dx(x), dy(cumbre[x] - 2), D, D); ctx.fill();
+  ctx.fillStyle = '#ddd5c8'; ctx.beginPath(); for (let x = 0; x < w; x++) if (monton[x] >= 1 && monton[x] >= (x > 0 ? monton[x - 1] : 0)) ctx.rect(dx(x), dy(cumbre[x] - monton[x]), D, D); ctx.fill();
+  // las brasas que quedaron en el montón, que titilan
+  if (j > 0.01) for (let x = 3; x < w; x += 17) if (monton[x] >= 2 && hash(x, 0, 73) < 0.5) { ctx.fillStyle = `rgba(255,${110 + Math.floor(hash(x, Math.floor(P.t * 4), 74) * 80)},40,${0.5 + 0.5 * j})`; ctx.fillRect(dx(x), dy(cumbre[x] - 1), D, D); }
   if (j <= 0.01) return hay;
   // los copos: gris ceniza y, uno de cada cinco, una brasa que titila
-  const n = tactil ? 22 : 44, S = 170;
+  const n = tactil ? 34 : 70, S = 170;
   for (let i = 0; i < n; i++) {
     const v = 16 + hash(i, 1, 71) * 26, y = (P.t * v + hash(i, 2, 71) * S) % S, x = Math.floor(hash(i, 3, 71) * w + Math.sin(P.t * 0.7 + i) * 7), ys = (x >= 0 && x < w ? cumbre[x] : hh) - S + y;
     const a = j * Math.min(1, y / 24) * Math.min(1, (S - y) / 10 + 0.3);
     if (i % 5 === 0) { ctx.fillStyle = `rgba(255,${120 + Math.floor(hash(i, Math.floor(P.t * 9), 72) * 90)},50,${a})`; ctx.fillRect(dx(x), dy(ys), D, D); }
-    else { ctx.fillStyle = `rgba(168,160,150,${a * 0.75})`; ctx.fillRect(dx(x), dy(ys), D, D); }
+    else { const g2 = i % 3 === 1; ctx.fillStyle = `rgba(${g2 ? '214,206,194' : '180,172,162'},${a * (g2 ? 0.9 : 0.8)})`; ctx.fillRect(dx(x), dy(ys), (g2 ? 2 : 1) * D, (g2 ? 2 : 1) * D); }
   }
   return true;
 }

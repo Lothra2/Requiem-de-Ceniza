@@ -17,15 +17,17 @@ ARPG gótico isométrico original de Rick, en Vite + TypeScript + Canvas 2D. Est
 
 Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 
-- **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 8 publicadas en main
-  (la 8, atascos mirados con la cuenta estricta y minas apuntaladas, el 21 nov). La 9 (atascos repetibles, espera con hueco y
-  cuenta objetiva) está en `mundos` sin publicar. Cada entrega tiene su sección abajo; lo flojo que queda, al final de la 9.
-- **Libro de Odrán** (rama `odran`, copia en `/home/user/requiem-odran`, 21 nov 2026, en marcha): el Códice por hilos de la historia.
+- **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
+  (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
+  abajo; lo flojo que queda, al final de la 9.
+- **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
+  Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
+- **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
   que Diablo 2 pero original; nada montado, todo con intención; respaldar ramas de trabajo en origin está bien.
 - **Agentes**: nunca con el modelo Fable (Rick, 20 nov 2026). Usar opus o sonnet.
-- **Seguir solo**: la tarea de cada hora se borró el 21 nov al publicar la etapa B (`8f4f242`). Si hace falta otra vez, crear una nueva.
+- **Seguir solo**: la tarea de cada hora se borró el 21 nov al publicar la entrega 9 de mundos y el Libro de Odrán. Si hace falta otra vez, crear una nueva.
 - **HUD**: publicado (`9be8834`, `bc0a1e1`). Rick aprobó el cinturón partido en dos pares (20 nov). Sexta pasada (rama
   `pulido-poderes`, 21 nov): grietas de vida baja talladas, ceniza del jefe que se lee y el cinturón siempre de 4 por columna (Rick, la regla por cinto quedó apagada).
 - **Poderes**: seis pasadas (la sexta en `pulido-poderes`, ver "Sexta pasada" en Poderes en vivo): Coro de los sellos y

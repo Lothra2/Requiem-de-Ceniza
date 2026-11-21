@@ -15,4 +15,10 @@ const MURO = /muro|muralla|nichos|pared_toba|esquina|almena|reja|tapia/, tm = {}
 for (const [k, m] of Object.entries(man.o)) { const id = k.split('|')[0]; if (m.plano || !MURO.test(id) || !m.f?.[0]) continue; const f = m.f[0]; tm[k] = [f[3], f[4], f[5], f[6]]; }
 fs.writeFileSync(raiz + 'src/mundo/cajas_muro.json', JSON.stringify(tm));
 console.log('cajas de muro', Object.keys(tm).length);
+// (entrega 6) las de los adornos que EST deja afuera por el nombre pero son adorno (lo que cuelga de la pared, los santuarios, la
+// puerta del cielo): `desmontarFinal` en zona.ts mira con ellas lo que quedó montado al final de la generación
+const DECO = /pared|santuario|puerta_cielo|escalera_caracol/, td = {};
+for (const [k, m] of Object.entries(man.o)) { const id = k.split('|')[0]; if (m.plano || !DECO.test(id) || MURO.test(id) || !m.f?.[0]) continue; const f = m.f[0]; td[k] = [f[3], f[4], f[5], f[6]]; }
+fs.writeFileSync(raiz + 'src/mundo/cajas_deco.json', JSON.stringify(td));
+console.log('cajas de adorno con nombre de estructura', Object.keys(td).length);
 console.log('cajas', Object.keys(t).length, fs.statSync(raiz + 'src/mundo/cajas_sprite.json').size, 'bytes');

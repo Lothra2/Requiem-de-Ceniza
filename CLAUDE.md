@@ -536,6 +536,70 @@ pintada encima).
   Flojo: el destello de la losa es chico (5 puntos, a propósito: se nota si se mira) y el gigante en el juego no entra entero en
   la pantalla de 720 con el héroe al pie (mide 464 puntos).
 
+## Mundos, entrega 6 (21 nov 2026)
+
+Rick: "Acomodá lo flojo, quiero perfección." Lo que quedó flojo de la entrega 5 y un recorrido por las 96 zonas.
+
+- **Hitos que entran en 720** (`exterior` y `conectar` en `zona.ts`, la cámara en `dibujarMundo` de `escena.ts`). Con el héroe
+  al pie 17 de 72 puestos se cortaban arriba (el gigante 46 puntos, la escalera de los siete 119, el tambor de Yhuantl 299
+  porque la selva lo tapaba y no había desde dónde mirarlo). Tres cosas: (1) el hito mira a +x +y y ahora necesita su
+  **explanada** delante (`frente`: piso a 8 celdas por la diagonal con radio 6, o 7 con radio 4, y lejos de las bocas y casas);
+  queda reservada como claro y lo que bloquea y cayó ahí después sale (`desmontarFinal`). Después de los claros no se tira
+  más `rl`, así que no mueve otro lugar. (2) El hito se iba entero en 1 de cada 10 zonas (`destapar` y `conectar` lo partían
+  para abrir paso): `destapar` lo saca solo si no hay otra cosa y en `conectar` pesa 450 (más que el vacío). 0 sin hito en
+  18 zonas x 30 semillas. (3) **La cámara sube** frente a un hito lo justo para que entre entero, a lo sumo 150 puntos (o 0,48
+  del medio alto visible): el héroe queda en el tercio de abajo, nunca bajo el HUD (`hitosDe`, `__hitoCortado` lo apaga). No
+  se achicó ninguna pieza: siguen monumentales. `__hitoViejo` vuelve a la colocación de antes. Prueba:
+  `t1030_hitos_pantalla.cjs <etiqueta> [zonas] [frente,izq,der,detras]` (falla si alguno se corta; 72 de 72 enteros, el
+  héroe baja hasta 453 de 648 con la escalera y el tambor). Ojo: la explanada y el paso que rodea el hito abren alguna
+  baldosa distinta a cielo abierto: **`MAPA_V` pasó a 4** (se pierde solo la niebla).
+- **La ventana de lo alto** (`render/recorte.ts`, `__alfaViejo` lo de antes): con el héroe detrás, lo alto que lo tapa ya no
+  baja entero a 0,45 (el hito quedaba como un fantasma): se abre un óvalo de 76 x 100 puntos del dibujo alrededor del pecho,
+  con un velo de 0,26 de la pieza en el medio y el borde a escalones de un octavo tramados en Bayer 4 x 4, pegado a la grilla
+  de la pieza. Se abre y se cierra en 0,25 s por pieza. Los muros en franjas solo abren las franjas que están delante del
+  héroe. El relieve de la luz avanzada va a media fuerza en la pieza abierta (`relieveDe` en assets.ts).
+- **Obra: 40 adornos por pantalla** (t1000, antes 39). La medida cambió y es más justa: `DECO` en `medir_espacios.mjs` cuenta
+  lo que una capa de adorno puso aunque su id diga pared, muro o puerta (cadenas y candeleros de pared, momias de pared, la
+  pared de carne, los santuarios, que caían por el `rio_` de `com_santuario_`), y lo que cuelga de la pared y su rastro al pie
+  no cuentan como montado. `MEDIDA_VIEJA=1` vuelve a la cuenta de antes (con ella la obra queda en 39: lo que suman los faroles y los refugios
+  del fin lo pierde `desmontarFinal` al sacar lo que estaba montado). Con intención: **vías alumbradas** (`alumbrarVias`, `__viasOscuras`): en las minas un farol de mina cada 8
+  a 11 celdas donde había una piedra de la orilla del túnel, y en las galerías sin túnel faroles al pie del muro de atrás
+  cada 9 a 12 celdas (no bloquean, capa `pared`); y **refugios del fin** (`FIN` en `vestirParedes`, `__sinRefugiosFin`):
+  donde no había refugios, el cielo (el bebido sentado o de rodillas con sus velas), lo ahogado (el marino con su nasa o el
+  pescado) y el infierno (el desollado o el calcinado con velas en calaveras). Montados obra 8 a 4, arena 54 igual.
+- **Nada montado al final** (`desmontarFinal`, sin azar, al final de `generarZona` antes de las esquinas; `__montadosFinal` lo
+  apaga): `desmontar` no veía lo que se pone después (trampas, asiento del jefe), lo de la pared (sin caja: ahora
+  `cajas_deco.json`, que escribe `t1013_cajas.mjs`) ni los pares que pesan lo mismo (urna detrás de columna, brasero de la
+  puerta sobre la losa de púas, el cofre debajo de la horca, cosas encima del hito). Queda el que pesa más; el otro se corre
+  a 1 a 4 celdas a donde se llega caminando, con todo el anillo libre (nunca al ruedo del jefe; lo que bloquea solo si se
+  rompe; sin el anillo, una urna corrida a un cuello de una celda lo cerraba en la cuenta estricta de t370, a1_cripta), lo de
+  la pared a lo largo de su muro, o sale. Montados exterior 17 a 9, obra 8 a 4 (t1000). Los bebidos de rodillas de la ofrenda ya no van
+  iguales en fila (`__bebidosIguales`).
+- **Losa de púas de reojo** (`render/puas.ts`; `__puasViejas` el destello de antes, `__puasMudas` nada): el canto de la losa en
+  un rombo frío que respira, las 16 puntas con su caña, cada 2,4 s un barrido de luz que cruza la losa en diagonal (las
+  puntas se encienden de a una), un velo frío sobre toda la losa y la estrella de 9 x 7 en lo alto, y su luz fría en
+  luces.ts (`luzPuas`). Prueba: `t1031_puas.cjs <etiqueta> [zonas]` (30 cuadros seguidos de la losa).
+- **Atascos** (`avanzar` y `rodeoCuerpos` en `juego/mundo.ts`; `__colaVieja` vuelve a lo de antes). La causa del de
+  siempre (a1_mina1, a7_trono, a7_islas1, a5_abismo2): a unas 3 casillas del héroe pegado a un muro chico, el punto del corro
+  aparecía y desaparecía cuadro a cuadro (`dist < 3`) y el camino se rehacía cada 0,6 s hacia uno u otro lado del muro: el
+  cuerpo iba y venía sin acercarse y sin contar como trabado. Ahora: histéresis (entra a 3, sale a 3,8), cerca del héroe el
+  rodeo elegido dura 1,6 s, quien no se acerca 0,3 en 1,5 s queda en cola, y el trabado o en cola busca con `rodeoCuerpos`
+  (búsqueda a lo ancho de media casilla que ve muros y cuerpos enteros, sin apretarse) un hueco libre del aro de golpe y
+  apunta ahí; si el corro está lleno de verdad espera quieto su turno; al llegar sale de la cola (antes de esto la cola
+  seguía tirando del que ya estaba pegando). Probado y descartado: seguir paso a paso el camino de `rodeoCuerpos` (de 1 a
+  unos 20 atascados por corrida: los que hacían cola se peleaban el mismo hueco y daban vueltas). t1011 cuenta aparte a los
+  que esperan turno (`esperan`, `SIN_TURNO=1` los cuenta como atascados) y acepta `BANDERAS=`. **No quedó en 0**: en 16
+  corridas de `todas 2` dio 7 atascados (unos 40 000 casos; 8 corridas seguidas en 0 y otras 8 con 0 a 2), antes 7 en 6
+  corridas. Lo que queda es el que tiene hueco del otro lado del corro: el camino de la grilla pasa por encima de los cuerpos
+  que ya pegan y empuja en vez de rodear. Arreglarlo de verdad es un camino con cuerpos que no se pelee el mismo hueco.
+- **Recorrido de las 96 zonas**: `t1032_recorrido.cjs <etiqueta> [zonas|todas] [n]` (4 fotos por zona en puntos fijos,
+  `PUNTOS=` otro archivo de puntos: `hito_frente`, `hito_detras` y cualquier celda con `dx`, `dy`; se retoma si se cae) y
+  `t1033_auditoria.mjs <etiqueta>` sin navegador (flotando, repetidos, junto a la salida, montados al 60 %, hito sin explanada;
+  `HEROE=auditoria1` usa la semilla con que ese héroe ve cada zona). Lámina de los 12 peores: `t1034_lamina.py antes ahora`
+  (`/tmp/requiem-pruebas/e6/lamina_1.png` y `_2`). Con HEROE=auditoria1, antes y ahora: montados 625 a 235, repetidos 71 a
+  49, hito sin explanada o ausente 8 a 1 (con las 3 semillas de t1000: montados 2189 a 700, repetidos 213 a 201). Lo que queda "flotando" (unos 290) es a propósito: lo que vive en el vacío del
+  abismo y del cielo y las matas de la orilla.
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

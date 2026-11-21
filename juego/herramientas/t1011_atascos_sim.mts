@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 const nada: any = new Proxy(function () {}, { get: (_t, k) => (k === Symbol.toPrimitive ? () => 0 : nada), apply: () => nada, construct: () => nada });
 (globalThis as any).document ??= nada; (globalThis as any).window ??= globalThis;
 (globalThis as any).__frenteViejo = true; (globalThis as any).__thorLejos = true;
+for (const b of (process.env.BANDERAS || '').split(',').filter(Boolean)) (globalThis as any)[b] = true;
 const raiz = process.env.RAIZ ?? fileURLToPath(new URL('..', import.meta.url));
 const sv = await createServer({ root: raiz, configFile: false, logLevel: 'error', server: { middlewareMode: true, hmr: false, ws: false }, appType: 'custom', optimizeDeps: { noDiscovery: true, include: [] } });
 const HE = await sv.ssrLoadModule('/src/juego/heroe.ts'), MU = await sv.ssrLoadModule('/src/juego/mundo.ts'), ZO = await sv.ssrLoadModule('/src/mundo/zona.ts'), MO = await sv.ssrLoadModule('/src/datos/monstruos.ts'), AC = await sv.ssrLoadModule('/src/mundo/actos.ts');
@@ -39,7 +40,7 @@ for (const zid of ZONAS) for (let s = 0; s < SEM; s++) {
       const m = MU.crearMonstruo(MO.MONSTRUOS[ids[k % ids.length]], 10, mx + 0.5, my + 0.5, 0, 0);
       m.vida = m.vidaMax = 1e7; m.estado = 'perseguir'; m.objetivo = h; m.cd = 999; m.alerta = 0; m.x0 = m.x; m.y0 = m.y; j.monstruos.push(m); puestos.push(m);
     }
-    for (let t = 0; t < 9; t += DT) { if (process.env.TRAZA && t > 8.6) for (const m of puestos) if (Math.abs(m.x0 - +process.env.TRAZA.split(',')[0]) < 0.1 && Math.abs(m.y0 - +process.env.TRAZA.split(',')[1]) < 0.1) console.log(t.toFixed(2), m.x.toFixed(2), m.y.toFixed(2), m.acc, 'cd', m.cd.toFixed(1), 'tCam', m.tCam?.toFixed(2), 'trab', m.trabado, 'cam', JSON.stringify(m.camino), 'pens', m.pensar.toFixed(2), 'bc', JSON.stringify(ZO.buscarCamino(z, m.x, m.y, h.x, h.y, 5000)), 'pas', ZO.pasable(z, m.x, m.y), ZO.pasable(z, Math.floor(m.x), Math.floor(m.y)), 'h', h.x, h.y, 'bloq vecinos', [-1, 0, 1].map((dy) => [-2, -1, 0, 1, 2, 3].map((dx) => z.bloq[(Math.floor(m.y) + dy) * W + Math.floor(m.x) + dx]).join('')).join('/')); if (Math.abs(t - 6) < DT / 2) for (const m of puestos) m.d6 = largo(m); h.vida = h.vidaMax; MU.actualizar(j, DT); }
+    for (let t = 0; t < 9; t += DT) { if (process.env.TRAZA && t > 8.6) for (const m of puestos) if (Math.abs(m.x0 - +process.env.TRAZA.split(',')[0]) < 0.1 && Math.abs(m.y0 - +process.env.TRAZA.split(',')[1]) < 0.1) console.log(t.toFixed(2), m.x.toFixed(2), m.y.toFixed(2), m.acc, 'cd', m.cd.toFixed(1), 'tCam', m.tCam?.toFixed(2), 'trab', m.trabado, 'cam', JSON.stringify(m.camino), 'pens', m.pensar.toFixed(2), 'cola', m.cola, 'hueco', JSON.stringify(m.hueco), 'rodeo', JSON.stringify(m.rodeo), 'espera', m.espera, 'bc', JSON.stringify(ZO.buscarCamino(z, m.x, m.y, h.x, h.y, 5000)), 'pas', ZO.pasable(z, m.x, m.y), ZO.pasable(z, Math.floor(m.x), Math.floor(m.y)), 'h', h.x, h.y, 'bloq vecinos', [-1, 0, 1].map((dy) => [-2, -1, 0, 1, 2, 3].map((dx) => z.bloq[(Math.floor(m.y) + dy) * W + Math.floor(m.x) + dx]).join('')).join('/')); if (Math.abs(t - 6) < DT / 2) for (const m of puestos) m.d6 = largo(m); h.vida = h.vidaMax; MU.actualizar(j, DT); }
     tot.lugares++;
     for (const m of puestos) {
       const dd = Math.hypot(m.x - h.x, m.y - h.y), alcance = m.radio + h.radio + 1.2;
@@ -48,7 +49,11 @@ for (const zid of ZONAS) for (let s = 0; s < SEM; s++) {
       tot.perseguian++;
       // (cerca y con otro cuerpo pegado: hace cola detrás de los que ya llegaron, no está atascado)
       const cola = dd < 4.5 && puestos.some((o) => o !== m && Math.hypot(o.x - m.x, o.y - m.y) < 1.3);
-      if (dd > alcance + 0.6 && !cola && m.d6 - largo(m) < 0.6) { tot.atascados++; if (process.env.DETALLE) console.log(zid, s, 'héroe', x, y, 'monstruo', m.def.id, m.x.toFixed(2), m.y.toFixed(2), 'de', m.x0, m.y0, 'dist', dd.toFixed(1), m.acc, 'trabado', m.trabado, 'camino', JSON.stringify(m.camino?.slice(0, 3)), 'estado', m.estado, 'obj', m.objetivo === h, m.objetivo?.tipo, m.objetivo?.def?.id, m.objetivo?.invocaId, 'thor', j.monstruos.filter((o: any) => o.dueno).length); }
+      // (entrega 6: con el corro lleno de verdad, sin paso entre los muros y los cuerpos hasta un hueco libre alrededor del héroe,
+      //  esperar quieto es lo justo: se cuenta aparte, no como atascado)
+      const turno = dd > alcance + 0.6 && !cola && m.d6 - largo(m) < 0.6 && !process.env.SIN_TURNO && !MU.rodeoCuerpos(j, m, h);
+      if (turno) { tot.esperan = (tot.esperan ?? 0) + 1; continue; }
+      if (dd > alcance + 0.6 && !cola && m.d6 - largo(m) < 0.6) { tot.atascados++; if (process.env.DETALLE) console.log(zid, s, 'héroe', x, y, 'monstruo', m.def.id, m.x.toFixed(2), m.y.toFixed(2), 'de', m.x0, m.y0, 'dist', dd.toFixed(1), m.acc, 'trabado', m.trabado, 'camino', JSON.stringify(m.camino?.slice(0, 3)), 'estado', m.estado, 'cola', m.cola, 'hueco', JSON.stringify(m.hueco), 'dAcerca', m.dAcerca?.toFixed(2), 'obj', m.objetivo === h, m.objetivo?.tipo, m.objetivo?.def?.id, m.objetivo?.invocaId, 'thor', j.monstruos.filter((o: any) => o.dueno).length, 'pegados al héroe', puestos.filter((o) => o !== m && Math.hypot(o.x - h.x, o.y - h.y) < o.radio + h.radio + 1.2).length, 'otro más cerca', Math.min(...puestos.filter((o) => o !== m).map((o) => Math.hypot(o.x - m.x, o.y - m.y))).toFixed(2), 'pos', JSON.stringify(puestos.map((o) => [+o.x.toFixed(1), +o.y.toFixed(1)]))); }
     }
   }
 }

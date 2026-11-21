@@ -308,7 +308,7 @@ export const olvidarZonas = () => zonasVivas.clear();
 /** Versión del trazado de los mundos: va en la clave del mapa descubierto. Se sube cuando una fase mueve el trazado de las zonas
  * (siluetas, salas, cuevas): la niebla vieja no se pinta sobre el mapa nuevo y se descubre otra vez. Héroe, objetos, misiones,
  * piedras de viaje, casas y restos van por id de zona y no se enteran. Las claves viejas quedan en el guardado sin usarse. */
-export const MAPA_V = 3;
+export const MAPA_V = 4; // (4: entrega 6, el hito con su explanada y el paso que lo rodea abren alguna baldosa distinta a cielo abierto)
 const claveMapa = (z: Zona) => z.id + (z.hueco ? '~o' : '') + '~m' + MAPA_V;
 const empacarMapa = (e: Uint8Array) => { const b = new Uint8Array(Math.ceil(e.length / 8)); for (let i = 0; i < e.length; i++) if (e[i]) b[i >> 3] |= 1 << (i & 7); let s = ''; for (const v of b) s += String.fromCharCode(v); return e.length + ':' + btoa(s); };
 function desempacarMapa(t: string, e: Uint8Array) {
@@ -2580,11 +2580,73 @@ function apartarDeMuros(z: Zona, e: Ent) {
   if (fy < R0 && !pasable(z, cx + 0.5, cy - 1)) ny = cy + R0; else if (fy > 1 - R0 && !pasable(z, cx + 0.5, cy + 1)) ny = cy + 1 - R0;
   if ((nx !== e.x || ny !== e.y) && pasable(z, nx, ny)) { e.x = nx; e.y = ny; }
 }
+/**
+ * (entrega 6) Por dónde llega un cuerpo a pegarle a `obj` contando a los otros cuerpos, no solo los muros: una búsqueda a lo
+ * ancho en una grilla de media casilla de 13 x 13 casillas alrededor del objetivo, donde cada otro cuerpo es un disco que no
+ * se pisa. La meta es cualquier punto del aro de golpe (sin muro entre el objetivo y él). Devuelve el hueco y el camino, o null
+ * si el corro está lleno. Lo usa `avanzar` y lo mira t1011.
+ */
+export function rodeoCuerpos(j: Juego, m: Monstruo, obj: Ent): { hueco: [number, number]; camino: [number, number][] } | null {
+  const z = j.zona, R0 = 0.5, N = 27, ox = obj.x - (N - 1) * R0 / 2, oy = obj.y - (N - 1) * R0 / 2, r0 = m.radio + obj.radio + 0.35;
+  const otros = j.monstruos.filter((o) => o !== m && !o.muerto && Math.abs(o.x - obj.x) < 8 && Math.abs(o.y - obj.y) < 8);
+  const libre = new Uint8Array(N * N);
+  for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
+    const x = ox + gx * R0, y = oy + gy * R0;
+    if (!pasable(z, x, y) || !pasable(z, x - 0.35, y) || !pasable(z, x + 0.35, y) || !pasable(z, x, y - 0.35) || !pasable(z, x, y + 0.35) || Math.hypot(x - obj.x, y - obj.y) < r0 - 0.3) continue;
+    if (otros.some((o) => Math.hypot(o.x - x, o.y - y) < o.radio + m.radio)) continue; // (sin apretarse: por donde no pasa entero, no pasa)
+    libre[gy * N + gx] = 1;
+  }
+  const sx = Math.round((m.x - ox) / R0), sy = Math.round((m.y - oy) / R0); if (sx < 0 || sy < 0 || sx >= N || sy >= N) return null;
+  const padre = new Int32Array(N * N).fill(-2), cola = [sy * N + sx]; padre[sy * N + sx] = -1;
+  for (let k = 0; k < cola.length; k++) {
+    const i = cola[k], gx = i % N, gy = (i - gx) / N, x = ox + gx * R0, y = oy + gy * R0, d = Math.hypot(x - obj.x, y - obj.y);
+    if (k > 0 && d <= r0 + 0.3 && lineaPasable(z, obj.x, obj.y, x, y)) {
+      const camino: [number, number][] = []; for (let c = i; c >= 0; c = padre[c]) camino.push([ox + (c % N) * R0, oy + Math.floor(c / N) * R0]);
+      camino.reverse(); camino.shift();
+      return { hueco: [x, y], camino: camino.filter((_, n) => n % 2 === 1 || n === camino.length - 1) };
+    }
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const X = gx + dx, Y = gy + dy; if (X < 0 || Y < 0 || X >= N || Y >= N) continue; const jn = Y * N + X;
+      if (padre[jn] !== -2 || !libre[jn]) continue;
+      if (dx && dy && (!libre[gy * N + X] || !libre[Y * N + gx])) continue; // (sin cortar esquinas)
+      padre[jn] = i; cola.push(jn);
+    }
+  }
+  return null;
+}
 function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
   // rodear: cada uno apunta a un punto alrededor del objetivo
   const ang = (m.id * 2.39996) % (Math.PI * 2);
-  const off = dist(m.x, m.y, obj.x, obj.y) < 3 ? 0.9 : 0;
-  const tx = obj.x + Math.cos(ang) * off, ty = obj.y + Math.sin(ang) * off;
+  // (entrega 6: con histéresis. A unas 3 casillas el punto del corro aparecía y desaparecía cuadro a cuadro; el camino se
+  //  rehacía cada 0,6 s hacia uno u otro, y detrás de un muro chico eran dos rodeos distintos: el cuerpo iba y venía sin
+  //  llegar nunca, el atascado de siempre de t1011)
+  const dh = dist(m.x, m.y, obj.x, obj.y), qh = m as any;
+  if ((window as any).__colaVieja) qh.corro = dh < 3; else if (dh < 3) qh.corro = true; else if (dh > 3.8) qh.corro = false;
+  const off = qh.corro ? 0.9 : 0;
+  let tx = obj.x + Math.cos(ang) * off, ty = obj.y + Math.sin(ang) * off;
+  // (entrega 6: t1011 daba 1 o 2 atascados por corrida, siempre igual: a 3 casillas del héroe pegado a un muro chico, con el
+  //  lado que da a este cuerpo ya lleno de otros. El camino de la grilla no ve los cuerpos: rodeaba el muro por un lado, se
+  //  topaba con los que ya pegaban, rehacía el camino por el otro lado y así, caminando sin llegar nunca. Trabado o sin
+  //  acercarse cerca del héroe, busca por dónde pasar entre muros Y cuerpos (`rodeoCuerpos`) hasta un hueco libre alrededor
+  //  del héroe y apunta ahí; si no hay ninguno (el corro está lleno), espera quieto su turno en vez de empujar. `__colaVieja`
+  //  vuelve a lo de antes)
+  { const q = m as any;
+    if (dist(m.x, m.y, obj.x, obj.y) <= m.radio + obj.radio + 0.9) { q.cola = 0; q.hueco = null; q.espera = false; } // (ya llegó: fuera de la cola)
+    else if ((q.trabado >= 2 || q.cola) && !(window as any).__colaVieja && !(window as any).__sinRodeo && !(window as any).__atascoViejo && dist(m.x, m.y, obj.x, obj.y) < 5.5) {
+      q.tRodeo = (q.tRodeo ?? 0) - dt;
+      if (q.tRodeo <= 0) { q.tRodeo = 0.8; const r = rodeoCuerpos(j, m, obj); q.hueco = r ? r.hueco : null; q.espera = !r; q.tCam = 0; }
+      if (q.espera) { m.camino = null; if (m.acc === 'caminar' || m.acc === 'correr') m.acc = 'quieto'; return; }
+      if (q.hueco) { tx = q.hueco[0]; ty = q.hueco[1]; }
+
+    } else if (!q.trabado && !q.cola) { q.hueco = null; q.espera = false; }
+    // (¿se acerca? el que va y viene entre dos rodeos se mueve y nunca se contaba como trabado: cada 1,5 s, si a menos de 5,5
+    //  casillas no se acercó ni 0,3 al héroe, queda en cola hasta que se acerque 0,6)
+    if (!(window as any).__colaVieja && !(window as any).__atascoViejo) {
+      q.tAcerca = (q.tAcerca ?? 1.5) - dt;
+      if (q.tAcerca <= 0) { const d = dist(m.x, m.y, obj.x, obj.y); if (q.dAcerca !== undefined && d < 5.5 && d > m.radio + obj.radio + 0.9 && q.dAcerca - d < 0.3) q.cola = (q.cola ?? 0) + 1; else if (q.dAcerca !== undefined && q.dAcerca - d >= 0.6) q.cola = 0; q.dAcerca = d; q.tAcerca = 1.5; }
+      if (dist(m.x, m.y, obj.x, obj.y) > 7) q.cola = 0;
+    }
+  }
   // de lejos se lanza a la carrera (si su animación la tiene; si no, camina igual)
   const lejos = m.vel >= 2.6 && dist(m.x, m.y, obj.x, obj.y) > 3.5;
   if ((window as any).__atascoViejo) {
@@ -2619,12 +2681,12 @@ function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
         //  camino a medias llevaba al rincón más cercano al héroe, ahí se acababa, y el cuerpo iba y venía sin acumular
         //  "trabado": 9 de 3827 en t1011. `buscarCamino` avisa si el camino es parcial y entonces se busca a fondo, con montículo,
         //  una vez por cuadro en toda la pelea; ese camino largo se sigue 2,5 s. Si ni así llega, se reintenta cada 3 s)
-        let c = q.trabado >= 2 ? buscarCamino(z, m.x, m.y, obj.x, obj.y, 2500) : buscarCamino(z, m.x, m.y, tx, ty, 1500), fondo = false;
+        let c = q.trabado >= 2 && !q.hueco ? buscarCamino(z, m.x, m.y, obj.x, obj.y, 2500) : buscarCamino(z, m.x, m.y, tx, ty, 1500), fondo = false;
         if ((!c || (c as any).parcial) && (q.tFondo ?? 0) <= j.t && caminoFondo(j)) {
           const c2 = buscarCamino(z, m.x, m.y, obj.x, obj.y, 20000, true);
           if (c2 && !(c2 as any).parcial) { c = c2; fondo = true; } else q.tFondo = j.t + 3;
         }
-        m.camino = c; q.tCam = fondo ? 2.5 : 0.6 + R() * 0.2;
+        m.camino = c; q.tCam = fondo ? 2.5 : (!(window as any).__colaVieja && dist(m.x, m.y, obj.x, obj.y) < 6 ? 1.6 : 0.6) + R() * 0.2; // (entrega 6: cerca del héroe el rodeo elegido se sigue más tiempo: rehacerlo cada 0,6 s lo hacía ir y venir entre los dos lados de un muro chico)
         // (el primer punto puede quedar atrás: si ya se ve el segundo con el cuerpo entero, se salta)
         while (m.camino && m.camino.length > 1 && lineaPasable(z, m.x, m.y, m.camino[1][0], m.camino[1][1])) m.camino.shift();
       }

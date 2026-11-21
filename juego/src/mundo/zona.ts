@@ -11,6 +11,7 @@ import { regarDecalsParamo } from '../../../src/engine/gotico/decals_paramo';
 import { rng, clamp } from '../nucleo/azar';
 import CAJAS_SPRITE from './cajas_sprite.json';
 import CAJAS_MURO_J from './cajas_muro.json';
+import CAJAS_DECO_J from './cajas_deco.json';
 
 export interface ObjZ { id: string; v: string; cx: number; cy: number; hw: number; hh: number; bloquea: boolean; tag?: string; dato?: any; /** De qué paso de la generación salió (riego, vida, macabro, relleno, escena, horror, jefe...): lo usa `curarAdornos`. No se guarda. */ capa?: string; }
 export interface Salida { cx: number; cy: number; destino: string; entrada: string; nombre: [string, string]; obj?: ObjZ; /** Misión que hay que haber aceptado para pasar (si no, la puerta está sellada). */ sello?: string; /** Misión que, cumplida, deja la pieza herida. */ herida?: string; /** Piezas que cambian de variante con la historia. */ piezas?: ObjZ[] }
@@ -537,11 +538,11 @@ function exterior(def: DefZona, semilla: number): Zona {
       for (let a = 0; a < 12; a++) for (const f of [1.15, 0.6]) { const X = Math.floor((x + Math.cos(a * 0.5236) * rad * f) / 5), Y = Math.floor((y + Math.sin(a * 0.5236) * rad * f) / 5); if (X < 0 || Y < 0 || X >= tw || Y >= th || !z.pisos[Y * tw + X]) return false; }
       return true;
     };
-    const elegir = (rad: number, lejosSalida: number, lejosLugar: number): [number, number] | null => {
+    const elegir = (rad: number, lejosSalida: number, lejosLugar: number, extra?: (x: number, y: number) => boolean): [number, number] | null => {
       let mejor: [number, number] | null = null, bd = -1;
       for (let i = 0; i < 260; i++) {
         const x = 8 + Math.floor(rl() * (z.W - 16)), y = 8 + Math.floor(rl() * (z.H - 16));
-        if (!cabe(x, y, rad)) continue;
+        if (!cabe(x, y, rad) || (extra && !extra(x, y))) continue;
         if (def.rio && Math.abs(x - z.W / 2) < z.W * 0.19 + rad) continue;
         let d = 1e9;
         for (const [a, b] of puntos) d = Math.min(d, Math.hypot(a - x, b - y) - lejosSalida);
@@ -555,8 +556,16 @@ function exterior(def: DefZona, semilla: number): Zona {
     if (def.jefe) { for (const rad of [14, 13, 12]) { const q = elegir(rad, 16, 12); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } } }
     const nClaros = z.W * z.H > 12000 ? 4 : 3;
     for (let i = 0; i < nClaros; i++) { for (const rad of [10 + Math.floor(rl() * 4), 10, 9]) { const q = elegir(rad, 14, 12) ?? elegir(rad, 12, 7); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro' }); break; } } }
-    { const q = elegir(6, 14, 8) ?? elegir(5, 10, 5); if (q) lugares.push({ cx: q[0], cy: q[1], r: q ? 6 : 5, papel: 'hito' }); }
+    // (entrega 6) el hito mira a +x +y (lo que ve la cámara: el relato va adelante y lo alto atrás), así que delante necesita su
+    // explanada de piso: antes caía de espaldas al vacío o con la selva encima de la cara (la cruz del páramo y el campanario
+    // de cara al borde, el tambor de Yhuantl detrás de 17 celdas de árboles) y el héroe no tenía desde dónde mirarlo entero.
+    // La explanada queda reservada como un claro más (nada alto cae ahí). `__hitoViejo` vuelve a lo de antes. Después de los
+    // claros no se tira más `rl`, así que esto no mueve ningún otro lugar
+    const viejoH = !!(globalThis as any).__hitoViejo, frente = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6) && puntos.every(([a, b]) => Math.hypot(a - x - 8, b - y - 8) > 16);
+    const frente2 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4) && puntos.every(([a, b]) => Math.hypot(a - x - 7, b - y - 7) > 12);
+    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 12, 6, frente2) ?? elegir(5, 8, 4, frente2)) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5) ?? elegir(5, 6, 2)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
     for (const l of lugares) { const rr = l.r + 0.5; for (let y = Math.floor(l.cy - rr); y <= l.cy + rr; y++) for (let x = Math.floor(l.cx - rr); x <= l.cx + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - l.cx, y - l.cy) <= rr) z.claros[y * z.W + x] = 1; }
+    { const lh = lugares.find((l) => l.papel === 'hito'); if (lh && !viejoH) { const ex = lh.cx + 8, ey = lh.cy + 8, rr = 5.5; for (let y = Math.floor(ey - rr); y <= ey + rr; y++) for (let x = Math.floor(ex - rr); x <= ex + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - ex, y - ey) <= rr) z.claros[y * z.W + x] = 1; } }
   }
   const camino = (a: [number, number], b: [number, number], traza?: [number, number][]) => {
     let x = a[0], y = a[1];
@@ -854,6 +863,9 @@ export function conectar(z: Zona) {
   inundar(ent[0], ent[1]);
   const metas: [number, number][] = [...Object.values(z.entradas), ...z.salidas.map((s) => [s.cx, s.cy] as [number, number]), ...z.spawns.filter((s) => s.tipo === 'jefe').map((s) => [s.cx, s.cy] as [number, number]), ...z.marcas.filter((m) => m.tipo === 'viaje' || m.tipo === 'cofre').map((m) => [m.cx, m.cy] as [number, number])];
   let abiertos = 0;
+  // (entrega 6) el hito del acto pesa más que el vacío: el paso lo rodea, o abre una baldosa como último recurso, antes que partirlo (se iba entero en algunas zonas)
+  const hitoCel = new Uint8Array(N);
+  if (!(globalThis as any).__hitoViejo) for (const o of z.objetos) if (o.id === 'acto_hito') { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let yy = Math.max(0, y0); yy < Math.min(H, y0 + o.hh); yy++) for (let xx = Math.max(0, x0); xx < Math.min(W, x0 + o.hw); xx++) hitoCel[yy * W + xx] = 1; }
   const cerca = (x: number, y: number) => { for (let r = 0; r <= 3; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = Math.round(x) + dx, Y = Math.round(y) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H && alcanza[Y * W + X]) return true; } return false; };
   for (const [mx, my] of metas) {
     if (cerca(mx, my)) continue;
@@ -869,7 +881,7 @@ export function conectar(z: Zona) {
       if (d > dist[i]) continue;
       if (alcanza[i]) { fin = i; break; }
       const x = i % W, y = (i / W) | 0;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; const b = z.bloq[j]; const nd = d + (b === 2 ? 400 : b === 1 ? 25 : 1); if (nd < dist[j]) { dist[j] = nd; prev[j] = i; cola.push([nd, j]); } }
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; const b = z.bloq[j]; const nd = d + (b === 2 ? 400 : b === 1 ? (hitoCel[j] ? 450 : 25) : 1); if (nd < dist[j]) { dist[j] = nd; prev[j] = i; cola.push([nd, j]); } }
     }
     if (fin < 0) continue;
     // despejar el camino: quitar lo que estorba (salvo salidas y piezas ancla) y abrir ríos
@@ -2099,8 +2111,10 @@ function destapar(z: Zona) {
     const pila = [i0]; vis[i0] = 1;
     while (pila.length) { const i = pila.pop()!, x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (!vis[j] && !z.bloq[j]) { vis[j] = 1; pila.push(j); } } }
     let quito = false;
-    for (let k = z.objetos.length - 1; k >= 0 && !quito; k--) {
+    // (entrega 6) el hito del acto sale solo si no hay otra cosa que abra el paso (antes se iba en 1 de cada 10 zonas)
+    for (let pasada = 0; pasada < 2 && !quito; pasada++) for (let k = z.objetos.length - 1; k >= 0 && !quito; k--) {
       const o = z.objetos[k]; if (!o.bloquea || o.tag || /muro|pared|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente/.test(o.id)) continue;
+      if (o.id === 'acto_hito' && pasada === 0 && !(globalThis as any).__hitoViejo) continue;
       const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2);
       // ¿toca piso alcanzado por un lado y piso libre sin alcanzar por otro?
       let dentro = false, fuera = false;
@@ -2302,9 +2316,142 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   asentarJefe(z);
   asentarCampamentos(z);
   ponerTrampas(z, def);
+  alumbrarVias(z, def);
+  desmontarFinal(z, def);
   esquinasMuro(z);
   despegarDeMuros(z);
   return z;
+}
+/**
+ * (entrega 6) Las vías alumbradas. En las minas los túneles iban pelados (la orilla de piedra y los rieles por el medio: las
+ * minas quedaban en 23 a 29 adornos por pantalla, la obra en 39). La mina es un lugar de trabajo: a la orilla de la vía, cada
+ * 8 a 11 celdas, un farol de mina en su poste (uno de cada cinco apagado, alguno sobre una roca) donde había una piedra de la
+ * orilla (en su celda de atrás: las otras tres de la piedra quedan libres, el túnel se ensancha apenas y no cambia la arena), y
+ * alumbra el camino. Azar propio. `__viasOscuras` lo apaga.
+ */
+function alumbrarVias(z: Zona, def: DefZona) {
+  if ((globalThis as any).__viasOscuras || def.tema !== 'mina') return;
+  const rv = rng(z.semilla * 7349 + 11), W = z.W;
+  // (las piedras de la orilla de los túneles: las de `orillaTunel`, sin capa; las del relleno no)
+  const orilla = z.objetos.filter((o) => o.id === 'bor_risco' && !o.capa && /^paramo_baja/.test(o.v));
+  orilla.sort((a, b) => a.cx + a.cy - b.cx - b.cy || a.cx - b.cx);
+  const ocup = new Uint8Array(W * z.H), celdas = (o: ObjZ) => { const a = Math.round(o.cx - (o.hw - 1) / 2), b = Math.round(o.cy - (o.hh - 1) / 2), out: number[] = []; for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H) out.push(y * W + x); return out; };
+  for (const o of z.objetos) if (o.bloquea) for (const i of celdas(o)) ocup[i]++;
+  const puestos: ObjZ[] = [];
+  for (const o of orilla) {
+    const lejos = 8 + rv() * 3;
+    if (puestos.some((q) => Math.hypot(q.cx - o.cx, q.cy - o.cy) < lejos)) continue;
+    const antes = celdas(o);
+    o.id = 'min_linterna'; o.v = rv() < 0.2 ? 'apagada' : rv() < 0.25 ? 'roca' : 'poste'; o.capa = 'via'; o.cx = Math.round(o.cx - (o.hw - 1) / 2); o.cy = Math.round(o.cy - (o.hh - 1) / 2); o.hw = o.hh = 1;
+    const queda = o.cy * W + o.cx;
+    for (const i of antes) if (i !== queda && !--ocup[i] && z.bloq[i] === 1 && !(z.hueco && z.hueco[i])) z.bloq[i] = 0;
+    puestos.push(o);
+  }
+  // y en las galerías (las minas sin túneles, como las Galerías de Velmora o los Socavones, iban en 23): un farol en su poste al
+  // pie del muro de atrás cada 9 a 12 celdas, como lo que cuelga de la pared (no bloquea: se pasa por delante), lejos de las
+  // salidas, de otros fuegos y del ruedo del jefe
+  const tapa = new Uint8Array(W * z.H); for (const o of z.objetos) if (!REGISTRO.find((d) => d.id === o.id)?.plano) for (const i of celdas(o)) tapa[i] = 1;
+  const fuegos = z.objetos.filter((o) => /linterna|antorcha|brasero|vela|farol|horno|fogata/.test(o.id)).map((o) => [o.cx, o.cy]);
+  const jefes = z.spawns.filter((q) => q.tipo === 'jefe'), M = (i: number) => z.bloq[i] === 1;
+  let n = 0;
+  for (let y = 2; y < z.H - 2 && n < 14; y++) for (let x = 2; x < W - 2 && n < 14; x++) {
+    const i = y * W + x; if (z.bloq[i] !== 0 || tapa[i] || (z.claros && z.claros[i]) || (z.hueco && z.hueco[i])) continue;
+    const norte = M(i - W) && M(i - W - 1) && M(i - W + 1) && !M(i - 1) && !M(i + 1), oeste = M(i - 1) && M(i - 1 - W) && M(i - 1 + W) && !M(i - W) && !M(i + W);
+    if (!norte && !oeste) continue;
+    if (z.bloq[i + 1] !== 0 || z.bloq[i + W] !== 0) continue; // (con paso delante)
+    if (z.salidas.some((s) => Math.hypot(s.cx - x, s.cy - y) < 5) || jefes.some((q) => Math.hypot(q.cx - x, q.cy - y) < 12)) continue;
+    const lejos = 9 + rv() * 3;
+    if (fuegos.some(([a, b]) => Math.hypot(a - x, b - y) < 5) || puestos.some((q) => Math.hypot(q.cx - x, q.cy - y) < lejos)) continue;
+    const o: ObjZ = { id: 'min_linterna', v: rv() < 0.15 ? 'apagada' : 'poste', cx: x, cy: y, hw: 1, hh: 1, bloquea: false, capa: 'pared' } as ObjZ;
+    z.objetos.push(o); puestos.push(o); tapa[i] = 1; if (!z.bloq[i]) z.bloq[i] = 3; n++;
+  }
+}
+const CAJAS_DECO = CAJAS_DECO_J as unknown as Record<string, [number, number, number, number]>;
+/**
+ * (entrega 6) Lo montado que queda al final. `desmontar` (dentro de `curarAdornos`) no veía lo que se pone después (las
+ * trampas, el asiento del jefe ya asentado), ni lo que cuelga de la pared (no tenía caja), ni los pares de dos piezas que
+ * pesan lo mismo: una urna detrás de una columna, el brasero de la puerta encima de la losa de púas o de las cadenas de la
+ * pared, la urna pegada al brasero. Ahora, sin azar: de dos adornos cuyas cajas se pisan 55 % del más chico queda el que pesa
+ * más (lo que tiene tag, las salidas, columnas y pilares, el asiento y el tesoro del jefe no salen nunca; después la puerta,
+ * el cofre escondido y la trampa; el relato, el horror y la escena; lo que se rompe; lo de la pared; lo regado) y el otro se
+ * corre a 1 a 4 celdas donde no pise a nadie y se llegue caminando, nunca al ruedo del jefe (lo que bloquea sale, salvo lo que se
+ * rompe, que se corre con el anillo libre: correrlo cerraba arena) o sale. Lo de la pared no se corre (va
+ * contra el muro): se corre a lo largo de su muro o sale. El rastro al pie de lo que cuelga va con su pieza a propósito. Pueblos y casas no. `__montadosFinal`
+ * lo apaga.
+ */
+function desmontarFinal(z: Zona, def: DefZona) {
+  if ((globalThis as any).__montadosFinal || def.tipo === 'pueblo' || def.casa) return;
+  const W = z.W, H = z.H;
+  const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); }
+  // la explanada del hito (ver `exterior`) es para mirarlo: lo que bloquea y cayó ahí después (una barricada del relato, una pila
+  // de la matanza) sale, salvo lo que tiene tag
+  if (!(globalThis as any).__hitoViejo) for (const h of z.objetos.filter((o) => o.id === 'acto_hito')) {
+    const ex = h.cx + 8, ey = h.cy + 8;
+    z.objetos = z.objetos.filter((o) => { if (o === h || !o.bloquea || o.tag || fijos.has(o) || o.capa === 'relleno' || o.capa === 'macizo' || MURO_TAPA.test(o.id) || Math.hypot(o.cx - ex, o.cy - ey) > 4 + Math.max(o.hw, o.hh) / 2) return true;
+      const a = Math.round(o.cx - (o.hw - 1) / 2), b = Math.round(o.cy - (o.hh - 1) / 2); for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 1 && !(z.hueco && z.hueco[y * W + x])) z.bloq[y * W + x] = 0;
+      return false; });
+  }
+  const peso = (o: ObjZ) => {
+    if ((o.tag && o.tag !== 'romper' && o.tag !== 'restos') || fijos.has(o) || DM_FIJO.test(o.id) || o.capa === 'jefe') return 9;
+    const c = o.capa ?? '';
+    return c === 'umbral' || c === 'escondido' || c === 'trampa' ? 7 : c === 'relato' || c === 'horror' || c === 'escena' || c === 'matanza' ? 5 : o.tag === 'romper' || c === 'interactivo' ? 4 : c === 'pared' ? 3 : 1;
+  };
+  const esPlano = new Map<string, boolean>(), plano = (id: string) => { let p = esPlano.get(id); if (p === undefined) { p = !!REGISTRO.find((d) => d.id === id)?.plano; esPlano.set(id, p); } return p; };
+  type Caja = { o: ObjZ; k: [number, number, number, number]; x0: number; y0: number; x1: number; y1: number; a: number; p: number };
+  const caja = (c: { k: [number, number, number, number]; x0: number; y0: number; x1: number; y1: number }, cx: number, cy: number) => { const sx = (cx - cy) * 16, sy = (cx + cy) * 8; c.x0 = sx - c.k[2]; c.y0 = sy - c.k[3]; c.x1 = c.x0 + c.k[0]; c.y1 = c.y0 + c.k[1]; };
+  const L: Caja[] = [];
+  for (const o of z.objetos) {
+    if (o.capa === 'relleno' || o.capa === 'macizo' || o.capa === 'garganta' || plano(o.id) || MURO_TAPA.test(o.id)) continue;
+    const k = CAJAS[o.id + '|' + o.v] ?? CAJAS_DECO[o.id + '|' + o.v]; if (!k) continue;
+    const c: Caja = { o, k, x0: 0, y0: 0, x1: 0, y1: 0, a: k[0] * k[1], p: peso(o) }; caja(c, o.cx, o.cy); L.push(c);
+  }
+  // (lo que cuelga de la pared y su rastro al pie son una sola pieza)
+  const juntos = (a: ObjZ, b: ObjZ) => a.capa === 'pared' && b.capa === 'pared' && /pared/.test(a.id) !== /pared/.test(b.id);
+  const pisa = (a: { x0: number; y0: number; x1: number; y1: number; a: number }, b: { x0: number; y0: number; x1: number; y1: number; a: number }) => { const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); return ix <= 0 || iy <= 0 ? 0 : (ix * iy) / Math.min(a.a, b.a); };
+  // lo ocupado (para correr sin pisar nada): huellas de todo lo que no es plano
+  const ocup = new Uint8Array(W * H);
+  const celdas = (o: ObjZ, cx = o.cx, cy = o.cy) => { const a = Math.round(cx - (o.hw - 1) / 2), b = Math.round(cy - (o.hh - 1) / 2), out: number[] = []; for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) out.push(x >= 0 && y >= 0 && x < W && y < H ? y * W + x : -1); return out; };
+  for (const o of z.objetos) if (!plano(o.id)) for (const i of celdas(o)) if (i >= 0) ocup[i]++;
+  const quitar = new Set<ObjZ>();
+  const soltar = (o: ObjZ) => { for (const i of celdas(o)) if (i >= 0) { ocup[i]--; if (!ocup[i] && !(z.hueco && z.hueco[i]) && (z.bloq[i] === 1 || z.bloq[i] === 3)) z.bloq[i] = 0; } };
+  const tomar = (o: ObjZ) => { for (const i of celdas(o)) if (i >= 0) { ocup[i]++; z.bloq[i] = o.bloquea ? 1 : z.bloq[i] || 3; } };
+  const PASOS: [number, number][] = [];
+  for (let r = 1; r <= 4; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) if (Math.max(Math.abs(dx), Math.abs(dy)) === r) PASOS.push([dx, dy]);
+  PASOS.sort((a, b) => Math.hypot(a[0], a[1]) - Math.hypot(b[0], b[1]) || (b[0] + b[1]) - (a[0] + a[1]));
+  const prueba = { k: [0, 0, 0, 0] as [number, number, number, number], x0: 0, y0: 0, x1: 0, y1: 0, a: 0 };
+  const g = ((globalThis as any).__montadosFin ??= { corridos: 0, quitados: 0 }), jefes = z.spawns.filter((q) => q.tipo === 'jefe');
+  for (let i = 0; i < L.length; i++) { const a = L[i]; if (quitar.has(a.o)) continue;
+    for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (quitar.has(b.o) || (a.p === 9 && b.p === 9) || juntos(a.o, b.o) || pisa(a, b) < 0.55) continue;
+      const pierde = a.p !== b.p ? (a.p < b.p ? a : b) : a.a < b.a ? a : b;
+      if (pierde.p === 9) continue;
+      const o = pierde.o; soltar(o);
+      prueba.k = pierde.k; prueba.a = pierde.a;
+      const libre = (cx: number, cy: number) => {
+        if (jefes.some((q) => Math.max(Math.abs(q.cx - cx), Math.abs(q.cy - cy)) < 12)) return false;
+        const cs = celdas(o, cx, cy); if (cs.some((q) => q < 0 || ocup[q] || z.bloq[q] !== 0 || !z.pisos[Math.floor(q / W / 5) * z.tw + Math.floor((q % W) / 5)] || (z.hueco && z.hueco[q]))) return false;
+        // (con el anillo libre, también lo que no bloquea: lo ocupado de un paso de una celda cuenta como muro en t370)
+        { const a0 = Math.round(cx - (o.hw - 1) / 2), b0 = Math.round(cy - (o.hh - 1) / 2); for (let y = b0 - 1; y <= b0 + o.hh; y++) for (let x = a0 - 1; x <= a0 + o.hw; x++) if (x < 0 || y < 0 || x >= W || y >= H || z.bloq[y * W + x] !== 0) return false; }
+        caja(prueba, cx, cy); return L.every((q) => q === pierde || quitar.has(q.o) || juntos(o, q.o) || pisa(prueba, q) < 0.3);
+      };
+      // (solo a donde se llega caminando desde donde estaba, sin cruzar un muro de una celda)
+      const llega = new Set<number>(); { const x0 = Math.round(o.cx), y0 = Math.round(o.cy), pila = [[x0, y0]]; llega.add(y0 * W + x0); while (pila.length) { const [x, y] = pila.pop()!; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (Math.abs(X - x0) > 5 || Math.abs(Y - y0) > 5 || X < 0 || Y < 0 || X >= W || Y >= H || llega.has(Y * W + X)) continue; const bq = z.bloq[Y * W + X]; if (bq === 1 || bq === 2) continue; llega.add(Y * W + X); pila.push([X, Y]); } } }
+      // lo de la pared se corre a lo largo de su muro (sigue colgado: la fila de atrás tiene que ser muro en todo su ancho)
+      if (o.capa === 'pared') {
+        const a0 = Math.round(o.cx - (o.hw - 1) / 2), b0 = Math.round(o.cy - (o.hh - 1) / 2), M = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 1;
+        let norte = true, oeste = true; for (let x = a0; x < a0 + o.hw; x++) if (!M(x, b0 - 1)) norte = false; for (let y = b0; y < b0 + o.hh; y++) if (!M(a0 - 1, y)) oeste = false;
+        const ok = (dx: number, dy: number) => { const A = a0 + dx, B = b0 + dy; if (jefes.some((q) => Math.max(Math.abs(q.cx - o.cx - dx), Math.abs(q.cy - o.cy - dy)) < 11)) return false;
+          for (let y = B; y < B + o.hh; y++) for (let x = A; x < A + o.hw; x++) { if (x < 0 || y < 0 || x >= W || y >= H || ocup[y * W + x] || (z.bloq[y * W + x] !== 0 && z.bloq[y * W + x] !== 3)) return false; }
+          if (norte) { for (let x = A; x < A + o.hw; x++) if (!M(x, B - 1)) return false; } else for (let y = B; y < B + o.hh; y++) if (!M(A - 1, y)) return false;
+          caja(prueba, o.cx + dx, o.cy + dy); return L.every((q) => q === pierde || quitar.has(q.o) || juntos(o, q.o) || pisa(prueba, q) < 0.3); };
+        const d = norte || oeste ? [2, -2, 3, -3, 4, -4, 5, -5, 6, -6].find((k) => (norte ? ok(k, 0) : ok(0, k))) : undefined;
+        if (d !== undefined) { if (norte) o.cx += d; else o.cy += d; caja(pierde, o.cx, o.cy); tomar(o); g.corridos++; if (pierde === a) break; continue; }
+      }
+      const paso = o.capa === 'pared' || (o.bloquea && o.tag !== 'romper') ? null : PASOS.find(([dx, dy]) => llega.has(Math.round(o.cy + dy) * W + Math.round(o.cx + dx)) && libre(o.cx + dx, o.cy + dy));
+      if (paso) { o.cx += paso[0]; o.cy += paso[1]; caja(pierde, o.cx, o.cy); tomar(o); g.corridos++; }
+      else { quitar.add(o); g.quitados++; }
+      if (pierde === a) break;
+    } }
+  if (quitar.size) z.objetos = z.objetos.filter((o) => !quitar.has(o));
 }
 
 /**
@@ -2978,7 +3125,7 @@ function curarAdornos(z: Zona, def: DefZona) {
       let ancla: ObjZ | null = null;
       if (s.tipo === 'unico') {
         ancla = pon('sed_brasa', 'viva', s.cx, s.cy, 8, 11, fondo) ?? pon('sed_brasa', 'viva', s.cx, s.cy, 8, 11.5);
-        if (ancla) { const A = ancla; for (let i = 0, n = 4 + Math.floor(r() * 2); i < n; i++) pon('sed_cuerpo_seco', i < 3 ? 'de_rodillas' : i === 3 ? 'sentado' : 'tendido', A.cx, A.cy, 3.6, 5.2); }
+        if (ancla) { const A = ancla; /* (entrega 6: los tres primeros iban de rodillas iguales, uno al lado del otro: se leían como copia y pega. Ahora alternan, `__bebidosIguales` el de antes) */ for (let i = 0, n = 4 + Math.floor(r() * 2); i < n; i++) pon('sed_cuerpo_seco', (globalThis as any).__bebidosIguales ? (i < 3 ? 'de_rodillas' : i === 3 ? 'sentado' : 'tendido') : ['de_rodillas', 'sentado', 'boca_abajo', 'de_rodillas', 'tendido'][i], A.cx, A.cy, 3.6, 5.2); }
       } else if (s.tipo === 'campeon') {
         ancla = pon(def.tema === 'nieve' ? 'nie_barricada' : 'for2_barricada', undefined, s.cx, s.cy, 7.5, 10.5, (x, y) => !fondo(x, y)) ?? pon('for2_barricada', undefined, s.cx, s.cy, 7.5, 11);
         if (ancla) { const A = ancla; for (let i = 0; i < 3; i++) muerto(A.cx - fx * 2.5, A.cy - fy * 2.5, 0.5, 3.2); pon('gore_charco', sup, A.cx - fx * 2, A.cy - fy * 2, 0, 2.5); }
@@ -3119,6 +3266,32 @@ function curarAdornos(z: Zona, def: DefZona) {
         if (!ok || hechos.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) continue;
         const comp = ESCONDIDO[Math.floor(rf() * ESCONDIDO.length)]; let n = 0;
         for (const [id, v0, du, dw] of comp) { const dd = REGISTRO.find((q) => q.id === id); if (!dd) continue; const v = v0 || dd.variantes[Math.floor(rf() * dd.variantes.length)], [hw, hh] = huellaDe(dd, v); const [px, py] = C(du, dw); if (poner(id, v, Math.round(px), Math.round(py), oeste ? hh : hw, oeste ? hw : hh, false)) n++; }
+        if (n) hechos.push([x, y]);
+      }
+    }
+    // (entrega 6) donde no había refugios (el cielo, lo ahogado y el infierno) cada tierra tiene el suyo, con su canon: arriba
+    // el que subió y se sentó a esperar que la sed lo bebiera, con sus velas; en lo ahogado lo que dejó la marea contra el muro
+    // (el marino, su nasa, el pescado); en el infierno el que arrastraron hasta acá. Mismas reglas que el refugio, azar propio
+    // (`rf2`), `__sinRefugiosFin` lo apaga
+    const FIN: [string, string, number, number][][] | undefined = /celestial/.test(def.tema) ? [
+      [['sed_cuerpo_seco', 'sentado', 1, 0.5], ['mue_velas', 'una', -1, 0], ['mue_velas', 'derretidas', 3, 1]],
+      [['sed_cuerpo_seco', 'de_rodillas', 1, 0.5], ['cem2_velas_tumba', 'altarcito', 3, 0], ['mue_velas', 'una', -1, 1]],
+    ] : /ahogada/.test(def.tema) ? [
+      [['ahg_marino_ahogado', 'sentado', 0.5, 0.5], ['ahg_nasa', 'una', 2.5, 0.5], ['mue_velas', 'una', -1, 0]],
+      [['ahg_marino_ahogado', 'enredado', 0.5, 0.5], ['ahg_peces_muertos', 'en_cesta', 2.5, 0.5]],
+    ] : def.tema === 'infierno' ? [
+      [['inf2_cuerpos', 'desollado', 0.5, 0.5], ['cem2_velas_tumba', 'en_calavera', 2, 0], ['mue_velas', 'derretidas', 3, 1]],
+      [['inf2_cuerpos', 'calcinado', 0.5, 0.5], ['mue_velas', 'calavera', 2.5, 0.5]],
+    ] : undefined;
+    if (!cueva && FIN && !(globalThis as any).__sinRefugiosFin) {
+      const rf = rng(z.semilla * 2753 + 509), hechos: [number, number][] = [];
+      for (let y = 3; y < H - 4; y++) for (let x = 3; x < W - 5; x++) {
+        const oeste = !M(x, y - 1); if (hechos.length >= 8 || (oeste ? !M(x - 1, y) || !M(x - 1, y + 3) : !M(x + 3, y - 1)) || rf() > 0.3) continue;
+        const C = (u: number, w: number): [number, number] => (oeste ? [x + w, y + u] : [x + u, y + w]);
+        let ok = true; for (let w = 0; w <= 1 && ok; w++) for (let u = -1; u <= 3 && ok; u++) { const [xx, yy] = C(u, w); if (!libreC(xx, yy) || enRuedo(xx, yy) || ancho[yy * W + xx] <= 6) ok = false; }
+        if (!ok || hechos.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) continue;
+        const comp = FIN[Math.floor(rf() * FIN.length)]; let n = 0;
+        for (const [id, v0, du, dw] of comp) { const dd = REGISTRO.find((q) => q.id === id); if (!dd) continue; const v = dd.variantes.includes(v0) ? v0 : dd.variantes[0], [hw, hh] = huellaDe(dd, v); const [px, py] = C(du, dw); if (poner(id, v, Math.round(px), Math.round(py), oeste ? hh : hw, oeste ? hw : hh, false)) n++; }
         if (n) hechos.push([x, y]);
       }
     }

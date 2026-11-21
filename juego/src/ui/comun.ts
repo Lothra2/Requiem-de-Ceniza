@@ -284,7 +284,7 @@ export function lineasObjeto(o: Objeto, h?: { nivel: number; fue: number; des: n
   if (o.def) out.push([`${T('Defensa', 'Defense')}: ${o.def}`, '#e8e0d0']);
   if (b?.bloqueo) out.push([`${T('Bloqueo', 'Block')}: ${b.bloqueo}%`, '#e8e0d0']);
   // (sexta pasada) el cinto dice cuántas filas da al cinturón
-  if (b?.ranura === 'cinturon' && !(globalThis as any).__cinturonViejo) { const f = Math.min(PILA_CINTURON, FILAS_CINTO[b.id] ?? 3); out.push([T(`Cinturón: ${f} filas de pociones`, `Belt: ${f} rows of potions`), '#e8e0d0']); }
+  if (b?.ranura === 'cinturon' && (globalThis as any).__cinturonPorCinto) { const f = Math.min(PILA_CINTURON, FILAS_CINTO[b.id] ?? 3); out.push([T(`Cinturón: ${f} filas de pociones`, `Belt: ${f} rows of potions`), '#e8e0d0']); }
   if (o.durabMax > 0 && !o.stats.some((s) => s[0] === 'durabilidad_infinita')) out.push([`${T('Durabilidad', 'Durability')}: ${Math.ceil(o.durab)} ${T('de', 'of')} ${o.durabMax}`, o.durab <= 0 ? '#ff4040' : '#e8e0d0']);
   if (b) {
     const rn = Math.max(b.req.nivel ?? 1, reqNivel(o));

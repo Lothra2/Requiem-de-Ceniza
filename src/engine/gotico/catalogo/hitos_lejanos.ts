@@ -241,22 +241,29 @@ export function giganteHielo(a: Arma): Hito {
   for (let i = 0; i < 22; i++) { const y = -36 + i * 3.4 + r2(a, 1.2), alto = 26 + (1 - Math.abs(y) / 38) * 34 + a.r() * 12, x = -14 - a.r() * 8; cristal(L, [x, y, -4], [-0.35 + r2(a, 0.2), r2(a, 0.3), 1], alto, 4.6 + a.r() * 3, a.r() < 0.5 ? HI : HH, i % 3 ? 0 : 0.08); }
   // el cuerpo: pecho, hombros y cuello (la cintura queda adentro del hielo)
   const cs: Comp[] = [];
-  cs.push(L.bu([-4, 0, 26], [9, 14, 13]), L.bu([-3, 0, 34], [9.5, 15, 9]), L.bu([-4, -15, 38], [7.5, 8, 7.5]), L.bu([-5, 15, 38], [7.5, 8, 7.5]), L.hu([-3, 0, 40], [-2, 0, 46], 5.4, 5));
-  // la cabeza: cráneo, frente que se adelanta, pómulos, mandíbula y nariz; los arcos de las cejas
-  cs.push(L.bu([-1.5, 0, 52], [7.4, 7, 8.4]), L.bu([3.4, 0, 54.6], [3.4, 6.6, 2.6]), L.bu([3.8, -4, 50], [2.6, 2.4, 2.2]), L.bu([3.8, 4, 50], [2.6, 2.4, 2.2]), L.bu([3, 0, 45.6], [4.4, 5.6, 3]), L.bu([6.4, 0, 50.4], [2.2, 1.7, 3.4]));
+  cs.push(L.bu([-4, 0, 26], [9, 14, 13]), L.bu([-3, 0, 34], [9.5, 15, 9]), L.bu([-4, -15, 38], [7.5, 8, 7.5]), L.bu([-5, 15, 38], [7.5, 8, 7.5]), L.hu([-3, 0, 40], [-1.6, 0, 50], 5, 4.4));
+  // la cabeza de un viejo jarl, no de una bestia (entrega 5: la de antes, ancha y de hocico chato, se leía de simio): más alta
+  // que ancha, el cuello que la levanta de los hombros, frente alta, arcos de las cejas finos, pómulos, la nariz larga y
+  // recta de lomo marcado, la mandíbula angosta (casi toda tapada por la barba)
+  cs.push(L.bu([-2, 0, 55.4], [6.2, 5.6, 7.4]), L.bu([2.6, 0, 58], [3, 5, 3]), L.bu([3.2, 0, 50.6], [3.4, 4.2, 4.4]), L.bu([3.4, 0, 47.2], [2.8, 3.4, 2.2]));
+  for (const q of [-1, 1]) cs.push(L.bu([4.7, q * 2.5, 55.2], [1.4, 2.1, 0.8]), L.bu([4.2, q * 3.5, 52.4], [1.7, 1.4, 1.5]), L.bu([0.6, q * 5.6, 53.4], [1.2, 0.8, 2.2]));
   // el brazo derecho afuera: del hombro al codo, el antebrazo y el puño en el mango
   const hom: V3 = [-4, -16, 37], codo: V3 = [6, -25, 28], mano: V3 = [15, -23, 22];
   cs.push(L.hu(hom, codo, 6, 5), L.hu(codo, mano, 5, 4.2), L.bu(mano, [4.4, 4, 3.8]));
   // el izquierdo: el codo asoma del hielo y el resto se lo comió el glaciar
   cs.push(L.hu([-5, 16, 36], [-1, 25, 28], 5.6, 4.8));
   L.masa(cs, { mat: PIEL, suave: 2.2, tono: 0.12 });
-  // las cuencas hondas, la boca apretada y la escarcha en la carne
-  for (const q of [-1, 1]) { L.elip(5.2, q * 3.2, 51.8, 1.4, 1.8, 1.4, { mat: 'negro', tono: 0.1 }); L.esf(5.9, q * 3.2, 51.6, 0.5, { mat: 'dec_runa_fria', tono: -0.2 }); }
-  L.caja(6.3, 0, 46.9, 0.8, 5, 0.6, { mat: 'negro', tono: 0.15 });
-  
-  // la melena blanca detrás y la barba de carámbanos que cuelga de la mandíbula
-  { const m: Comp[] = []; for (let i = 0; i < 11; i++) { const t = -1.3 + (i / 10) * 2.6, y = Math.sin(t) * 7, x0 = -3 - Math.cos(t) * 5; m.push(L.hu([x0, y, 58.5 - Math.abs(y) * 0.3], [x0 - 5 - a.r() * 3, y * 1.7, 34 + a.r() * 6], 1.8, 0.7)); } m.push(L.bu([-5, 0, 57], [4.4, 6.6, 3.4])); L.masa(m, { mat: 'cu_pelo_blanco', suave: 1.1 }); }
-  for (let i = 0; i < 11; i++) { const y = -4.5 + i * 0.9, l = 5 + a.r() * 6 - Math.abs(y) * 0.6; L.palo([4.4 - Math.abs(y) * 0.2, y, 44.6], [4.9 - Math.abs(y) * 0.2, y * 1.05, 44.6 - l], 0.8 - Math.abs(y) * 0.06, { mat: HI, r1: 0.05 }); }
+  // la nariz aparte, para que el lomo y la punta se lean: larga, recta, un poco caída
+  L.masa([L.hu([5.2, 0, 55], [7.4, 0, 50.8], 0.9, 1.3), L.bu([7.2, 0, 50.6], [1.2, 1.5, 1]), L.bu([6.4, -1, 50.4], [0.8, 0.7, 0.6]), L.bu([6.4, 1, 50.4], [0.8, 0.7, 0.6])], { mat: PIEL, suave: 0.7, tono: 0.16 });
+  // las cuencas hondas bajo las cejas, con el ojo helado al fondo
+  for (const q of [-1, 1]) { L.elip(5.3, q * 2.5, 53.6, 1.2, 1.5, 0.9, { mat: 'negro', tono: 0.1 }); L.esf(5.7, q * 2.5, 53.5, 0.45, { mat: 'dec_runa_fria', tono: -0.2 }); }
+  // la barba blanca de viejo: el bigote que cae, la barba que baja por el pecho en mechones y se le congeló en carámbanos
+  { const b: Comp[] = [L.bu([6, -1.8, 49.2], [1.4, 2.4, 0.9]), L.bu([6, 1.8, 49.2], [1.4, 2.4, 0.9]), L.bu([5.2, 0, 46.6], [2.6, 4.4, 2.8])];
+    for (let i = 0; i < 7; i++) { const y = -3.6 + i * 1.2, l = 9 + a.r() * 5 - Math.abs(y) * 0.8; b.push(L.hu([5.2 - Math.abs(y) * 0.2, y, 46.4], [7.4 - Math.abs(y) * 0.3 + a.r(), y * 0.8, 46 - l], 1.4, 0.6)); }
+    L.masa(b, { mat: 'cu_pelo_blanco', suave: 0.9 }); }
+  for (let i = 0; i < 9; i++) { const y = -3 + i * 0.75, l = 4 + a.r() * 4; L.palo([7.6 - Math.abs(y) * 0.3, y * 0.8, 36.6 - Math.abs(y) * 0.4], [7.9 - Math.abs(y) * 0.3, y * 0.8, 36.6 - l], 0.6, { mat: HI, r1: 0.05 }); }
+  // la melena larga: de la coronilla cae por la espalda y por encima de los hombros, en mechones con escarcha
+  { const m: Comp[] = [L.bu([-2.6, 0, 60.4], [5.4, 5.6, 2.4])]; for (let i = 0; i < 13; i++) { const t = -1.45 + (i / 12) * 2.9, y = Math.sin(t) * 6, x0 = -2 - Math.cos(t) * 4.6; m.push(L.hu([x0, y, 60.5 - Math.abs(y) * 0.25], [x0 - 4 - a.r() * 3, y * 1.9, 36 + a.r() * 6], 1.6, 0.6)); } L.masa(m, { mat: 'cu_pelo_blanco', suave: 1 }); }
   for (let i = 0; i < 7; i++) { const p = mezV(hom, mano, a.r()); L.cil(p[0], p[1], p[2] - 3.6, 0.7, -2 - a.r() * 4, { mat: HI, r1: 0.05 }); }
   // el hacha: el mango baja del puño y la hoja queda clavada en el paso
   const fin: V3 = [26, -18, 0]; L.palo([mano[0] - 4, mano[1] - 1, 27], fin, 1.7, { mat: 'nie2_tronco' });

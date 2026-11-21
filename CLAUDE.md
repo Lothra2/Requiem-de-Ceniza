@@ -477,6 +477,65 @@ Rick: "haz todo lo que falte, lo que quedó flojo y lo que falta de los actos 3 
   hora 8,5 a 6,2 y 0 a 0, pociones por 100 bajas 16,3 a 17,4 y 9,3 a 5,9: dentro del ruido. El daño de las trampas al héroe
   quedó en 5 % las púas y 6 % la grieta (con 7 y 10 % el nivel 35 subía).
 
+## Mundos, entrega 5 (21 nov 2026)
+
+Rick mandó dos capturas: "mira como salen cofres y otros assets como debajo de las paredes" (un cofre metido en el muro de
+atrás de una mazmorra de damero y sillares, y mesas de embalsamar con su muerto contra el muro de una cripta, con la pared
+pintada encima).
+
+- **La causa no era solo dónde se ponían las cosas**: un muro de 5 x 1 se ordenaba entero con la profundidad de su punta de
+  adelante (`prof` = la celda de más x + y), así que todo lo que estaba delante de sus cuatro celdas de atrás se pintaba ANTES
+  y el muro lo tapaba: cofres, jergones, braseros de las puertas, lo que viste las paredes, el castigo y los relatos contra el
+  muro (y al héroe, que por eso hacía translúcido el muro). Medido con `t1015_tapados.mjs` (3 semillas, punto por punto con
+  las máscaras de los atlas, sin contar la sombra horneada ni el escombro, que es del muro): 1.660 adornos tapados (1.587 en
+  las mazmorras, el 15 % de los adornos de bajo tierra, 66 en los pueblos), por capa pared 850, umbral 232, interactivo 185
+  (cofres, urnas, barriles), riego 160, sin capa 116, y menos macabro, vida, horror, escondido, relato y jefe. Por pieza
+  encabezan el jergón (218), las vasijas, los barriles, las cadenas de pared, las velas y los braseros.
+- **Franjas** (`franjasDe` en `render/escena.ts`, `__murosEnteros` vuelve a lo de antes): todo lo largo (el lado largo de 3 o
+  más y el corto de a lo sumo la mitad: muros, empalizadas, sarcófagos de 3) que no se mece, no arde, no es ancla de salida ni
+  se pisa por dentro se pinta en franjas de 16 puntos, una por celda a lo largo del eje largo, cada una con la profundidad de
+  su celda (un pelo menos, para que lo de la celda de delante gane el empate); las de las puntas llegan al borde del cuadro
+  con la sombra. Lo alto con bruma también. El muro se vuelve translúcido solo si la franja que tiene al héroe está delante de
+  él (antes, con el héroe delante de la punta de atrás de un muro, el muro entero se aclaraba).
+- **Nada metido en un muro** (`despegarDeMuros` al final de `generarZona`, sin azar, `__pegadosAlMuro` lo apaga): (1) lo
+  suelto cuya huella pisa la de un muro (la esquina a inglete va al final y caía encima de las velas, los huesos y los
+  braseros de los rincones) se corre de 1 a 2 celdas hacia la sala, a piso libre; si bloquea o no hay sitio, sale. (2) Lo que
+  no está metido pero cuyo dibujo cae bajo una franja de muro que se pinta después (lo tendido y ancho que pasa de su huella:
+  un crucifijo caído, un estandarte, una pila de cadáveres que se ordena por su borde de atrás) se mide con su caja
+  (`cajas_sprite.json`) contra las franjas del muro (`franjasMuro`, con `cajas_muro.json`, que ahora también escribe
+  `t1013_cajas.mjs`) y se corre o sale. Lo que bloquea solo se corre a piso libre con anillo libre; el asiento del jefe va más
+  lejos si hace falta (`PASOS_LEJOS`) y nunca sale. Lo que tiene `tag` no se toca (salvo urnas y barriles, `romper`, y los
+  restos), ni el escombro (es del muro; correrlo cerraba pasos en la cuenta estricta de t370), ni la jamba de una puerta (`umbral`) si
+  no tiene a dónde ir. En 3 semillas: 352 corridos y 76 quitados.
+- **Nichos secretos que se leen**: el cofre iba al medio del nicho y quedaba detrás del muro de la sala de al lado (bien
+  ordenado, pero se leía como un cofre atravesado por la pared). Ahora va contra la boca, del lado que se ve desde la sala
+  (la cámara mira a -x -y), con los huesos y una vela al fondo, dos velas a los lados de la boca (luz tenue que la marca) y el
+  rastro de sangre de siempre. `__nichoViejo` vuelve al cofre del medio.
+- Resultado de `t1015_tapados.mjs` (96 zonas x 3 semillas): de 1.660 (antes, `ENTEROS=1 BANDERAS=__pegadosAlMuro,__nichoViejo`) a 0.
+  Uso: `node juego/herramientas/t1015_tapados.mjs <etiqueta> [semillas]` (`SOLO=`, `RECORTES=16` los peores pintados con los
+  atlas de verdad en `/tmp/requiem-pruebas/tapados/<etiqueta>/recortes`, `NICHOS=6` cómo se ve cada nicho, `ENTEROS=1` el
+  orden de antes, `BANDERAS=`). Falla si queda alguno. En el juego: `t1016_tapados_fotos.cjs <etiqueta> [zonas]` (elige
+  nichos y lo que está contra el muro en la corrida de ahora y la del antes vuelve a los mismos sitios con
+  `BANDERAS=__murosEnteros,__pegadosAlMuro,__nichoViejo`) y `python3 juego/herramientas/t1016_lamina.py antes ahora`
+  (`/tmp/requiem-pruebas/tapados/fotos`).
+- **Losa de púas que avisa**: dos manchas de sangre vieja corridas a lo largo del paso (`gore_sangre_seca` y `cri_sangre_seca`,
+  planas, `__puasLimpias` las quita) y las puntas de acero que destellan de a una cada 2,6 s, con un brillo frío que respira
+  en las 16 (`brilloPuas` en escena.ts, `__puasMudas`).
+- **Desvíos de los actos 3 a 7 lejos de bocas y casas**: `trazarDesvio` pide 38 celdas al punto de una salida `abajo` o `casa`
+  (las bocas y las casas son grandes y van al norte de su punto) y 26 a las del borde; si no da, 28 y 14, y una tercera vuelta
+  con 22 (el Paso del Glaciar). Los de los actos 1 y 2 no cambian. 36 de 36 con cofre alcanzable; la distancia del claro al
+  borde de la boca o la casa más cercana va de 20 a 94 (antes de 19 a 74, con varios en 19 a 21).
+- **Gigante del glaciar con cara de viejo jarl** (antes se leía de simio: cara ancha, hocico chato, cabeza hundida entre los
+  hombros): cuello que la levanta, cabeza más alta que ancha, frente alta, cejas finas, pómulos, nariz larga y recta en su
+  propia masa, mandíbula angosta, bigote y barba blanca que baja por el pecho y se congela en carámbanos, y la melena larga
+  que cae por la espalda y los hombros. Horneado con `SOLO=acto_hito`.
+- Pruebas: t1000 (exterior arena 57 a 56, obra 55 a 54, montados obra 9 a 8, adornos por pantalla obra 39), t1014 (96
+  iguales), t1011 (1 o 2 de unos 2500, el de siempre), t1015 (0 tapados), t1001, t855 (0 de 192), t370 (288, 0 malas: la primera
+  corrida dio 6 porque el escombro del frente se corría hacia la sala y su ocupado, que t370 cuenta como muro, cortaba un
+  pasillo; el escombro ya no se mueve), conectividad 20 (1920), t440, t450 y t500. `MAPA_V` sigue en 3 (los pisos no cambian).
+  Flojo: el destello de la losa es chico (5 puntos, a propósito: se nota si se mira) y el gigante en el juego no entra entero en
+  la pantalla de 720 con el héroe al pie (mide 464 puntos).
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

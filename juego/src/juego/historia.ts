@@ -9,6 +9,7 @@ import { crearMonstruo, msg, efecto, particulas, soltar, dirDe, type Juego, type
 import { nivelEnDificultad, type DatosHeroe } from './heroe';
 import { Sonido } from '../audio/sonido';
 import { R, dist } from '../nucleo/azar';
+import { oirLibro } from './libro_oido';
 
 // ------------------------------------------------------------------ lo que se guarda en el héroe (campos libres del guardado)
 export interface Historia {
@@ -104,9 +105,11 @@ export function lineaDe(npc: string, d: DatosHeroe, tipo: 'lineas' | 'relatos'):
 }
 export function saludoDe(npc: string, d: DatosHeroe): [string, string] {
   const n = NPCS[npc];
-  return lineaDe(npc, d, 'lineas') ?? n.saludo[Math.floor(R() * n.saludo.length)];
+  const l = lineaDe(npc, d, 'lineas') ?? n.saludo[Math.floor(R() * n.saludo.length)];
+  oirLibro(d, l); return l;
 }
-export const relatoDe = (npc: string, d: DatosHeroe): [string, string] => lineaDe(npc, d, 'relatos') ?? NPCS[npc].relato;
+/** Lo que cuenta alguien (y si es una pieza del Libro de Odrán, queda anotada). */
+export const relatoDe = (npc: string, d: DatosHeroe): [string, string] => { const l = lineaDe(npc, d, 'relatos') ?? NPCS[npc].relato; oirLibro(d, l); return l; };
 
 // ------------------------------------------------------------------ libros malditos: primero el diario del acto, después el del abad
 export function leerLibro(d: DatosHeroe, acto: number): { titulo: [string, string]; texto: [string, string]; n: number; total: number } {

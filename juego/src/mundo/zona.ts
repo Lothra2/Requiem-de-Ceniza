@@ -1350,7 +1350,7 @@ function escenasMundo(k: Constructor, def: DefZona, puntos: [number, number][]) 
  */
 interface Desvio { cx: number; cy: number; fondo: number; cofre: [number, number]; cuello: [number, number, number]; traza: [number, number, number][]; lugar: Lugar }
 type FilaDesvio = { marca: [string, string][]; cuello: [string, string]; relato: [string, string][]; borde: [string, string][]; nombre: [string, string]; texto: [string, string] };
-const DESVIO: Record<string, FilaDesvio> = {
+export const DESVIO: Record<string, FilaDesvio> = {
   a1_paramo: { marca: [['par_santuario', 'capilla']], cuello: ['par_penasco', 'musgo'], relato: [['par_cadaver', 'campesino'], ['par_rescoldos', 'tablas']], borde: [['par_matorral', 'enebro'], ['par_pasto', 'seco'], ['par_matorral', 'espinoso']],
     nombre: ['La capilla del caminante', 'The Wayfarer\'s Chapel'], texto: ['Alguien le encendía velas a este santo todas las noches. Las últimas se consumieron solas.', 'Someone lit candles for this saint every night. The last ones burned out alone.'] },
   a1_bosque: { marca: [['par_santuario', 'nicho']], cuello: ['par_penasco', 'con_brezo'], relato: [['par_cadaver', 'esqueleto'], ['cem2_velas_tumba', 'derretidas']], borde: [['par_matorral', 'seco'], ['par_pasto', 'juncos'], ['par_matorral', 'enebro']],

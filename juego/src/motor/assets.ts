@@ -217,6 +217,8 @@ export function relDe(nombre: string): ImageBitmap | HTMLImageElement | HTMLCanv
 }
 let gancho: ((c: CanvasRenderingContext2D, q: Cuadro, im: CanvasImageSource, x: number, y: number, escala: number) => void) | null = null;
 export const fijarGanchoRelieve = (f: typeof gancho) => { gancho = f; };
+/** El relieve de un cuadro sin pintar su color (lo que se pintó aparte, como la pieza recortada alrededor del héroe). */
+export function relieveDe(c: CanvasRenderingContext2D, q: Cuadro, x: number, y: number) { const im = q.img ?? imgs.get(q.atlas); if (gancho && im) gancho(c, q, im, x, y, 1); }
 export function dibujar(c: CanvasRenderingContext2D, q: Cuadro | undefined, x: number, y: number, escala = 1): boolean {
   if (!q) return false;
   let im = q.img;

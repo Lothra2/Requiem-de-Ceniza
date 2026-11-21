@@ -537,11 +537,11 @@ function exterior(def: DefZona, semilla: number): Zona {
       for (let a = 0; a < 12; a++) for (const f of [1.15, 0.6]) { const X = Math.floor((x + Math.cos(a * 0.5236) * rad * f) / 5), Y = Math.floor((y + Math.sin(a * 0.5236) * rad * f) / 5); if (X < 0 || Y < 0 || X >= tw || Y >= th || !z.pisos[Y * tw + X]) return false; }
       return true;
     };
-    const elegir = (rad: number, lejosSalida: number, lejosLugar: number): [number, number] | null => {
+    const elegir = (rad: number, lejosSalida: number, lejosLugar: number, extra?: (x: number, y: number) => boolean): [number, number] | null => {
       let mejor: [number, number] | null = null, bd = -1;
       for (let i = 0; i < 260; i++) {
         const x = 8 + Math.floor(rl() * (z.W - 16)), y = 8 + Math.floor(rl() * (z.H - 16));
-        if (!cabe(x, y, rad)) continue;
+        if (!cabe(x, y, rad) || (extra && !extra(x, y))) continue;
         if (def.rio && Math.abs(x - z.W / 2) < z.W * 0.19 + rad) continue;
         let d = 1e9;
         for (const [a, b] of puntos) d = Math.min(d, Math.hypot(a - x, b - y) - lejosSalida);
@@ -555,8 +555,15 @@ function exterior(def: DefZona, semilla: number): Zona {
     if (def.jefe) { for (const rad of [14, 13, 12]) { const q = elegir(rad, 16, 12); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } } }
     const nClaros = z.W * z.H > 12000 ? 4 : 3;
     for (let i = 0; i < nClaros; i++) { for (const rad of [10 + Math.floor(rl() * 4), 10, 9]) { const q = elegir(rad, 14, 12) ?? elegir(rad, 12, 7); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro' }); break; } } }
-    { const q = elegir(6, 14, 8) ?? elegir(5, 10, 5); if (q) lugares.push({ cx: q[0], cy: q[1], r: q ? 6 : 5, papel: 'hito' }); }
+    // (entrega 6) el hito mira a +x +y (lo que ve la cámara: el relato va adelante y lo alto atrás), así que delante necesita su
+    // explanada de piso: antes caía de espaldas al vacío o con la selva encima de la cara (la cruz del páramo y el campanario
+    // de cara al borde, el tambor de Yhuantl detrás de 17 celdas de árboles) y el héroe no tenía desde dónde mirarlo entero.
+    // La explanada queda reservada como un claro más (nada alto cae ahí). `__hitoViejo` vuelve a lo de antes. Después de los
+    // claros no se tira más `rl`, así que esto no mueve ningún otro lugar
+    const viejoH = !!(globalThis as any).__hitoViejo, frente = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6);
+    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
     for (const l of lugares) { const rr = l.r + 0.5; for (let y = Math.floor(l.cy - rr); y <= l.cy + rr; y++) for (let x = Math.floor(l.cx - rr); x <= l.cx + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - l.cx, y - l.cy) <= rr) z.claros[y * z.W + x] = 1; }
+    { const lh = lugares.find((l) => l.papel === 'hito'); if (lh && !viejoH) { const ex = lh.cx + 8, ey = lh.cy + 8, rr = 5.5; for (let y = Math.floor(ey - rr); y <= ey + rr; y++) for (let x = Math.floor(ex - rr); x <= ex + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - ex, y - ey) <= rr) z.claros[y * z.W + x] = 1; } }
   }
   const camino = (a: [number, number], b: [number, number], traza?: [number, number][]) => {
     let x = a[0], y = a[1];
@@ -2099,8 +2106,10 @@ function destapar(z: Zona) {
     const pila = [i0]; vis[i0] = 1;
     while (pila.length) { const i = pila.pop()!, x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= H) continue; const j = Y * W + X; if (!vis[j] && !z.bloq[j]) { vis[j] = 1; pila.push(j); } } }
     let quito = false;
-    for (let k = z.objetos.length - 1; k >= 0 && !quito; k--) {
+    // (entrega 6) el hito del acto sale solo si no hay otra cosa que abra el paso (antes se iba en 1 de cada 10 zonas)
+    for (let pasada = 0; pasada < 2 && !quito; pasada++) for (let k = z.objetos.length - 1; k >= 0 && !quito; k--) {
       const o = z.objetos[k]; if (!o.bloquea || o.tag || /muro|pared|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente/.test(o.id)) continue;
+      if (o.id === 'acto_hito' && pasada === 0 && !(globalThis as any).__hitoViejo) continue;
       const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2);
       // ¿toca piso alcanzado por un lado y piso libre sin alcanzar por otro?
       let dentro = false, fuera = false;

@@ -123,14 +123,14 @@ export function dibujarElectro(ctx: CanvasRenderingContext2D, id: number, q: Cua
   // rayo ya aclaraba llegaban a blanco puro, y con cinco golpes seguidos, el Puño de dios, el cuerpo entero quedaba en una
   // maraña blanca. Azul eléctrico con alma celeste: se lee igual de vivo y el cuerpo se sigue viendo debajo)
   const q6 = !(window as any).__blancoQuinta; if (q6) ctx.globalCompositeOperation = 'source-over';
-  ctx.globalAlpha = (q6 ? 0.75 : 0.55) * f; ctx.fillStyle = q6 ? '#5a74ee' : '#8fa6ff';
+  ctx.globalAlpha = (q6 ? 0.75 : 0.55) * f; ctx.fillStyle = q6 ? '#4a62dc' : '#8fa6ff';
   for (let i = 0; i < pts.length; i += 2) ctx.fillRect(ox + Math.round(pts[i] * esc) - (s >> 1), oy + Math.round(pts[i + 1] * esc), s * 2, s);
   // núcleo casi blanco
-  ctx.globalAlpha = (q6 ? 0.9 : 0.95) * f; ctx.fillStyle = q6 ? '#bccbff' : '#f2f6ff';
+  ctx.globalAlpha = (q6 ? 0.9 : 0.95) * f; ctx.fillStyle = q6 ? '#9aaeff' : '#f2f6ff'; // (la luz del rayo pasa después y lo aclara: el alma queda celeste)
   for (let i = 0; i < pts.length; i += 2) ctx.fillRect(ox + Math.round(pts[i] * esc), oy + Math.round(pts[i + 1] * esc), s, s);
   // chispas sueltas que vuelan desde el borde, con su recorrido dentro de la ventana
   const fr = ahora * 16 - ventana;
-  ctx.fillStyle = q6 ? '#d4deff' : '#ffffff';
+  ctx.fillStyle = q6 ? '#b0c0ff' : '#ffffff';
   for (let i = 0; i < 3 + (alto > 70 ? 3 : 0); i++) {
     const b = borde[Math.floor(r() * borde.length)], bx = b % w, by = (b / w) | 0, vx = (r() - 0.5) * 16, vy = -2 - r() * 8;
     ctx.globalAlpha = (1 - fr) * 0.9 * f;

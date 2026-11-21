@@ -86,15 +86,17 @@ function arco(ctx: CanvasRenderingContext2D, e: any, aP: (x: number, y: number) 
     if (r() < 0.4) { const q = rama[Math.floor(rama.length / 2)], an2 = an + (r() - 0.5) * 1.6, l2 = ll * 0.5; ramas.push(quebrar(q, [q[0] + Math.cos(an2) * l2, q[1] + Math.sin(an2) * l2], r, 0.6, 2)); }
   }
   // a tierra: tres lenguas que corren por el piso desde donde cae
-  if (e.suelo) for (let i = 0; i < 3; i++) { const an = r() * 6.283, ll = 14 + r() * 18; ramas.push(quebrar(b, [b[0] + Math.cos(an) * ll, b[1] + 34 * 0 + Math.sin(an) * ll * 0.5], r, 0.6, 3)); }
+  // (sexta pasada: los del corro no echan lenguas: llegaban a los pies del héroe)
+  if (e.suelo && !e.corro) for (let i = 0; i < 3; i++) { const an = r() * 6.283, ll = 14 + r() * 18; ramas.push(quebrar(b, [b[0] + Math.cos(an) * ll, b[1] + 34 * 0 + Math.sin(an) * ll * 0.5], r, 0.6, 3)); }
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   if (!e.chico) { ctx.fillStyle = `rgba(60,95,255,${0.2 * k})`; ctx.beginPath(); trazo(ctx, princ, 5, 2); ctx.fill(); }
-  ctx.fillStyle = `rgba(110,150,255,${(e.chico ? 0.45 : 0.75) * k})`; ctx.beginPath(); trazo(ctx, princ, 3); for (const q of ramas) trazo(ctx, q, 2, 1, 0, 0.6); ctx.fill();
-  ctx.fillStyle = `rgba(160,190,255,${0.6 * k})`; ctx.beginPath(); trazo(ctx, hebra, 1); for (const q of ramas) trazo(ctx, q, 1); ctx.fill();
+  const kh = e.hondo ? 0.4 : 1; // (sexta pasada: los rayitos hondos, sumados entre sí y sobre la arena, llegaban a blanco)
+  ctx.fillStyle = `rgba(110,150,255,${(e.chico ? 0.45 : 0.75) * k * kh})`; ctx.beginPath(); trazo(ctx, princ, 3); for (const q of ramas) trazo(ctx, q, 2, 1, 0, 0.6); ctx.fill();
+  ctx.fillStyle = `rgba(160,190,255,${0.6 * k * kh})`; ctx.beginPath(); trazo(ctx, hebra, 1); for (const q of ramas) trazo(ctx, q, 1); ctx.fill();
   const chico = !!e.chico; // (los del puño: el alma blanca solo en la rama principal y a media fuerza)
   // (sexta pasada: los rayitos de la onda y del contacto del Puño de dios van con el alma celeste: blancos y de a veinte, a la
   // altura de los pies, dejaban la maraña blanca sobre el blanco)
-  ctx.fillStyle = e.hondo ? `rgba(120,150,255,${0.7 * k})` : `rgba(255,255,255,${Math.min(1, k * (chico ? 0.6 : 1.4))})`; ctx.beginPath(); trazo(ctx, princ, nace && !chico ? 2 : 1); if (!chico) for (const q of ramas) trazo(ctx, q, 1, 1, 0, 0.35); ctx.fill();
+  ctx.fillStyle = e.hondo ? `rgba(120,150,255,${0.45 * k})` : `rgba(255,255,255,${Math.min(1, k * (chico ? 0.6 : 1.4))})`; ctx.beginPath(); trazo(ctx, princ, nace && !chico ? 2 : 1); if (!chico) for (const q of ramas) trazo(ctx, q, 1, 1, 0, 0.35); ctx.fill();
   // donde nace y donde pega: resplandor y una estrella de pixel que late
   // (de día el resplandor del rayo suma menos: el Puño de dios quemaba a blanco)
   const hr = haloRayo(), kd = (0.4 + 0.6 * nochePfx()) * (e.corro ? 0.55 : 1);
@@ -435,7 +437,7 @@ function choque(ev: any, et: NonNullable<ReturnType<typeof estiloTajo>>, fuerte:
   const c = hexRgb(et.filo), c2 = hexRgb(et.medio);
   chispasLibres(Math.round((fuerte ? 12 : 7) * KT()), () => { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.4, v = rnd(3, 6.5); return { x: ev.x, y: ev.y, z: z + rnd(-5, 5), vx: Math.cos(an) * v, vy: Math.sin(an) * v, vz: rnd(20, 110), t: 0, d: rnd(0.15, 0.32), c: R() < 0.5 ? c : c2, s: 2, reb: 1 }; });
   // (los rayos a tierra del puño son chicos: arco fino, sin el resplandor grande ni la luz de 220 puntos del rayo en cadena)
-  if (ex === 'rayo') { const viejo = (window as any).__blancoViejo; for (let i = 0; i < (fuerte ? 3 : 2); i++) { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.6, d = rnd(1, 1.8); jRef!.efectos.push({ id: 'arco_cadena', x: ev.x, y: ev.y, x2: ev.x + Math.cos(an) * d, y2: ev.y + Math.sin(an) * d, t: 0, dir: 0, escala: 1, z: 0, dur: 0.18, za: z, zb: 2, suelo: true, chico: !viejo, hondo: ev.hab === 'puno_dios' && !(window as any).__blancoQuinta, sem: Math.floor(R() * 1e6) } as any); } }
+  if (ex === 'rayo') { const viejo = (window as any).__blancoViejo; for (let i = 0, nr = ev.hab === 'puno_dios' && !(window as any).__blancoQuinta ? 1 : fuerte ? 3 : 2; i < nr; i++) { const an = Math.atan2(ev.uy, ev.ux) + (R() - 0.5) * 1.6, d = rnd(1, 1.8); jRef!.efectos.push({ id: 'arco_cadena', x: ev.x, y: ev.y, x2: ev.x + Math.cos(an) * d, y2: ev.y + Math.sin(an) * d, t: 0, dir: 0, escala: 1, z: 0, dur: 0.18, za: z, zb: 2, suelo: true, chico: !viejo, hondo: ev.hab === 'puno_dios' && !(window as any).__blancoQuinta, sem: Math.floor(R() * 1e6) } as any); } }
   else if (ex === 'fuego') { puf(ev.x, ev.y, z, 'fuego', 1.1 * k); brasas(ev.x, ev.y, z, 14, 4); }
   else if (ex === 'piedra') { astillas(ev.x, ev.y, z, 12, ['#8a7a62', '#a09078', '#5a4e40', '#c0ac8a'], '#2a2018', 4, 3, ev.ux, ev.uy); polvo(ev.x, ev.y, 5, '#8a7a62', 5, 12, 1.4); }
   else if (ex === 'eco') polvo(ev.x, ev.y, 3, '#9ab0d8', 4, 10, 1);

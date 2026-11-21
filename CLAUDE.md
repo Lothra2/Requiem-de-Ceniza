@@ -28,10 +28,11 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
   que Diablo 2 pero original; nada montado, todo con intención; respaldar ramas de trabajo en origin está bien.
 - **Agentes**: nunca con el modelo Fable (Rick, 20 nov 2026). Usar opus o sonnet.
 - **Seguir solo**: la tarea de cada hora se borró el 21 nov al publicar la etapa B (`8f4f242`). Si hace falta otra vez, crear una nueva.
-- **HUD**: publicado (`9be8834`, `bc0a1e1`). Rick aprobó el cinturón partido en dos pares (20 nov). Sutiles
-  todavía: ceniza del jefe y grietas de vida baja.
-- **Poderes**: cinco pasadas publicadas. Pendiente: Coro de los sellos (22 a 25 % de blanco por la columna), Puño de dios
-  lava a blanco, sin sonido de cambio de forma ni de Festín, no se ve el equipo en forma de bestia.
+- **HUD**: publicado (`9be8834`, `bc0a1e1`). Rick aprobó el cinturón partido en dos pares (20 nov). Sexta pasada (rama
+  `pulido-poderes`, 21 nov): grietas de vida baja talladas, ceniza del jefe que se lee y filas del cinturón según el cinto.
+- **Poderes**: seis pasadas (la sexta en `pulido-poderes`, ver "Sexta pasada" en Poderes en vivo): Coro de los sellos y
+  Puño de dios bajo 10 % de blanco de día y de noche, sonidos de las formas y del Festín, garras con el color del arma viva.
+  Flojo: los sonidos nuevos no los oyó nadie (solo se midieron y se miró el espectrograma).
 - **No publicar** nada que no se haya revisado mirando las láminas y corrido las pruebas. Main publica solo al hacer push.
 - **Interfaz pulida** (rama `pulido-ui`, 21 nov 2026): barras de vida legibles y apiladas, letra gótica nueva en todos los
   menús, la vigilia con boceto y sus arreglos. Ver "Pulido de la interfaz". Flojo: el total de la vigilia sigue en 48 cuadros.
@@ -817,6 +818,34 @@ pintada encima).
         `ANCHO=240 DESDE=0 node juego/herramientas/t981_cadaver.cjs festin_tumba <etiqueta>` (`VIEJO=1` el de antes).
       - t975 elige el sitio lejos de toda salida (24 casillas, se afloja a 18 y 14 si no hay): el remolino del umbral "Volver
         a El Oasis" entraba en los recortes.
+    - **Sexta pasada** (Rick, 21 nov 2026: "acomodá lo flojo, quiero perfección"). `__blancoQuinta` vuelve a lo de la
+      quinta en todo lo de abajo; `__sinNumeros` saca los números de daño (para medir el blanco sin contarlos).
+      - **Puño del dios dormido** (monje): la onda triple ya no son tres columnas de `trueno` horneadas apiladas sobre el
+        blanco (más la del `explota`): las áreas llevan `hab` y `ondaRayo` (poderes_vivos.ts) dibuja cada una como un aro
+        azul hondo en el piso con rayitos pegados al suelo (`hondo`, alma celeste, `sinLuz`). Los cinco rayos de la
+        definitiva caen en corro (`corro`: a 2,2 a 4 casillas, con la x de pantalla lejos del héroe y del blanco, ramas solo
+        en lo alto, resplandor y luz a media fuerza sin destello). Lo que reparte la onda (`area` en `golpesPoder`, lo pone
+        `golpeArea` en `actualizarAreas`) no revienta como el puño. El reventón va con la paleta `rayo_hondo`, el filo del
+        puño celeste, la carga de rayo horneada al 45 % y su luz sin destello, los anillos de la definitiva de azul hondo.
+      - **El rayo sobre los cuerpos** (electro.ts): el cuerpo del arco y el alma tapan (no se suman), azul eléctrico con
+        alma celeste (la luz de luces.ts pasa después y la aclara: con alma blanca de noche quedaba blanca); el titileo y la luz del cuerpo sacudido más bajos y más azules. Baja también el Puño de rayo.
+      - **Coro de los sellos y Ascenso del espíritu**: la columna (`pilar_luz`) y el castigo horneados que nacen en el
+        héroe no se dibujan (`sinHorneado`; su luz sí queda, de oro): la columna es el haz del centro, más ancho y de oro
+        hondo, detrás del cuerpo; los siete haces de alrededor no caen en la columna de pantalla del héroe; los anillos, los
+        fogonazos (`hondo`: sin el centro blanco de `luzSpr`) y las brasas son de oro viejo.
+      - Medida (t975 + t996_blanco.py, `BANDERAS=__sinNumeros`, peor cuadro héroe / blanco; antes con `__blancoQuinta`):
+        Coro de día 23,8 / 5,8 a 3,8 / 3,4, de noche 30,0 / 4,5 a 5,9 / 4,7. Puño de dios (`CERCA=1`) de día 48,5 / 65,3 a
+        3,2 a 5,1 / 3,2 a 3,7, de noche 82,5 / 90,8 a 7,9 a 9,1 / 8,7 a 12,6 (dos corridas; la media de 2,6 a 4 %). Ascenso de día 5,6 / 3,6 a 1,6 / 1,5, de noche 9,1 / 10,5 a 1,7 / 6,0.
+        Puño de rayo de noche 9,0 / 18,8 a 4,8 / 9,3. Ojo: el sitio y el azar cambian entre corridas (unos ±3 puntos).
+      - **Sonidos** (audio/sonido.ts, síntesis): `forma_lobo` (huesos que se rompen y se acomodan, `huesosCambian`, y el
+        aullido, `aullido`: casi tono puro con armónicos que sube, tiembla y cae), `forma_oso` (huesos más graves y el
+        gruñido que sube a rugido, `grunidoOso`), `forma_hombre` (huesos espaciados, algo húmedo y el aliento) y `festin`
+        (sorbo borboteante y latido húmedo a los 0,3 y 0,52 s, con el chorro y el latido del dibujo). Las formas suenan en
+        `actualizarHeroe` cuando cambia `h.escala` (cuando se ve el cambio); la forma ya no suena el rugido de jefe al
+        empezar a lanzar. `_renderEfecto(id, seg, true)` devuelve las muestras (para el espectrograma).
+      - **Formas y equipo**: el equipo no se pinta sobre la bestia (el druida se vuelve el animal, como en Diablo 2), pero el
+        arma viva sigue: el tajo de la mordida y del zarpazo toma el color de su elemento (`VIVO_FORMA` en tajos.ts,
+        `__formaSinVivo`) y el estallido del arma viva ya revienta en el blanco.
 - **Fogonazos**: los de `energia.ts` no se apilan y van bajos sobre el héroe. Los efectos que se suman como luz bajan
   con la claridad de la zona (`claridadPfx`). Un efecto grande y opaco plantado sobre el héroe va a media fuerza.
 - **Maldiciones**: cada una lleva su efecto (`MALDICION_PFX` en `mundo.ts`). La jaula de hueso es solo del nigromante.
@@ -1062,7 +1091,13 @@ pintada encima).
     `/tmp/requiem-pruebas/hud`. Sin servidor: `npx tsx juego/herramientas/t951_esculturas.mts [ampliación]` (las esculturas
     y el marco entero a 1280 x 720, 960 x 540 y 1707 x 540). `HUD=0` también saca la barra de siempre en
     `comun_pruebas.cjs`, `t650_zoom` y `t651_zoom_pick`.
-  - Falta: las filas del cinturón según el cinto puesto (hoy toda columna apila 4).
+  - **Filas del cinturón** (sexta pasada, `pilaCinturon` y `FILAS_CINTO` en `juego/heroe.ts`): cuántas pociones apila cada
+    columna según el cinto, como en Diablo 2. Los cintos no traen el dato: va por la base (faja de tela 2, cinturón de cuero
+    y tahalí 3, de malla, cinto del verdugo y ceñidor de placas 4, otra base 3) y sin cinto 2 (en Diablo 2 es 1: el héroe de
+    salida no lleva cinto). Lo que ya está en el cinturón no se toca: si hay más que las filas se ven todas las cuentas
+    (`filasColumna`) y solo no entra más. El tooltip del cinto dice sus filas. `__cinturonViejo` vuelve a 4.
+  - **Sexta pasada**: las grietas de vida baja se tallan (`grietasHondas`: surco oscuro con labio de luz) antes de sangrar luz y
+    no se apagan entre latidos; la ceniza del jefe sube hasta 4 con cresta clara y brasas, más copos y algunos de 2 x 2.
 - **Paso fino y caché**: tocar el motor de cuerpos cambia `__PINTOR__` y el héroe con equipo se repinta entero (en PC unos
   40 s los 8 rumbos y otros 45 s los 16 con 2 obreros, ahora van 4). En ese rato camina en 8: no es que se pierdan.
 
@@ -1346,6 +1381,11 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
 - **Canto de brasa en los botones** (`ui/brasa_menu.ts`, `brasaRenglon`): el renglón encendido lleva un fuego de Doom chico
   que nace del canto de abajo de cada letra y lo lame por detrás, y el borde de las letras en brasa de pixel, más vivo
   abajo y donde lo toca la llama. Celdas de 2 puntos del aparato. Una grilla por renglón, solo se mueve mientras está encendido.
+- **Sexta pasada de poderes (21 nov 2026)**: las llamas de RÉQUIEM quedaban cortas. Más aire sobre el título (0,42 del alto),
+  llama de `altura` 0,5, el título a 6 % del alto en PC (antes 3,5) y el techo a 4,5 %; las filas de arriba de la grilla
+  también enfrían (en el teléfono chocaban con la fila de arriba y salía un borde recto). `__tituloCorto` vuelve a lo de
+  antes. El golpe suena a su hora con el audio ya desbloqueado (t683: golpe a 0,74 s para 0,7, encendido a 1,51) y, sin gesto,
+  apenas se desbloquea (los dos dentro de 0,2 s del clic).
 - **Tercera pasada (21 nov 2026)**: las llamas mueren antes del borde de arriba de la pantalla (`filaK`: cada fila del fuego
   se enfría según dónde cae, en el 6 % de arriba) y el título baja un 3,5 % en PC: nunca un corte recto, en ninguna vista.
   En las bandas oscuras no va la trama (`tramaDesde`, 2,6 en PC y 3,6 en táctil: el tablero en el hueco de la Q). El metal

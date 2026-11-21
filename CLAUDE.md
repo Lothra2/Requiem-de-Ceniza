@@ -1051,7 +1051,9 @@ Rick: "haz todo lo que falte, lo que quedó flojo y lo que falta de los actos 3 
   `main.ts`): con algo en la mano el toque suelta al levantar el dedo, no al apoyarlo; si el dedo se mueve más de 8 puntos o se
   sostiene 0,3 s, el objeto sube arriba del dedo (`alzadoMano`: entero a la vista, la casilla de arriba a (alto − 0,5) casillas
   + 30) y la rejilla, el equipo y el cinturón miran ese punto (`ui.alzado`, se corre `E.y` mientras se dibujan paneles y HUD).
-  Un toque corto sin mover suelta donde se tocó. `__arrastreViejo` vuelve a lo de antes. Ganchos: `__rejillas`,
+  Un toque corto sin mover suelta donde se tocó; lo que mide si fue corto es el tiempo de los eventos (`E.toqueT`, `E.sueltaT`),
+  no el de los cuadros: con un cuadro lento el toque parecía sostenido. En t1100 el toque corto va dentro de la página (por CDP
+  el levantar espera a que se atienda el apoyar y con un cuadro lento duraba más de 0,3 s de verdad). `__arrastreViejo` vuelve a lo de antes. Ganchos: `__rejillas`,
   `__casillasEquipo`, `__manoDestino`, `__manoDibujo`. Prueba: `t1100_arrastre.cjs [pc|movil] <etiqueta>` (1x1 a 2x4 de la
   bolsa al baúl, del baúl a la bolsa y al equipo; en táctil arrastre con toques de verdad por CDP y el toque corto) y
   `python3 juego/herramientas/t1100_lamina.py <etiqueta>` (`/tmp/requiem-pruebas/arrastre/lamina_<etiqueta>.png`).

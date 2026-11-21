@@ -96,7 +96,13 @@ const TAM = [[1, 1], [1, 2], [1, 3], [2, 2], [2, 3], [2, 4]];
       await p.evaluate(() => { const u = window.__ui; const i = u.cofre.findIndex((q) => q.o === window.__pruebaObj); if (i >= 0) u.cofre.splice(i, 1); u.mano = window.__pruebaObj; });
       await p.waitForTimeout(150);
       R = await rej(); const bo2 = R.r.bolsa; const t2 = celda(bo2, 5, 1); fila.t2 = t2;
-      await toque('touchStart', t2[0], t2[1]); await toque('touchEnd', t2[0], t2[1]); await p.waitForTimeout(250);
+      // el toque corto va dentro de la página, apoyar y levantar en la misma tarea: por CDP el levantar espera a que la
+      // página atienda el apoyar, y con un cuadro lento el toque duraba más de 0,3 s (se tomaba por sostenido, y con razón)
+      { const [X, Y] = pant(t2[0], t2[1]);
+        await p.evaluate(([X, Y]) => { const c = document.getElementById('juego'); const t = new Touch({ identifier: 7, target: c, clientX: X, clientY: Y });
+          c.dispatchEvent(new TouchEvent('touchstart', { touches: [t], targetTouches: [t], changedTouches: [t], bubbles: true, cancelable: true }));
+          c.dispatchEvent(new TouchEvent('touchend', { touches: [], targetTouches: [], changedTouches: [t], bubbles: true, cancelable: true })); }, [X, Y]); }
+      await p.waitForTimeout(250);
       fila.toqueCorto = await p.evaluate(() => { const e = window.__juego().heroe.d.bolsa.find((q) => q.o === window.__pruebaObj); return e ? [e.x, e.y] : null; });
       if (!fila.toqueCorto) fila.porQueCorto = await p.evaluate(() => ({ rej: JSON.stringify(window.__rejillas.bolsa), mano: window.__ui.mano === window.__pruebaObj, cofre: window.__ui.cofre.map((e) => [e.x, e.y]), suelo: window.__juego().suelo.length, ficha: !!window.__ui.ficha, der: window.__ui.der, izq: window.__ui.izq }));
       await p.evaluate(() => { window.__ui.mano = null; });

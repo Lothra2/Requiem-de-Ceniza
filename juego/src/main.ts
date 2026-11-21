@@ -254,7 +254,7 @@ function enSitio(jj: Juego, lado: 'izq' | 'der', x: number, y: number, obj: Mons
   if (guardar && ocupado(jj)) colchon = { lado, x, y, obj, t: COLCHON_T };
 }
 /** Arrastrar y soltar: dónde se agarró lo que está en la mano (si el botón sigue apretado). */
-let toqueMano: { x: number; y: number; t: number; dif: boolean; lev: boolean } | null = null;
+let toqueMano: { x: number; y: number; t: number; dif: boolean; lev: boolean; mov: boolean } | null = null;
 let arrastre: { x: number; y: number } | null = null;
 function encimaDe(): Pick | null {
   let best: Pick | null = null;
@@ -841,9 +841,13 @@ function paso(dt: number) {
       if (toqueMano && !E.izq && !E.soltoIzq) toqueMano = null;
       if (!ui.mano) toqueMano = null;
       if (E.tactil && ui.mano && !(window as any).__arrastreViejo) {
-        if (!toqueMano && E.izq) { toqueMano = { x: E.x, y: E.y, t: performance.now(), dif: E.clicIzq, lev: false }; E.clicIzq = false; }
+        if (!toqueMano && E.izq) { toqueMano = { x: E.x, y: E.y, t: E.toqueT ?? performance.now(), dif: E.clicIzq, lev: false, mov: false }; E.clicIzq = false; }
         if (toqueMano) {
-          if (!toqueMano.lev && E.izq && (Math.hypot(E.x - toqueMano.x, E.y - toqueMano.y) > 8 || performance.now() - toqueMano.t > 300)) toqueMano.lev = true;
+          // (el tiempo sale de los eventos: con un cuadro lento el dedo ya se había levantado y el toque corto se tomaba por
+          // sostenido; lo que decide es cuánto estuvo apoyado de verdad)
+          if (E.izq && Math.hypot(E.x - toqueMano.x, E.y - toqueMano.y) > 8) toqueMano.mov = toqueMano.lev = true;
+          if (!toqueMano.lev && E.izq && performance.now() - toqueMano.t > 300) toqueMano.lev = true;
+          if (E.soltoIzq && !toqueMano.mov && (E.sueltaT ?? performance.now()) - toqueMano.t < 300) toqueMano.lev = false;
           if (E.soltoIzq && toqueMano.dif) E.clicIzq = true;
           presaEnMenu = true;
         }

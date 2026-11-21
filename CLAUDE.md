@@ -378,6 +378,55 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   alcanzables (`_m_nichos.mjs`). Ojo: el piso nuevo cambia el azar de los muros y lo que sigue: obra arena 58 a 56 y
   adornos por pantalla 33 a 29 (grupos de monstruos 968 a 976, campamentos 484 a 475 en 3 semillas).
 
+## Mundos, entrega 3 (21 nov 2026)
+
+Rick: "haz todo lo que falte, lo que quedó flojo y lo que falta de los actos 3 al 7, no quiero nada flojo".
+
+- **Sendero de los desvíos** (`vestirDesvio`, `__sinSendero`; piezas en `catalogo/senderos.ts`): el camino del mundo se
+  pinta por baldosa y el sendero es de una o dos celdas, así que va por piezas planas a lo largo de la traza: `sendero_paso`
+  (2 x 2, plano) un tramo pisado por celda y media con su rumbo (`<fam>_<x|y|d|e>[2]`: el material del piso del tema más
+  oscuro, huellas de ida y vuelta, y lo de cada tierra: pasto aplastado, losas hundidas, rizos de arena, tablones sobre el
+  barro, nieve sucia, basalto y brasas apagadas, tablas de naufragio con conchas, mármol con filete de oro), las piedras del
+  borde (`<fam>_piedras`) cada cuatro puntos de la traza, y `sendero_mojon` (1 x 1) en la boca donde deja el camino (montón
+  de piedras con trapo, estela con cruz, piedras con cuerno, estaca con cráneo y plumas, piedra rúnica, púa con cráneo y
+  cadena, remo con farol, tambor de columna). `FAM_SENDERO` da la familia por tema. Azar propio (`rs`). Lab:
+  `t1020_pieza_lab.mts sendero_paso,sendero_mojon`; en el juego `SENDA=1 _m_desvio_vista.cjs` pone al héroe en medio del
+  sendero. Ojo: registrar cualquier pieza nueva en el catálogo cambia el armado de algunas zonas (a4_picos lo mostró con una
+  pieza vacía de prueba); no es azar de sesión (t855 da igual), pero mueve objetos. Los pisos no cambian.
+- **El roble con luz**: un farol colgado del brazo que mira al camino (jaula de hierro, vidrio que es luz y llama) y tres
+  velas vivas en el labio del hueco. `robleSogas` devuelve escena con `resplandor` (ojo: en unidades ya agrandadas 2,4 veces,
+  el resplandor no pasa por `conEscala`), y el juego le da su luz (`fuenteDe`).
+- **Pozo y obelisco sin manto**: se sacó el disco de arena de debajo (se gastan los mismos números del azar para no mover lo
+  demás); solo quedan lenguas de arena arrimadas a las gradas, con el material del piso (`arena`, no `des2_arena`). `duna`
+  ahora recibe el material (nieve, ceniza).
+- **Obra más vestida** (`vestirParedes`): el rastro al pie de lo que cuelga (`__sinPieMuro`: huesos bajo las cadenas, cera y
+  velas bajo el candelero, lo que se les deshizo a las momias), los refugios (`__sinRefugios`: contra el muro norte u oeste de
+  algunas salas, el jergón, sus velas, el taburete volcado y los huesos del que esperó; no en celestial, ahogada ni infierno,
+  8 por zona como mucho, a 14 celdas), las paredes de la obra más juntas (2,8 en vez de 3,6; `__paredRala` vuelve a lo de
+  antes) y los pasillos de 4 a 6 de ancho con lo plano de pared (lo suelto no). t1000 obra: adornos por pantalla 35 a 38
+  (p90 44 a 49), montados 7 igual, arena 56 a 57. No llegó a 40: los muros que se ven están llenos y la medida no cuenta lo
+  que tiene `pared` en el id.
+- **Hitos de los actos 3 a 7** (`catalogo/hitos_lejanos.ts`, `HITOS_LEJANOS`, filas nuevas en `HITO_ZONA`): uno por mundo
+  abierto, con el oficio de `hitos_mayores.ts` (de ahí se exportan `campana`, `duna`, `ramaM`, `mezV`, `muroRoto`...). Ojo con la
+  escala: lo que es de tamaño de mundo (`cadaver`, `esqueleto`, `calavera`) va a 0,45 adentro de un hito (se agranda 2,4), y lo
+  que corre a lo largo de la diagonal x = y se ve de punta (vertical) en pantalla: lo largo va sobre x = -y.
+  Tambor de Yhuantl (a3_selva: terraza de tres gradas, ceiba con raíces que la agarran, tambor de tronco con cuero en zigzag y
+  manos de sangre, mazas de fémur, tambores chicos, ofrendas, braseros), barco de Ama (a3_pantano: casco de tablones por
+  cuaderna con el boquete y las cuadernas al aire, mástil partido, vela en jirones, Ama tallada en la proa, su nombre en la popa,
+  el manglar que lo atraviesa, farol), puerta de los jarls (a4_picos: dos piedras con la sierpe de runas frías y el dintel, muro
+  de escudos con lanzas, cuerno, el último de guardia), gigante del glaciar (a4_gigante: frente de hielo con seracs, la cabeza
+  con el aro de hierro y los ojos de escarcha, el brazo con el hacha clavada, la escala, picas, trineo y farol de los que
+  quisieron sacarlo), yunque de Sahrim (a5_llanuras: plinto, yunque de perfil con cuerno, la hoja al rojo, tenazas, martillo
+  caído, cadenas a cuatro bolardos, escoria viva, herreros), crisol volcado (a5_rio: pórtico con polea y cadena cortada, crisol
+  en su cuna, chorro y canaleta al molde del sello), campana de la marea (a6_costa: mástiles en A, campana con percebes y algas,
+  la soga del badajo que se va al agua, bote volcado, ahogado en la red, barriles, farol), Abadesa de la Sal (a6_arrecife:
+  estatua velada de sal con la campanilla, peregrinos de sal de rodillas, costillar de ballena con coral, luz del mar),
+  campanario ladeado (a6_barrio1), coro de nueve campanas enterradas (a6_barrio2), escalera de los siete (a7_cielo: sube hacia
+  la izquierda y se corta en el aire, baranda de oro, seis marcados bebidos, el bastón y el manto del séptimo al pie) y cáliz de
+  Aun-Saar (a7_jardin: cáliz de oro seco con corona de puntas, seis suplicantes de mármol, árbol de oro muerto). Todos con su
+  `resplandor` menos la puerta. Lab: `t1020_pieza_lab.mts "acto_hito:a3_tambor+..."` (láminas en `/tmp/requiem-pruebas/e3`);
+  en el juego `DX=7 DY=7 _m_hitos_vista.cjs <etiqueta> <zonas>`.
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

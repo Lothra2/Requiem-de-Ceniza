@@ -367,6 +367,11 @@ suelta: `RELIEVE=1 GRUPOS=o SOLO=<id> npx tsx juego/hornear/hornear.mts && pytho
   igual (obra 56, cueva 40). Ojo: la medida no cuenta como adorno lo que tiene `pared`, `muro` o `nichos` en el id (las
   cadenas, los candeleros de pared y las momias se ven pero no suman). El tope de `propsPant` de obra en `t1000_pisos.json`
   pasó de 36 a 46.
+- **Entrega 2 revisada (21 nov 2026)**: hitos rehechos, asiento de los 93 jefes (3 semillas), un desvío por exterior de los
+  actos 1 y 2 y paredes vestidas. Pasaron t1000, t1001, t1011 (0 atascados de 2504), t855 (0 distintas), t370 (288, 0
+  malas), conectividad 20 (1920 conectados), t440, t450 y t500. Flojo todavía: el sendero del desvío se lee poco (se
+  reserva y lo bordean matas, pero el piso no cambia), la obra queda en 35 adornos por pantalla (meta 40) y las fotos de
+  t1021 de los jefes salen con la pelea encima (los jefes despiertan).
 - **Nichos secretos** (`mazmorra`, solo las de obra, `__sinNichos`): una o dos baldosas que se abren en el muro de atrás
   (norte u oeste) de una sala que no es la de entrada ni la del jefe: el muro lo tapa desde el medio y la boca va sin luz.
   Adentro un cofre noble (`escondido`, con su rastro de sangre hacia el centro como los de afuera), huesos y velas. El

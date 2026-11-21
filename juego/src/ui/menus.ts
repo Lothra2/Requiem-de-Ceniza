@@ -17,6 +17,7 @@ import { siguienteCiclo, type DatosHeroe } from '../juego/heroe';
 import { R, rng } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
 import { dibujarPortada, tituloFijo, dibujarCarta, prepararCarta } from './portada';
+import { brasaRenglon } from './brasa_menu';
 
 export interface Opciones { general: number; musica: number; efectos: number; horror: number; idioma: 0 | 1; brillo: number; vista?: number; temblor?: number; destellos?: 0 | 1; luz?: 0 | 1; recogerEquipo?: 0 | 1; /** el HUD: 'forja' (por omisión) o 'clasico' (la barra de siempre) */ hud?: 'forja' | 'clasico' }
 export const opciones: Opciones = { general: 0.8, musica: 0.6, efectos: 0.8, horror: 0.8, idioma: 0, brillo: 1, temblor: 1, destellos: 0 };
@@ -360,14 +361,18 @@ export function menuPrincipal(t: number, hayPartidas: boolean, ultimo?: DatosHer
       for (let c = 0; c < 3; c++) { const u = (t * 0.9 + c * 0.37 + n * 0.2) % 1; ctx.fillStyle = `rgba(255,${170 + c * 25},90,${(1 - u) * 0.9 * k})`; ctx.fillRect(Math.round(bx + Math.sin(u * 7 + c * 2) * 5), Math.round(by - 6 - u * 26), 2, 2); }
     }
     // el título: grabado (sombra dura abajo), dorado y con resplandor cuando está encendido
-    ctx.font = `700 ${Math.round(tam * (grande ? 1.16 : 1))}px ${TITULO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    const S = fl.s.toUpperCase().split('').join(' ');
+    const tamF = Math.round(tam * (grande ? 1.16 : 1));
+    ctx.font = `700 ${tamF}px ${TITULO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    const S = fl.s.toUpperCase().split('').join(' '), brasa = !(window as any).__menuViejo;
     ctx.fillStyle = 'rgba(0,0,0,0.9)'; ctx.fillText(S, tx + 1, ty + 2);
-    if (k > 0.01) { ctx.shadowColor = `rgba(255,140,40,${0.85 * k})`; ctx.shadowBlur = 16 * k; }
+    // el canto de brasa: la llama de pixel que lame el renglón por detrás (brasa_menu.ts)
+    if (k > 0.01 && brasa) { brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'atras'); ctx.font = `700 ${tamF}px ${TITULO}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; }
+    if (k > 0.01) { ctx.shadowColor = `rgba(255,140,40,${(brasa ? 0.5 : 0.85) * k})`; ctx.shadowBlur = (brasa ? 10 : 16) * k; }
     const tg = ctx.createLinearGradient(0, ty - tam, 0, ty + 2);
     tg.addColorStop(0, k > 0.5 ? '#fff3c8' : '#d6c6a0'); tg.addColorStop(0.55, k > 0.5 ? '#f0c060' : '#b09a70'); tg.addColorStop(1, k > 0.5 ? '#b0702a' : '#7a6848');
     ctx.fillStyle = tg; ctx.fillText(S, tx, ty); ctx.shadowBlur = 0;
     const wt = ctx.measureText(S).width;
+    if (k > 0.01 && brasa) brasaRenglon(fl.id, S, tamF, TITULO, tx, ty, k, t, 'adelante');
     // la raya que crece debajo, con su rombo en la punta
     if (k > 0.01) { const lg = ctx.createLinearGradient(tx, 0, tx + wt * k, 0); lg.addColorStop(0, 'rgba(230,180,90,0.95)'); lg.addColorStop(1, 'rgba(230,180,90,0.15)'); ctx.fillStyle = lg; ctx.fillRect(tx, ty + 7, wt * k, 1.5); rombo(tx + wt * k + 5, ty + 7.5, 2.6, `rgba(240,200,110,${k})`); }
     if (fl.sub) { ctx.font = `500 ${Math.round(tam * 0.56)}px ${TITULO}`; ctx.fillStyle = k > 0.5 ? '#e8c890' : '#9a8a68'; ctx.fillText(fl.sub, tx + 1, ty + Math.round(tam * 0.95)); }

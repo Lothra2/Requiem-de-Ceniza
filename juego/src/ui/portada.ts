@@ -6,7 +6,7 @@ import { ctx, W, H, E } from '../nucleo/lienzo';
 import { IDI, TITULO, texto, envolver } from './comun';
 import { BASE } from '../motor/assets';
 import { Sonido } from '../audio/sonido';
-import { fuegoTitulo } from './titulo_fuego';
+import { fuegoTitulo, golpeTitulo, ENCIENDE_T } from './titulo_fuego';
 import { acc } from '../nucleo/accesible';
 
 const RAIZ = BASE + 'portada/';
@@ -106,6 +106,7 @@ const R = Math.random, entre = (r: [number, number]) => r[0] + R() * (r[1] - r[0
 
 /** Reinicia la secuencia de entrada (negro, fondo, relámpago, título, botones). */
 export function reiniciarPortada() { t0 = -1; proxRayo = 1.4; rayo = -1; trueno = -1; }
+(window as any).__reiniciarPortada = reiniciarPortada;
 /** Segundos desde que se reinicia la portada hasta que el título termina de forjarse (para entrar con la música del menú). */
 export function durForjaTitulo() { const rv = man?.titulo?.[IDI ? 'en' : 'es']?.revelar?.['800']; return 2.2 + (rv ? rv.cuadros / rv.fps : 3); }
 
@@ -114,7 +115,9 @@ export function dibujarPortada(tReal: number): { botones: number; yBotones: numb
   prepararPortada();
   if (!portadaLista()) return null;
   if (t0 < 0) t0 = tReal;
-  const t = tReal - t0;
+  // (`__portadaReloj` fija el tiempo de la escena, para las pruebas cuadro a cuadro)
+  const t: number = (window as any).__portadaReloj ?? tReal - t0, m0 = performance.now();
+  (window as any).__portadaT = t;
   const f = man.fondo, base = man.base;
   // escala: cubre la pantalla con la base de 1280x720; en vertical se escala por alto y se centra en la catedral
   const vertical = H > W;
@@ -125,6 +128,9 @@ export function dibujarPortada(tReal: number): { botones: number; yBotones: numb
   const cy = Math.sin((2 * Math.PI * t) / cam.periodo_y_s) * cam.deriva_y + (E.y / H - 0.5) * 2 * cam.raton * 0.3;
   const mx = f.capa.margen_x, my = f.capa.margen_y;
   ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+  // el golpe de forja del título sacude la escena (unos puntos, por acc.temblor): se agranda apenas para no ver el borde
+  const gp = golpeTitulo(t - 2.2);
+  if (gp.dx || gp.dy) { const k = 1 + (Math.abs(gp.dx) + Math.abs(gp.dy)) * 2.2 / W; ctx.translate(W / 2 + gp.dx, H / 2 + gp.dy); ctx.scale(k, k); ctx.translate(-W / 2, -H / 2); }
   const fondoK = Math.min(1, Math.max(0, (t - 0.2) / 1.6));
   // relámpagos: uno forzado a los 1.4 s y después cada 7 a 16 s
   const rel = f.relampago;
@@ -345,9 +351,16 @@ export function dibujarPortada(tReal: number): { botones: number; yBotones: numb
   if (iv) { ctx.globalAlpha = 1; ctx.drawImage(iv, 0, 0, W, H); }
   ctx.globalAlpha = 1;
   // título: el cuadro de 800 a 0.54 del ancho (0.96 en vertical), revelado a los 2.2 s y después en bucle
-  dibujarTitulo(t - 2.2, vertical);
+  const m1 = performance.now();
+  dibujarTitulo(t - 2.2, vertical, gp.destello, gp.bocanada);
   ctx.restore();
+  medirPortada(m1 - m0, performance.now() - m1);
   return { botones: Math.min(1, Math.max(0, (t - 4) / 0.5)), yBotones: H * 0.62 };
+}
+/** Lo que cuesta la portada por cuadro (ms de JS): el fondo y el título con su fuego, promedio y peor de la ventana. */
+function medirPortada(fondo: number, titulo: number) {
+  const w = window as any, m = (w.__portadaMed ??= { n: 0, fondo: 0, titulo: 0, peor: 0 });
+  m.n++; m.fondo += fondo; m.titulo += titulo; m.peor = Math.max(m.peor, fondo + titulo);
 }
 function nueva(pc: any, alAzar: boolean): Part {
   const b = man.base;
@@ -357,21 +370,34 @@ function nueva(pc: any, alAzar: boolean): Part {
   return p;
 }
 /** El título en su lugar de la portada; tRel < 0 todavía no aparece. */
-function dibujarTitulo(tRel: number, vertical: boolean) {
+function dibujarTitulo(tRel: number, vertical: boolean, destello = 0, bocanada = 0) {
   const ti = man.titulo[IDI ? 'en' : 'es'], col = man.titulo.colocacion?.[vertical ? 'movil_vertical' : 'escritorio'] ?? { ancho_rel: 0.54, centro_y_rel: 0.235 };
   // (se mide por ancho, pero nunca más alto que el 40 % de la pantalla: en monitores anchos crecía hasta tapar la catedral)
   const w = Math.min(W * col.ancho_rel, H * 0.4 / 0.6), h = w * 0.6, x = W / 2 - w / 2, y = Math.max(-h * 0.08, H * (vertical ? col.centro_y_rel : 0.19) - h / 2);
+  (window as any).__tituloRect = [x, y, w, h];
   if (tRel < 0) return;
   const hoja = (a: any, i: number) => { const n = Math.floor(i / a.por_hoja), j = i % a.por_hoja; const im = lista(a.hojas[n]); if (!im) return false; ctx.drawImage(im, (j % a.columnas) * a.w, Math.floor(j / a.columnas) * a.h, a.w, a.h, x, y, w, h); return true; };
   const rv = ti.revelar['800'], an = ti.anim['800'];
-  const iRev = Math.floor(tRel * rv.fps);
-  // el fuego de Doom nace de las letras cuando terminan de forjarse y se queda ardiendo
-  const fArde = Math.min(1, Math.max(0, (tRel - rv.cuadros / rv.fps + 0.6) / 1.4)), fijoIm = lista(ti.fijo['800']);
+  const iRev = Math.floor(tRel * rv.fps), viejo = !!(window as any).__tituloViejo;
+  // el fuego nace de las letras cuando se encienden (antes: cuando terminaban de forjarse) y se queda ardiendo
+  const fArde = viejo ? Math.min(1, Math.max(0, (tRel - rv.cuadros / rv.fps + 0.6) / 1.4)) : Math.min(1, Math.max(0, (tRel - ENCIENDE_T) / 0.35)), fijoIm = lista(ti.fijo['800']);
   fuegoTitulo(fijoIm, x, y, w, h, tRel, fArde, 'atras');
-  if (iRev < rv.cuadros) { if (hoja(rv, iRev)) return; }
-  else if (hoja(an, Math.floor((tRel - rv.cuadros / rv.fps) * an.fps) % an.cuadros)) { fuegoTitulo(fijoIm, x, y, w, h, tRel, fArde, 'adelante'); return; }
+  let puesto = false;
+  if (iRev < rv.cuadros) puesto = hoja(rv, iRev);
+  else puesto = hoja(an, Math.floor((tRel - rv.cuadros / rv.fps) * an.fps) % an.cuadros);
   // sin las hojas todavía: el título fijo, con un fundido
-  const fijo = lista(ti.fijo['800']); if (fijo) { ctx.globalAlpha = Math.min(1, tRel / 1.2); ctx.drawImage(fijo, x, y, w, h); ctx.globalAlpha = 1; }
+  if (!puesto && fijoIm) { ctx.globalAlpha = Math.min(1, tRel / 1.2); ctx.drawImage(fijoIm, x, y, w, h); ctx.globalAlpha = 1; }
+  if (!viejo || iRev >= rv.cuadros) fuegoTitulo(fijoIm, x, y, w, h, tRel, fArde, 'adelante');
+  // el fogonazo del golpe (y la bocanada del encendido, más chica): un resplandor sumado en las letras y la pantalla tibia
+  if (destello > 0.004 || bocanada > 0.004) {
+    const fg = sprite('fogonazo_titulo', 256, (c, n) => { const g = c.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2); g.addColorStop(0, 'rgba(255,236,190,1)'); g.addColorStop(0.18, 'rgba(255,170,80,0.75)'); g.addColorStop(0.5, 'rgba(230,80,24,0.25)'); g.addColorStop(1, 'rgba(160,30,10,0)'); c.fillStyle = g; c.fillRect(0, 0, n, n); });
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    // las letras mismas se ponen al blanco en el golpe (el título sumado sobre sí mismo)
+    if (fijoIm && destello > 0.02) { ctx.globalAlpha = Math.min(1, destello * 0.85); ctx.drawImage(fijoIm, x, y, w, h); ctx.globalAlpha = Math.min(1, destello * 0.5); ctx.drawImage(fijoIm, x, y, w, h); }
+    ctx.globalAlpha = Math.min(1, destello * 0.45 + bocanada * 0.3); ctx.drawImage(fg, x - w * 0.15, y - h * 0.05, w * 1.3, h * 1.1);
+    ctx.globalAlpha = Math.min(1, destello * 0.28); ctx.fillStyle = '#ff9a50'; ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
 }
 /** El título fijo nuevo en cualquier lugar (pantallas de carga, final). Devuelve false si todavía no llegó. */
 export function tituloFijo(cx: number, cy: number, ancho: number, alfa = 1): boolean {

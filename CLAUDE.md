@@ -1123,6 +1123,37 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
 - `catedral_luz.png` traía copias fantasma de los vitrales en el cielo (columnas claras a la izquierda de la catedral):
   `desenfocar(..., 26, 3)` en `catedral_portada.ts` leía la lámina RGBA como de 3 canales. Ya va con 4.
 - `__pOff` para comparar: `luna`, `jirones`, `humo`, `niebla`, `cat`, o `-<capa>,` para quitar una capa.
+- **El título arde en pixel** (Rick, 21 nov 2026: "más dramático, con fuego en las letras, pixelado, más Diablo 2").
+  `ui/titulo_fuego.ts` corre dos fuegos de Doom en una grilla de celdas de 2 o 3 puntos enteros del aparato (unas 240
+  de ancho en PC, 260 en el teléfono: el grano de las letras; con celdas de 5 puntos a 1080 no pegaba) y
+  `ui/fuego_pixel.ts` los pinta en bandas (`BANDAS_LLAMA`, `BANDAS_METAL`, `BANDAS_HUMO`) con trama Bayer 4 x 4 y los
+  pega sin suavizar (`pegarPixel`). El calor pasa antes dos veces por un 1-2-1 (sin eso el autómata sale como sal regada)
+  y lo de menos de 0,22 no se pinta (si no, una neblina a cuadros). El de atrás nace del canto de arriba de cada letra
+  (la fila de abajo a 0,72 para no tapar el DE) y es el fuego grande. Dentro de la letra NO va fuego en bloques (Rick
+  lo vería como un tablero encima del hierro): solo el hierro al rojo, liso y sin trama (`calentar`: lo que toca la
+  llama, el calor que vive en lo bajo de cada trazo, `bajo`, y respira en vetas que suben, las rachas y la forja de la
+  entrada; el canto oscuro del título no se enciende) y lenguas finas de una celda (el fuego de adelante, con la letra
+  como forma, nace solo en columnas sueltas del canto de abajo y en algunas grietas, pintado sin trama y solo lo
+  caliente). Cada 5 s una **racha** aviva el fuego y una ola de calor cruza el título (`racha`): el bucle no se apaga.
+  Las brasas son cuadros de una celda que se enfrían de banda en banda (`dibujarChispas`). El resplandor sigue blando
+  (es luz, no fuego). No toca `fuego_doom.ts` (`__PINTOR__`).
+- **La entrada es un golpe de forja** (segundos desde que aparece el título, `GOLPE_T` y `ENCIENDE_T`): las letras se
+  calientan mientras aparecen, a los 0,7 s el martillazo (`golpeTitulo`: las letras al blanco sumando el título sobre sí
+  mismo, fogonazo, un temblor de 7 puntos que se va en 0,13 s, `golpe_metal` y 130 chispas que saltan de los cantos, 60 en
+  táctil: rápidas, de 0,3 a 0,8 s, con estela de hasta 6 celdas y de blanco a rojo) y a los 1,45 s el fuego se enciende del centro a los lados en 0,7 s con una bocanada (`avivar`, `fuego_lanzar`).
+  El temblor va por `acc.temblor` y los fogonazos por `acc.destellos`. La escena se agranda apenas mientras tiembla.
+- **Canto de brasa en los botones** (`ui/brasa_menu.ts`, `brasaRenglon`): el renglón encendido lleva un fuego de Doom chico
+  que nace del canto de abajo de cada letra y lo lame por detrás, y el borde de las letras en brasa de pixel, más vivo
+  abajo y donde lo toca la llama. Celdas de 2 puntos del aparato. Una grilla por renglón, solo se mueve mientras está encendido.
+- Banderas: `__tituloViejo` (el fuego liso de antes y sin golpe), `__menuViejo` (el dorado de antes). `__portadaReloj`
+  fija el tiempo de la escena y `__portadaMed` suma lo que cuesta por cuadro (fondo y título, ms de JS).
+- Pruebas: `t681_portada_fuego.cjs <etiqueta> [pc,pc1080,movil] [es,en]` (ocho momentos, el botón encendido y el costo;
+  `BANDERAS=__tituloViejo,__menuViejo` el antes), `t682_portada_golpe.cjs <etiqueta> [vista] [idioma]` (el golpe cuadro a
+  cuadro con el reloj fijo, `DESDE`, `HASTA`) y `python3 juego/herramientas/t681_lamina.py <antes> <ahora>` o `golpe
+  <etiqueta> <vista_idioma>` (láminas y letras al doble en `/tmp/requiem-pruebas/portada2/laminas`).
+  Costo en la nube (21 nov 2026, el título con su fuego y sus hojas, sin el fondo, ms de JS por cuadro): con celdas de
+  2 o 3 puntos queda como el de antes: 720 de 15 a 16, 1080 de 28 a 28 a 32 (ruidoso), teléfono de 10 a 9. Con las celdas
+  gruesas de la primera pasada era 12, 20 y 7. Las vetas del hierro van separables (senos por fila y por columna).
 
 ## Historia y canon (19 nov 2026)
 

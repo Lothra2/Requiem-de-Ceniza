@@ -884,7 +884,7 @@ export function dibujarRevelacion(t: number, eleccion: FinalElegido | null): Fin
 export function dibujarFinal(t: number, final: Final = 'vigilia', vigdis?: string, ecos: [string, string][] = []): boolean {
   const ep = EPILOGOS[final];
   const lineas = [...ep.lineas]; if (vigdis === 'salvar' || vigdis === 'sacrificar') lineas.splice(lineas.length - 1, 0, ep.vigdis[vigdis]);
-  if (ecos.length) lineas.splice(lineas.length - 1, 0, ...ecos.slice(0, 2));
+  if (ecos.length) lineas.splice(lineas.length - 1, 0, ...ecos.slice(0, 3)); // (hasta dos de los encargos y la de Vesperio, ver `ecosFinal`)
   const dur = 7.5, i = Math.floor(t / dur);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   if (i >= lineas.length) {

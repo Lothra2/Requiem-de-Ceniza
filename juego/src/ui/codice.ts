@@ -2,7 +2,7 @@
 // las decisiones que tomaste y las cinemáticas para volver a ver.
 import { ctx, E } from '../nucleo/lienzo';
 import { texto, T, TT, marco, titulo, boton, envolver, dentro } from './comun';
-import { MISIONES, DIARIOS, PAGINAS, ZONAS, RESTOS_ACTO } from '../mundo/actos';
+import { MISIONES, DIARIOS, PAGINAS, ZONAS, RESTOS_ACTO, FANTASMAS } from '../mundo/actos';
 import { MONSTRUOS } from '../datos/monstruos';
 import { TEXTO_DECISION, NOMBRE_DECISION, EPILOGOS } from '../mundo/decisiones';
 import { hist, decisionesDe, eleccionDe, finalCompleto, prog, tituloRestos } from '../juego/historia';
@@ -33,6 +33,10 @@ function notas(d: DatosHeroe): Entrada[] {
   for (const k of [...(h.restos ?? [])].sort()) {
     const [a, i] = k.split(':').map(Number), t = RESTOS_ACTO[a]?.[i]; if (!t) continue;
     out.push({ titulo: TT(tituloRestos(a, i)), sub: `${T('Restos', 'Remains')} · ${T('Acto', 'Act')} ${a}`, texto: TT(t) });
+  }
+  // las voces de los muertos que escuchaste enteras (Vesperio con todo lo que dijo)
+  for (const f of FANTASMAS) if ((h.fantasmas ?? []).includes(f.id)) {
+    out.push({ titulo: TT(f.titulo ?? ['Un muerto que no se fue', 'One who did not leave']), sub: TT(ZONAS[f.zona]?.nombre ?? ['', '']), texto: [f.texto, ...(f.mas ?? [])].map((l) => `«${TT(l)}»`).join(' ') });
   }
   return out;
 }

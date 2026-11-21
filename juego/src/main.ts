@@ -14,8 +14,7 @@ import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from 
 import { dibujarCine, precargarCine, claveCine, claveFinal, marcasCine, hayCine, soltarCine } from './ui/cine';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { dibujarHudForja } from './ui/hud_forja';
-import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe, eleccionDe, vozMarca, leerRestos } from './juego/historia';
-import { ECOS_FINAL } from './mundo/decisiones';
+import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe, vozMarca, leerRestos, ecosFinal } from './juego/historia';
 import { dibujarHistoria } from './ui/historia_ui';
 import { FANTASMAS, HERALDO, type FinalElegido } from './mundo/actos';
 import { fijarAvisoLuz } from './render/luz_gpu';
@@ -629,6 +628,8 @@ function cartelComenzar(t: number) {
 }
 (window as any).__introA = (s: number) => { introT = s; };
 (window as any).__aFinal = () => { estado = 'final'; finalT = 999; };
+(window as any).__finalT = (s: number) => { estado = 'final'; finalT = s; };
+(window as any).__ecosFinal = () => (j ? ecosFinal(j.heroe.d) : []);
 (window as any).__cine = (clave: string, acto = 1, marcas: string[] = []) => { marcasCine(marcas); const antes = estado; cine = { clave, acto, t: 0, despues: () => { estado = antes; } }; precargarCine(clave, acto); estado = 'cine'; };
 (window as any).__cineT = (s: number) => { if (cine) cine.t = s; };
 (window as any).__carga = (k: number, m: string) => { estado = 'carga'; cargaK = k; cargaMsg = m; };
@@ -721,7 +722,7 @@ function paso(dt: number) {
     }
     case 'final': {
       finalT += dt;
-      if (dibujarFinal(finalT, j ? finalCompleto(j.heroe.d) : 'vigilia', j ? decisionDe(j.heroe.d, 'vigdis') : undefined, j ? ECOS_FINAL.filter((e) => eleccionDe(j!.heroe.d, e.mision) === e.opcion).map((e) => e.texto) : []) || (finalT > 3 && (pulso('Escape') || E.clicIzq))) { E.clicIzq = false; if (j && j.heroe.d.actosHechos.includes(7) && !repeticion) { estado = 'ciclo'; finalT = 0; } else { estado = 'juego'; if (j) Sonido.musica(MUSICA_ACTO(j.zona.acto, j.zona.tipo) as any); } repeticion = false; }
+      if (dibujarFinal(finalT, j ? finalCompleto(j.heroe.d) : 'vigilia', j ? decisionDe(j.heroe.d, 'vigdis') : undefined, j ? ecosFinal(j.heroe.d) : []) || (finalT > 3 && (pulso('Escape') || E.clicIzq))) { E.clicIzq = false; if (j && j.heroe.d.actosHechos.includes(7) && !repeticion) { estado = 'ciclo'; finalT = 0; } else { estado = 'juego'; if (j) Sonido.musica(MUSICA_ACTO(j.zona.acto, j.zona.tipo) as any); } repeticion = false; }
       break;
     }
     case 'ciclo': {

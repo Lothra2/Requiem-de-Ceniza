@@ -17,8 +17,18 @@ export function dibujarHistoria(j: Juego, tiempo: number) {
     const q = muere ? fs[Math.min(fs.length - 1, Math.floor(f.t * 5 * (fs.length / 8)))] : fs[Math.floor(tiempo * 5) % Math.max(1, fs.length)];
     const a = f.estado === 'espera' ? 0.22 + Math.sin(tiempo * 2.3 + f.y) * 0.08 : f.estado === 'habla' ? Math.min(0.55, 0.25 + f.t * 0.3) : 0.55 * Math.max(0, 1 - f.t / 2.2);
     ctx.save();
-    ctx.globalAlpha = a; dibujarTenido(ctx, q, px, py, '#d8e6ff', 0.82);
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a * 0.35; dibujarTenido(ctx, q, px, py, '#8fb0ff', 1);
+    const luz = f.luz ?? '#8fb0ff', cuerpo = f.luz ? '#efe2ff' : '#d8e6ff';
+    ctx.globalAlpha = a; dibujarTenido(ctx, q, px, py, cuerpo, 0.82);
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = a * 0.35; dibujarTenido(ctx, q, px, py, luz, 1);
+    // (los que traen su luz, Vesperio: motas de ceniza pálida que suben de él mientras espera y mientras habla, a puntos enteros)
+    if (f.luz && f.estado !== 'muere') {
+      ctx.fillStyle = luz;
+      for (let k = 0; k < 9; k++) {
+        const fase = (tiempo * 0.35 + k * 0.137 + f.x * 0.01) % 1, ox = Math.sin(k * 2.7 + tiempo * 0.9) * (6 + k % 4 * 3);
+        ctx.globalAlpha = a * 0.9 * Math.sin(fase * Math.PI); const sz = k % 3 === 0 ? 2 : 1;
+        ctx.fillRect(Math.round(px + ox), Math.round(py - 8 - fase * 64), sz, sz);
+      }
+    }
     ctx.restore();
   }
   // voces que flotan

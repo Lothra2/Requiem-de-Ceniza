@@ -1280,7 +1280,9 @@ export function usarHabilidad(j: Juego, id: string, tx: number, ty: number, obj:
   h.habActual = id;
   (h as any).tx = tx; (h as any).ty = ty; (h as any).tobj = obj;
   h.camino = null; h.destino = null;
-  if (!basico && hb.sonido && hb.anim === 'lanzar') sonar(j, hb.sonido);
+  // (las formas del druida suenan al cambiar, con los huesos y el aullido o el rugido: el rugido de jefe al empezar a lanzar se
+  // pisaba con ellos)
+  if (!basico && hb.sonido && hb.anim === 'lanzar' && !(hb.id.startsWith('forma_') && !(globalThis as any).__sinFormas)) sonar(j, hb.sonido);
   else sonar(j, h.c.distancia && (basico || hb.tipo === 'proyectil') ? (h.c.tipoArma === 'ballesta' ? 'virote' : 'flecha') : 'tajo');
   return true;
 }
@@ -1639,6 +1641,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
         h.vida = Math.min(h.vidaMax, h.vida + h.vidaMax * val(hb.bonos?.cura_pct, n) / 100);
         h.mana = Math.min(h.c.manaMax, h.mana + h.c.manaMax * val(hb.bonos?.mana_pct_cura, n) / 100);
         efecto(j, 'estallido_cadaver', cad.x, cad.y, 0, 0.6); efecto(j, 'chispas_curacion', h.x, h.y);
+        if (!(globalThis as any).__festinViejo) sonar(j, 'festin', cad.x, cad.y, 0.9); // (sexta pasada: el sorbo y el latido húmedo)
         particulas(j, cad.x, cad.y, 14, 'sangre', '#600808', 1.2);
         break;
       }
@@ -2123,6 +2126,8 @@ function actualizarMecanicas(j: Juego, dt: number) {
   // (quinta pasada: el héroe se pinta como la bestia, render/formas.ts, y el cambio lo cuenta presencias.ts; el tono y el
   // humo de antes quedan solo con `__sinFormas`. La escala sigue igual: la leen los números y lo que se dibuja encima)
   const viejo = !!(globalThis as any).__sinFormas;
+  // (sexta pasada) el cambio suena cuando se ve: huesos que crujen y el aullido, el rugido o el aliento del hombre que vuelve
+  if (h.escala !== esc && !viejo && h.escala !== undefined && !h.muerto) sonar(j, oso ? 'forma_oso' : lobo ? 'forma_lobo' : 'forma_hombre', h.x, h.y, 0.85);
   if (h.escala !== esc) { h.escala = esc; if (esc !== 1 && viejo) { efecto(j, 'transformacion_bestia', h.x, h.y, 0, 1); particulas(j, h.x, h.y, 16, 'humo', oso ? '#604028' : '#707888', 1.2, 20); } }
   h.tinte = viejo ? (oso ? '#7a5030' : lobo ? '#8898b0' : undefined) : undefined;
   if ((lobo || oso) && viejo && R() < dt * 3) particulas(j, h.x + entre(-0.3, 0.3), h.y + entre(-0.3, 0.3), 1, 'ceniza', oso ? '#a07040' : '#a0b0c8', 0.3, 40);

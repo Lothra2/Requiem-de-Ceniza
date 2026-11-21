@@ -56,7 +56,20 @@ export function prepararHud() {
 }
 export function dibujarCursor(tipo: string) {
   if (E.tactil && !ui.mano) return;
-  if (ui.mano) { icono(ui.mano, E.x - 14, E.y - 14, ui.mano.w * 29, ui.mano.h * 29); if (cant(ui.mano) > 1) texto(String(cant(ui.mano)), E.x - 14 + ui.mano.w * 29 - 2, E.y - 14 + ui.mano.h * 29 - 3, { tam: 11, alin: 'right', color: '#fff' }); return; }
+  if (ui.mano) {
+    // lo que está en la mano cuelga de su casilla de arriba a la izquierda (como en Diablo 2): el cursor en el centro de
+    // esa casilla y el resto hacia abajo y a la derecha. Sobre una rejilla se pega a las casillas donde va a caer (lo que
+    // se ve es lo que pasa). En el táctil, mientras se arrastra, va arriba del dedo (`ui.alzado`, lo pone main.ts).
+    const C = CELDA_INV * escPanel(), w = Math.round(ui.mano.w * C), h = Math.round(ui.mano.h * C), en = (ui as any).manoEn as { x: number; y: number } | null;
+    const viejo = (window as any).__arrastreViejo;
+    const x0 = viejo ? E.x - 14 : en ? en.x : Math.round(E.x - C / 2), y0 = viejo ? E.y - 14 : en ? en.y : Math.round(E.y - ((ui as any).alzado ?? 0) - C / 2);
+    (ui as any).manoEn = null;
+    if (en && !viejo) { ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(x0 + 3, y0 + 3, w, h); ctx.restore(); }
+    icono(ui.mano, x0, y0, viejo ? ui.mano.w * 29 : w, viejo ? ui.mano.h * 29 : h);
+    if (cant(ui.mano) > 1) texto(String(cant(ui.mano)), x0 + w - 2, y0 + h - 3, { tam: 11, alin: 'right', color: '#fff' });
+    (window as any).__manoDibujo = { x: x0, y: y0, w, h, cx: E.x, cy: E.y - ((ui as any).alzado ?? 0) };
+    return;
+  }
   const c = cursoresC?.[tipo] ?? cursoresC?.senalar;
   if (c) ctx.drawImage(c.c, Math.round(E.x - c.a[0]), Math.round(E.y - c.a[1]));
 }
@@ -487,6 +500,10 @@ export function dibujarMuerte(desde = 9) {
 /** Paneles en pantallas bajas (teléfono apaisado): sin la barra de abajo mientras hay un panel, y achicados si no caben. */
 export const compacto = () => H < PANEL_ALTO + BAR_H + 8;
 const PANEL_ALTO = 440;
+/** Dónde está el panel que se dibuja (x, y y su escala en la pantalla): lo que va en la mano se dibuja fuera de él. */
+let origenPanel: [number, number, number] = [0, 0, 1];
+/** En el táctil, cuánto sube lo que va en la mano sobre el dedo mientras se arrastra (puntos de la pantalla). */
+export function alzadoMano(o: Objeto): number { return Math.round((o.h - 0.5) * CELDA_INV * escPanel() + 30); }
 const escPanel = () => Math.min(1, (H - (compacto() ? 0 : BAR_H)) / PANEL_ALTO);
 /** Dónde queda cada panel en pantalla real (para clics fuera y para la barra). */
 (window as any).__rectPanel = (lado: 'izq' | 'der') => { const [x, y, w, h] = rectPanel(lado), rc = ctx.canvas.getBoundingClientRect(), k = rc.width / W; return [rc.left + x * k, rc.top + y * k, w * k, h * k]; };
@@ -509,7 +526,7 @@ export function dibujarPaneles(j: Juego, t: number) {
     const [x0, y0, , ] = rectPanel(lado), k = escPanel();
     // el panel se dibuja en su tamaño de siempre y se escala; la entrada se pasa al mismo espacio
     ctx.save(); ctx.translate(x0, y0); ctx.scale(k, k);
-    E.x = (ex - x0) / k; E.y = (ey - y0) / k;
+    E.x = (ex - x0) / k; E.y = (ey - y0) / k; origenPanel = [x0, y0, k];
     dibujarPanel(j, p, 0, t, 0);
     // la X para cerrar, grande en táctil
     if (ui[lado] === p && p !== 'elegirHab') {
@@ -521,7 +538,7 @@ export function dibujarPaneles(j: Juego, t: number) {
       if (E.clicIzq && enc) { E.clicIzq = false; if (lado === 'izq' && (p === 'dialogo' || p === 'tienda' || p === 'cofre' || p === 'viaje')) cerrarPaneles(); else ui[lado] = null; if (!ui.izq && !ui.der) (ui as any).origen = null; Sonido.efecto('click'); }
     }
     ctx.restore();
-    E.x = ex; E.y = ey;
+    E.x = ex; E.y = ey; origenPanel = [0, 0, 1];
   }
   if (ui.izq || ui.der) {
     const dentroDe = (lado: 'izq' | 'der') => { if (!ui[lado]) return false; const [x, y, w, h] = rectPanel(lado); return ex >= x && ex < x + w && ey >= y && ey < y + h; };
@@ -607,6 +624,7 @@ function panelInv(j: Juego, x: number, y: number, t: number) {
     const cas = CAS_HUD[e.id]; if (!cas) continue;
     const o = h.d.equipo[cas];
     const ex = x + e.x, ey = y + e.y;
+    { const [ox, oy, k] = origenPanel; ((window as any).__casillasEquipo ??= {})[cas] = [ox + ex * k, oy + ey * k, e.w * k, e.h * k]; }
     if (o && o.durabMax && o.durab <= 0) { ctx.fillStyle = 'rgba(160,0,0,0.35)'; ctx.fillRect(ex, ey, e.w, e.h); }
     // destello corto en la casilla que se acaba de equipar
     const fl = (ui as any).destello as { cas: Casilla; t: number } | undefined;
@@ -762,12 +780,18 @@ function rejillaObjetos(j: Juego, todos: EnBolsa[], x: number, y: number, cw: nu
   if (tipo === 'bolsa') for (const b of lista) if (b.o.tipo === 'equipo' && !cumpleReq(j.heroe.d, j.heroe.c, b.o)) { ctx.fillStyle = 'rgba(200,20,20,0.32)'; ctx.fillRect(x + b.x * C + 1, y + b.y * C + 1, b.o.w * C - 2, b.o.h * C - 2); ctx.strokeStyle = 'rgba(255,60,60,0.7)'; ctx.strokeRect(x + b.x * C + 1.5, y + b.y * C + 1.5, b.o.w * C - 3, b.o.h * C - 3); }
   // pilas de pociones: el número en la esquina
   for (const b of lista) if (b.o.tipo === 'pocion' && cant(b.o) > 1) texto(String(cant(b.o)), x + (b.x + b.o.w) * C - 3, y + (b.y + b.o.h) * C - 4, { tam: 11, alin: 'right', color: '#ffffff' });
+  { const [ox, oy, k] = origenPanel; ((window as any).__rejillas ??= {})[tipo] = { x: ox + x * k, y: oy + y * k, cw, ch, C: C * k, b: bb ?? 0 }; }
   if (ui.ficha || !dentro(x, y, cw * C, ch * C)) return;
   const cx = Math.floor((E.x - x) / C), cy = Math.floor((E.y - y) / C);
   const bajo = lista.find((b) => cx >= b.x && cx < b.x + b.o.w && cy >= b.y && cy < b.y + b.o.h);
   if (ui.mano) {
-    const mx = Math.round((E.x - x) / C - ui.mano.w / 2), my = Math.round((E.y - y) / C - ui.mano.h / 2);
+    // la casilla de arriba a la izquierda del objeto es la que está bajo el cursor (antes se tomaba el centro del objeto y el
+    // cursor quedaba a mitad del arma: costaba meterla en el baúl). `__arrastreViejo` vuelve a lo de antes.
+    const viejo = (window as any).__arrastreViejo;
+    const mx = viejo ? Math.round((E.x - x) / C - ui.mano.w / 2) : cx, my = viejo ? Math.round((E.y - y) / C - ui.mano.h / 2) : cy;
     const px = Math.max(0, Math.min(cw - ui.mano.w, mx)), py = Math.max(0, Math.min(ch - ui.mano.h, my));
+    { const [ox, oy, k] = origenPanel; (ui as any).manoEn = { x: ox + (x + px * C) * k, y: oy + (y + py * C) * k }; }
+    (window as any).__manoDestino = { tipo, x: px, y: py, b: bb ?? 0 };
     const choques = lista.filter((b) => px < b.x + b.o.w && px + ui.mano!.w > b.x && py < b.y + b.o.h && py + ui.mano!.h > b.y);
     ctx.fillStyle = choques.length > 1 ? 'rgba(200,0,0,0.25)' : 'rgba(0,200,0,0.2)'; ctx.fillRect(x + px * C, y + py * C, ui.mano.w * C, ui.mano.h * C);
     if (E.clicIzq) {

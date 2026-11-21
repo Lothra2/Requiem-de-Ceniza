@@ -129,6 +129,9 @@ export interface Entrada {
   rueda: number;
   shift: boolean; ctrl: boolean; alt: boolean;
   tactil: boolean;
+  /** Táctil: cuándo se apoyó y cuándo se levantó el dedo (tiempo del evento, no del cuadro: con un cuadro lento un toque
+   * corto parecía sostenido). */
+  toqueT?: number; sueltaT?: number;
   texto: string;
 }
 export const E: Entrada = { x: 0, y: 0, izq: false, der: false, clicIzq: false, clicDer: false, soltoIzq: false, soltoDer: false, teclas: new Set(), pulsadas: new Set(), rueda: 0, shift: false, ctrl: false, alt: false, tactil: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches, texto: '' };
@@ -165,12 +168,12 @@ export function instalarEntrada() {
   // táctil: un dedo es el botón izquierdo, dos dedos el derecho
   lienzo.addEventListener('touchstart', (e) => {
     gesto(); E.tactil = true; const t = e.touches[0]; pos(t.clientX, t.clientY);
-    if (e.touches.length >= 2) { E.der = true; E.clicDer = true; E.izq = false; } else { E.izq = true; E.clicIzq = true; }
+    if (e.touches.length >= 2) { E.der = true; E.clicDer = true; E.izq = false; } else { E.izq = true; E.clicIzq = true; E.toqueT = e.timeStamp; }
     e.preventDefault();
   }, { passive: false });
   lienzo.addEventListener('touchmove', (e) => { const t = e.touches[0]; pos(t.clientX, t.clientY); e.preventDefault(); }, { passive: false });
   // en iOS el audio se desbloquea de verdad al levantar el dedo: el gesto también va aquí
-  lienzo.addEventListener('touchend', (e) => { gesto(); if (!e.touches.length) { if (E.izq) E.soltoIzq = true; if (E.der) E.soltoDer = true; E.izq = E.der = false; } e.preventDefault(); }, { passive: false });
+  lienzo.addEventListener('touchend', (e) => { gesto(); if (!e.touches.length) { if (E.izq) { E.soltoIzq = true; E.sueltaT = e.timeStamp; } if (E.der) E.soltoDer = true; E.izq = E.der = false; } e.preventDefault(); }, { passive: false });
   window.addEventListener('resize', ajustar);
 }
 export function finCuadro() { E.clicIzq = E.clicDer = E.soltoIzq = E.soltoDer = false; E.pulsadas.clear(); E.rueda = 0; }

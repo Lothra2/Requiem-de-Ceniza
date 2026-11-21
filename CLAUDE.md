@@ -1050,7 +1050,7 @@ pintada encima).
     el registro siguen con la letra de siempre (son párrafos).
   - **Esculturas**: van del tamaño que Rick quiere, medio escondidas tras cada casa. La doliente se talla sin vela
     (`doliente(f, s, sinVela)`): la vela se dibuja por cuadro (`velaMana`).
-  - Opciones: con la fila del HUD son 14 filas y el alto de la fila baja lo que haga falta para que la losa entre.
+  - Opciones: con la fila del HUD y la de las barras de vida son 15 filas y el alto de la fila baja lo que haga falta para que la losa entre.
     `t954_hud_opcion.cjs [pc|movil]` elige Clásico, recarga y vuelve a Forjado (`__hudVisto` dice cuál se dibujó).
   - Prueba: `node juego/herramientas/t950_hud.cjs <etiqueta> [vistas]` (pc, pc1080, ultra, ipad, movil, pctactil;
     `HUD=0` saca la barra de siempre). Los recortes de cerca: `t953_hud_detalle.cjs <etiqueta> [pc,pc1080,ipad]` y
@@ -1084,6 +1084,38 @@ pintada encima).
   van a unos 720 de alto lógico. `__sinNativo` vuelve a lo de antes.
 - **Pistas y páginas**: `envolver(texto, ancho, tam, fuente)` mide con la letra con que se dibuja (medir Georgia y dibujar
   Cinzel sacaba el texto del marco). Prueba: `t830_pista.cjs`.
+
+## Barras de vida y arrastre del inventario (21 nov 2026)
+
+- **Barras de vida de los enemigos** (`render/barras_vida.ts`, Rick: "ponle barra de salud a los enemigos"). `escena.ts`
+  anota cada monstruo o invocado vivo al pintarlo (`anotarBarra`, a la altura de la cabeza del cuadro `quieto`, así no salta
+  con el ataque) y `dibujarBarras` las pinta después de la luz, antes de los números y de las frases (que van encima). A
+  puntos enteros del aparato (`P` = escala del mundo redondeada): canto oscuro, sangre con luz arriba y sombra abajo, la punta
+  encendida, el tramo recién quitado en pálido que baja a los 0,4 s, latido bajo 25 %, marcas en los cuartos en las largas.
+  Placa: común sin placa, campeón azul, único oro, jefe de zona oro con gema de brasa y remaches. Invocados y Thor verde,
+  solo heridos. Los jefes de acto y el que tiene el dintel (`j.jefe`) no llevan. Ancho por clase y `sqrt(escala)`, entre 16 y
+  44. Modo En pelea (por omisión): golpeado en los últimos 4 s del reloj del juego, o herido, persiguiendo y con el héroe en
+  pelea (`tCombate` a 5 s); se apaga en 0,5 s. Solo en baldosa explorada. Opciones, Barras de vida (Siempre, En pelea, Nunca):
+  campo opcional `opciones.barras` en `marca.opciones` (sin el campo, En pelea). Nada se guarda en la partida: el estado de cada
+  barra vive en un WeakMap. `__sinBarras` la apaga, `__barrasVida.modo` (0, 1, 2), `__barrasVistas` lo dibujado en el cuadro y
+  `__barrasCosto` lo que cuesta. Prueba: `t1101_barras.cjs <etiqueta> [pc|pc1080|movil]` (pelea con cada clase de barra,
+  recortes, se apaga sola, modos, niebla con `__rv = 0`, 60 enemigos en Siempre), capturas en `/tmp/requiem-pruebas/barras`.
+  Costo en la nube con 60 barras: 0,19 a 0,27 ms por cuadro (720, 1080 y teléfono).
+- **Lo que va en la mano cuelga de su casilla de arriba a la izquierda** (`dibujarCursor` y `rejillaObjetos` en
+  `ui/juego_ui.ts`, Rick: "el mouse queda como en la mitad del objeto y no es fácil moverlo al baúl"). Antes se dibujaba desde
+  el cursor pero caía según el centro del objeto: el resaltado y el dibujo no coincidían. Ahora la casilla bajo el cursor es la
+  de arriba a la izquierda (bolsa, baúl, tienda), y sobre una rejilla el objeto se pega a las casillas donde va a caer (con su
+  sombra): lo que se ve es lo que pasa. Se dibuja a la escala del panel (`escPanel`, `origenPanel`): en pantallas bajas el
+  panel se achica y antes la mano seguía a 29. El equipo sigue mirando la casilla bajo el cursor. **Táctil** (`toqueMano` en
+  `main.ts`): con algo en la mano el toque suelta al levantar el dedo, no al apoyarlo; si el dedo se mueve más de 8 puntos o se
+  sostiene 0,3 s, el objeto sube arriba del dedo (`alzadoMano`: entero a la vista, la casilla de arriba a (alto − 0,5) casillas
+  + 30) y la rejilla, el equipo y el cinturón miran ese punto (`ui.alzado`, se corre `E.y` mientras se dibujan paneles y HUD).
+  Un toque corto sin mover suelta donde se tocó; lo que mide si fue corto es el tiempo de los eventos (`E.toqueT`, `E.sueltaT`),
+  no el de los cuadros: con un cuadro lento el toque parecía sostenido. En t1100 el toque corto va dentro de la página (por CDP
+  el levantar espera a que se atienda el apoyar y con un cuadro lento duraba más de 0,3 s de verdad). `__arrastreViejo` vuelve a lo de antes. Ganchos: `__rejillas`,
+  `__casillasEquipo`, `__manoDestino`, `__manoDibujo`. Prueba: `t1100_arrastre.cjs [pc|movil] <etiqueta>` (1x1 a 2x4 de la
+  bolsa al baúl, del baúl a la bolsa y al equipo; en táctil arrastre con toques de verdad por CDP y el toque corto) y
+  `python3 juego/herramientas/t1100_lamina.py <etiqueta>` (`/tmp/requiem-pruebas/arrastre/lamina_<etiqueta>.png`).
 
 ## El muñeco del inventario
 

@@ -17,6 +17,7 @@ import ZANCADA_MONSTRUO from '../../../src/engine/gotico/datos/zancada_monstruos
 import { baseDe } from '../juego/objetos';
 import { icono, TITULO, envolver } from '../ui/comun';
 import { dibujarNumeros } from './numeros';
+import { anotarBarra, dibujarBarras } from './barras_vida';
 import { cuadrosVivos, cuadrosFinos, cambioVisible, FINO_RUMBOS } from '../motor/pintor';
 import { energiaSuelo, energiaAire, itemsEnergia } from './energia';
 import { dibujarMarca } from './marcas';
@@ -628,6 +629,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     rayo(ax, ay - ((e as any).deMano ? 44 : 34), bx, by - 34, Math.max(0, 1 - e.t / (e.dur ?? 0.3)) ** 0.6);
   }
   ctx.restore(); }
+  // barras de vida de los enemigos (render/barras_vida.ts): encima del mundo y de la luz, debajo de números y frases
+  dibujarBarras(j);
   // números de daño (encima de la oscuridad para que se lean)
   dibujarNumeros(ctx, j.numeros, aPant, TITULO);
   frasesMonstruos();
@@ -1307,6 +1310,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   if (!e.muerto && e.tipo !== 'heroe' && !(e as any).dueno) picks.push({ tipo: e.tipo === 'npc' ? 'npc' : 'monstruo', ref: e, x0: px - q.ax * esc + q.w * esc * 0.2, y0: py - q.ay * esc, x1: px - q.ax * esc + q.w * esc * 0.8, y1: py + 6, prof: e.x + e.y });
   // frase del jefe
   // (la frase del jefe ya no se escribe acá, dentro del orden del mundo: las rocas de delante la tapaban. Va encima, ver frasesMonstruos)
+  // la barra de vida va a la altura de la cabeza del cuerpo quieto (el de ataque sube y bajaba la barra a cada cuadro)
+  if (!e.muerto && (e.tipo === 'monstruo' || e.tipo === 'invocado')) { const fq = cuadrosMonstruo(m.def.sprite, 'quieto', 's')[0], alto = Math.min(150, (fq ?? q).ay) * (esc ?? 1); anotarBarra(m, px, py - alto); }
   if (e.tipo === 'monstruo' && m.habla && m !== j.jefe) frasesPendientes.push({ txt: m.habla, x: px, y: py - 95 * esc, a: Math.min(1, ((m as any).hablaT ?? 1) / 0.6) });
 }
 

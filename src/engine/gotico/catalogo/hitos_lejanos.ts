@@ -102,11 +102,18 @@ export function tamborYhuantl(a: Arma): Hito {
   for (const s of [-1, 1]) { const p: V3 = [T[0] - 6, T[1] + s * 4, T[2] + 19], q: V3 = [T[0] + 7, T[1] - s * 3, T[2] + 21]; g.palo(p, q, 0.8, { mat: 'mu_hueso', tono: -0.15 }); g.esf(q[0], q[1], q[2], 1.8, { mat: 'cuero' }); }
   // los dos tambores chicos en las esquinas de adelante
   for (const [x, y] of [[C[0] + 9, C[1] - 7], [C[0] - 7, C[1] + 9]]) { g.cil(x, y, z, 4, 8, { mat: 'corteza', r1: 4.6 }); g.cil(x, y, z + 8, 4.8, 0.7, { mat: 'cuero' }); for (let i = 0; i < 8; i++) { const t = (i / 8) * TAU; g.palo([x + Math.cos(t) * 4.7, y + Math.sin(t) * 4.7, z + 8], [x + Math.cos(t + 0.4) * 4.2, y + Math.sin(t + 0.4) * 4.2, z + 1], 0.25, { mat: 'cuerda' }); } }
+  // (entrega 4: casi no se leía en el juego) el arco de la llamada detrás del tambor: dos postes tallados y pintados con su
+  // travesaño, del que cuelgan cráneos y tamborcitos; las bandas del tambor con su pintura que brilla verde, y fuego alto
+  for (const q of [-1, 1]) { const x = C[0] - 10 + q * 11, y = C[1] - 10 - q * 11; g.cil(x, y, z, 1.9, 46, { mat: 'madera_vieja', r1: 1.5 }); for (let k = 0; k < 6; k++) g.cil(x, y, z + 6 + k * 6.4, 2.1, 2.2, { mat: k % 2 ? 'sel2_ocre' : 'tela_roja', tono: -0.05 }); calavera(g.sub(x, y, z + 46, 45).esc(0.75), 3.3, 'mu_hueso', true, -0.1); for (let k = 0; k < 4; k++) g.palo([x, y, z + 44], [x + q * 1.5 + r2(a, 1), y - q * 1.5 + r2(a, 1), z + 52 + a.r() * 3], 0.4, { mat: k % 2 ? 'ext_pluma' : 'tela_roja', r1: 0.15 }); }
+  { const p0: V3 = [C[0] - 21, C[1] + 1, z + 40], p1: V3 = [C[0] + 1, C[1] - 21, z + 40]; g.palo(p0, p1, 1.4, { mat: 'madera_vieja' });
+    for (let k = 1; k < 7; k++) { const p = mezV(p0, p1, k / 7); g.palo(p, [p[0], p[1], p[2] - 5 - (k % 2) * 3], 0.25, { mat: 'cuerda' }); if (k % 2) calavera(g.sub(p[0], p[1], p[2] - 10, 45).esc(0.55), 3.3, 'mu_hueso', true, -0.15); else { g.cil(p[0], p[1], p[2] - 11, 1.8, 3.2, { mat: 'corteza' }); g.cil(p[0], p[1], p[2] - 7.9, 1.9, 0.4, { mat: 'cuero' }); } } }
+  for (const zz of [5.5, 11]) for (let i = 0; i < 6; i++) { const t = (i / 6) * TAU + 0.5; g.caja(T[0] + Math.cos(t) * (9.9 + zz * 0.04), T[1] + Math.sin(t) * (9.9 + zz * 0.04), T[2] + zz + 1.8, 0.6, 1.8, 1.8, { mat: 'dec_runa_verde', giro: (t * 180) / Math.PI }); }
   // dos braseros al pie de la escalinata, y helechos en la falda
   const b1 = brasero(g, C[0] + 26, C[1] + 6, 13, 'mu_hierro'); brasero(g, C[0] + 6, C[1] + 26, 13, 'mu_hierro');
+  for (const [x, y] of [[C[0] + 26, C[1] + 6], [C[0] + 6, C[1] + 26]]) for (let k = 0; k < 2; k++) llama(g, x + r2(a, 0.8), y + r2(a, 0.8), 13.5, 2.2, 9 + a.r() * 3, 0, 8, k + 3);
   faldaMatas(g, ps, 10, 26, 34, 'sel2_hoja', C[0], C[1]);
   cuervo(g.sub(C[0] - 20, C[1] + 2, 10, 300).esc(0.9), 'posado');
-  return { piezas: ps, resplandor: { c: [(b1[0] - 10) * 2.4, (b1[1] + 8) * 2.4, b1[2] * 2.4], r: 50, color: '#ff9a48' } };
+  void b1; return { piezas: ps, resplandor: { c: [(C[0] + 12) * 2.4, (C[1] + 12) * 2.4, (z + 22) * 2.4], r: 64, color: '#ffa050' } };
 }
 
 /** Un costado de casco: tablones que siguen la cuaderna (media sección) de u0 a u1. `s` el lado (+1 o -1). Se saltan los
@@ -211,45 +218,65 @@ export function puertaJarls(a: Arma): Hito {
   return ps;
 }
 
-/** El gigante del Paso del Glaciar: el muro de hielo que lo agarró a medio levantarse, la cabeza y el hombro afuera, el brazo
- * con el hacha clavada en el paso; la escala, las picas, la soga y el trineo de los que quisieron sacarlo, uno que se quedó,
- * y el farol que dejaron colgado de la escala. */
+/** Cristal de hielo: prisma de seis caras con el pie en `b`, que sube por `d` (largo L, radio r) y termina en punta; las caras
+ * salen chatas y los cantos duros (poliedro), cada una con su tono. */
+function cristal(g: G, b: V3, d: V3, L: number, r: number, mat: string, tono = 0) {
+  const a = g.a, l = Math.hypot(...d), u: V3 = [d[0] / l, d[1] / l, d[2] / l], t0: V3 = Math.abs(u[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1];
+  const e1n: V3 = [u[1] * t0[2] - u[2] * t0[1], u[2] * t0[0] - u[0] * t0[2], u[0] * t0[1] - u[1] * t0[0]], k1 = Math.hypot(...e1n), e1: V3 = [e1n[0] / k1, e1n[1] / k1, e1n[2] / k1];
+  const e2: V3 = [u[1] * e1[2] - u[2] * e1[1], u[2] * e1[0] - u[0] * e1[2], u[0] * e1[1] - u[1] * e1[0]], pts: V3[] = [], f0 = a.r() * TAU;
+  const P = (s: number, rr: number, an: number): V3 => [b[0] + u[0] * s + (e1[0] * Math.cos(an) + e2[0] * Math.sin(an)) * rr, b[1] + u[1] * s + (e1[1] * Math.cos(an) + e2[1] * Math.sin(an)) * rr, b[2] + u[2] * s + (e1[2] * Math.cos(an) + e2[2] * Math.sin(an)) * rr];
+  for (let k = 0; k < 6; k++) { const an = f0 + (k / 6) * TAU + r2(a, 0.15); pts.push(P(-r * 0.4, r * (0.9 + a.r() * 0.2), an), P(L * (0.68 + a.r() * 0.1), r * (0.75 + a.r() * 0.15), an)); }
+  pts.push(P(L, r * 0.08, 0));
+  g.poli(pts, { mat, tono: tono + r2(a, 0.06) });
+}
+/** El gigante del Paso del Glaciar: el glaciar lo agarró a medio levantarse. Un frente de cristales de hielo (caras chatas,
+ * cantos duros, grietas oscuras y escarcha en lo alto) lo tiene hundido hasta la cintura y le come el brazo izquierdo; afuera
+ * quedan el pecho, los dos hombros, la cabeza de carne helada (frente, cuencas hondas, nariz, la boca apretada, la barba de
+ * carámbanos y la melena blanca) y el brazo derecho que todavía agarra el hacha clavada en el paso. Delante, la obra de los
+ * que quisieron sacarlo: la escala contra el hielo, las picas, la soga, el trineo con bloques y el farol; uno se quedó. */
 export function giganteHielo(a: Arma): Hito {
-  const ps: Pieza[] = [], g = new G(a, ps);
-  // el muro de hielo: bloques y seracs que suben hacia atrás
-  // (un frente largo sobre la diagonal de atrás, x + y = -40, más alto en el medio donde está él)
-  { const cs: Comp[] = []; for (let i = 0; i < 11; i++) { const t = i / 10, x = -44 + t * 48 + r2(a, 2), y = 4 - t * 48 + r2(a, 2), hh = 14 + Math.sin(t * Math.PI) * 20 + a.r() * 6; cs.push(g.bu([x, y, hh * 0.6], [7 + a.r() * 3, 7 + a.r() * 3, hh])); } g.masa(cs, { mat: 'hie2_hielo', suave: 3 }); }
-  for (let i = 0; i < 7; i++) { const t = (i + 0.5) / 7, x = -46 + t * 48 + r2(a, 2), y = 0 - t * 48 + r2(a, 2), h = 30 + Math.sin(t * Math.PI) * 30 + a.r() * 12; g.poli([[x - 4, y - 3, 0], [x + 4, y - 3, 0], [x - 3, y + 4, 0], [x + 4, y + 3, 0], [x + r2(a, 2), y + r2(a, 2), h]], { mat: 'hielo', tono: r2(a, 0.08) }); }
-  // el gigante: el hombro y la cabeza afuera del hielo, mirando al paso, con la barba de escarcha
-  const cs: Comp[] = [], H: V3 = [-13, -13, 40];
-  cs.push(g.bu([H[0] - 3, H[1] - 3, 24], [15, 13, 13]), g.bu([H[0] + 3, H[1] - 9, 29], [8, 7, 7]), g.bu([H[0] - 9, H[1] + 3, 28], [7, 6, 6]));
-  cs.push(g.bu(H, [8.5, 8, 9.5]), g.bu([H[0] + 4, H[1] + 4, H[2] - 3], [5.6, 5.6, 5], { mat: 'cu_pelo_blanco' }), g.bu([H[0] - 2, H[1] - 2, H[2] + 4], [7.6, 7.4, 6], { mat: 'cu_pelo_blanco' }));
-  // el brazo: del hombro hacia adelante, el puño en el mango del hacha
-  const hom: V3 = [H[0] + 4, H[1] - 12, 26], codo: V3 = [H[0] + 14, H[1] - 6, 18], mano: V3 = [H[0] + 24, H[1] + 4, 14];
-  cs.push(g.hu(hom, codo, 5.6, 4.6), g.hu(codo, mano, 4.6, 3.8), g.bu(mano, [4.2, 4, 3.6]));
-  cs.push(g.bu([H[0] + 5.6, H[1] + 5.6, H[2] + 2.6], [3, 7.4, 1.8], { giro: -45 }), g.bu([H[0] + 7.6, H[1] + 7.6, H[2] - 0.6], [2, 1.6, 3]));
-  g.masa(cs, { mat: 'jf_piel_escarcha', suave: 2.4 });
-  for (const q of [-1, 1]) g.esf(H[0] + 6.6 + q * 2.4, H[1] + 6.6 - q * 2.4, H[2] + 1, 0.9, { mat: 'dec_runa_fria' });
-  g.cil(H[0], H[1], H[2] + 6.4, 8.2, 1.4, { mat: 'mu_hierro', r1: 7.6 }); for (let k = 0; k < 6; k++) { const t = -0.6 + k * 0.5; g.esf(H[0] + Math.cos(t + 0.785) * 8.2, H[1] + Math.sin(t + 0.785) * 8.2, H[2] + 7.1, 0.7, { mat: 'mu_oxido' }); }
-  g.caja(H[0] + 7.6, H[1] + 7.6, H[2] - 3.6, 2.4, 4, 0.8, { mat: 'negro', giro: -45 });
-  for (let k = 0; k < 9; k++) g.cil(H[0] + 4 + r2(a, 3), H[1] + 4 + r2(a, 3), H[2] - 4, 0.8, -4 - a.r() * 6, { mat: 'hielo', r1: 0.05 });
-  g.elip(H[0] - 1, H[1] - 1, H[2] + 7.5, 7, 6.4, 2, { mat: 'nieve' }); g.elip(hom[0], hom[1], hom[2] + 6, 6, 5, 1.8, { mat: 'nieve' });
-  for (let i = 0; i < 8; i++) { const p = mezV(hom, mano, a.r()); g.elip(p[0], p[1], p[2] + 3.6, 1.6, 1.2, 0.6, { mat: 'hie2_escarcha', giro: a.r() * 180 }); }
-  // el hacha: mango que baja del puño y la hoja clavada en el piso del paso
-  const fin: V3 = [mano[0] + 10, mano[1] + 12, 0];
-  g.palo([mano[0] - 4, mano[1] - 5, 18], fin, 1.6, { mat: 'nie2_tronco' });
-  { const s = g.sub(fin[0] - 2, fin[1] - 2.4, 4, 40, -35, 'y'); s.poli([[0, -1, -6], [0, 1, -6], [0, -1, 8], [0, 1, 8], [11, -0.3, -9], [11, 0.3, -9], [11, -0.3, 11], [11, 0.3, 11]], { mat: 'mu_hierro', tono: 0.04 }); }
-  cadena(g, [mano[0] - 2, mano[1], 12], [mano[0] + 6, mano[1] - 10, 1], 2, 'mu_oxido', 1.1);
-  // la obra de los que quisieron sacarlo: la escala contra el hielo, picas clavadas, la soga, el trineo con bloques
-  { const e0: V3 = [H[0] + 14, H[1] + 2, 0], e1: V3 = [H[0] + 6, H[1] - 4, 34]; for (const s of [-1, 1]) g.palo([e0[0] + s * 2.4, e0[1] - s * 2.4, 0], [e1[0] + s * 2.4, e1[1] - s * 2.4, e1[2]], 0.6, { mat: 'madera_vieja' }); for (let k = 1; k < 9; k++) { const p = mezV(e0, e1, k / 9); g.palo([p[0] - 2.4, p[1] + 2.4, p[2]], [p[0] + 2.4, p[1] - 2.4, p[2]], 0.4, { mat: 'madera_vieja' }); }
-    const fz = mezV(e0, e1, 0.72); g.palo([fz[0], fz[1], fz[2]], [fz[0] + 2, fz[1] + 2, fz[2] - 1], 0.3, { mat: 'mu_hierro' }); farol(g, fz[0] + 2.2, fz[1] + 2.2, fz[2] - 7.4, 1); }
-  for (const [x, y, z] of [[-4, -16, 20], [6, -20, 14], [-18, -10, 26]]) { g.palo([x, y, z], [x + 4, y + 4, z + 3], 0.4, { mat: 'madera_vieja' }); g.palo([x - 1, y + 2, z + 1], [x + 1, y - 2, z - 1], 0.35, { mat: 'mu_hierro' }); }
-  { const s = g.sub(22, 18, 0, 20); s.caja(0, -3, 1.6, 16, 1, 0.8, { mat: 'madera_vieja' }); s.caja(0, 3, 1.6, 16, 1, 0.8, { mat: 'madera_vieja' }); for (const x of [-6, 0, 6]) s.caja(x, 0, 2.4, 1.6, 8, 0.7, { mat: 'madera_vieja' }); for (const x of [-4, 3]) bloque(s, x, 0, 3, 5, 5, 4.4, { mat: 'hie2_hielo', j: 0.5 }); for (const y of [-3, 3]) s.palo([-8, y, 1.6], [-10, y, 4], 0.5, { mat: 'madera_vieja' }); }
-  cadaver(a, ps, 'explorador', [10, 26, 0], 230, { bruces: false, s: 0.45 });
-  for (let i = 0; i < 3; i++) g.elip(8 + r2(a, 5), 26 + r2(a, 4), 2, 3 + a.r() * 2, 2.6, 1.2, { mat: 'nieve', giro: a.r() * 180 });
-  duna(g, [16, -4, 0], 20, 8, 4, 70, 3, 'nieve'); duna(g, [-24, 10, 0], 22, 8, 5, 20, 3, 'nieve');
-  cuervo(g.sub(H[0] - 1, H[1] - 1, H[2] + 9.4, 120).esc(0.9), 'grazna');
-  return { piezas: ps, resplandor: { c: [(H[0] + 18) * 2.4, (H[1] + 18) * 2.4, 20 * 2.4], r: 34, color: '#ffbe6a' } };
+  const ps: Pieza[] = [], g = new G(a, ps), L = g.sub(-14, -14, 0, 45), HI = 'hielo', HH = 'hie2_hielo', PIEL = 'jf_piel_escarcha';
+  // (en el marco L: +x mira al camino, y de lado a lado en la pantalla)
+  // el frente del glaciar detrás: cristales grandes que se inclinan hacia atrás, más altos detrás de él
+  for (let i = 0; i < 22; i++) { const y = -36 + i * 3.4 + r2(a, 1.2), alto = 26 + (1 - Math.abs(y) / 38) * 34 + a.r() * 12, x = -14 - a.r() * 8; cristal(L, [x, y, -4], [-0.35 + r2(a, 0.2), r2(a, 0.3), 1], alto, 4.6 + a.r() * 3, a.r() < 0.5 ? HI : HH, i % 3 ? 0 : 0.08); }
+  // el cuerpo: pecho, hombros y cuello (la cintura queda adentro del hielo)
+  const cs: Comp[] = [];
+  cs.push(L.bu([-4, 0, 26], [9, 14, 13]), L.bu([-3, 0, 34], [9.5, 15, 9]), L.bu([-4, -15, 38], [7.5, 8, 7.5]), L.bu([-5, 15, 38], [7.5, 8, 7.5]), L.hu([-3, 0, 40], [-2, 0, 46], 5.4, 5));
+  // la cabeza: cráneo, frente que se adelanta, pómulos, mandíbula y nariz; los arcos de las cejas
+  cs.push(L.bu([-1.5, 0, 52], [7.4, 7, 8.4]), L.bu([3.4, 0, 54.6], [3.4, 6.6, 2.6]), L.bu([3.8, -4, 50], [2.6, 2.4, 2.2]), L.bu([3.8, 4, 50], [2.6, 2.4, 2.2]), L.bu([3, 0, 45.6], [4.4, 5.6, 3]), L.bu([6.4, 0, 50.4], [2.2, 1.7, 3.4]));
+  // el brazo derecho afuera: del hombro al codo, el antebrazo y el puño en el mango
+  const hom: V3 = [-4, -16, 37], codo: V3 = [6, -25, 28], mano: V3 = [15, -23, 22];
+  cs.push(L.hu(hom, codo, 6, 5), L.hu(codo, mano, 5, 4.2), L.bu(mano, [4.4, 4, 3.8]));
+  // el izquierdo: el codo asoma del hielo y el resto se lo comió el glaciar
+  cs.push(L.hu([-5, 16, 36], [-1, 25, 28], 5.6, 4.8));
+  L.masa(cs, { mat: PIEL, suave: 2.2, tono: 0.12 });
+  // las cuencas hondas, la boca apretada y la escarcha en la carne
+  for (const q of [-1, 1]) { L.elip(5.2, q * 3.2, 51.8, 1.4, 1.8, 1.4, { mat: 'negro', tono: 0.1 }); L.esf(5.9, q * 3.2, 51.6, 0.5, { mat: 'dec_runa_fria', tono: -0.2 }); }
+  L.caja(6.3, 0, 46.9, 0.8, 5, 0.6, { mat: 'negro', tono: 0.15 });
+  
+  // la melena blanca detrás y la barba de carámbanos que cuelga de la mandíbula
+  { const m: Comp[] = []; for (let i = 0; i < 11; i++) { const t = -1.3 + (i / 10) * 2.6, y = Math.sin(t) * 7, x0 = -3 - Math.cos(t) * 5; m.push(L.hu([x0, y, 58.5 - Math.abs(y) * 0.3], [x0 - 5 - a.r() * 3, y * 1.7, 34 + a.r() * 6], 1.8, 0.7)); } m.push(L.bu([-5, 0, 57], [4.4, 6.6, 3.4])); L.masa(m, { mat: 'cu_pelo_blanco', suave: 1.1 }); }
+  for (let i = 0; i < 11; i++) { const y = -4.5 + i * 0.9, l = 5 + a.r() * 6 - Math.abs(y) * 0.6; L.palo([4.4 - Math.abs(y) * 0.2, y, 44.6], [4.9 - Math.abs(y) * 0.2, y * 1.05, 44.6 - l], 0.8 - Math.abs(y) * 0.06, { mat: HI, r1: 0.05 }); }
+  for (let i = 0; i < 7; i++) { const p = mezV(hom, mano, a.r()); L.cil(p[0], p[1], p[2] - 3.6, 0.7, -2 - a.r() * 4, { mat: HI, r1: 0.05 }); }
+  // el hacha: el mango baja del puño y la hoja queda clavada en el paso
+  const fin: V3 = [26, -18, 0]; L.palo([mano[0] - 4, mano[1] - 1, 27], fin, 1.7, { mat: 'nie2_tronco' });
+  { const s = L.sub(fin[0] - 1.5, fin[1], 3, -20, -30, 'y'); s.poli([[0, -1, -6], [0, 1, -6], [0, -1, 8], [0, 1, 8], [12, -0.3, -9], [12, 0.3, -9], [12, -0.3, 12], [12, 0.3, 12]], { mat: 'mu_hierro', tono: 0.04 }); }
+  // el glaciar adelante: lo agarra hasta la cintura (cristales que salen hacia afuera) y le cubre el brazo izquierdo
+  for (let i = 0; i < 18; i++) { const y = -22 + i * 2.6 + r2(a, 1), x = 3 + a.r() * 5; cristal(L, [x, y, -3], [0.4 + r2(a, 0.15), r2(a, 0.4), 1], (Math.abs(y) < 13 ? 24 : 12) + a.r() * 10 + (y > 8 ? 8 : 0), 3.4 + a.r() * 2.4, a.r() < 0.6 ? HI : HH, 0.06); }
+  for (let i = 0; i < 6; i++) cristal(L, [-2 + r2(a, 3), 20 + r2(a, 6), 18 + a.r() * 8], [0.3, 0.4 + r2(a, 0.3), 1], 14 + a.r() * 8, 3.4, HI, 0.04);
+  // la losa de hielo del suelo con sus grietas oscuras
+  L.poli([[-6, -30, -1], [12, -32, -1], [-8, 30, -1], [14, 28, -1], [-4, -26, 2], [10, -28, 2.4], [-6, 26, 2], [12, 24, 2.4], [18, 0, 0.8]], { mat: HH, tono: 0.05 });
+  for (let c = 0; c < 5; c++) { let p: V3 = [4 + r2(a, 6), r2(a, 20), 2.5]; for (let k = 0; k < 5; k++) { const q: V3 = [p[0] + r2(a, 3), p[1] + r2(a, 4), 2.5]; L.palo(p, q, 0.22, { mat: 'negro', tono: 0.3 }); p = q; } }
+  // la obra de los que quisieron sacarlo: la escala contra el hielo con el farol colgado, las picas, el trineo con bloques
+  { const e0: V3 = [20, 8, 0], e1: V3 = [7, 6, 26]; for (const q of [-1, 1]) L.palo([e0[0], e0[1] + q * 2.4, 0], [e1[0], e1[1] + q * 2.4, e1[2]], 0.6, { mat: 'madera_vieja' }); for (let k = 1; k < 8; k++) { const p = mezV(e0, e1, k / 8); L.palo([p[0], p[1] - 2.4, p[2]], [p[0], p[1] + 2.4, p[2]], 0.4, { mat: 'madera_vieja' }); }
+    const fz = mezV(e0, e1, 0.78); L.palo(fz, [fz[0] + 2.4, fz[1], fz[2] + 0.6], 0.3, { mat: 'mu_hierro' }); const fp = L.P(fz[0] + 2.6, fz[1], fz[2] - 7.2); farol(g, fp[0], fp[1], fp[2], 1); }
+  for (const [x, y, z] of [[7, -6, 14], [8, 12, 12], [6, 2, 9]]) { L.palo([x, y, z], [x + 5, y, z + 3], 0.4, { mat: 'madera_vieja' }); L.palo([x - 0.5, y - 1.6, z + 1], [x - 0.5, y + 1.6, z - 1], 0.35, { mat: 'mu_hierro' }); }
+  { const s = L.sub(30, 16, 0, 20); s.caja(0, -3, 1.6, 16, 1, 0.8, { mat: 'madera_vieja' }); s.caja(0, 3, 1.6, 16, 1, 0.8, { mat: 'madera_vieja' }); for (const x of [-6, 0, 6]) s.caja(x, 0, 2.4, 1.6, 8, 0.7, { mat: 'madera_vieja' }); for (const x of [-4, 3]) cristal(s, [x, 0, 2.6], [r2(a, 0.2), r2(a, 0.2), 1], 5, 2.6, HI); }
+  { const p = L.P(30, -6, 0); cadaver(a, ps, 'explorador', p, 200, { bruces: false, s: 0.45 }); for (let i = 0; i < 3; i++) g.elip(p[0] + r2(a, 4), p[1] + r2(a, 4), 1.6, 3 + a.r() * 2, 2.4, 1, { mat: 'nieve', giro: a.r() * 180 }); }
+  duna(g, [16, -6, 0], 18, 7, 3, 70, 3, 'nieve'); duna(g, [-20, 14, 0], 20, 7, 4, 20, 3, 'nieve');
+  cuervo(L.sub(-2, 0, 61, 0).esc(0.9), 'grazna');
+  const lz = L.P(16, 8, 18);
+  return { piezas: ps, resplandor: { c: [lz[0] * 2.4, lz[1] * 2.4, lz[2] * 2.4], r: 34, color: '#ffbe6a' } };
 }
 
 // ================================================================== acto 5
@@ -258,9 +285,9 @@ export function giganteHielo(a: Arma): Hito {
  * cuatro bolardos, la escoria que todavía respira, las tenazas y los herreros que se quedaron. */
 export function yunqueSahrim(a: Arma): Hito {
   const ps: Pieza[] = [], g = new G(a, ps), B = 'inf2_basalto', F = 'inf2_hierro', C: V3 = [-8, -8, 0];
-  let z = 0; for (const [w, h] of [[42, 5], [32, 5]] as [number, number][]) { hilada(g, C[0], C[1], z, w, w * 0.8, h, B, 8, 0.05); z += h; }
+  let z = 0; for (const [w, h] of [[54, 6], [42, 6]] as [number, number][]) { hilada(g, C[0], C[1], z, w, w * 0.8, h, B, 8, 0.05); z += h; }
   // el yunque a lo largo de la diagonal: pie, cintura, tabla y cuerno
-  const y = g.sub(C[0], C[1], z, -45).esc(1.45);
+  const y = g.sub(C[0], C[1], z, -45).esc(2.05);
   y.caja(0, 0, 0, 22, 16, 5, { mat: F, tono: -0.06 }); y.poli([[-9, -6, 5], [9, -6, 5], [-9, 6, 5], [9, 6, 5], [-6, -4, 14], [6, -4, 14], [-6, 4, 14], [6, 4, 14]], { mat: F });
   y.caja(-2, 0, 14, 30, 12, 6, { mat: F, tono: 0.04 }); y.caja(-2, 0, 19.6, 30, 12, 0.6, { mat: F, tono: 0.14 });
   y.cil(13, 0, 15.6, 5.2, 15, { mat: F, r1: 0.3, eje: [1, 0, 0.12] });
@@ -269,9 +296,9 @@ export function yunqueSahrim(a: Arma): Hito {
   y.caja(-3, 0, 20.3, 22, 3.6, 0.7, { mat: 'lava', tono: 0.05 }); y.caja(-3, 0, 20.8, 16, 1.2, 0.4, { mat: 'fuego', tono: 0.1 }); y.caja(-17, 0, 20.4, 7, 1.4, 0.6, { mat: 'mu_oxido' });
   // las tenazas sobre la tabla, el martillo caído contra el plinto (cabeza al piso, mango arriba)
   y.palo([-14, -4, 20.6], [-24, -9, 21.4], 0.5, { mat: F }); y.palo([-14, -3, 20.6], [-24, -2, 21.4], 0.5, { mat: F });
-  { const s = g.sub(C[0] + 20, C[1] + 2, 0, 60, 18, 'y'); bloque(s, 0, 0, 0, 10, 8, 9, { mat: F, j: 0.6, b: 1 }); s.palo([0, 0, 9], [0, 0, 40], 1.5, { mat: 'madera_vieja', tono: -0.15 }); for (const zz of [11, 26]) s.cil(0, 0, zz, 1.9, 1.2, { mat: 'mu_oxido' }); }
+  { const s = g.sub(C[0] + 26, C[1] + 4, 0, 60, 18, 'y').esc(1.4); bloque(s, 0, 0, 0, 10, 8, 9, { mat: F, j: 0.6, b: 1 }); s.palo([0, 0, 9], [0, 0, 40], 1.5, { mat: 'madera_vieja', tono: -0.15 }); for (const zz of [11, 26]) s.cil(0, 0, zz, 1.9, 1.2, { mat: 'mu_oxido' }); }
   // las cadenas a los bolardos
-  for (const [bx, by, ex, ey] of [[-34, -14, -10, -4], [-14, -34, -4, -10], [14, -26, 4, -6], [-26, 14, -6, 4]] as number[][]) { g.cil(bx, by, 0, 2.4, 9, { mat: F, r1: 2 }); g.cil(bx, by, 8.6, 3, 1.4, { mat: F }); cadena(g, [bx, by, 8], [C[0] + ex, C[1] + ey, z + 6], 4, 'mu_oxido', 1.2); }
+  for (const [bx, by, ex, ey] of [[-40, -16, -12, -5], [-16, -40, -5, -12], [18, -30, 5, -8], [-30, 18, -8, 5]] as number[][]) { g.cil(bx, by, 0, 3, 12, { mat: F, r1: 2.4 }); g.cil(bx, by, 11.6, 3.6, 1.6, { mat: F }); cadena(g, [bx, by, 11], [C[0] + ex, C[1] + ey, z + 8], 4, 'mu_oxido', 1.5); }
   // la escoria: montones que se endurecieron, con vetas que todavía arden
   { const cs: Comp[] = []; for (let i = 0; i < 7; i++) cs.push(g.bu([20 + r2(a, 8), -16 + r2(a, 8), 2], [5 + a.r() * 3, 4 + a.r() * 3, 3 + a.r() * 2])); g.masa(cs, { mat: 'inf2_costra', suave: 1.6 }); for (let i = 0; i < 6; i++) { const p: V3 = [20 + r2(a, 7), -16 + r2(a, 7), 4 + a.r() * 2]; g.palo(p, [p[0] + r2(a, 4), p[1] + r2(a, 4), p[2] - 1], 0.4, { mat: 'lava' }); } }
   // los herreros: uno sentado contra el plinto (esqueleto en su delantal), otro tendido con su maza
@@ -279,7 +306,7 @@ export function yunqueSahrim(a: Arma): Hito {
   { const s = g.sub(C[0] + 4, C[1] + 19, 0, 260); calavera(s.sub(0, 0, 4.6, 0).esc(0.5), 3.3, 'inf2_hueso', true); s.caja(0, 0, 0, 4, 3, 3.4, { mat: 'cuero', tono: -0.2 }); for (const q of [-1, 1]) s.palo([0, q * 1.2, 1], [4, q * 1.5, 0.4], 0.5, { mat: 'inf2_hueso' }); }
   duna(g, [-30, -2, 0], 20, 8, 3.4, 95, 3, 'inf2_ceniza'); duna(g, [6, -30, 0], 18, 7, 3, 10, 3, 'inf2_ceniza');
   for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 30 + a.r() * 8; g.elip(Math.cos(t) * d - 8, Math.sin(t) * d - 8, 0.2, 1.4, 1.1, 0.7, { mat: a.r() < 0.4 ? 'lava' : 'ext_carbon', giro: a.r() * 180 }); }
-  return { piezas: ps, resplandor: { c: [C[0] * 2.4, C[1] * 2.4, (z + 31) * 2.4], r: 48, color: '#ff6a24' } };
+  return { piezas: ps, resplandor: { c: [C[0] * 2.4, C[1] * 2.4, (z + 44) * 2.4], r: 56, color: '#ff6a24' } };
 }
 
 /** El crisol de la fragua volcado en el Río de Lava: el pórtico de vigas con la polea y la cadena rota, el crisol tumbado en
@@ -387,19 +414,19 @@ export function campanarioLadeado(a: Arma): Hito {
   // la puerta (cara +x), con el agua adentro
   { const s = T.sub(W / 2, 0, 0, 90); s.caja(0, -0.3, 0, 8, 1.4, 12, { mat: 'negro' }); for (const q of [-1, 1]) s.caja(q * 4.8, 0, 0, 1.6, 1.6, 12, { mat: 'ahg_piedra_lisa' }); s.cil(0, 0.6, 12, 4.8, 1.6, { mat: 'ahg_piedra_lisa', eje: [0, 1, 0] }); }
   // el campanario: cuatro pilares, arcos, cornisa, la campana adentro y el chapitel roto
-  { const zc = 56; for (const [x, y] of [[-W / 2 + 3, -W / 2 + 3], [W / 2 - 3, -W / 2 + 3], [-W / 2 + 3, W / 2 - 3], [W / 2 - 3, W / 2 - 3]]) T.caja(x, y, zc, 4.4, 4.4, 16, { mat: P });
-    for (let lado = 0; lado < 4; lado++) { const s = T.sub(0, 0, zc, lado * 90); for (let k = 0; k <= 8; k++) { const t = (k / 8) * Math.PI, t2 = ((k + 1) / 8) * Math.PI; if (k < 8) s.palo([-Math.cos(t) * 5, W / 2 - 1.5, 11 + Math.sin(t) * 4], [-Math.cos(t2) * 5, W / 2 - 1.5, 11 + Math.sin(t2) * 4], 1.3, { mat: 'ahg_piedra_lisa' }); } }
-    T.caja(0, 0, zc + 16, W + 2, W + 2, 2.6, { mat: 'ahg_piedra_lisa', tono: 0.05 });
-    T.caja(0, 0, zc, W - 7, W - 7, 0.8, { mat: P }); T.caja(-W / 2 + 2, 0, zc, 1, W - 6, 16, { mat: 'negro' }); T.caja(0, -W / 2 + 2, zc, W - 6, 1, 16, { mat: 'negro' }); T.palo([-9, 0, zc + 15], [9, 0, zc + 15], 1.3, { mat: 'ahg_madera' }); campana(T, [0, 0, zc + 14.5], [0, 0, -1], 6.4, 'hit_bronce_verdin');
-    T.poli([[-W / 2, -W / 2, zc + 18.6], [W / 2, -W / 2, zc + 18.6], [-W / 2, W / 2, zc + 18.6], [W / 2, W / 2, zc + 18.6], [-2, -2, zc + 34], [3, -1, zc + 30], [-1, 4, zc + 31]], { mat: 'ahg_piedra', tono: -0.12 });
-    for (let k = 0; k < 4; k++) T.palo([r2(a, 3), r2(a, 3), zc + 30], [r2(a, 4), r2(a, 4), zc + 38 + a.r() * 4], 0.4, { mat: 'mu_oxido' }); }
+  { const zc = 56; for (const [x, y] of [[-W / 2 + 3, -W / 2 + 3], [W / 2 - 3, -W / 2 + 3], [-W / 2 + 3, W / 2 - 3], [W / 2 - 3, W / 2 - 3]]) T.caja(x, y, zc, 3, 3, 24, { mat: P });
+    for (let lado = 0; lado < 4; lado++) { const s = T.sub(0, 0, zc, lado * 90); for (let k = 0; k <= 8; k++) { const t = (k / 8) * Math.PI, t2 = ((k + 1) / 8) * Math.PI; if (k < 8) s.palo([-Math.cos(t) * 7.4, W / 2 - 1.5, 20.5 + Math.sin(t) * 3], [-Math.cos(t2) * 7.4, W / 2 - 1.5, 20.5 + Math.sin(t2) * 3], 1, { mat: 'ahg_piedra_lisa' }); } }
+    T.caja(0, 0, zc + 24, W + 1, W + 1, 2.4, { mat: 'ahg_piedra_lisa', tono: 0.05 });
+    T.caja(0, 0, zc, W - 7, W - 7, 0.8, { mat: P }); T.palo([-10, 0, zc + 21], [10, 0, zc + 21], 1.4, { mat: 'ahg_madera' }); campana(T, [0, 0, zc + 20.5], [0, 0, -1], 7.6, 'hit_bronce_verdin'); T.palo([0, 0, zc + 9], [3, 4, zc + 3], 0.6, { mat: 'mu_hierro' });
+    T.poli([[-W / 2, -W / 2, zc + 26.4], [W / 2, -W / 2, zc + 26.4], [-W / 2, W / 2, zc + 26.4], [W / 2, W / 2, zc + 26.4], [-2, -2, zc + 40], [3, -1, zc + 36], [-1, 4, zc + 37]], { mat: 'ahg_piedra', tono: -0.12 });
+    for (let k = 0; k < 4; k++) T.palo([r2(a, 3), r2(a, 3), zc + 34], [r2(a, 4), r2(a, 4), zc + 42 + a.r() * 4], 0.4, { mat: 'mu_oxido' }); }
   // el agua alrededor de la base (charcos sueltos del lado que se hundió) y el barro
   for (let i = 0; i < 8; i++) { const t = -0.3 + a.r() * 2.2, d = 14 + a.r() * 10; g.elip(-12 + Math.cos(t) * d, -12 + Math.sin(t) * d, -0.2, 5 + a.r() * 5, 3 + a.r() * 3, 0.6, { mat: a.r() < 0.6 ? 'ahg_agua' : 'ahg_lodo', giro: a.r() * 180 }); }
   // la pasarela de tablas sobre pilotes hasta la puerta, y el farol en su poste
   { const s = g.sub(8, -6, 0, 20); for (let i = 0; i < 7; i++) { if (i === 4) continue; s.caja(i * 3.6, 0, 2.6, 3, 7 + r2(a, 0.8), 0.7, { mat: 'ahg_madera', giro: r2(a, 6), tono: r2(a, 0.08) }); } for (const x of [0, 10, 20]) for (const y of [-3.2, 3.2]) s.palo([x, y, -1], [x, y, 2.6], 0.7, { mat: 'ahg_madera', tono: -0.1 }); }
   g.palo([24, 2, 0], [24, 2, 24], 0.8, { mat: 'ahg_madera' }); g.palo([24, 2, 23], [27, 5, 23.5], 0.4, { mat: 'mu_hierro' }); farol(g, 27.2, 5.2, 16.6, 1.1);
   for (let i = 0; i < 6; i++) bloque(g, 14 + r2(a, 10), 14 + r2(a, 10), 0, 3 + a.r() * 3, 3, 2.2, { mat: P, giro: a.r() * 90, incl: r2(a, 25), j: 0.6 });
-  cuervo(T.sub(0, 4, 56 + 18.8, 200).esc(0.9), 'grazna');
+  cuervo(T.sub(0, 4, 56 + 26.6, 200).esc(0.9), 'grazna');
   return { piezas: ps, resplandor: { c: [27 * 2.4, 5 * 2.4, 19 * 2.4], r: 40, color: '#ffbe5a' } };
 }
 
@@ -409,15 +436,15 @@ export function campanarioLadeado(a: Arma): Hito {
 export function coroCampanas(a: Arma): Hito {
   const ps: Pieza[] = [], g = new G(a, ps), C: V3 = [-8, -8, 0];
   // el poste del medio: pilar de piedra con el yugo vacío y la cadena colgando
-  bloque(g, C[0], C[1], 0, 6, 6, 44, { mat: 'ahg_piedra', j: 0.6, arriba: 0.9 }); g.caja(C[0], C[1], 44, 8, 8, 2.4, { mat: 'ahg_piedra_lisa' });
-  g.palo([C[0] - 10, C[1] + 10, 40], [C[0] + 10, C[1] - 10, 40], 1.6, { mat: 'ahg_madera' }); for (const s of [-1, 1]) g.palo([C[0] + s * 8, C[1] - s * 8, 40], [C[0] + s * 8, C[1] - s * 8, 44], 0.8, { mat: 'mu_hierro' });
-  cadena(g, [C[0] + 4, C[1] - 4, 39], [C[0] + 4.4, C[1] - 4.2, 26], 0, 'mu_oxido', 1);
+  bloque(g, C[0], C[1], 0, 8, 8, 58, { mat: 'ahg_piedra', j: 0.6, arriba: 0.9 }); g.caja(C[0], C[1], 58, 10, 10, 2.6, { mat: 'ahg_piedra_lisa' });
+  g.palo([C[0] - 13, C[1] + 13, 53], [C[0] + 13, C[1] - 13, 53], 2, { mat: 'ahg_madera' }); for (const s of [-1, 1]) g.palo([C[0] + s * 11, C[1] - s * 11, 53], [C[0] + s * 11, C[1] - s * 11, 58], 1, { mat: 'mu_hierro' });
+  cadena(g, [C[0] + 6, C[1] - 6, 52], [C[0] + 6.4, C[1] - 6.2, 34], 0, 'mu_oxido', 1.3);
   for (let i = 0; i < 5; i++) g.elip(C[0] + r2(a, 3), C[1] + r2(a, 3), 8 + a.r() * 20, 2.2, 1.2, 1.4, { mat: 'ahg_alga' });
   // el enlosado que queda: losas sueltas, hundidas, con sal en las juntas
   for (let i = 0; i < 16; i++) { const t = a.r() * TAU, d = 6 + a.r() * 28; bloque(g, C[0] + Math.cos(t) * d, C[1] + Math.sin(t) * d, -0.7, 6 + a.r() * 2, 5 + a.r() * 2, 1.2, { mat: 'ahg_piedra_lisa', giro: a.r() * 20, incl: r2(a, 5), j: 0.5, b: 0.5, tono: r2(a, 0.08) }); }
   // las nueve campanas, enterradas de boca (asoma la corona y media falda), de tamaños y metales distintos
   for (let i = 0; i < 9; i++) {
-    const t = (i / 9) * TAU + 0.2, d = 22 + r2(a, 2), x = C[0] + Math.cos(t) * d, y = C[1] + Math.sin(t) * d, R = 4 + a.r() * 2.6, L = R * 1.55;
+    const t = (i / 9) * TAU + 0.2, d = 26 + r2(a, 2), x = C[0] + Math.cos(t) * d, y = C[1] + Math.sin(t) * d, R = 6.2 + a.r() * 3, L = R * 1.55;
     const tilt: V3 = [r2(a, 0.18), r2(a, 0.18), -1], tl = Math.hypot(...tilt), e: V3 = [tilt[0] / tl, tilt[1] / tl, tilt[2] / tl];
     campana(g, [x, y, L * 0.55], e, R, i % 3 ? 'hit_bronce_verdin' : 'ahg_bronce_viejo');
     g.elip(x, y, 0.2, R * 1.25, R * 1.15, 0.8, { mat: 'ahg_lodo', tono: -0.05 });
@@ -426,9 +453,9 @@ export function coroCampanas(a: Arma): Hito {
     if (i % 3 === 0) letras(g.sub(x, y, 0, (t * 180) / Math.PI + 180).sub(R * 0.86, 0, 0, 90), -1.6, 1.6, 0, L * 0.38, 1, 'ahg_sal', 1.2, 0.6);
   }
   // la doliente: se cubre la cara frente a una campana, de espaldas al poste
-  figuraVelada(g.sub(C[0] + 14, C[1] + 14, 0, 45), 30, { mat: 'ahg_vela', pose: 'cubre_cara', tono: -0.15 });
+  figuraVelada(g.sub(C[0] + 15, C[1] + 15, 0, 45), 30, { mat: 'ahg_vela', pose: 'cubre_cara', tono: -0.15 });
   for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 10 + a.r() * 26; g.elip(C[0] + Math.cos(t) * d, C[1] + Math.sin(t) * d, 0.2, 2.4, 1, 0.5, { mat: a.r() < 0.5 ? 'ahg_alga' : 'ahg_sal', giro: a.r() * 180 }); }
-  cuervo(g.sub(C[0], C[1], 46.4, 40).esc(0.9), 'grazna');
+  cuervo(g.sub(C[0], C[1], 60.6, 40).esc(0.9), 'grazna');
   return { piezas: ps, resplandor: { c: [(C[0] + 14) * 2.4, (C[1] + 14) * 2.4, 12 * 2.4], r: 42, color: '#ffb850' } };
 }
 

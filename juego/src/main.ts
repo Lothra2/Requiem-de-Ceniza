@@ -42,7 +42,7 @@ function empezarCine(acto: number, despues: () => void, clave = claveCine(acto))
   cine = { clave, acto, t: 0, despues }; estado = 'cine'; ui.izq = ui.der = null; E.clicIzq = false;
   Sonido.musica('intro');
 }
-import { crearJuego, entrarZona, actualizar, usarHabilidad, habilidadDe, costoMana, DIR_VEC, caminarA, usarPocion, curarEnTiempo, recogerSuelo, abrirPortal, recalc, soltar, efecto, msg, particulas, olvidarZonas, anotarMapas, esDistancia, aspectoThor, thorDe, type Juego, type Monstruo, type Npc, type Suelo } from './juego/mundo';
+import { crearJuego, volcarBrasero, entrarZona, actualizar, usarHabilidad, habilidadDe, costoMana, DIR_VEC, caminarA, usarPocion, curarEnTiempo, recogerSuelo, abrirPortal, recalc, soltar, efecto, msg, particulas, olvidarZonas, anotarMapas, esDistancia, aspectoThor, thorDe, type Juego, type Monstruo, type Npc, type Suelo } from './juego/mundo';
 import { nuevoHeroe, nivelHab, firmaVisual, equipoVisual, cuerpoDe, type DatosHeroe, type EnBolsa, nivelEnDificultad, volverAEmpezar } from './juego/heroe';
 import { botin, colorObj, crearObjeto } from './juego/objetos';
 import { libreCerca } from './mundo/zona';
@@ -501,6 +501,8 @@ function usarObjeto(jj: Juego, o: ObjZ) {
     if (R() < 0.12) { // terror: el cofre era una trampa
       msg(jj, ['Del cofre sale un grito.', 'A scream comes from the chest.'], '#ff6060'); Sonido.susurro(); jj.sacudida = 0.4;
     }
+  } else if (o.tag === 'volcar') {
+    volcarBrasero(jj, o);
   } else if (o.tag === 'romper') {
     if (o.id === 'com_barril_explosivo') { o.v = 'reventado'; jj.areas.push({ x: o.cx + 0.5, y: o.cy + 0.5, radio: 2.5, dano: [5 + jj.zona.nivel * 3, 10 + jj.zona.nivel * 5], elem: 'fuego', t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: '', retraso: 0.4 }); efecto(jj, 'explosion_fuego', o.cx + 0.5, o.cy + 0.5, 0, 1.4); Sonido.efecto('explosion'); }
     else { o.v = 'rota'; Sonido.efecto('golpe_hueso'); particulas(jj, o.cx + 0.5, o.cy + 0.5, 10, 'chispa', '#8a7a60'); if (R() < 0.6) soltar(jj, o.cx + 0.5, o.cy + 0.5, botin(jj.zona.nivel, 0, h.c.hallazgo, h.c.oro_extra)); }
@@ -869,7 +871,7 @@ function paso(dt: number) {
 function etiquetaPick(jj: Juego, p: Pick) {
   if (p.tipo === 'npc') { const n = (p.ref as Npc); import('./datos/npcs').then(() => { }); texto(TT(npcsNombre(n.npc)), (p.x0 + p.x1) / 2, p.y0 - 6, { alin: 'center', color: '#e0e0ff' }); }
   else if (p.tipo === 'salida') tooltip([[TT((p.ref as Salida).nombre), '#ffd060']], (p.x0 + p.x1) / 2, p.y0 + 20);
-  else if (p.tipo === 'objeto') { const o = p.ref as ObjZ; const n = o.id === 'com_piedra_viaje' ? T('Piedra de viaje', 'Travel stone') : o.tag === 'baul' ? T('Baúl compartido', 'Shared chest') : o.tag === 'pista' ? T('Pista', 'Clue') : o.tag === 'reliquia' ? T('Reliquia', 'Relic') : o.tag === 'altar' ? T('Altar', 'Altar') : o.tag === 'cofre' ? T('Cofre', 'Chest') : o.tag === 'santuario' ? T('Santuario', 'Shrine') : o.tag === 'pozo' ? T('Pozo', 'Well') : o.tag === 'romper' ? T('Urna', 'Urn') : o.tag === 'libro' ? T('Libro maldito', 'Cursed book') : o.tag === 'restos' ? T('Restos', 'Remains') : ''; if (n) texto(n, (p.x0 + p.x1) / 2, p.y0 - 4, { alin: 'center', color: '#c0c0ff' }); }
+  else if (p.tipo === 'objeto') { const o = p.ref as ObjZ; const n = o.id === 'com_piedra_viaje' ? T('Piedra de viaje', 'Travel stone') : o.tag === 'baul' ? T('Baúl compartido', 'Shared chest') : o.tag === 'pista' ? T('Pista', 'Clue') : o.tag === 'reliquia' ? T('Reliquia', 'Relic') : o.tag === 'altar' ? T('Altar', 'Altar') : o.tag === 'cofre' ? T('Cofre', 'Chest') : o.tag === 'santuario' ? T('Santuario', 'Shrine') : o.tag === 'pozo' ? T('Pozo', 'Well') : o.tag === 'romper' ? (o.id === 'com_barril_explosivo' ? T('Barril de aceite', 'Oil barrel') : T('Urna', 'Urn')) : o.tag === 'volcar' ? T('Brasero flojo', 'Loose brazier') : o.tag === 'libro' ? T('Libro maldito', 'Cursed book') : o.tag === 'restos' ? T('Restos', 'Remains') : ''; if (n) texto(n, (p.x0 + p.x1) / 2, p.y0 - 4, { alin: 'center', color: '#c0c0ff' }); }
   else if (p.tipo === 'portal') texto(T('Portal', 'Portal'), (p.x0 + p.x1) / 2, p.y0 - 4, { alin: 'center', color: '#80b0ff' });
   void jj;
 }

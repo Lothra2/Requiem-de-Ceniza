@@ -1955,6 +1955,7 @@ export function actualizar(j: Juego, dt: number) {
   actualizarHeroe(j, dt);
   actualizarThor(j, dt);
   for (const m of j.monstruos) actualizarMonstruo(j, m, dt);
+  actualizarTrampas(j, dt);
   // charcos que crecen bajo los muertos y rastro de sangre del que huye herido
   for (const mc of j.manchas) { if (mc.forma === 'charco' && mc.t < 10) mc.t += dt; if (mc.rmax && mc.r < mc.rmax) mc.r = Math.min(mc.rmax, mc.r + (mc.rmax - mc.r) * dt * 0.45 + dt * 0.02); }
   // la caída de un jefe: dos segundos de estallidos sobre el cuerpo, y al final la onda que barre la sala y la lluvia de sangre
@@ -2796,6 +2797,77 @@ function explotar(j: Juego, p: Proyectil) {
   sonar(j, p.elem === 'frio' ? 'hielo_impacto' : 'explosion', p.x, p.y, 0.8);
   if (p.elem === 'fuego') ponerMancha(j, { x: p.x, y: p.y, r: r * 0.6, color: '#141008', t: 0, tipo: 'quemado' });
 }
+// ------------------------------------------------------------------ trampas (oleada 4)
+/**
+ * Las trampas de la zona (`ponerTrampas` en zona.ts, piezas en catalogo/trampas.ts): se ven, se esquivan y se usan contra los
+ * enemigos. La losa de púas salta con quien la pise (héroe o monstruo; un respiro de 2,4 s), la grieta del acto 5 respira y
+ * escupe cada tanto (se hincha 1 s antes), el lazo agarra al primero que pisa el aro (y queda saltado) y el brasero flojo se
+ * vuelca de un clic (`volcarBrasero`, lo llama main.ts) hacia el lado contrario al héroe: una lengua de fuego que quema lo que
+ * pase. Al héroe le quitan una parte de su vida (no lo matan de un golpe); a los monstruos, de la suya (a los jefes y únicos
+ * poco). Nada se guarda: el estado vive en el objeto de la zona (`dato`). `__sinTrampas` lo apaga (no salen ni actúan).
+ */
+const TRAMPA_HEROE: Record<string, number> = { puas: 0.05, grieta: 0.06 };
+const TRAMPA_MONSTRUO: Record<string, number> = { puas: 0.3, grieta: 0.35 };
+function golpeTrampa(j: Juego, e: Ent, tipo: string, elem: Elemento) {
+  const h = j.heroe;
+  if (e === h) { const d = h.vidaMax * TRAMPA_HEROE[tipo]; danar(j, h, { min: d, max: d, elem, deHeroe: false, sinFallo: true }); return; }
+  const m = e as Monstruo; if (m.dueno) return;
+  const k = esJefe(m) ? 0.04 : m.calidad >= 1 ? TRAMPA_MONSTRUO[tipo] * 0.4 : TRAMPA_MONSTRUO[tipo], d = m.vidaMax * k;
+  danar(j, m, { min: d, max: d, elem, deHeroe: true, fuente: h, sinFallo: true });
+}
+function actualizarTrampas(j: Juego, dt: number) {
+  if ((globalThis as any).__sinTrampas) return;
+  const z = j.zona, h = j.heroe, ts: ObjZ[] = (z as any).trampas ??= z.objetos.filter((o) => o.dato?.trampa);
+  if (!ts.length) return;
+  const pisan = (o: ObjZ, r: number) => [h, ...j.monstruos].filter((e) => !e.muerto && (e === h || !(e as Monstruo).dueno) && (e as Monstruo).estado !== 'surgir' && Math.abs(e.x - (o.cx + 0.5)) < r && Math.abs(e.y - (o.cy + 0.5)) < r);
+  for (const o of ts) {
+    const d = o.dato;
+    if (Math.hypot(h.x - o.cx, h.y - o.cy) > 40) continue;
+    if (d.trampa === 'puas') {
+      d.t = (d.t ?? 0) - dt;
+      if (o.v === 'arriba' && d.t < 1.6) o.v = 'abajo';
+      if (d.t > 0) continue;
+      const q = pisan(o, 0.75); if (!q.length) continue;
+      o.v = 'arriba'; d.t = 2.4;
+      for (const e of q) { golpeTrampa(j, e, 'puas', 'fisico'); particulas(j, e.x, e.y, 10, 'sangre', '#8a1010', 1.2, 14); }
+      particulas(j, o.cx + 0.5, o.cy + 0.5, 8, 'chispa', '#d0d0d0', 0.8, 6); sonar(j, 'golpe_hueso', o.cx + 0.5, o.cy + 0.5, 0.8); j.sacudida = Math.max(j.sacudida, 0.15);
+    } else if (d.trampa === 'grieta') {
+      // respira: quieta de 4 a 6 s, aviso 1 s (se hincha), erupción 0,6 s (quema a quien esté encima)
+      d.t = (d.t ?? 2 + (o.cx % 5)) - dt;
+      if (d.t > 0) continue;
+      if (o.v === 'quieta') { o.v = 'aviso'; d.t = 1; particulas(j, o.cx + 1, o.cy + 1, 6, 'brasa', '#ff8030', 0.5, 8); }
+      else if (o.v === 'aviso') {
+        o.v = 'erupcion'; d.t = 0.6;
+        for (const e of pisan({ ...o, cx: o.cx + 0.5, cy: o.cy + 0.5 } as ObjZ, 1.6)) golpeTrampa(j, e, 'grieta', 'fuego');
+        efecto(j, 'explosion_fuego', o.cx + 1, o.cy + 1, 0, 0.9); particulas(j, o.cx + 1, o.cy + 1, 16, 'brasa', '#ffb040', 1.5, 40); sonar(j, 'explosion', o.cx + 1, o.cy + 1, 0.5);
+      } else { o.v = 'quieta'; d.t = 4 + R() * 2; }
+    } else if (d.trampa === 'lazo') {
+      if (o.v !== 'armado') continue;
+      const q = pisan(o, 0.7); if (!q.length) continue;
+      const e = q[0]; o.v = 'saltado';
+      if (e === h) { h.aturdido = Math.max(h.aturdido, 1.1); msg(j, ['¡Un lazo! Te agarra del tobillo.', 'A snare! It grabs your ankle.'], '#e0c080'); }
+      else if (!esJefe(e as Monstruo)) e.aturdido = Math.max(e.aturdido, 3.5);
+      particulas(j, e.x, e.y, 10, 'humo', '#8a7a50', 0.6, 10); sonar(j, 'golpe_hueso', e.x, e.y, 0.6);
+    } else if (d.trampa === 'fuego') {
+      // la lengua del brasero volcado: arde unos segundos y quema a quien la cruce
+      d.t = (d.t ?? 0) + dt; if (d.t > 6) { o.dato = undefined; continue; }
+      d.p = (d.p ?? 0) - dt; if (d.p > 0) continue; d.p = 0.5;
+      for (const [x, y] of d.celdas as [number, number][]) for (const e of [h, ...j.monstruos]) if (!e.muerto && Math.abs(e.x - x) < 0.9 && Math.abs(e.y - y) < 0.9) { if (e === h) { const v = h.vidaMax * 0.03; danar(j, h, { min: v, max: v, elem: 'fuego', deHeroe: false, sinFallo: true }); } else if (!(e as Monstruo).dueno) { const m = e as Monstruo, v = m.vidaMax * (esJefe(m) ? 0.01 : 0.06); danar(j, m, { min: v, max: v, elem: 'fuego', deHeroe: true, fuente: h, sinFallo: true }); } }
+    }
+  }
+}
+/** El brasero flojo: de un clic se vuelca hacia el lado contrario al héroe y el aceite prende una lengua de cuatro celdas. */
+export function volcarBrasero(j: Juego, o: ObjZ) {
+  if (o.v !== 'en_pie') return;
+  const h = j.heroe, dx = o.cx + 0.5 - h.x, dy = o.cy + 0.5 - h.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
+  o.v = 'volcado'; o.tag = undefined; o.bloquea = false; j.zona.bloq[o.cy * j.zona.W + o.cx] = 0;
+  const celdas: [number, number][] = [];
+  for (let k = 1; k <= 4; k++) for (const s of [-0.6, 0.6]) { const x = o.cx + 0.5 + ux * k * 1.1 - uy * s * (k / 4), y = o.cy + 0.5 + uy * k * 1.1 + ux * s * (k / 4); if (!pasable(j.zona, x, y)) continue; celdas.push([x, y]); efecto(j, 'suelo_ardiente', x, y, 0, 0.6, 0, 6); }
+  (j.zona as any).trampas = undefined; o.dato = { trampa: 'fuego', celdas, t: 0, p: 0 };
+  efecto(j, 'explosion_fuego', o.cx + 0.5 + ux * 1.5, o.cy + 0.5 + uy * 1.5, 0, 0.8); sonar(j, 'explosion', o.cx + 0.5, o.cy + 0.5, 0.6);
+  particulas(j, o.cx + 0.5, o.cy + 0.5, 18, 'brasa', '#ffa040', 1.4, 20); j.sacudida = Math.max(j.sacudida, 0.25);
+}
+
 function actualizarAreas(j: Juego, dt: number) {
   for (const a of j.areas) {
     habEnCurso = a.deHeroe ? a.hab ?? null : null; deDonde = null;

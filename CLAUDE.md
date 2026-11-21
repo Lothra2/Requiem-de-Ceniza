@@ -798,9 +798,12 @@ el que esperaba hasta 5 s con un hueco libre lejos y una cuenta estricta que no 
   espera parada sin el que ronda): a7_islas2, a1_mina1 y a1_paramo a cielo abierto, nadie se desliza, tiembla, se congela ni
   empuja (láminas `lamina_*` y `cerca_*` en `/tmp/requiem-pruebas/e9/video`). t1010 (niveles 35 y 50, 3 semillas, contra main):
   muertes por hora 8,9 a 9,9 y 0 a 0, pociones por 100 bajas 21,9 a 18,6 y 6,5 a 7,0, a la vez 6,0 a 5,9 y 4,9 a 4,7 (ruido).
-- Pruebas: tsc, t1000 (todo en su piso), t1001, t1014 (96 iguales), t1015 (0 tapados), t855 (0 distintas), t370 (147, 0 malas),
-  conectividad 20 (980 conectados), t440, t450, t500, t961. `MAPA_V` sigue en 4. Una corrida de `todas 2` tarda unos 45 s sola
+- Pruebas: tsc, t1000 (todo en su piso), t1001, t1014 (96 iguales), t1015 (0 tapados), t855 (0 distintas), t370 (288, 0 malas),
+  conectividad 20 (1920 conectados), t440, t450, t500, t961. `MAPA_V` sigue en 4. Una corrida de `todas 2` tarda unos 45 s sola
   (2 min con tres a la vez y la nube cargada).
+- Ojo: un servidor de desarrollo que lleva horas recargando puede darle a las pruebas que importan módulos otra copia de
+  `actos.ts` sin las zonas de los actos 6 y 7 (t370 contó 147 y conectividad 980). Reiniciar el servidor antes de creerle a un
+  número raro.
 - Flojo: la prueba no pega (cd 999) y el corro lleno queda lleno los 9 s, así que la espera con corro lleno sigue llegando a 6,9 s
   (`esperaMax`, igual que antes: es de la prueba). El que ronda hacia un hueco lejano a veces topa a los dos lados y queda quieto
   hasta 0,6 s antes de ir por la vuelta larga. La cuenta objetiva mira el campo cada medio segundo: un paso que se abre y se cierra

@@ -1031,6 +1031,31 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
 - `catedral_luz.png` traía copias fantasma de los vitrales en el cielo (columnas claras a la izquierda de la catedral):
   `desenfocar(..., 26, 3)` en `catedral_portada.ts` leía la lámina RGBA como de 3 canales. Ya va con 4.
 - `__pOff` para comparar: `luna`, `jirones`, `humo`, `niebla`, `cat`, o `-<capa>,` para quitar una capa.
+- **El título arde en pixel** (Rick, 21 nov 2026: "más dramático, con fuego en las letras, pixelado, más Diablo 2").
+  `ui/titulo_fuego.ts` corre dos fuegos de Doom en una grilla de celdas de puntos enteros del aparato (unas 150 de ancho en
+  PC, 105 en táctil; la celda sale del ancho del título en el aparato) y `ui/fuego_pixel.ts` los pinta en bandas
+  (`BANDAS_LLAMA`, `BANDAS_METAL`, `BANDAS_HUMO`) con trama Bayer 4 x 4 y los pega sin suavizar (`pegarPixel`). El calor
+  pasa antes por un 1-2-1 (sin eso el autómata sale como sal regada). El de atrás nace del canto de arriba de cada letra
+  (la fila de abajo a 0,72 para no tapar el DE); el de adelante vive dentro de las letras (su forma es la máscara del
+  título) y nace del canto de abajo de cada trazo y de las grietas encendidas. Donde lo toca, el hierro se pone al rojo
+  (`calentar`, una capa sumada que sube rápido y se enfría despacio). Las brasas son cuadros de una celda que se enfrían de
+  banda en banda (`dibujarChispas`). El resplandor sigue blando (es luz, no fuego). No toca `fuego_doom.ts` (`__PINTOR__`).
+- **La entrada es un golpe de forja** (segundos desde que aparece el título, `GOLPE_T` y `ENCIENDE_T`): las letras se
+  calientan mientras aparecen, a los 0,7 s el martillazo (`golpeTitulo`: las letras al blanco sumando el título sobre sí
+  mismo, fogonazo, un temblor de 7 puntos que se va en 0,13 s, `golpe_metal` y 130 chispas que saltan de los cantos, 60 en
+  táctil) y a los 1,45 s el fuego se enciende del centro a los lados en 0,7 s con una bocanada (`avivar`, `fuego_lanzar`).
+  El temblor va por `acc.temblor` y los fogonazos por `acc.destellos`. La escena se agranda apenas mientras tiembla.
+- **Canto de brasa en los botones** (`ui/brasa_menu.ts`, `brasaRenglon`): el renglón encendido lleva un fuego de Doom chico
+  que nace del canto de abajo de cada letra y lo lame por detrás, y el borde de las letras en brasa de pixel, más vivo
+  abajo y donde lo toca la llama. Una grilla por renglón, solo se mueve mientras está encendido.
+- Banderas: `__tituloViejo` (el fuego liso de antes y sin golpe), `__menuViejo` (el dorado de antes). `__portadaReloj`
+  fija el tiempo de la escena y `__portadaMed` suma lo que cuesta por cuadro (fondo y título, ms de JS).
+- Pruebas: `t681_portada_fuego.cjs <etiqueta> [pc,pc1080,movil] [es,en]` (ocho momentos, el botón encendido y el costo;
+  `BANDERAS=__tituloViejo,__menuViejo` el antes), `t682_portada_golpe.cjs <etiqueta> [vista] [idioma]` (el golpe cuadro a
+  cuadro con el reloj fijo, `DESDE`, `HASTA`) y `python3 juego/herramientas/t681_lamina.py <antes> <ahora>` o `golpe
+  <etiqueta> <vista_idioma>` (láminas y letras al doble en `/tmp/requiem-pruebas/portada2/laminas`).
+  Costo en la nube (21 nov 2026, el título con su fuego, sin el fondo): 720 de 15 a 12 ms, 1080 de 28 a 20,
+  teléfono de 10 a 7 (el de antes agrandaba con el filtro bueno, que en la nube sale caro).
 
 ## Historia y canon (19 nov 2026)
 

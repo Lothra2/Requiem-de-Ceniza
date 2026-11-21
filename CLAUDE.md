@@ -470,6 +470,13 @@ Rick: "haz todo lo que falte, lo que quedó flojo y lo que falta de los actos 3 
   los arcos; el tambor de Yhuantl con el arco de la llamada (dos postes pintados con cráneos y plumas, el travesaño con
   cráneos y tamborcitos), la pintura verde que brilla en el tambor, fuego más alto y su luz más grande.
 
+- **Entrega 4 revisada**: t1000 (exterior arena 59 a 57, obra 57 a 55 con los braseros y las púas, montados obra 7 a 9,
+  adornos por pantalla obra 38 a 39; el ruedo de a6_arrecife bajaba a 8 por el desvío nuevo: en los actos 3 a 7 el desvío va
+  a 14 celdas más del claro del jefe), t1014 (96 iguales), t1011 (1 de 2545, el de siempre), t1001, t855 (0 de 192), t370
+  (288, 0 malas), t440, t450, t500 y conectividad 20 (1920). t1010 (niveles 35 y 50, 3 semillas, contra cc59d12): muertes por
+  hora 8,5 a 6,2 y 0 a 0, pociones por 100 bajas 16,3 a 17,4 y 9,3 a 5,9: dentro del ruido. El daño de las trampas al héroe
+  quedó en 5 % las púas y 6 % la grieta (con 7 y 10 % el nivel 35 subía).
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

@@ -15,6 +15,7 @@ const s = await createServer({ configFile: raiz + 'vite.config.ts', server: { mi
 const Z = await s.ssrLoadModule('/src/mundo/zona.ts'), A = await s.ssrLoadModule('/src/mundo/actos.ts');
 const man = JSON.parse(fs.readFileSync(raiz + 'public/assets/manifiesto.json', 'utf8'));
 const solo = process.env.SOLO ? new Set(process.env.SOLO.split(',')) : null;
+for (const b of (process.env.BANDERAS || '').split(',').filter(Boolean)) globalThis[b] = true; // (entrega 8: BANDERAS=__x,__y para medir el antes)
 const familia = (d, z) => (d.tipo === 'pueblo' ? 'pueblo' : d.tipo === 'exterior' ? 'exterior' : d.casa ? 'casa' : z.hueco ? 'cueva' : 'obra');
 // excepciones a propósito: apretado como tema (minas de riel, puentes sobre el vacío)
 const med = (a) => { if (!a.length) return 0; const t = [...a].sort((x, y) => x - y); return t[Math.floor(t.length / 2)]; };

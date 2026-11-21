@@ -1806,24 +1806,44 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // la mitad de las mazmorras de obra va con la sillería nueva de la Forja (muro_obra) en el estilo de su tema
   const estObra = ESCOMBRO_TEMA[def.tema] ?? 'cementerio', panos = ['liso', 'liso', 'pilastras', 'arco_ciego', 'pilastras', 'roto'];
   if (!t.organica && !t.islas && REGISTRO.some((d) => d.id === 'muro_obra') && r() < 0.5) opcionesMuro.splice(0, opcionesMuro.length, [['muro_obra', panos.map((q) => `${estObra}_${q}`)], ['muro_obra', panos.map((q) => `${estObra}_${q}_y`)]]);
-  const [[mx, vx], [my, vy]] = opcionesMuro[Math.floor(r() * opcionesMuro.length)];
+  // (entrega 8) La mina es roca cortada: la mitad salía con la sillería de obra (muro_obra) y se leía como una mazmorra con
+  // farolitos, y la otra mitad podía salir entera de pared con veta. Ahora siempre la roca de la galería (`cue_muro`) y en uno de
+  // cada seis tramos la veta que se trabajaba (`min_pared_veta`: oro, hierro o la sangre que brilla), con su propio azar (`rv`, no
+  // mueve el de la zona). La misma huella en los dos, así que la veta no cambia el trazado. `__minaObra` vuelve a lo de antes
+  const minaRoca = def.tema === 'mina' && !(globalThis as any).__minaObra, rv = rng(z.semilla * 4423 + 29);
+  const elegido = opcionesMuro[Math.floor(r() * opcionesMuro.length)];
+  const [[mx, vx], [my, vy]] = minaRoca ? [['cue_muro', ['x', 'x_alta']], ['cue_muro', ['y', 'y_alta']]] as [[string, string[]], [string, string[]]] : elegido;
+  const dVeta = minaRoca ? REGISTRO.find((d) => d.id === 'min_pared_veta') : undefined;
+  const conVeta = (d: (typeof REGISTRO)[number], v: string, eje: 'x' | 'y'): [(typeof REGISTRO)[number], string] => {
+    if (!dVeta || rv() > 1 / 6) return [d, v];
+    const q = rv(), vv = (q < 0.4 ? 'oro' : q < 0.65 ? 'hierro' : 'sangre') + (eje === 'y' ? '_y' : '');
+    return dVeta.variantes.includes(vv) && huellaDe(dVeta, vv).join() === huellaDe(d, v).join() ? [dVeta, vv] : [d, v];
+  };
   const defX = t.islas || abierto ? undefined : REGISTRO.find((d) => d.id === mx), defY = t.islas || abierto ? undefined : REGISTRO.find((d) => d.id === my);
   if (t.islas) islas(k, t.islas, suelo, sala);
   if (t.rieles) rieles(k, suelo, sala);
   // contrafuertes y derrumbes del estilo de la mazmorra, pegados al pie de los muros (cada tanto, no en todos)
   const estMuro = ESCOMBRO_TEMA[def.tema] ?? 'cementerio', dMuro = REGISTRO.find((d) => d.id === 'dec_muro');
-  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) ? 'contrafuerte' : 'derrumbe'}`, true); };
+  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) && !minaRoca ? 'contrafuerte' : 'derrumbe'}`, true); }; // (entrega 8: contra la roca de la mina no va un contrafuerte de sillería, va el derrumbe)
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!suelo[by * tw + bx]) continue;
     if (by === 0 || !suelo[(by - 1) * tw + bx]) if (defX) {
-      const v = vx[Math.floor(r() * vx.length)], [hw, hh] = huellaDe(defX, v);
-      k.poner(defX, bx * 5 + (hw - 1) / 2, by * 5 + (hh - 1) / 2, v, true);
-      aderezo(bx * 5 + 2, by * 5 + hh);
+      const v0 = vx[Math.floor(r() * vx.length)], [dX, v] = conVeta(defX, v0, 'x'), [hw, hh] = huellaDe(dX, v);
+      // (entrega 8: la roca de la mina tiene dos celdas de grueso: va con una celda metida en la roca de atrás, así la galería y el
+      //  túnel conservan el ancho que tenían con el muro de obra (un túnel de 3 lo cerraba un santuario y dejaba una sala aislada),
+      //  y con el centro sin redondear: `poner` lo guardaba una celda más adentro que lo que bloquea y la fila de atrás quedaba
+      //  libre, encerrada detrás del muro)
+      const mY = minaRoca && hh === 2 ? -1 : 0;
+      const oX = k.poner(dX, bx * 5 + (hw - 1) / 2, by * 5 + mY + (hh - 1) / 2, v, true);
+      if (oX && minaRoca) { oX.cx = bx * 5 + (hw - 1) / 2; oX.cy = by * 5 + mY + (hh - 1) / 2; }
+      aderezo(bx * 5 + 2, by * 5 + mY + hh);
     }
     if (bx === 0 || !suelo[by * tw + bx - 1]) if (defY) {
-      const v = vy[Math.floor(r() * vy.length)], [hw, hh] = huellaDe(defY, v);
-      k.poner(defY, bx * 5 + (hw - 1) / 2, by * 5 + (hh - 1) / 2, v, true);
-      aderezo(bx * 5 + hw, by * 5 + 2);
+      const v0 = vy[Math.floor(r() * vy.length)], [dY, v] = conVeta(defY, v0, 'y'), [hw, hh] = huellaDe(dY, v);
+      const mX = minaRoca && hw === 2 ? -1 : 0;
+      const oY = k.poner(dY, bx * 5 + mX + (hw - 1) / 2, by * 5 + (hh - 1) / 2, v, true);
+      if (oY && minaRoca) { oY.cx = bx * 5 + mX + (hw - 1) / 2; oY.cy = by * 5 + (hh - 1) / 2; }
+      aderezo(bx * 5 + mX + hw, by * 5 + 2);
     }
   }
   // el frente de las mazmorras de obra (hacia la cámara) no lleva muro: en vez de un piso cortado a regla, escombro y roca
@@ -1993,14 +2013,24 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   const nichoViejo = !!(globalThis as any).__nichoViejo;
   for (const [bx, by] of nichos) {
     const sur = !!sala[(by + 1) * tw + bx], cap0: string | undefined = k.capa; k.capa = 'escondido';
-    const [cx, cy] = nichoViejo ? [bx * 5 + 2, by * 5 + 2] : sur ? [bx * 5 + 1, by * 5 + 4] : [bx * 5 + 4, by * 5 + 1];
+    // (entrega 8: en la mina, ver abajo)
+    const g = 0;
+    const [cx, cy] = nichoViejo ? [bx * 5 + 2, by * 5 + 2] : sur ? [bx * 5 + 1 + g, by * 5 + 4] : [bx * 5 + 4, by * 5 + 1 + g];
+    // (y en la mina el nicho es un tramo sin salida: `rieles` le tiende el fin de vía y `orillaTunel` le echa piedras, y con la roca
+    //  de dos celdas no quedaba dónde poner el cofre. Lo de la vía y las piedras sueltas del nicho salen)
+    if (minaRoca) {
+      const nx0 = bx * 5 + g, ny0 = by * 5 + g, dentro = (o: ObjZ) => { const a = Math.round(o.cx - (o.hw - 1) / 2), b = Math.round(o.cy - (o.hh - 1) / 2); return a < bx * 5 + 5 && a + o.hw > nx0 && b < by * 5 + 5 && b + o.hh > ny0; };
+      z.objetos = z.objetos.filter((o) => { if (o.tag || !/^(min_riel|min_riel_fin|min_puntal|min_vagoneta|bor_risco)$/.test(o.id) || !dentro(o)) return true;
+        const a = Math.round(o.cx - (o.hw - 1) / 2), b = Math.round(o.cy - (o.hh - 1) / 2); if (o.bloquea) for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= nx0 && y >= ny0 && x < bx * 5 + 5 && y < by * 5 + 5 && !(z.hueco && z.hueco[y * z.W + x])) z.bloq[y * z.W + x] = 0;
+        return false; });
+    }
     const o = k.poner('cofre_noble', cx, cy, 'cerrado', false, 'cofre');
     if (o && nichoViejo) { o.dato = { escondido: true }; z.marcas.push({ tipo: 'cofre', cx, cy }); k.poner('cat_monton_huesos', cx - 2, cy + 1, 'de_calaveras'); k.poner('cem2_velas_tumba', cx + 1, cy - 2, 'derretidas'); }
     else if (o) {
       o.dato = { escondido: true }; z.marcas.push({ tipo: 'cofre', cx, cy });
       // los huesos y una vela al fondo, las velas de la boca afuera, a los dos lados del hueco
-      if (sur) { k.poner('cat_monton_huesos', bx * 5 + 3, by * 5 + 1, 'de_calaveras'); k.poner('cem2_velas_tumba', bx * 5 + 1, by * 5 + 1, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5, by * 5 + 5, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 4, by * 5 + 5, 'derretidas'); }
-      else { k.poner('cat_monton_huesos', bx * 5 + 1, by * 5 + 3, 'de_calaveras'); k.poner('cem2_velas_tumba', bx * 5 + 1, by * 5 + 1, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 5, by * 5, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 5, by * 5 + 4, 'derretidas'); }
+      if (sur) { k.poner('cat_monton_huesos', bx * 5 + 3, by * 5 + 1 + g, 'de_calaveras'); k.poner('cem2_velas_tumba', bx * 5 + 1 + g, by * 5 + 1 + g, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5, by * 5 + 5, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 4, by * 5 + 5, 'derretidas'); }
+      else { k.poner('cat_monton_huesos', bx * 5 + 1 + g, by * 5 + 3, 'de_calaveras'); k.poner('cem2_velas_tumba', bx * 5 + 1 + g, by * 5 + 1 + g, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 5, by * 5, 'derretidas'); k.poner('cem2_velas_tumba', bx * 5 + 5, by * 5 + 4, 'derretidas'); }
     }
     k.capa = cap0;
   }
@@ -2359,6 +2389,9 @@ function alumbrarVias(z: Zona, def: DefZona) {
     const norte = M(i - W) && M(i - W - 1) && M(i - W + 1) && !M(i - 1) && !M(i + 1), oeste = M(i - 1) && M(i - 1 - W) && M(i - 1 + W) && !M(i - W) && !M(i + W);
     if (!norte && !oeste) continue;
     if (z.bloq[i + 1] !== 0 || z.bloq[i + W] !== 0) continue; // (con paso delante)
+    // (entrega 8: y con paso ancho: con la roca de dos celdas de la galería, un farol en la boca de un paso de una celda la cerraba
+    //  para la cuenta estricta, que cuenta lo ocupado como muro; ahora el cuadro de 3 x 3 de delante tiene que estar libre)
+    { let ancho = true; for (let dy = 0; dy <= 2 && ancho; dy++) for (let dx = 0; dx <= 2 && ancho; dx++) if ((dx || dy) && z.bloq[i + dy * W + dx] !== 0) ancho = false; if (!ancho) continue; }
     if (z.salidas.some((s) => Math.hypot(s.cx - x, s.cy - y) < 5) || jefes.some((q) => Math.hypot(q.cx - x, q.cy - y) < 12)) continue;
     const lejos = 9 + rv() * 3;
     if (fuegos.some(([a, b]) => Math.hypot(a - x, b - y) < 5) || puestos.some((q) => Math.hypot(q.cx - x, q.cy - y) < lejos)) continue;
@@ -2423,6 +2456,7 @@ function desmontarFinal(z: Zona, def: DefZona) {
   for (let i = 0; i < L.length; i++) { const a = L[i]; if (quitar.has(a.o)) continue;
     for (let j = i + 1; j < L.length; j++) { const b = L[j]; if (quitar.has(b.o) || (a.p === 9 && b.p === 9) || juntos(a.o, b.o) || pisa(a, b) < 0.55) continue;
       const pierde = a.p !== b.p ? (a.p < b.p ? a : b) : a.a < b.a ? a : b;
+      if (marcoAnteFondo(a.o, b.o)) continue;
       if (pierde.p === 9) continue;
       const o = pierde.o; soltar(o);
       prueba.k = pierde.k; prueba.a = pierde.a;
@@ -2554,7 +2588,7 @@ function esquinasMuro(z: Zona) {
  * sin azar. El escombro del frente y de los muros (el derrumbe es del muro) no se mueve. `__pegadosAlMuro` lo apaga. Lo pegado a la cara del muro sin meterse ya no queda debajo: el muro se pinta en
  * franjas de una celda (`franjasDe` en escena.ts). Prueba: `t1015_tapados.mjs`.
  */
-const MURO_TAPA = /muro|muralla|nichos|pared_toba|esquina|almena|reja|tapia/;
+const MURO_TAPA = /muro|muralla|nichos|pared_toba|pared_veta|esquina|almena|reja|tapia/; // (entrega 8: la pared con veta de la mina es muro: `desmontarFinal` la sacaba y abría un hueco en la roca)
 const NO_DESPEGA = /escombro|muro|muralla|almena|penasco|risco|nichos|reja|puerta|porton|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina|macizo|pared_toba/;
 function despegarDeMuros(z: Zona) {
   if ((globalThis as any).__pegadosAlMuro) return;
@@ -2827,6 +2861,13 @@ const CU_VELA = /vela|candel|cirio|lampara_aceite/;
 const CU_TELA = /telar/;
 const CU_RITO = /altar|santuario|lapida|tumba|sarcof|ataud|trono|libro|estatua|cruz|obelisco|relicario|pila_agua|atril|embalsamar|pentagrama|osario|nichos|capilla|angel/;
 const CU_ANCLA_GORE = /^hor_|horca|empal|jaula|pila_cad|tortura|crucific|picas|colgad|patibulo|cuervos_cadaver|nido_huesos|inf2_cuerpos|par_cadaver|des_esqueleto|ahg_red_huesos|pozo_huesos|trono_huesos|foso|cel_angel_caido|restos_batalla|pila_craneos/;
+/** (entrega 8) El marco de la mina contra la roca: delante del derrumbe que rellena el hueco de atrás (capa `relleno`, que es
+ * fondo y no adorno) se lee como el marco contra la pared de la galería, no como dos cosas montadas. Ese par no se desmonta. */
+function marcoAnteFondo(a: ObjZ, b: ObjZ) {
+  if ((globalThis as any).__entibadoE7) return false;
+  const m = (o: ObjZ) => o.capa === 'pared' && /^(min_puntal|cue_puntal|min_linternas_cuerda)$/.test(o.id);
+  return (m(a) && b.capa === 'relleno') || (m(b) && a.capa === 'relleno');
+}
 const CU_ESTRUCTURA = /muro|pared|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina/;
 const CU_FALSO = /cofre|arcon|baul/;
 const CAPA_RIEGO = new Set(['riego', 'vida', 'macabro']);
@@ -2872,6 +2913,7 @@ function desmontar(z: Zona, quitar: Set<ObjZ>, fijos: Set<ObjZ>, sacar: (o: ObjZ
   for (let i = 0; i < L.length; i++) { const a = L[i]; if (quitar.has(a.o)) continue;
     for (let j = 0; j < L.length; j++) { if (j === i) continue; const b = L[j]; if (quitar.has(b.o) || (a.p === 9 && b.p === 9) || pisa(a, b) < 0.55) continue;
       const pierde = a.p !== b.p ? (a.p < b.p ? a : b) : a.a < b.a ? a : b;
+      if (marcoAnteFondo(a.o, b.o)) continue;
       if (pierde.p === 9) continue;
       // lo que no bloquea primero se corre a un sitio cerca donde no pise a nadie (la densidad no baja); lo que bloquea sale (correrlo
       // cerraba arena)
@@ -3248,6 +3290,99 @@ function curarAdornos(z: Zona, def: DefZona) {
     };
     const jfP = z.spawns.find((s) => s.tipo === 'jefe');
     const enRuedo = (x: number, y: number) => !!jfP && Math.hypot(x - jfP.cx, y - jfP.cy) < 12;
+    if (def.tema === 'mina' && !(globalThis as any).__minaPelada && !(globalThis as any).__entibadoE7) entibar();
+    // (entrega 8) El entibado de la mina, primero que todo lo de la pared. En la entrega 7 iba después de lo de la pared y de lo
+    // suelto, y la caja del marco casi siempre pisaba algo que ya estaba contra la roca: salían 0 a 9 marcos por mina (de 2448
+    // sitios, 1328 se perdían por la caja y 797 por la huella). Una mina se lee por sus marcos, así que ahora lo suelto le cede el
+    // sitio: lo regado, la vida y lo macabro sin tag, de 4 celdas o menos, que pisan la huella o la caja del marco salen (lo que bloqueaba libera sus
+    // celdas al final, como todo lo que se quita). Lo que pesa (tags, cofres, escenas, relatos, horror, jefe, matanzas, puertas,
+    // trampas, luces, estructura, escombro) no cede: ahí no va marco. Contra el muro de atrás (norte u oeste) cada 4 a 6 celdas, a
+    // lo largo de cada tramo de roca; también en los túneles de 4 a 6 de ancho (no bloquea: se pasa por delante). Además los túneles
+    // con vía llevan su marco que cruza sobre los rieles cada 5 a 10 celdas (los de `rieles` salían en uno de cada cuatro tramos).
+    // Azar propio (`re`). `__entibadoE7` vuelve al de antes
+    function entibar() {
+      const re = rng(z.semilla * 5309 + 73), pk = <T,>(a: T[]) => a[Math.floor(re() * a.length)];
+      const Mm = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || !!muro[y * W + x] || z.bloq[y * W + x] === 1;
+      const PESA = /linterna|antorcha|brasero|horno|fogata|vela|escombro|cofre|urna|barril|trampa|vagon|veta|minero/;
+      const cede = (o: ObjZ) => !o.tag && !fijos.has(o) && !quitar.has(o) && !plano(o.id) && !CU_ESTRUCTURA.test(o.id) && !PESA.test(o.id) && o.hw * o.hh <= 4 && (!o.capa || o.capa === 'vida' || o.capa === 'riego' || o.capa === 'macabro');
+      // quién está en cada celda y la caja de cada uno (lo que no es plano ni estructura)
+      const quien = new Map<number, ObjZ[]>(), cajas: { o: ObjZ; k: [number, number, number, number] }[] = [];
+      for (const o of z.objetos) {
+        if (quitar.has(o) || plano(o.id)) continue;
+        for (let y = y0De(o); y < y0De(o) + o.hh; y++) for (let x = x0De(o); x < x0De(o) + o.hw; x++) { if (x < 0 || y < 0 || x >= W || y >= H) continue; const i = y * W + x; let L = quien.get(i); if (!L) quien.set(i, (L = [])); L.push(o); }
+        if (CU_ESTRUCTURA.test(o.id) || o.capa === 'relleno') continue;
+        const k = cajaDe(o.id, o.v ?? '', o.cx, o.cy); if (k) cajas.push({ o, k });
+      }
+      // (lo plano de debajo que importa: la vía, un sello o un círculo, y los lugares de gente; un charco o una mancha de sangre
+      //  bajo el marco no estorban)
+      const planoDuro = new Uint8Array(N);
+      for (const o of z.objetos) if (!quitar.has(o) && plano(o.id) && !/sangre|gore|charco|gotera|mancha|huellas|rastro|ceniza|hojas|polvo/.test(o.id)) for (let y = y0De(o); y < y0De(o) + o.hh; y++) for (let x = x0De(o); x < x0De(o) + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H) planoDuro[y * W + x] = 1;
+      for (const mk of z.marcas) if (mk.tipo !== 'cofre') for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { const X = Math.round(mk.cx) + dx, Y = Math.round(mk.cy) + dy; if (X >= 0 && Y >= 0 && X < W && Y < H) planoDuro[Y * W + X] = 1; }
+      // una celda vale si es piso que se alcanza, sin muro, sin nada plano debajo, lejos de las puertas y del ruedo, y lo que la
+      // ocupa cede
+      const celda = (x: number, y: number, ced: Set<ObjZ>) => {
+        if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || enRuedo(x, y)) return false;
+        const i = y * W + x; if (muro[i] || planoDuro[i] || puerta[i] || !alcanza[i] || !piso(x, y)) return false;
+        const L = quien.get(i); if (L) for (const o of L) { if (quitar.has(o)) continue; if (!cede(o)) return false; ced.add(o); }
+        if (!L && z.bloq[i] !== 0) return false; // (roca sin objeto: no)
+        return true;
+      };
+      const marcos: [number, number][] = [];
+      let ceder = false; // (primera vuelta sin que nadie ceda; la segunda, donde no quedó otra, lo suelto cede)
+      const intentar = (id: string, vv: string, x0: number, y0: number) => {
+        const dd = REGISTRO.find((q) => q.id === id); if (!dd || !dd.variantes.includes(vv)) return false;
+        const [hw, hh] = huellaDe(dd, vv), ced = new Set<ObjZ>();
+        for (let yy = y0; yy < y0 + hh; yy++) for (let xx = x0; xx < x0 + hw; xx++) if (!celda(xx, yy, ced)) return false;
+        const cx = x0 + (hw - 1) / 2, cy = y0 + (hh - 1) / 2, k = cajaDe(id, vv, cx, cy); // (sin redondear: ver `ponerEn`)
+        if (k) for (const q of cajas) {
+          if (quitar.has(q.o) || ced.has(q.o)) continue;
+          const ix = Math.min(k[2], q.k[2]) - Math.max(k[0], q.k[0]), iy = Math.min(k[3], q.k[3]) - Math.max(k[1], q.k[1]);
+          if (ix <= 0 || iy <= 0 || (ix * iy) / Math.min((k[2] - k[0]) * (k[3] - k[1]), (q.k[2] - q.k[0]) * (q.k[3] - q.k[1])) <= 0.25) continue;
+          if (!cede(q.o)) return false; ced.add(q.o);
+        }
+        if (ced.size && !ceder) return false;
+        for (const o of ced) sacar(o);
+        const o: ObjZ = { id, v: vv, cx, cy, hw, hh, bloquea: false, capa: 'pared' }; z.objetos.push(o); puestos.push(o);
+        if (k) cajas.push({ o, k });
+        for (let yy = y0; yy < y0 + hh; yy++) for (let xx = x0; xx < x0 + hw; xx++) { const i = yy * W + xx; let L = quien.get(i); if (!L) quien.set(i, (L = [])); L.push(o); }
+        return true;
+      };
+      for (const vuelta of [0, 1]) { ceder = vuelta === 1; for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) for (const lado of ['n', 'o'] as const) {
+        const oeste = lado === 'o', i = y * W + x;
+        if (muro[i] || z.bloq[i] === 1 || ancho[i] < 4 || !(oeste ? Mm(x - 1, y) && Mm(x - 1, y + 1) && Mm(x - 1, y + 2) && Mm(x - 1, y + 3) : Mm(x, y - 1) && Mm(x + 1, y - 1) && Mm(x + 2, y - 1) && Mm(x + 3, y - 1))) continue;
+        const lejos = 4 + re() * 2; if (marcos.some(([a, b]) => Math.hypot(a - x, b - y) < lejos)) continue;
+        // (en el túnel, de 4 a 6 de ancho, solo el marco: la cuerda de faroles y el puntal con farol van en las salas)
+        // (la mina vive de sus faroles: la mitad de los marcos llevan luz, el puntal con farol contra el norte y la cuerda de faroles
+        //  entre dos postes contra el oeste)
+        const k = re(), tunel = ancho[i] <= 6, id = tunel ? 'min_puntal' : oeste ? (k < 0.55 ? 'min_puntal' : 'min_linternas_cuerda') : k < 0.3 ? 'min_puntal' : k < 0.82 ? 'cue_puntal' : 'min_linternas_cuerda';
+        const v = id === 'min_puntal' ? pk(['entero', 'entero', 'entero', 'reforzado', 'reforzado', 'pandeado', 'roto']) : id === 'cue_puntal' ? pk(['entero', 'farol', 'farol', 'farol', 'farol', 'roto']) : pk(['tres', 'tres', 'tres', 'caida']);
+        // (el marco va paralelo al muro: el min_puntal sin _y cruza el eje y, así que contra el muro norte va con _y y al revés)
+        const vv = id === 'min_puntal' ? (oeste ? v : v + '_y') : id === 'min_linternas_cuerda' ? (oeste ? v + '_y' : v) : v;
+        if (intentar(id, vv, x, y)) marcos.push([x, y]);
+      } }
+      // los túneles con vía: el marco que cruza sobre los rieles (como los de `rieles`), en los tramos rectos que no lo tienen
+      const puntales = z.objetos.filter((o) => o.id === 'min_puntal' && !quitar.has(o)).map((o) => [o.cx, o.cy]);
+      for (const o of z.objetos.filter((q) => q.id === 'min_riel' && !quitar.has(q))) {
+        if (re() > 0.75) continue;
+        const enY = o.hh > o.hw, cx = o.cx + (enY ? 2 : 0), cy = o.cy + (enY ? 0 : 2);
+        if (puntales.some(([a, b]) => Math.hypot(a - cx, b - cy) < 4.5)) continue;
+        const dd = REGISTRO.find((q) => q.id === 'min_puntal'); if (!dd) break;
+        const vv = (enY ? pk(['entero', 'entero', 'reforzado', 'pandeado']) + '_y' : pk(['entero', 'entero', 'reforzado', 'pandeado'])); if (!dd.variantes.includes(vv)) continue;
+        const [hw, hh] = huellaDe(dd, vv), x0 = Math.round(cx - (hw - 1) / 2), y0 = Math.round(cy - (hh - 1) / 2);
+        // (va sobre la vía, que es plana: aquí lo plano debajo vale; lo demás como siempre)
+        let ok = true; const ced = new Set<ObjZ>();
+        for (let yy = y0; yy < y0 + hh && ok; yy++) for (let xx = x0; xx < x0 + hw && ok; xx++) { const i = yy * W + xx; if (xx < 1 || yy < 1 || xx >= W - 1 || yy >= H - 1 || enRuedo(xx, yy) || puerta[i] || !alcanza[i] || muro[i]) { ok = false; break; } const L = quien.get(i); if (L) { for (const q of L) if (!quitar.has(q)) { if (cede(q)) ced.add(q); else ok = false; } } else if (z.bloq[i] === 1) ok = false; }
+        if (!ok) continue;
+        const k = cajaDe('min_puntal', vv, cx, cy);
+        if (k && cajas.some((q) => !quitar.has(q.o) && !ced.has(q.o) && !cede(q.o) && Math.min(k[2], q.k[2]) - Math.max(k[0], q.k[0]) > 0 && Math.min(k[3], q.k[3]) - Math.max(k[1], q.k[1]) > 0 && ((Math.min(k[2], q.k[2]) - Math.max(k[0], q.k[0])) * (Math.min(k[3], q.k[3]) - Math.max(k[1], q.k[1]))) / Math.min((k[2] - k[0]) * (k[3] - k[1]), (q.k[2] - q.k[0]) * (q.k[3] - q.k[1])) > 0.25)) continue;
+        for (const q of ced) sacar(q);
+        const p: ObjZ = { id: 'min_puntal', v: vv, cx, cy, hw, hh, bloquea: false, capa: 'pared' }; z.objetos.push(p); puestos.push(p); puntales.push([cx, cy]);
+        if (k) cajas.push({ o: p, k });
+      }
+      // lo que cedió ya no cuenta como caja para lo que viene después
+      cajasHay.length = 0;
+      for (const o of z.objetos) { if (quitar.has(o) || plano(o.id) || CU_ESTRUCTURA.test(o.id) || o.capa === 'relleno') continue; const c = cajaDe(o.id, o.v ?? '', o.cx, o.cy); if (c) cajasHay.push(c); }
+    }
     // (entrega 3) los que se escondieron aquí: contra el muro de atrás de algunas salas de obra, el rincón donde alguien
     // durmió y esperó (el jergón, sus velas, el taburete volcado y lo que quedó de él). Nada bloquea. Una sala de cada
     // tantas, a 16 celdas uno de otro. Azar propio (`rf`); `__sinRefugios` lo apaga
@@ -3310,7 +3445,9 @@ function curarAdornos(z: Zona, def: DefZona) {
       for (let k = 0; k < (lado === 'n' ? hw : hh) && ok; k++) { const X = lado === 'n' ? x0 + k : x0, Y = lado === 'n' ? y0 : y0 + k; if (!(lado === 'n' ? M(X, Y - 1) : M(X - 1, Y)) || !pasa(lado === 'n' ? (y0 + hh) * W + X : Y * W + x0 + hw)) ok = false; }
       if (!ok) continue;
       // (nada de esto bloquea: va contra el muro y se pasa por delante, así la arena no baja)
-      poner(id, v, Math.round(x0 + (hw - 1) / 2), Math.round(y0 + (hh - 1) / 2), hw, hh, false);
+      // (entrega 8: en la mina sin redondear el centro: una huella par se corría una celda y quedaba con media huella sobre la roca)
+      const r0 = def.tema === 'mina' && !(globalThis as any).__entibadoE7 ? (q: number) => q : Math.round;
+      poner(id, v, r0(x0 + (hw - 1) / 2), r0(y0 + (hh - 1) / 2), hw, hh, false);
     }
     // (entrega 3: la obra quedaba en 35 adornos por pantalla) lo que cuelga del muro deja su rastro al pie: bajo las
     // cadenas, los huesos del que murió encadenado; bajo el candelero, la cera y las velas que se cayeron; bajo las momias
@@ -3353,8 +3490,37 @@ function curarAdornos(z: Zona, def: DefZona) {
     const M = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= H || !!muro[y * W + x] || z.bloq[y * W + x] === 1;
     // (y el medio de la sala, `z.claros`, se deja libre para pelear, pero lo que va pegado a la roca no le quita nada: en las
     //  minas la franja contra la roca casi siempre cae dentro del claro, y con el `libreC` de las paredes no entraba nada)
-    const libreC = (x: number, y: number) => { if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) return false; const i = y * W + x; return z.bloq[i] === 0 && !muro[i] && !bajoPlano[i] && !puerta[i] && !!alcanza[i]; };
+    // (entrega 8: y sobre piso de verdad: lo suelto contra la roca de adelante quedaba con media huella fuera de la baldosa, flotando)
+    const libreC = (x: number, y: number) => { if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1) return false; const i = y * W + x; return z.bloq[i] === 0 && !muro[i] && !bajoPlano[i] && !puerta[i] && !!alcanza[i] && ((globalThis as any).__entibadoE7 || piso(x, y)); };
     const rm = rng(z.semilla * 5303 + 71), pick = <T,>(a: T[]) => a[Math.floor(rm() * a.length)];
+    if (!(globalThis as any).__viaCortada) entrarVias();
+    // (entrega 8) La vía entra a la galería. `rieles` la tiende solo por los túneles y se cortaba de golpe en la boca de cada
+    // sala, como si los rieles no llevaran a ningún lado. Ahora sigue una baldosa dentro de la sala, gastada o hundida (plana:
+    // no estorba la pelea ni cambia la arena), y lo que se pone después no cae encima. Azar propio (`rw`). `__viaCortada` vuelve
+    // a lo de antes
+    function entrarVias() {
+      const rw = rng(z.semilla * 6151 + 5), dR = REGISTRO.find((q) => q.id === 'min_riel'); if (!dR) return;
+      const tile = (o: ObjZ) => [Math.floor(o.cx / 5), Math.floor(o.cy / 5)];
+      const conVia = new Set<number>(); const vias = z.objetos.filter((o) => /^min_riel/.test(o.id) && !quitar.has(o));
+      for (const o of vias) { const [bx, by] = tile(o); conVia.add(by * tw + bx); }
+      const sueloT = (bx: number, by: number) => bx >= 0 && by >= 0 && bx < tw && by < z.th && !!z.pisos[by * tw + bx];
+      const hechas = new Set<number>();
+      for (const o of vias) {
+        if (o.id === 'min_riel_fin') continue;
+        const [bx, by] = tile(o), recto = o.id === 'min_riel', enY = o.hh > o.hw;
+        const dirs: [number, number][] = recto ? (enY ? [[0, 1], [0, -1]] : [[1, 0], [-1, 0]]) : [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        for (const [dx, dy] of dirs) {
+          const tx = bx + dx, ty = by + dy, ti = ty * tw + tx; if (!sueloT(tx, ty) || conVia.has(ti) || hechas.has(ti) || rw() > 0.8) continue;
+          const ejeY = dy !== 0, v = (rw() < 0.6 ? 'gastado' : 'hundido') + (ejeY ? '_y' : ''); if (!dR.variantes.includes(v)) continue;
+          const [hw, hh] = huellaDe(dR, v), cx = tx * 5 + 2, cy = ty * 5 + 2, x0 = Math.round(cx - (hw - 1) / 2), y0 = Math.round(cy - (hh - 1) / 2);
+          let ok = true;
+          for (let y = y0; y < y0 + hh && ok; y++) for (let x = x0; x < x0 + hw && ok; x++) { const i = y * W + x; if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || z.bloq[i] !== 0 || muro[i] || bajoPlano[i] || !alcanza[i] || enRuedo(x, y)) ok = false; }
+          if (!ok) continue;
+          const nv: ObjZ = { id: 'min_riel', v, cx, cy, hw, hh, bloquea: false, capa: 'via' }; z.objetos.push(nv); hechas.add(ti);
+          for (let y = y0; y < y0 + hh; y++) for (let x = x0; x < x0 + hw; x++) bajoPlano[y * W + x] = 1;
+        }
+      }
+    }
     // un marco o una composición contra el muro norte (u a lo largo de x, w hacia +y) o el oeste (u a lo largo de y, w hacia +x)
     const cabe = (x0: number, y0: number, hw: number, hh: number) => { for (let yy = y0; yy < y0 + hh; yy++) for (let xx = x0; xx < x0 + hw; xx++) if (!libreC(xx, yy) || enRuedo(xx, yy)) return false; return true; };
     const ponerEn = (id: string, v: string, x0: number, y0: number, oeste: boolean) => {
@@ -3362,11 +3528,15 @@ function curarAdornos(z: Zona, def: DefZona) {
       const vs = dd.variantes, vy = oeste && vs.includes(v + '_y') ? v + '_y' : v; if (!vs.includes(vy)) return false;
       let [hw, hh] = huellaDe(dd, vy); if (oeste && vy === v && hw !== hh) [hw, hh] = [hh, hw];
       if (!cabe(x0, y0, hw, hh)) return false;
-      return poner(id, vy, Math.round(x0 + (hw - 1) / 2), Math.round(y0 + (hh - 1) / 2), hw, hh, false);
+      // (entrega 8: el centro de una huella par cae en media celda; redondearlo corría la pieza una celda fuera de donde se miró,
+      //  y lo de contra la roca de adelante quedaba con media huella fuera de la baldosa)
+      const ox = (globalThis as any).__entibadoE7 ? Math.round(x0 + (hw - 1) / 2) : x0 + (hw - 1) / 2, oy = (globalThis as any).__entibadoE7 ? Math.round(y0 + (hh - 1) / 2) : y0 + (hh - 1) / 2;
+      return poner(id, vy, ox, oy, hw, hh, false);
     };
-    // (1) el entibado
+    // (1) el entibado (el de la entrega 7: va después de lo de la pared y lo suelto, y su caja casi siempre pisaba algo: 2 a 4
+    //  marcos por mina. Ahora va primero, en `entibar`; `__entibadoE7` vuelve a este)
     const marcos: [number, number][] = [];
-    for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) for (const lado of ['n', 'o'] as const) {
+    if ((globalThis as any).__entibadoE7) for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) for (const lado of ['n', 'o'] as const) {
       const oeste = lado === 'o';
       if (!libreC(x, y) || ancho[y * W + x] <= 6 || !(oeste ? M(x - 1, y) && M(x - 1, y + 1) && M(x - 1, y + 2) : M(x, y - 1) && M(x + 1, y - 1) && M(x + 2, y - 1))) continue;
       const lejos = 4 + rm() * 2; if (marcos.some(([a, b]) => Math.hypot(a - x, b - y) < lejos)) continue;
@@ -3393,7 +3563,7 @@ function curarAdornos(z: Zona, def: DefZona) {
     let turno = Math.floor(rm() * FAENAS.length);
     for (let y = 3; y < H - 4; y++) for (let x = 3; x < W - 4; x++) {
       const oeste = !M(x, y - 1); if (oeste ? !M(x - 1, y) || !M(x - 1, y + 3) : !M(x + 3, y - 1) || !M(x, y - 1)) continue;
-      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6 || rm() > 0.45 || hechas.some(([a, b]) => Math.hypot(a - x, b - y) < 9)) continue;
+      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6 || rm() > ((globalThis as any).__entibadoE7 ? 0.45 : 0.6) || hechas.some(([a, b]) => Math.hypot(a - x, b - y) < ((globalThis as any).__entibadoE7 ? 9 : 8))) continue;
       const comp = FAENAS[turno % FAENAS.length]; let n = 0, primero = true;
       for (const [id, vs, u, w] of comp) {
         const v = Array.isArray(vs) ? pick(vs) : vs, ok = ponerEn(id, v, oeste ? x + w : x + u, oeste ? y + u : y + w, oeste);
@@ -3404,7 +3574,7 @@ function curarAdornos(z: Zona, def: DefZona) {
     // lo que dejaron contra cualquier roca (también la de adelante): mineral, herramientas, cajones, un pico; chico y suelto
     const SUELTO: Pz[] = [['min_herramientas', ['tiradas', 'apoyadas'], 0, 0], ['min_cajones', ['rotos', 'pila'], 0, 0], ['min_pico_clavado', ['carbon', 'hierro'], 0, 0], ['min_carretilla', ['volcada', 'vacia'], 0, 0], ['cat2_huesos_suelo', ['pocos'], 0, 0]];
     for (let y = 3; y < H - 3; y++) for (let x = 3; x < W - 3; x++) {
-      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6 || !(M(x + 2, y) || M(x, y + 2) || M(x - 1, y) || M(x, y - 1)) || rm() > 0.2 || !lejosDeOtros(x, y, 3.5)) continue;
+      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6 || !(M(x + 2, y) || M(x, y + 2) || M(x - 1, y) || M(x, y - 1)) || rm() > ((globalThis as any).__entibadoE7 ? 0.2 : 0.35) || !lejosDeOtros(x, y, (globalThis as any).__entibadoE7 ? 3.5 : 3)) continue;
       const [id, vs] = pick(SUELTO); ponerEn(id, pick(vs as string[]), x, y, false);
     }
     // (3) las goteras: planas, en el medio también, nunca en un paso

@@ -17,7 +17,7 @@ const s = await createServer({ configFile: raiz + 'vite.config.ts', server: { mi
 const Z = await s.ssrLoadModule('/src/mundo/zona.ts'), A = await s.ssrLoadModule('/src/mundo/actos.ts'), AZ = await s.ssrLoadModule('/src/nucleo/azar.ts');
 const man = JSON.parse(fs.readFileSync(raiz + 'public/assets/manifiesto.json', 'utf8')).o;
 const solo = process.env.SOLO ? new Set(process.env.SOLO.split(',')) : null;
-const EST = /muro|pared_toba|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina|macizo|escombro|sendero|trampa|camino/;
+const EST = /muro|pared_toba|pared_veta|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina|macizo|escombro|sendero|trampa|camino/; // (entrega 8: la pared con veta es muro de la mina)
 const tot = { flotando: 0, repetidos: 0, salida: 0, montados: 0, hito: 0 }, porPieza = {}, casos = [];
 const suma = (t, id) => { porPieza[t + ' ' + id] = (porPieza[t + ' ' + id] || 0) + 1; };
 for (const d of Object.values(A.ZONAS)) {

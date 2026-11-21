@@ -15,7 +15,7 @@ const DIR = '/tmp/requiem-pruebas/fantasmas';
   const esperarJuego = async (s) => { const t0 = await t(); for (let i = 0; i < 400 && (await t()) - t0 < s; i++) await p.waitForTimeout(100); };
   const limpiar = () => p.evaluate(() => { const j = window.__juego(), h = j.heroe; h.vida = h.vidaMax = 1e7; j.zona.oscuridad = 0.3; j.monstruos.forEach((o) => { if (!o.dueno) { o.vida = 0; o.muerto = true; o.tMuerto = 999; } }); });
   const fallos = [], out = { zonas: {} };
-  const ir = async (z) => { await p.evaluate((z) => window.__ir(z), z); await esperarJuego(2.5); await limpiar(); };
+  const ir = async (z) => { await p.evaluate((z) => window.__ir(z), z); for (let i = 0; i < 300 && !(await p.evaluate((z) => { const j = window.__juego(); return j && j.zona.id === z && window.__estado?.() !== 'carga'; }, z)); i++) await p.waitForTimeout(100); await esperarJuego(2.5); await limpiar(); };
   const fantasmasDe = () => p.evaluate(() => (window.__juego().zona.fantasmas || []).map((f) => ({ id: f.id, x: f.x, y: f.y, estado: f.estado, i: f.i, n: f.lineas.length })));
 
   // 1. sin Vesperio muerto no sale
@@ -23,13 +23,11 @@ const DIR = '/tmp/requiem-pruebas/fantasmas';
   await ir('a6_barrio2');
   const antes = await fantasmasDe(); out.sinHeraldo = antes;
   if (antes.some((f) => f.id.startsWith('v_'))) fallos.push('Vesperio salió sin haber muerto en la Fragua');
+  await p.evaluate(() => { delete window.__juego().zona.fantasmas; }); // (al volver se arman de nuevo, ya con Vesperio muerto)
 
   // 2. con Vesperio muerto, en sus cuatro sitios
   await p.evaluate(() => { window.__juego().heroe.d.heraldoMuerto = true; });
-  for (const z of ['a6_costa', 'a6_barrio2', 'a7_cielo', 'a7_jardin', 'a1_bosque']) {
-    await p.evaluate(() => { delete window.__juego().zona.fantasmas; });
-    await ir(z);
-    await p.evaluate(() => { delete window.__juego().zona.fantasmas; });
+  for (const z of ['a6_costa', 'a7_cielo', 'a7_jardin', 'a1_bosque', 'a6_barrio2']) {
     await ir(z);
     const fs_ = await fantasmasDe(), lug = await p.evaluate(() => (window.__juego().zona.lugares || []).map((l) => ({ papel: l.papel, cx: l.cx, cy: l.cy })));
     const f = fs_[0]; if (!f) { fallos.push(`${z}: sin fantasma`); continue; }
@@ -38,16 +36,23 @@ const DIR = '/tmp/requiem-pruebas/fantasmas';
     out.zonas[z] = { id: f.id, lineas: f.n, junto: hito?.papel, dist: +dl.toFixed(1) };
     if (!hito || dl > 12) fallos.push(`${z}: el fantasma queda a ${dl.toFixed(1)} de su ${hito?.papel ?? 'lugar'}`);
     // el héroe llega de frente, a 4 casillas
-    await p.evaluate(([x, y]) => { const j = window.__juego(), h = j.heroe, Z = j.zona; for (const [dx, dy] of [[3, 3], [4, 0], [0, 4], [-3, 3], [3, -3], [-4, 0], [0, -4]]) { const X = x + dx, Y = y + dy; if (!Z.bloq[Math.floor(Y) * Z.tw + Math.floor(X)]) { h.x = X; h.y = Y; h.camino = null; return; } } }, [f.x, f.y]);
+    // (el cambio de zona termina a su ritmo: si algo devuelve al héroe a la entrada, se lo vuelve a poner)
+    for (let k = 0; k < 6; k++) {
+      await p.evaluate(([x, y]) => { const j = window.__juego(), h = j.heroe, Z = j.zona; for (const r of [3.5, 4.5, 2.5, 5.2, 1.8]) for (let k = 0; k < 24; k++) { const X = x + Math.cos(k * Math.PI / 12 + 0.785) * r, Y = y + Math.sin(k * Math.PI / 12 + 0.785) * r; const b = Z.bloq[Math.floor(Y) * Z.W + Math.floor(X)]; if (X >= 0 && Y >= 0 && X < Z.W && Y < Z.H && (b === 0 || b === 3)) { h.x = X; h.y = Y; h.camino = null; h.destino = null; h.objetivo = null; return; } } }, [f.x, f.y]);
+      await esperarJuego(0.6);
+      if (await p.evaluate(([x, y]) => { const h = window.__juego().heroe; return Math.hypot(h.x - x, h.y - y) < 6; }, [f.x, f.y])) break;
+    }
     await esperarJuego(1.5); await foto(`${z}_1`);
+    { const g = (await fantasmasDe())[0], dh = await p.evaluate(([x, y]) => { const h = window.__juego().heroe; return Math.hypot(h.x - x, h.y - y); }, [f.x, f.y]);
+      if (g.estado === 'espera') { fallos.push(`${z}: no empezó a hablar con el héroe a ${dh.toFixed(1)}`); continue; } }
     // se va lejos a mitad: el que tiene más que decir espera
     if (f.n > 1) {
       await esperarJuego(f.n > 1 ? 6.5 : 0);
       const i0 = (await fantasmasDe())[0].i; await foto(`${z}_2`);
-      await p.evaluate(([x, y]) => { const j = window.__juego(), h = j.heroe; h.x = x + 30; h.y = y; }, [f.x, f.y]);
+      await p.evaluate(([x, y]) => { const j = window.__juego(), h = j.heroe; h.x = x + 30; h.y = y; h.camino = null; h.destino = null; h.objetivo = null; }, [f.x, f.y]);
       await esperarJuego(12);
       const i1 = (await fantasmasDe())[0]; if (i1.i !== i0 || i1.estado !== 'habla') fallos.push(`${z}: siguió hablando solo (${i0} a ${i1.i}, ${i1.estado})`);
-      await p.evaluate(([x, y]) => { const j = window.__juego(), h = j.heroe; h.x = x + 3; h.y = y + 3; }, [f.x, f.y]);
+      await p.evaluate(([x, y]) => { const j = window.__juego(), h = j.heroe; h.x = x + 3; h.y = y + 3; h.camino = null; h.destino = null; h.objetivo = null; }, [f.x, f.y]);
     }
     for (let k = 0; k < 60; k++) { await esperarJuego(1); const g = (await fantasmasDe())[0]; if (k === 3) await foto(`${z}_3`); if (g.estado === 'ido') break; }
     const g = (await fantasmasDe())[0]; if (g.estado !== 'ido') fallos.push(`${z}: no terminó (${g.estado}, línea ${g.i})`);

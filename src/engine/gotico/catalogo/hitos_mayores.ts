@@ -1,4 +1,5 @@
 import type { Arma, Pieza, V3 } from '../objeto';
+import type { Escena } from '../render';
 import { MATERIALES } from '../materiales';
 import { ruido, type Comp } from '../render';
 import { G, bloque, ojiva, cascotes, hiedra, cadena, cuervo, vela, calavera, letras, grieta } from '../kit_muerte';
@@ -33,11 +34,11 @@ M.hit_barro_seco = {
 };
 
 const ang = (x: number, y: number) => Math.atan2(y, x);
-const mezV = (p: V3, q: V3, t: number): V3 => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
+export const mezV = (p: V3, q: V3, t: number): V3 => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t, p[2] + (q[2] - p[2]) * t];
 
 /** Un muro de sillares entre (x0,y0) y (x1,y1) de grueso T con su perfil de alto `alto(t)` (t de 0 a 1): sólido hasta el
  * alto más bajo y por encima sillar a sillar, así el borde roto sale en escalones de hilada. */
-function muroRoto(g: G, x0: number, y0: number, x1: number, y1: number, T: number, alto: (t: number) => number, mat: string, hilada = 6.5) {
+export function muroRoto(g: G, x0: number, y0: number, x1: number, y1: number, T: number, alto: (t: number) => number, mat: string, hilada = 6.5) {
   const a = g.a, L = Math.hypot(x1 - x0, y1 - y0), giro = (ang(x1 - x0, y1 - y0) * 180) / Math.PI;
   let zmin = 999; for (let i = 0; i <= 20; i++) zmin = Math.min(zmin, alto(i / 20));
   const z0 = Math.max(0, Math.floor(zmin / hilada) * hilada - hilada);
@@ -54,7 +55,7 @@ function muroRoto(g: G, x0: number, y0: number, x1: number, y1: number, T: numbe
   }
 }
 /** Contrafuerte escalonado contra una cara (sale hacia +y del grupo), con el talud de cada cuerpo. */
-function contrafuerte(g: G, x: number, w: number, d: number, H: number, mat: string) {
+export function contrafuerte(g: G, x: number, w: number, d: number, H: number, mat: string) {
   for (const [k, f0, f1] of [[1, 0, 0.42], [0.72, 0.42, 0.74], [0.48, 0.74, 1]] as [number, number, number][]) {
     const dd = d * k, z0 = H * f0, z1 = H * f1;
     g.caja(x, dd / 2 - 0.5, z0, w, dd + 1, z1 - z0, { mat });
@@ -62,7 +63,7 @@ function contrafuerte(g: G, x: number, w: number, d: number, H: number, mat: str
   }
 }
 /** Campana tumbada: perfil de verdad (hombro, cintura, falda que se abre, labio grueso) girado alrededor de `e`. */
-function campana(g: G, c: V3, e: V3, R: number, mat: string) {
+export function campana(g: G, c: V3, e: V3, R: number, mat: string) {
   // perfil (radio, largo) desde la corona hacia la boca
   const perfil: [number, number][] = [[0.55, 0], [0.82, 0.08], [0.86, 0.22], [0.8, 0.42], [0.84, 0.6], [0.98, 0.8], [1.12, 0.94], [1.15, 1.0]];
   const L = R * 1.55, P = (t: number): V3 => [c[0] + e[0] * t * L, c[1] + e[1] * t * L, c[2] + e[2] * t * L];
@@ -151,7 +152,7 @@ export function campanario(a: Arma): Pieza[] {
 }
 
 /** Rama de masa que se tuerce: tramos de hueso de `p` hacia `d` (largo L), afinándose de r0 a r1; devuelve los puntos. */
-function ramaM(g: G, cs: Comp[], p: V3, d: V3, L: number, r0: number, r1: number, n: number, tor: number, cae = 0): V3[] {
+export function ramaM(g: G, cs: Comp[], p: V3, d: V3, L: number, r0: number, r1: number, n: number, tor: number, cae = 0): V3[] {
   const a = g.a, pts: V3[] = [p]; let q = p, dir = d;
   for (let i = 1; i <= n; i++) {
     const t = i / n; dir = [dir[0] + (a.r() - 0.5) * tor, dir[1] + (a.r() - 0.5) * tor, dir[2] + (a.r() - 0.5) * tor * 0.6 - cae * t]; const l = Math.hypot(...dir); dir = [dir[0] / l, dir[1] / l, dir[2] / l];
@@ -161,7 +162,7 @@ function ramaM(g: G, cs: Comp[], p: V3, d: V3, L: number, r0: number, r1: number
   return pts;
 }
 /** Soga con su lazo colgando de `t` (punto de la rama): cuerda, el nudo de vueltas y el lazo abierto. `corta` la deja deshilachada. */
-function soga(g: G, t: V3, largo: number, giro: number, corta = false) {
+export function soga(g: G, t: V3, largo: number, giro: number, corta = false) {
   const a = g.a, n: V3 = [t[0] + (a.r() - 0.5) * 1.2, t[1] + (a.r() - 0.5) * 1.2, t[2] - largo];
   g.palo([t[0], t[1], t[2] + 1.2], [t[0], t[1], t[2] - 0.8], 1.1, { mat: 'cuerda', tono: -0.3 });
   g.palo(t, n, 0.55, { mat: 'cuerda', tono: -0.25 });
@@ -175,7 +176,7 @@ function soga(g: G, t: V3, largo: number, giro: number, corta = false) {
 /** El roble de las sogas del Bosque de los Ahorcados: tronco enorme y hueco con contrafuertes de raíz, ramas como brazos que
  * se abren sobre el camino, las sogas que esperan (una todavía con su muerto, una cortada), el banquillo pateado, el cerco
  * de piedras con los nombres raspados, velas y cintas de los que vienen a llorar, hojas muertas y cuervos. */
-export function robleSogas(a: Arma): Pieza[] {
+export function robleSogas(a: Arma): Escena {
   const ps: Pieza[] = [], g = new G(a, ps), C = 'abo_corteza';
   // el piso: tierra negra con hojarasca y musgo
   { const cs: Comp[] = [g.bu([0, 0, -2.4], [36, 33, 3.4])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 14 + a.r() * 12; cs.push(g.bu([Math.cos(t) * d, Math.sin(t) * d, -1.8], [9 + a.r() * 6, 8 + a.r() * 5, 2.2])); } g.masa(cs, { mat: 'abo_barro', suave: 6, tono: 0.12 }); }
@@ -227,11 +228,24 @@ export function robleSogas(a: Arma): Pieza[] {
   for (let i = 0; i < 7; i++) { const t = a.r() * TAU, d = 20 + a.r() * 12; mata(a, ps, Math.cos(t) * d - 6, Math.sin(t) * d - 6, 4 + Math.floor(a.r() * 3), 3 + a.r() * 3, 'ext_pasto'); }
   cuervo(g.sub(brazoC[brazoC.length - 1][0], brazoC[brazoC.length - 1][1], brazoC[brazoC.length - 1][2] - 0.4, 120).esc(0.9), 'grazna');
   cuervo(g.sub(en(brazoA, 0.25)[0], en(brazoA, 0.25)[1], en(brazoA, 0.25)[2] + 4.6, 30).esc(0.85), 'posado');
-  return ps;
+  // (entrega 3, Rick: "el roble queda muy oscuro bajo la lluvia") la luz con intención: el farol que alguien colgó del brazo
+  // que mira al camino para que los suyos no se queden a oscuras, con su cadena, la jaula de hierro, el vidrio ahumado y
+  // la llama; y tres velas vivas en el labio del hueco, donde dejan las cintas. El resplandor tiñe el árbol y el juego le
+  // da su luz (`fuenteDe`), que saca de la lluvia el tronco, las sogas y el muerto.
+  const pf = en(brazoE, 0.85), fz = pf[2] - 12, F: V3 = [pf[0] + 0.4, pf[1] + 0.4, fz];
+  cadena(g, [pf[0], pf[1], pf[2] + 1], [F[0], F[1], fz + 7.4], 0.3, 'mu_hierro', 0.55);
+  g.cil(F[0], F[1], fz + 6, 2.6, 1.2, { mat: 'mu_hierro', r1: 0.6 }); g.cil(F[0], F[1], fz + 5.2, 2.7, 0.8, { mat: 'mu_hierro' });
+  g.cil(F[0], F[1], fz, 2.4, 0.9, { mat: 'mu_hierro' }); g.cil(F[0], F[1], fz - 1, 1.2, 1.1, { mat: 'mu_hierro', r1: 2.2 });
+  g.cil(F[0], F[1], fz + 0.8, 2.05, 4.4, { mat: 'luz_vela', tono: -0.05 });
+  for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU + 0.4; g.palo([F[0] + Math.cos(t) * 2.3, F[1] + Math.sin(t) * 2.3, fz + 0.4], [F[0] + Math.cos(t) * 2.4, F[1] + Math.sin(t) * 2.4, fz + 5.6], 0.32, { mat: 'mu_hierro' }); }
+  g.elip(F[0], F[1], fz + 2.8, 1.1, 1.1, 1.7, { mat: 'fuego', tono: 0.15 });
+  for (const [x, y, h] of [[4.4, 6.4, 2.6], [6.2, 4.6, 1.8], [5.6, 6.8, 3.4]] as [number, number, number][]) vela(g, x, y, 5.8, h, 0.7, 0, 8, a.r() * 8, true);
+  // (en unidades de la pieza ya agrandada 2,4 veces: el resplandor no pasa por la escala)
+  return { piezas: ps, resplandor: { c: [F[0] * 2.4, F[1] * 2.4, (fz + 2.5) * 2.4], r: 46, color: '#ffb25c' } };
 }
 
 /** Palmera seca a escala `k`: tronco anillado que se curva, la copa de pencas muertas que cuelgan; `quebrada` la parte. */
-function palmaSeca(g: G, b: V3, H: number, curva: number, giro: number, k: number, quebrada = false) {
+export function palmaSeca(g: G, b: V3, H: number, curva: number, giro: number, k: number, quebrada = false) {
   const a = g.a, d: V3 = [Math.cos(giro), Math.sin(giro), 0], n = 6, cs: Comp[] = [g.bu([b[0], b[1], b[2] + 1.5 * k], [4.6 * k, 4.6 * k, 3 * k])];
   let p = b; const tope = quebrada ? 0.5 : 1;
   for (let i = 1; i <= n; i++) { const t = (i / n) * tope, q: V3 = [b[0] + d[0] * curva * t * t, b[1] + d[1] * curva * t * t, b[2] + H * t]; cs.push(g.hu(p, q, (3 - 1.1 * ((i - 1) / n)) * k, (3 - 1.1 * (i / n)) * k)); p = q; }
@@ -250,13 +264,13 @@ function palmaSeca(g: G, b: V3, H: number, curva: number, giro: number, k: numbe
   return p;
 }
 /** Arena amontonada: masa de bultos alargados a lo largo del viento (giro en grados), con la cresta corrida a sotavento. */
-function duna(g: G, c: V3, L: number, W: number, H: number, giro: number, n = 4) {
+export function duna(g: G, c: V3, L: number, W: number, H: number, giro: number, n = 4, mat = 'arena') {
   const a = g.a, cs: Comp[] = [], cg = Math.cos((giro * Math.PI) / 180), sg = Math.sin((giro * Math.PI) / 180);
   for (let i = 0; i < n; i++) { const u = (i / (n - 1) - 0.5) * L * 0.8, w = (a.r() - 0.5) * W * 0.3, h = H * (1 - Math.abs(u / L) * 1.1) * (0.8 + a.r() * 0.3); cs.push(g.bu([c[0] + u * cg - w * sg, c[1] + u * sg + w * cg, c[2] - h * 0.35], [L / n * 0.9 + W * 0.3, W * (0.5 + a.r() * 0.2), h], { giro: giro + (a.r() - 0.5) * 12 })); }
-  g.masa(cs, { mat: 'des2_arena', suave: Math.min(W, L) * 0.35 });
+  g.masa(cs, { mat, suave: Math.min(W, L) * 0.35 });
 }
 /** Ánfora de barro: cuerpo, cuello, labio y asas; `rota` le saca medio cuerpo y deja los cascos al lado. */
-function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = false) {
+export function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = false) {
   const a = g.a, s = g.sub(x, y, tumbada ? 3.2 * k : 0, a.r() * 360, tumbada, 'x');
   s.elip(0, 0, 5 * k, 3.4 * k, 3.4 * k, 5 * k, { mat: 'des2_barro' });
   s.cil(0, 0, 9 * k, 1.6 * k, 3 * k, { mat: 'des2_barro', r1: 1.3 * k }); s.cil(0, 0, 11.6 * k, 1.9 * k, 0.8 * k, { mat: 'des2_barro', tono: 0.06 });
@@ -270,9 +284,11 @@ function anfora(g: G, x: number, y: number, k: number, tumbada: number, rota = f
 export function pozoOasis(a: Arma): Pieza[] {
   const ps: Pieza[] = [], g = new G(a, ps), P = 'des2_piedra_pulida';
   // el suelo: arena que se arrima, y adelante el fondo del oasis hundido, barro seco en placas
-  { const cs: Comp[] = [g.bu([-6, -6, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -1.9], [11 + a.r() * 6, 9 + a.r() * 5, 2.3])); } g.masa(cs, { mat: 'des2_arena', suave: 6, tono: -0.07 }); }
+  // (entrega 3, Rick: "el borde de arena se nota contra el piso") sin manto de arena debajo: el piso del juego llega hasta
+  // la obra y solo la arena que el viento arrima contra las gradas, en lenguas bajas del material del piso (`arena`)
+  for (let i = 0; i < 6; i++) { a.r(); a.r(); a.r(); a.r(); }
   disco(a, ps, 17, 18.5, -0.9, 19, 12.5, 1.5, 'hit_barro_seco', { giro: 40, ruido: 0.26, n: 32, tono: -0.06 });
-  for (let i = 0; i < 7; i++) { const t = a.r() * TAU, d = 0.82 + a.r() * 0.25; g.elip(17 + Math.cos(t) * 19 * d * 0.8, 18.5 + Math.sin(t) * 12.5 * d, 0, 4 + a.r() * 4, 2.6 + a.r() * 2, 1.1, { mat: 'des2_arena', giro: 40 + (a.r() - 0.5) * 60, tono: -0.05 }); }
+  for (let i = 0; i < 7; i++) { const t = a.r() * TAU, d = 0.82 + a.r() * 0.25; g.elip(17 + Math.cos(t) * 19 * d * 0.8, 18.5 + Math.sin(t) * 12.5 * d, -0.3, 4 + a.r() * 4, 2.6 + a.r() * 2, 0.8, { mat: 'arena', giro: 40 + (a.r() - 0.5) * 60 }); }
   // el estrado: dos gradas de losas, la de abajo comida por la arena
   const C: V3 = [-8, -8, 0];
   for (const [r, z, h] of [[20, 0, 3.6], [16, 3.6, 3.4]] as [number, number, number][]) {
@@ -280,6 +296,7 @@ export function pozoOasis(a: Arma): Pieza[] {
     for (let i = 0; i < nl; i++) { const t = (i / nl) * TAU, x = C[0] + Math.cos(t) * (r - 3), y = C[1] + Math.sin(t) * (r - 3); bloque(g.sub(x, y, 0, (t * 180) / Math.PI), 0, 0, z, 6.2, (TAU * (r - 3)) / nl + 0.6, h, { mat: P, j: 0.6, tono: (a.r() - 0.5) * 0.1 }); }
     g.cil(C[0], C[1], z, r - 5.5, h, { mat: P, tono: -0.04 });
   }
+  for (const [x, y, gi] of [[C[0] - 21, C[1] + 4, 100], [C[0] + 3, C[1] - 21, 10], [C[0] + 14, C[1] + 16, 135]] as [number, number, number][]) duna(g, [x, y, 0], 16, 6, 3, gi, 3);
   // el brocal: dos hiladas de sillares curvos, la albardilla con las estrías que gastaron las sogas, y una piedra caída
   const R = 9, zb = 7;
   for (let f = 0; f < 2; f++) for (let i = 0; i < 10; i++) { const t = ((i + f * 0.5) / 10) * TAU; bloque(g.sub(C[0] + Math.cos(t) * R, C[1] + Math.sin(t) * R, 0, (t * 180) / Math.PI), 0, 0, zb + f * 4.4, 3.6, (TAU * R) / 10 - 0.3, 4.3, { mat: P, j: 0.5, tono: (a.r() - 0.5) * 0.1 }); }
@@ -316,7 +333,9 @@ export function pozoOasis(a: Arma): Pieza[] {
  * piramidión con su capa de oro gastada al final, y el que se llevó el rayo, que no llegó lejos. */
 export function obeliscoSol(a: Arma): Pieza[] {
   const ps: Pieza[] = [], g = new G(a, ps), P = 'des2_piedra_pulida', J = 'des2_glifos';
-  { const cs: Comp[] = [g.bu([-4, -4, -2.6], [40, 38, 3.6])]; for (let i = 0; i < 6; i++) { const t = a.r() * TAU, d = 16 + a.r() * 14; cs.push(g.bu([Math.cos(t) * d - 4, Math.sin(t) * d - 4, -1.9], [11 + a.r() * 6, 9 + a.r() * 5, 2.3])); } g.masa(cs, { mat: 'des2_arena', suave: 6, tono: -0.07 }); }
+  // (entrega 3, Rick: "el borde de arena se nota contra el piso") sin manto de arena debajo: el piso del juego llega hasta
+  // la obra y solo la arena que el viento arrima contra las gradas, en lenguas bajas del material del piso (`arena`)
+  for (let i = 0; i < 6; i++) { a.r(); a.r(); a.r(); a.r(); }
   const C: V3 = [-14, -12, 0];
   // el estrado: tres gradas de sillares, con esquinas desportilladas
   let z = 0;

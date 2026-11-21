@@ -374,7 +374,7 @@ function nueva(pc: any, alAzar: boolean): Part {
 function dibujarTitulo(tRel: number, vertical: boolean, destello = 0, bocanada = 0) {
   const ti = man.titulo[IDI ? 'en' : 'es'], col = man.titulo.colocacion?.[vertical ? 'movil_vertical' : 'escritorio'] ?? { ancho_rel: 0.54, centro_y_rel: 0.235 };
   // (se mide por ancho, pero nunca más alto que el 40 % de la pantalla: en monitores anchos crecía hasta tapar la catedral)
-  const w = Math.min(W * col.ancho_rel, H * 0.4 / 0.6), h = w * 0.6, x = W / 2 - w / 2, y = Math.max(vertical ? -h * 0.08 : H * 0.035, H * (vertical ? col.centro_y_rel : 0.19) - h / 2);
+  const w = Math.min(W * col.ancho_rel, H * 0.4 / 0.6), h = w * 0.6, x = W / 2 - w / 2, y = Math.max(vertical ? -h * 0.08 : H * ((window as any).__tituloCorto ? 0.035 : 0.06), H * (vertical ? col.centro_y_rel : 0.19) - h / 2); // (sexta pasada: un poco más abajo en PC, con lugar para que las llamas suban sin llegar al borde)
   (window as any).__tituloRect = [x, y, w, h];
   if (tRel < 0) return;
   const hoja = (a: any, i: number) => { const n = Math.floor(i / a.por_hoja), j = i % a.por_hoja; const im = lista(a.hojas[n]); if (!im) return false; ctx.drawImage(im, (j % a.columnas) * a.w, Math.floor(j / a.columnas) * a.h, a.w, a.h, x, y, w, h); return true; };

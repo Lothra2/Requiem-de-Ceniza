@@ -16,14 +16,14 @@ import { T, TT, dentro, icono, rasterACanvas, cacheRaster, tooltip, envolver } f
 import { ui, alternar, casillaPoder, casillaAtajo, casillaCinturon, fichasBarra, pistaRoseton, botonesTactilesBarra, cambiarAgresivo, COLOR_POCION, type PanelId } from './juego_ui';
 import { hud } from './hud_rects';
 import { habilidadDe, costoMana, usarPocion, type Juego } from '../juego/mundo';
-import { cant, nivelHab, tiposCinturon, xpPara, PILA_CINTURON, type DatosHeroe } from '../juego/heroe';
+import { cant, nivelHab, tiposCinturon, xpPara, PILA_CINTURON, pilaCinturon, type DatosHeroe } from '../juego/heroe';
 import { dibujarRoseton } from './sello_nivel';
 import { casillaPoderForjada, type EstadoCasilla } from './forja_habilidad';
 import type { Habilidad } from '../datos/clases';
 import { cl } from './forja_taller';
 import { geometria, tallarMarco, grabarTeclas, cajaAtajos, rectAtajo, grabarAtajos, type Geo } from './forja_panel';
 import { textoPixel, anchoPixel } from './letra_pixel';
-import { pulsoHud, latido, grietas, enPiedra, grietasLuz, marcaFondo, marcaChispas, sangreRacha, cenizaJefe, velaMana, estadosOrbe, type Pulso } from './forja_viva';
+import { pulsoHud, latido, grietas, enPiedra, grietasLuz, grietasHondas, marcaFondo, marcaChispas, sangreRacha, cenizaJefe, velaMana, estadosOrbe, type Pulso } from './forja_viva';
 import { reliquiaClase, AYUDA_RELIQUIA } from './forja_reliquia';
 import { alternarRegistro, registroAbierto } from './registro';
 export { latido };
@@ -49,7 +49,7 @@ function marcoDe(e: Esp): typeof marco {
   const cajaL = cajaAtajos(g), ll = tallarMarco(g, true).recorte(...cajaL).hornear({ sombraMundo: 0 });
   grabarAtajos(ll, g, cajaL[0], cajaL[1]);
   // las grietas de la casa de la vida (sangran luz con la vida baja) y las fisuras de la brasa en el frontón de la Marca
-  const fisV = enPiedra(grietas(11, g.t.R + 3, 9, 22), g.orbV[0], g.orbV[1], tl.mat, tl.w, tl.h, true), fisM = enPiedra(grietas(5, 15, 8, 15), g.roseton[0], g.roseton[1], tl.mat, tl.w, tl.h);
+  const fisV = enPiedra(grietas(11, g.t.R + 3, 11, 30), g.orbV[0], g.orbV[1], tl.mat, tl.w, tl.h, true), fisM = enPiedra(grietas(5, 15, 8, 15), g.roseton[0], g.roseton[1], tl.mat, tl.w, tl.h);
   marco = { clave, cv: aumentar(rasterACanvas(l.r), e.D), llenos: aumentar(rasterACanvas(ll.r), e.D), cajaL, w: tl.w, h: tl.h, mat: tl.mat, g, fisV, fisM, apagado: null };
   (window as any).__hudForjaMs = Math.round(performance.now() - t0);
   return marco;
@@ -140,7 +140,9 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
       gl.addColorStop(0, `rgba(255,30,20,${0.42 * lat})`); gl.addColorStop(1, 'rgba(255,30,20,0)');
       ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = gl; ctx.fillRect(gx - r0 * 1.7, gy - r0 * 1.7, r0 * 3.4, r0 * 3.4); ctx.restore();
     }
-    if (kV < 0.3 && !h.muerto) { const q = (0.3 - kV) / 0.3; grietasLuz(mc.fisV, dx(g.orbV[0]), dy(g.orbV[1]), D, '255,40,24', 0.3 * q + 0.7 * lat, 0.3 + 0.7 * q); if (lat > 0.5) grietasLuz(mc.fisV, dx(g.orbV[0]), dy(g.orbV[1]), D, '255,200,160', (lat - 0.5) * 0.9, 0.2 + 0.5 * q); }
+    // (sexta pasada: la grieta se talla en la piedra antes de sangrar luz, y la luz no se apaga entre latidos: se leían como un
+    // rayado tenue que aparecía y desaparecía)
+    if (kV < 0.3 && !h.muerto) { const q = (0.3 - kV) / 0.3, hasta = 0.3 + 0.7 * q; grietasHondas(mc.fisV, dx(g.orbV[0]), dy(g.orbV[1]), D, 0.5 + 0.5 * q, hasta); grietasLuz(mc.fisV, dx(g.orbV[0]), dy(g.orbV[1]), D, '255,40,24', 0.35 + 0.35 * q + 0.5 * lat, hasta); if (lat > 0.5) grietasLuz(mc.fisV, dx(g.orbV[0]), dy(g.orbV[1]), D, '255,200,160', (lat - 0.5) * 0.9, 0.2 + 0.5 * q); }
     // los ojos de la gárgola: brasas que laten con la vida baja (y se apagan con el héroe muerto)
     if (P.muerto < 0.95) for (const [ox, oy] of g.ojos) {
       const a = (0.45 + 0.15 * Math.sin(t * 2.3) + lat * 0.55 + P.jefe * 0.2) * (1 - P.muerto);
@@ -217,14 +219,14 @@ export function dibujarHudForja(j: Juego, t: number): boolean {
     enDev(() => reliquiaClase(j, dx(x), dy(y), w, hh, D, t));
     if (dentro(r[0], r[1], r[2], r[3])) { ui.sobreUI = true; const ay = AYUDA_RELIQUIA[d.clase]; if (ay && !ui.mano) tooltip(envolver(TT(ay), 260, 13).map((s) => [s, '#e0d0a0'] as [string, string]), r[0] + r[2] / 2, r[1] - 4); } }
   // ---- el cinturón en dos pares: cada columna con su poción, su tecla y las cuentas de lo que hay apilado detrás
-  { const tipos = tiposCinturon(d), cap = filasCinturon(d);
+  { const tipos = tiposCinturon(d);
     for (let i = 0; i < 4; i++) {
       const [x, y] = g.poc[i], s = tt.poc, o = d.cinturon[i], r = rect(x, y, s, s);
       if (o) enDev(() => icono(o, dx(x) + D, dy(y) + D, (s - 2) * D, (s - 2) * D));
       else enDev(() => frascoVacio(COLOR_POCION[tipos[i]], dx(x), dy(y), s, D));
       // las cuentas: un alvéolo por fila del cinturón, lleno con una perla del color de la poción
-      const n = o ? Math.min(cap, cant(o)) : 0, pip = tt.pip, sep = pip + 2, px0 = x + 12, py = g.yT + tt.pipY + Math.round((5 - pip) / 2);
-      enDev(() => { for (let k = 0; k < cap; k++) perla(dx(px0 + k * sep), dy(py), pip, D, k < n ? COLOR_POCION[o?.pocion ?? tipos[i]] : null);
+      const capI = filasColumna(d, o), n = o ? Math.min(capI, cant(o)) : 0, pip = tt.pip, sep = pip + 2, px0 = x + 12, py = g.yT + tt.pipY + Math.round((5 - pip) / 2);
+      enDev(() => { for (let k = 0; k < capI; k++) perla(dx(px0 + k * sep), dy(py), pip, D, k < n ? COLOR_POCION[o?.pocion ?? tipos[i]] : null);
         // el trago: la copa relumbra del color de lo que se bebió
         if (P.bebio && (h as any).bebioCol === i) { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(255,240,210,${0.5 * (1 - P.bebio.k)})`; ctx.fillRect(dx(x), dy(y), s * D, s * D); ctx.globalCompositeOperation = 'source-over'; } });
       rectos['poc' + i] = r;
@@ -292,8 +294,10 @@ export function aumentar(cv: HTMLCanvasElement, D: number): HTMLCanvasElement {
   const c = document.createElement('canvas'); c.width = cv.width * D; c.height = cv.height * D;
   const g = c.getContext('2d')!; g.imageSmoothingEnabled = false; g.drawImage(cv, 0, 0, c.width, c.height); return c;
 }
-/** Cuántas filas tiene el cinturón (las cuentas debajo de cada columna). Hoy toda columna apila PILA_CINTURON. */
-export const filasCinturon = (_d: DatosHeroe) => PILA_CINTURON;
+/** Cuántas filas tiene el cinturón (las cuentas debajo de cada columna): las del cinto puesto (`pilaCinturon`, sexta
+ * pasada). Si una columna trae más de las que caben (se cambió a un cinto más chico), se ven todas: nada se esconde. */
+export const filasCinturon = (d: DatosHeroe) => pilaCinturon(d);
+export const filasColumna = (d: DatosHeroe, o: { cantidad?: number } | null | undefined) => Math.max(pilaCinturon(d), o ? Math.min(PILA_CINTURON, cant(o as any)) : 0);
 
 /** Una columna vacía: la silueta de un frasco del tipo de la columna, apenas teñida. */
 export function frascoVacio(col: string, x: number, y: number, s: number, D: number) {

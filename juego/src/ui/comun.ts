@@ -3,7 +3,7 @@ import { marcoForjado, placaTitulo } from '../../../src/engine/gotico/hud';
 import { ctx, E, W as LW, H as LH } from '../nucleo/lienzo';
 import { objetoMeta, dibujar } from '../motor/assets';
 import { baseDe, colorObj, textoStat, type Objeto } from '../juego/objetos';
-import { reqNivel } from '../juego/heroe';
+import { reqNivel, FILAS_CINTO, PILA_CINTURON } from '../juego/heroe';
 import { CONJUNTOS } from '../datos/objetos_datos';
 import { afinidadDe, EFECTO_LEGENDARIO } from '../datos/arsenal';
 import { CLASES } from '../datos/clases';
@@ -266,6 +266,8 @@ export function lineasObjeto(o: Objeto, h?: { nivel: number; fue: number; des: n
   if (o.efecto) { const ef = Object.values(EFECTO_LEGENDARIO).find((e) => e.id === o.efecto); if (ef) out.push([TT(ef.texto), '#ffb050']); }
   if (o.def) out.push([`${T('Defensa', 'Defense')}: ${o.def}`, '#e8e0d0']);
   if (b?.bloqueo) out.push([`${T('Bloqueo', 'Block')}: ${b.bloqueo}%`, '#e8e0d0']);
+  // (sexta pasada) el cinto dice cuántas filas da al cinturón
+  if (b?.ranura === 'cinturon' && !(globalThis as any).__cinturonViejo) { const f = Math.min(PILA_CINTURON, FILAS_CINTO[b.id] ?? 3); out.push([T(`Cinturón: ${f} filas de pociones`, `Belt: ${f} rows of potions`), '#e8e0d0']); }
   if (o.durabMax > 0 && !o.stats.some((s) => s[0] === 'durabilidad_infinita')) out.push([`${T('Durabilidad', 'Durability')}: ${Math.ceil(o.durab)} ${T('de', 'of')} ${o.durabMax}`, o.durab <= 0 ? '#ff4040' : '#e8e0d0']);
   if (b) {
     const rn = Math.max(b.req.nivel ?? 1, reqNivel(o));

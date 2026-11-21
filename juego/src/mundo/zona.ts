@@ -1286,9 +1286,10 @@ function relieveMundo(k: Constructor, tema: string, cuanto: number) {
   }
 }
 /** El decorado propio del mundo (catalogo/decorado.ts): plantas sueltas, ruinas y algún hito, del estilo de sus riscos. */
-function decorarMundo(k: Constructor, estilo: string | undefined, plantas: number, ruinas: number, hitos: number, cerca?: (x: number, y: number) => boolean) {
+function decorarMundo(k: Constructor, estilo: string | undefined, plantas: number, ruinas: number, hitos: number, cerca?: (x: number, y: number) => boolean, sinEstatua = false) {
   if (!estilo) return;
-  const z = k.z, de = (id: string): Sel[] => [{ t: ['comun'], p: [id], v: (v) => v.startsWith(estilo + '_') }];
+  // (21 nov 2026: en la mina no va la estatua del páramo entre las galerías; la piedra con runas sí)
+  const z = k.z, de = (id: string): Sel[] => [{ t: ['comun'], p: [id], v: (v) => v.startsWith(estilo + '_') && !(sinEstatua && v.endsWith('_estatua')) }];
   k.regar(de('dec_ruina'), ruinas, 3, 3, z.W - 3, z.H - 3, cerca, 16);
   k.regar(de('dec_hito'), hitos, 3, 3, z.W - 3, z.H - 3, cerca, 20);
   k.regar(de('dec_planta'), plantas, 2, 2, z.W - 2, z.H - 2, cerca);
@@ -1823,8 +1824,8 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   if (t.islas) islas(k, t.islas, suelo, sala);
   if (t.rieles) rieles(k, suelo, sala);
   // contrafuertes y derrumbes del estilo de la mazmorra, pegados al pie de los muros (cada tanto, no en todos)
-  const estMuro = ESCOMBRO_TEMA[def.tema] ?? 'cementerio', dMuro = REGISTRO.find((d) => d.id === 'dec_muro');
-  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) && !minaRoca ? 'contrafuerte' : 'derrumbe'}`, true); }; // (entrega 8: contra la roca de la mina no va un contrafuerte de sillería, va el derrumbe)
+  const estMuro = ESCOMBRO_TEMA[def.tema] ?? 'cementerio', dMuro = REGISTRO.find((d) => d.id === 'dec_muro'); const dRoca = REGISTRO.find((d) => d.id === 'cue_escombros');
+  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; if (minaRoca && dRoca) { k.poner(dRoca, x, y, q < 0.08 ? 'monton' : 'suelto', true); return; } k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) && !minaRoca ? 'contrafuerte' : 'derrumbe'}`, true); }; // (21 nov 2026: en la mina, al pie de la roca va piedra suelta, no los bloques labrados del derrumbe del páramo) // (entrega 8: contra la roca de la mina no va un contrafuerte de sillería, va el derrumbe)
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!suelo[by * tw + bx]) continue;
     if (by === 0 || !suelo[(by - 1) * tw + bx]) if (defX) {
@@ -1914,7 +1915,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   k.regar(t.luces, Math.floor((area / 500) * lleno), 1, 1, z.W - 1, z.H - 1, enSuelo);
   k.regar(t.deco, Math.floor((area / 2500) * lleno * 2), 1, 1, z.W - 1, z.H - 1, enSuelo);
   // estatuas rotas y piedras con runa del tema, solo dentro de las salas (en un pasillo estorbarían)
-  if (!t.islas) decorarMundo(k, abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : ESCOMBRO_TEMA[def.tema] ?? 'cementerio', 0, 0, Math.floor(area / 1700), (x, y) => !!sala[Math.floor(y / 5) * tw + Math.floor(x / 5)] && enSuelo(x, y));
+  if (!t.islas) decorarMundo(k, abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : ESCOMBRO_TEMA[def.tema] ?? 'cementerio', 0, 0, Math.floor(area / 1700), (x, y) => !!sala[Math.floor(y / 5) * tw + Math.floor(x / 5)] && enSuelo(x, y), def.tema === 'mina' && !(globalThis as any).__minaObra);
   // salidas: la primera en la entrada, las demás al fondo
   def.salidas.forEach((s, i) => {
     const p = i === 0 ? p0 : i === 1 ? pN : centroDe(orden[Math.max(1, Math.floor((orden.length * i) / (def.salidas.length + 1)))]);
@@ -2229,7 +2230,15 @@ function rellenarBolsas(z: Zona, def: DefZona) {
   //  lo que se contaba, montados sobre el borde. Ahora la orilla es roca del tema y, de vez en cuando, algo que crece)
   const FLOJO = (globalThis as any).__sinMacizos ? 1 : 0.3;
   // tres tallas: alta (más de 100 puntos de alto), media y baja (lo que no tapa a nadie)
-  const PAL: Record<'alta' | 'media' | 'baja', Pieza[]> = obra ? {
+  // (21 nov 2026) En la mina el hueco es roca y lo que se vino abajo, no la obra de una mazmorra: con la paleta de obra salían
+  // lienzos de sillería, columnas de ladrillo, contrafuertes y estatuas entre las galerías (Rick las vio en los Socavones).
+  // `__minaObra` vuelve a lo de antes.
+  const minaRelleno = def.tema === 'mina' && !(globalThis as any).__minaObra;
+  const PAL: Record<'alta' | 'media' | 'baja', Pieza[]> = minaRelleno ? {
+    alta: [...ris('alta', 'abcd', 1), ['min_derrumbe', 'grande', 0.5]],
+    media: [...ris('media', 'ab', 1.2), ['min_derrumbe', 'pequeno', 0.8], ['min_derrumbe', 'aplastado', 0.4], ['cue_escombros', 'monton', 0.8]],
+    baja: [...ris('baja', 'abc', 1), ['cue_escombros', 'monton', 1], ['cue_escombros', 'suelto', 1], ['cat2_escombro', 'con_viga', 0.8], ['cat2_escombro', 'chico', 0.6]],
+  } : obra ? {
     alta: [['muro_obra', `${est}_roto`, 3], ['muro_obra', `${est}_roto_y`, 3], ['dec_ruina', `${est}_muro`, 3], ['dec_ruina', `${est}_columnas`, 1], ['dec_muro', `${est}_contrafuerte`, 1], ['dec_ruina', `${est}_arco`, 0.6], ...ris('alta', 'abcd', 0.5), ...(cel ? [['cel_columna_rota', 'partida', 1.5], ['cel_columna_rota', 'alta', 1]] as Pieza[] : [])],
     media: [['dec_ruina', `${est}_pila`, 3], ['dec_muro', `${est}_derrumbe`, 3], ['for2_escombros', 'muro_caido', 2], ['dec_hito', `${est}_estatua`, 0.5], ...ris('media', 'ab', 0.8), ...(cel ? [['cel_columna_rota', 'corta', 1.5], ['cel_columna_rota', 'caida', 1.5], ['cel_escombros_marmol', 'monton', 1.5], ['cel_escombros_marmol', 'con_capitel', 1]] as Pieza[] : [])],
     baja: [['cat2_escombro', 'chico', 1.5], ['cat2_escombro', 'grande', 2], ['cat2_escombro', 'con_viga', 1], ['cat2_escombro', 'con_huesos', 0.6], ['cat2_escombro', 'con_craneo', 0.4], ['for2_escombros', 'piedras', 2], ['for2_escombros', 'almena', 1.2], ['for2_escombros', 'viga', 0.8], ['campo_escombros', 'ladrillo', 1.5], ['campo_escombros', 'piedra', 1.5], ['campo_escombros', 'con_vigas', 0.8], ...ris('baja', 'abc', 0.8), ...(cel ? [['cel_escombros_marmol', 'pocos', 1.2], ['cel_escombros_marmol', 'con_oro', 0.4]] as Pieza[] : [])],
@@ -2891,8 +2900,9 @@ const PARED_TEMA: Record<string, FilaPared[]> = {
   celestial_islas: [['cel_estandarte', 'suelto'], ['cel_candelabro_oro', 'suelto'], ['cel_anfora_oro', 'suelto']],
   abismo: [['abi_cadena', 'suelto'], ['abi_runa', 'suelto'], ['abi_reliquia', 'suelto'], ['cri_pila_craneos', 'suelto']],
   hielo: [['cri_cadenas_pared', 'largo'], ['hie_cristales', 'suelto'], ['hie_cuerpo', 'suelto'], ['cat_monton_huesos', 'suelto']],
-  cueva: [['cri_cadenas_pared', 'largo'], ['cat2_raices', 'largo'], ['cat_monton_huesos', 'suelto'], ['cri_vasijas', 'suelto'], ['mue_velas', 'suelto'], ['cat2_huesos_suelo', 'suelto']],
-  mina: [['cue_puntal', 'suelto'], ['min_herramientas', 'suelto'], ['cri_cadenas_pared', 'largo'], ['cat_monton_huesos', 'suelto'], ['mue_velas', 'suelto']],
+  cueva: [['cat2_raices', 'largo'], ['cat_monton_huesos', 'suelto'], ['cri_vasijas', 'suelto'], ['mue_velas', 'suelto'], ['cat2_huesos_suelo', 'suelto']],
+  // (21 nov 2026: las cadenas de pared traen su lienzo de ladrillo: contra la roca de la mina y de la cueva se leían como pilares de obra)
+  mina: [['cue_puntal', 'suelto'], ['min_herramientas', 'suelto'], ['cat_monton_huesos', 'suelto'], ['mue_velas', 'suelto']],
 };
 const RINCON_OBRA: [string, string][] = [['cem2_velas_tumba', 'derretidas'], ['cem2_velas_tumba', 'en_calavera'], ['cem2_velas_tumba', 'altarcito'], ['cat_monton_huesos', 'de_calaveras'], ['cat_monton_huesos', 'chico'], ['cri_telarana', 'esquina']];
 const RINCON_CUEVA: [string, string][] = [['cat_monton_huesos', 'chico'], ['cem2_velas_tumba', 'derretidas'], ['min_herramientas', 'apoyadas'], ['cri_telarana', 'esquina']];

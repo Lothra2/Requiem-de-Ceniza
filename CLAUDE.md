@@ -811,6 +811,19 @@ el que esperaba hasta 5 s con un hueco libre lejos y una cuenta estricta que no 
   hasta 0,6 s antes de ir por la vuelta larga. La cuenta objetiva mira el campo cada medio segundo: un paso que se abre y se cierra
   entre dos vistazos no lo ve. `atascadosE8` no llega a 0 porque su criba se confunde con rodeos buenos, no por atascos.
 
+## Mundos, minas sin obra (21 nov 2026)
+
+Rick vio en los Socavones dos "columnas de ladrillo". Eran las cadenas de pared de las criptas (`cri_cadenas_pared`), que traen
+pegado su lienzo de sillería: contra la roca de la mina y de la cueva se leían como pilares de obra sueltos. Salen de `PARED_TEMA`
+de la mina y de la cueva. De paso, lo demás de obra que caía en las minas: el relleno de los huecos usaba la paleta de las
+mazmorras de obra (lienzos de `muro_obra`, columnas y arcos de `dec_ruina`, contrafuertes, estatuas): ahora roca (`bor_risco`),
+derrumbes (`min_derrumbe`) y escombro con vigas; al pie de la roca va piedra suelta (`cue_escombros`) en vez de los bloques
+labrados del derrumbe del páramo, y el riego de la mina no pone la estatua del páramo. `__minaObra` vuelve a todo lo de antes.
+Además t1011 ya no cuenta en `esperaHueco` al que persigue a otro objetivo (un invocado) y lo tiene a tiro: en la prueba nadie pega
+y quedaba quieto con el golpe listo (a4_minas2, `SEMILLA=861530 S=1`, 5 s). Pasaron t1000, t1014, t1015 (0), t1033 en las minas
+(flotando 0), t370 (288), conectividad 20 (1920), t855, t1011 (`todas 2`, 3 corridas: 0 atascados, espera con hueco 2 s como
+mucho), t995, t440, t450, t500, t1001 y t961.
+
 ## Armas vivas, cofres, poderes y siluetas
 
 - **Armas vivas** (`juego/src/render/arma_viva.ts`, rehechas el 18 nov 2026: antes cada elemento era la misma llama de

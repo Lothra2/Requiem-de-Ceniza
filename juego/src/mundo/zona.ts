@@ -4,6 +4,7 @@ import './actos67';
 import { REGISTRO, huellaDe, generarPaisaje, type ObjetoDef, type Tema, type AmbienteId } from '../../../src/engine/gotico/index';
 import { ATRIO_CATEDRAL } from '../../../src/engine/gotico/catalogo/atrio_oria';
 import { ESQUINAS_MURO } from '../../../src/engine/gotico/catalogo/muros';
+import { FAM_SENDERO } from '../../../src/engine/gotico/catalogo/senderos';
 import { juncosDeTramo } from '../../../src/engine/gotico/agua';
 import { pisosParamo, estadoEn } from '../../../src/engine/gotico/suelo_paramo';
 import { regarDecalsParamo } from '../../../src/engine/gotico/decals_paramo';
@@ -741,7 +742,10 @@ function exterior(def: DefZona, semilla: number): Zona {
   return z;
 }
 
-const HITO_ZONA: Record<string, string> = { a1_bosque: 'a1_roble', a1_cementerio: 'a1_campanario', a2_oasis_muerto: 'a2_pozo', a2_ruinas: 'a2_obelisco' };
+const HITO_ZONA: Record<string, string> = { a1_bosque: 'a1_roble', a1_cementerio: 'a1_campanario', a2_oasis_muerto: 'a2_pozo', a2_ruinas: 'a2_obelisco',
+  // (entrega 3) los de los actos 3 a 7, uno por mundo abierto (catalogo/hitos_lejanos.ts)
+  a3_selva: 'a3_tambor', a3_pantano: 'a3_barco', a4_picos: 'a4_puerta', a4_glaciar: 'a4_gigante', a5_llanuras: 'a5_yunque', a5_rio: 'a5_crisol',
+  a6_costa: 'a6_campana', a6_arrecife: 'a6_abadesa', a6_barrio1: 'a6_campanario', a6_barrio2: 'a6_coro', a7_cielo: 'a7_escalera', a7_jardin: 'a7_caliz' };
 /** Islas sobre el vacío: cada cuarto es una isla con su borde de precipicio y cada pasillo un puente; en el vacío flota lo que vive ahí. */
 function islas(k: Constructor, o: NonNullable<Tematica['islas']>, suelo: Uint8Array, sala: Uint8Array) {
   const z = k.z, { tw, th } = z, r = k.r;
@@ -1399,6 +1403,22 @@ function vestirDesvio(k: Constructor, def: DefZona, d: Desvio) {
   // y el sendero se lee por lo que lo bordea: matas bajas a los lados que se cierran hacia el claro
   k.capa = 'escena';
   const rd = rng((Math.round(d.cx) * 7919 + Math.round(d.cy) * 104729) >>> 0);
+  // (entrega 3, Rick: "el sendero se lee poco") el piso propio: tramos pisados del material del piso del tema, uno cada celda
+  // y media a lo largo de la traza con su rumbo, las piedras que lo bordean y el mojón donde deja el camino. Azar propio
+  // (`rs`), aparte del de las matas, para no mover nada de lo de antes. `__sinSendero` lo apaga
+  const fam = FAM_SENDERO[def.tema];
+  if (fam && !(globalThis as any).__sinSendero) {
+    const rs = rng((Math.round(d.cx) * 104729 + Math.round(d.cy) * 7919 + 77) >>> 0), n = d.traza.length;
+    const rumbo = (i: number) => { const [x0, y0] = d.traza[Math.max(0, i - 2)], [x1, y1] = d.traza[Math.min(n - 1, i + 2)], a = ((Math.atan2(y1 - y0, x1 - x0) * 180) / Math.PI + 360) % 180; return a < 22.5 || a >= 157.5 ? 'x' : a < 67.5 ? 'd' : a < 112.5 ? 'y' : 'e'; };
+    for (let i = 3; i < n; i += 2) { const [x, y] = d.traza[i]; k.poner('sendero_paso', Math.round(x), Math.round(y), `${fam}_${rumbo(i)}${rs() < 0.5 ? '' : '2'}`, true); }
+    for (let i = 6; i < n - 3; i += 4) {
+      const [x, y, f] = d.traza[i], [x2, y2] = d.traza[i + 1], a = Math.atan2(y2 - y, x2 - x), nx = -Math.sin(a), ny = Math.cos(a), w = (f < 0.25 ? 1.2 : 1 + f * 1.2) + 0.9;
+      for (const s of [-1, 1]) if (rs() < 0.8) k.poner('sendero_paso', Math.round(x + nx * s * w), Math.round(y + ny * s * w), `${fam}_piedras${rs() < 0.5 ? '' : '2'}`, true);
+    }
+    // el mojón, a un costado de la boca del sendero (donde deja el camino)
+    { const [x, y] = d.traza[n - 1], [x2, y2] = d.traza[Math.max(0, n - 5)], a = Math.atan2(y2 - y, x2 - x), nx = -Math.sin(a), ny = Math.cos(a);
+      let ok = false; for (const u of [1.5, 3, 4.5, 6, 7.5]) { for (const s of [1, -1]) for (const w of [2.2, 3.2]) { if (!ok) ok = !!k.poner('sendero_mojon', Math.round(x + Math.cos(a) * u + nx * s * w), Math.round(y + Math.sin(a) * u + ny * s * w), fam); } if (ok) break; } }
+  }
   for (let i = 4; i < d.traza.length - 2; i += 5) {
     const [x, y, f] = d.traza[i], [x2, y2] = d.traza[i + 1], a = Math.atan2(y2 - y, x2 - x), nx = -Math.sin(a), ny = Math.cos(a), w = (f < 0.25 ? 1.2 : 1 + f * 1.2) + 1.2;
     for (const s of [-1, 1]) { if (rd() < 0.35) continue; const [id, v] = fila.borde[Math.floor(rd() * fila.borde.length)]; k.poner(id, Math.round(x + nx * s * w), Math.round(y + ny * s * w), v); }
@@ -2886,15 +2906,36 @@ function curarAdornos(z: Zona, def: DefZona) {
     };
     const jfP = z.spawns.find((s) => s.tipo === 'jefe');
     const enRuedo = (x: number, y: number) => !!jfP && Math.hypot(x - jfP.cx, y - jfP.cy) < 12;
+    // (entrega 3) los que se escondieron aquí: contra el muro de atrás de algunas salas de obra, el rincón donde alguien
+    // durmió y esperó (el jergón, sus velas, el taburete volcado y lo que quedó de él). Nada bloquea. Una sala de cada
+    // tantas, a 16 celdas uno de otro. Azar propio (`rf`); `__sinRefugios` lo apaga
+    if (!cueva && !/celestial|ahogada|infierno/.test(def.tema) && !(globalThis as any).__sinRefugios) {
+      const rf = rng(z.semilla * 2741 + 503), hechos: [number, number][] = [];
+      const ESCONDIDO: [string, string, number, number][][] = [
+        [['mue_jergon', 'revuelto', 0.5, 0], ['mue_velas', 'derretidas', 2, 0], ['mue_taburete', 'volcado', 3, 1], ['cat2_huesos_suelo', 'pocos', 1, 1]],
+        [['mue_jergon', 'paja', 0.5, 0], ['mue_velas', 'una', -1, 0], ['cri_vasijas', '', 2, 0], ['mue_taburete', 'tres_patas', 2, 1]],
+        [['mue_jergon', 'con_manta', 0.5, 0], ['cem2_velas_tumba', 'en_calavera', 2, 0], ['cat2_huesos_suelo', 'con_craneos', 1, 1]],
+      ];
+      for (let y = 3; y < H - 4; y++) for (let x = 3; x < W - 5; x++) {
+        // contra el muro norte (a lo largo de x) o el oeste (a lo largo de y, con la composición girada)
+        const oeste = !M(x, y - 1); if (hechos.length >= 8 || (oeste ? !M(x - 1, y) || !M(x - 1, y + 3) : !M(x + 3, y - 1)) || rf() > 0.3) continue;
+        const C = (u: number, w: number): [number, number] => (oeste ? [x + w, y + u] : [x + u, y + w]);
+        let ok = true; for (let w = 0; w <= 1 && ok; w++) for (let u = -1; u <= 3 && ok; u++) { const [xx, yy] = C(u, w); if (!libreC(xx, yy) || enRuedo(xx, yy) || ancho[yy * W + xx] <= 6) ok = false; }
+        if (!ok || hechos.some(([a, b]) => Math.hypot(a - x, b - y) < 14)) continue;
+        const comp = ESCONDIDO[Math.floor(rf() * ESCONDIDO.length)]; let n = 0;
+        for (const [id, v0, du, dw] of comp) { const dd = REGISTRO.find((q) => q.id === id); if (!dd) continue; const v = v0 || dd.variantes[Math.floor(rf() * dd.variantes.length)], [hw, hh] = huellaDe(dd, v); const [px, py] = C(du, dw); if (poner(id, v, Math.round(px), Math.round(py), oeste ? hh : hw, oeste ? hw : hh, false)) n++; }
+        if (n) hechos.push([x, y]);
+      }
+    }
     // los tramos de muro norte (el piso de abajo libre, el muro arriba) y oeste, celda por celda
     for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) for (const lado of ['n', 'o'] as const) {
-      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6) continue;
+      if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= (cueva || (globalThis as any).__paredRala ? 6 : 3)) continue;
       const atras = lado === 'n' ? M(x, y - 1) : M(x - 1, y); if (!atras) continue;
-      if (rp() > 0.7 || !lejosDeOtros(x, y, cueva ? 4.5 : 3.6)) continue;
+      if (rp() > 0.7 || !lejosDeOtros(x, y, cueva ? 4.5 : (globalThis as any).__paredRala ? 3.6 : 2.8)) continue;
       const [id, modo] = lista[Math.floor(rp() * lista.length)], dd = REGISTRO.find((q) => q.id === id); if (!dd) continue;
       const vs = dd.variantes.filter((q) => !q.endsWith('_der')), base = vs[Math.floor(rp() * vs.length)];
       const v = modo === 'largo' && lado === 'o' ? base + '_der' : base; if (!dd.variantes.includes(v)) continue;
-      const [hw, hh] = huellaDe(dd, v); if (modo === 'suelto' && hw * hh > 4) continue;
+      const [hw, hh] = huellaDe(dd, v); if (modo === 'suelto' && (hw * hh > 4 || ancho[y * W + x] <= 6)) continue;
       // la huella entera pegada al muro (su fila o columna de atrás toca el muro), libre, con paso delante
       const x0 = x, y0 = y; let ok = true;
       for (let yy = y0; yy < y0 + hh && ok; yy++) for (let xx = x0; xx < x0 + hw && ok; xx++) { if (!libreC(xx, yy) || enRuedo(xx, yy)) ok = false; }
@@ -2903,9 +2944,25 @@ function curarAdornos(z: Zona, def: DefZona) {
       // (nada de esto bloquea: va contra el muro y se pasa por delante, así la arena no baja)
       poner(id, v, Math.round(x0 + (hw - 1) / 2), Math.round(y0 + (hh - 1) / 2), hw, hh, false);
     }
+    // (entrega 3: la obra quedaba en 35 adornos por pantalla) lo que cuelga del muro deja su rastro al pie: bajo las
+    // cadenas, los huesos del que murió encadenado; bajo el candelero, la cera y las velas que se cayeron; bajo las momias
+    // de pared, lo que se les deshizo. Una celda delante, sin bloquear, con su propio azar (`rq`) para no mover lo de
+    // antes. `__sinPieMuro` lo apaga
+    if (!(globalThis as any).__sinPieMuro) {
+      const rq = rng(z.semilla * 4111 + 37), PIE: Record<string, [string, string][]> = {
+        cri_cadenas_pared: [['cat2_huesos_suelo', 'con_craneos'], ['cat2_huesos_suelo', 'pocos'], ['cat_monton_huesos', 'chico']],
+        cri_candelabro_pared: [['mue_velas', 'derretidas'], ['mue_velas', 'grupo'], ['cem2_velas_tumba', 'derretidas']],
+        cat2_momias_pared: [['cat2_huesos_suelo', 'pocos'], ['cri_cofres_osarios', 'caidos']],
+      };
+      for (const o of puestos.slice()) {
+        const fila = PIE[o.id]; if (!fila || rq() > 0.9) continue;
+        const der = (o.v ?? '').endsWith('_der'), [id, v] = fila[Math.floor(rq() * fila.length)];
+        for (const k of [0, -1, 1]) { const x = der ? o.cx + Math.ceil(o.hw / 2) : o.cx + k, y = der ? o.cy + k : o.cy + Math.ceil(o.hh / 2); if (!libreC(x, y) || enRuedo(x, y) || ancho[y * W + x] <= 6) continue; if (poner(id, v, x, y, 1, 1, false)) break; }
+      }
+    }
     // al pie de las columnas de las salas: velas, huesos o telarañas, del lado que se ve (abajo o a la derecha)
     for (const o of z.objetos.slice()) {
-      if (quitar.has(o) || o.capa === 'pared' || !/columna|pilar/.test(o.id) || rp() > 0.55) continue;
+      if (quitar.has(o) || o.capa === 'pared' || !/columna|pilar/.test(o.id) || rp() > 0.8) continue;
       for (const [dx, dy] of [[0, 1], [1, 0], [1, 1]]) { const x = Math.round(o.cx + (o.hw / 2 + 0.5) * dx), y = Math.round(o.cy + (o.hh / 2 + 0.5) * dy); if (!libreC(x, y) || enRuedo(x, y) || !lejosDeOtros(x, y, 2.5)) continue; const [id, v] = rincon[Math.floor(rp() * rincon.length)]; if (poner(id, v, x, y, 1, 1, false)) break; }
     }
     // los rincones (muro al norte y al oeste): un osario, velas o lo que el tema deja tirado

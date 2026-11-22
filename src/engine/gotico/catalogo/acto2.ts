@@ -30,10 +30,12 @@ MATERIALES.a2_sol_liso = { rampa: ['#1e1307', '#36230e', '#523516', '#6f491f', '
 MATERIALES.a2_oro_sol = { rampa: ['#2a1a05', '#4a300a', '#6e4a10', '#966818', '#bb8a24', '#d9ab3c', '#efcc66'], ruido: 0.1, escala: 0.2, brillo: 0.6 };
 MATERIALES.a2_lapis = { rampa: ['#060a16', '#0c1428', '#13203d', '#1c2e54', '#283f6c', '#365183'], ruido: 0.2, escala: 0.25 };
 // los dormidos: caliza pálida, vendas viejas y el yeso con que sellaron los nichos
-MATERIALES.a2_dorm_sillar = { rampa: ['#1b150e', '#30271b', '#473a29', '#604f3a', '#7a674c', '#948060', '#ab9977'], ruido: 0.22, escala: 0.16, patron: sillar(20, 10) };
-MATERIALES.a2_dorm_liso = { rampa: ['#1b150e', '#30271b', '#473a29', '#604f3a', '#7a674c', '#948060', '#ab9977'], ruido: 0.2, escala: 0.14 };
-MATERIALES.a2_venda = { rampa: ['#2a2219', '#43392b', '#5d513f', '#786b55', '#93856b', '#ab9e83'], ruido: 0.35, escala: 0.45 };
+MATERIALES.a2_dorm_sillar = { rampa: ['#22160b', '#3a2715', '#553b20', '#71512d', '#8d683c', '#a7804e', '#bd9763'], ruido: 0.22, escala: 0.16, patron: sillar(20, 10) };
+MATERIALES.a2_dorm_liso = { rampa: ['#22160b', '#3a2715', '#553b20', '#71512d', '#8d683c', '#a7804e', '#bd9763'], ruido: 0.2, escala: 0.14 };
+MATERIALES.a2_venda = { rampa: ['#3a3020', '#574a33', '#766748', '#95865f', '#b2a37a', '#cbbe96', '#ddd2ae'], ruido: 0.35, escala: 0.45 };
 MATERIALES.a2_yeso = { rampa: ['#2e2a22', '#4a4436', '#675f4c', '#837a63', '#9f957b', '#b8ae93'], ruido: 0.3, escala: 0.3 };
+MATERIALES.a2_resina = { rampa: ['#2a1203', '#4a2306', '#6e370b', '#954f12', '#bb6a1c', '#dc8a2c'], ruido: 0.12, escala: 0.3, brillo: 0.7 };
+MATERIALES.a2_turquesa = { rampa: ['#05140f', '#0a2620', '#123a31', '#1d5045', '#2b665a'], ruido: 0.2, escala: 0.3 };
 MATERIALES.a2_ocre = { rampa: ['#1d0a05', '#331209', '#4c1b0d', '#672512', '#813018'], ruido: 0.25, escala: 0.3 };
 // el rey: basalto pulido, pórfido y oro
 MATERIALES.a2_rey_sillar = { rampa: ['#060608', '#0d0d11', '#16161c', '#202028', '#2b2b35', '#383844', '#474756'], ruido: 0.12, escala: 0.16, brillo: 0.35, patron: sillar(36, 18, 0.06) };
@@ -300,6 +302,9 @@ registrar(
         ps.push(a.caja(0, F + 0.3, z - 4, 78, 0.8, 1, { mat: 'a2_ocre' }));
       }
       if (v === 'vendas') for (let i = 0; i < 2; i++) ps.push(a.elipsoide(rr(a, -30, 30), F + 5, 0.6, rr(a, 5, 9), rr(a, 2, 4), 0.8, { mat: 'a2_venda', tono: -0.08 }));
+      // el friso pintado de los embalsamadores bajo la cornisa: ocre, turquesa y el ojo que vela a los dormidos
+      ps.push(a.caja(0, F + 0.3, 87, 80, 0.8, 9, { mat: 'a2_ocre' }), a.caja(0, F + 0.5, 89.5, 80, 0.8, 4, { mat: 'a2_turquesa' }));
+      for (let i = 0; i < 4; i++) { const x = -30 + i * 20; ps.push(a.elipsoide(x, F + 1, 91.5, 4, 0.6, 1.8, { mat: 'a2_venda', tono: 0.2 }), a.esfera(x, F + 1.3, 91.5, 1.2, { mat: 'negro' })); }
       return ps;
     },
   },
@@ -309,12 +314,16 @@ registrar(
       const ps: Pieza[] = [];
       // la losa sobre dos patas de piedra, con el dormido tendido y su vela; a lo largo de x (la galería)
       ps.push(a.caja(-16, 0, 0, 8, 18, 12, { mat: 'a2_dorm_sillar' }), a.caja(16, 0, 0, 8, 18, 12, { mat: 'a2_dorm_sillar' }), a.caja(0, 0, 12, 46, 22, 4, { mat: 'a2_dorm_liso', tono: 0.05 }));
-      ps.push(a.caja(0, 11.2, 13, 40, 0.8, 1.6, { mat: 'a2_ocre' }));
+      ps.push(a.caja(0, 11.2, 13, 40, 0.8, 1.6, { mat: 'a2_ocre' }), a.caja(0, 11.3, 14.2, 40, 0.6, 1, { mat: 'a2_turquesa' }));
+      for (const x of [-16, 16]) ps.push(a.caja(x, 9.2, 3, 5, 0.6, 6, { mat: 'a2_ocre', tono: 0.05 }));
+      // el cuenco de resina de los embalsamadores y lo que goteó
+      ps.push(a.cilindro(14, -7, 16, 3, 2.4, { mat: 'a2_dorm_liso', r1: 3.6 }), a.cilindro(14, -7, 17.6, 2.8, 1, { mat: 'a2_resina', tono: 0.1 }));
+      ps.push(a.elipsoide(10, 13, 0.4, 4, 2, 0.4, { mat: 'a2_resina' }));
       const dormido = (y: number, s: number) => {
         ps.push(a.elipsoide(2, y, 19.5, 17 * s, 5 * s, 3.4 * s, { mat: 'a2_venda', tono: -0.05 }), a.elipsoide(-17 * s, y, 20, 3.4 * s, 3.6 * s, 3.4 * s, { mat: 'a2_venda' }));
         ps.push(a.elipsoide(-4, y, 22.4, 4 * s, 4.4 * s, 1.4 * s, { mat: 'a2_venda', tono: -0.1 })); // las manos cruzadas
         for (let k = 0; k < 7; k++) ps.push(a.cilindro(-12 * s + k * 4.6 * s, y, 19.5, 3.8 * s - Math.abs(k - 3) * 0.25, 0.8, { mat: 'a2_venda', eje: [1, (k % 2 ? 0.35 : -0.35), 0], tono: -0.2 }));
-        ps.push(a.elipsoide(-18 * s, y + 0.5, 21.6, 1.2, 2.4, 1, { mat: 'tumba_pintura', tono: 0.05 }));
+        ps.push(a.elipsoide(-18 * s, y + 0.5, 21.6, 1.2, 2.4, 1, { mat: 'tumba_pintura', tono: 0.05 }), a.elipsoide(4, y, 22.2 * Math.min(1, s + 0.15), 5 * s, 3 * s, 0.8, { mat: 'a2_resina', tono: -0.05 }));
       };
       if (v === 'dormido') dormido(0, 1);
       if (v === 'dos') { dormido(-4.5, 0.8); dormido(5, 0.75); }

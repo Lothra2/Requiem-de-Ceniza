@@ -992,6 +992,15 @@ mismo `desierto` (arena, arenisca, el mismo bazar de viñeta). Eran la misma maz
   los Dormidos** en galerías largas con los lechos en hilera a los dos lados del paso; la **Cámara del Rey** de basalto y pórfido,
   salas grandes, la avenida de estatuas, sin un solo haz, oscuridad morada; la **Cueva de los Escarabajos** verde parda con nidos,
   huevos que alumbran y arena que cae. Cada una con su castigo de campamento y su asiento del jefe.
+- **Segunda vuelta (revisión del coordinador)**: el lecho del Oasis Muerto se leía como un damero oscuro que tapaba todo: ahora
+  es solo el medio (`a2_barro_seco` en placas de dos tamaños que se mezclan, tonos de barro pardo a casi arena, el canto claro
+  donde se levanta la costra, grietas pardas y no negras) con su orilla (`a2_barro_orilla`: arena con costras sueltas) y la
+  arena domina afuera. La Galería de los Dormidos: sin el escombro del frente, las piedras sueltas ni el aderezo de los muros
+  (`limpio`), los huecos entre galerías son la arena que entró (`relleno`: dunas en vez de pilas de sillares), los lechos en
+  hilera en todas las salas (también la mayor), y su color: caliza tostada, vendas de lino, resina ámbar en los cuencos y en
+  las vendas, el friso pintado de ocre y turquesa con el ojo que vela, el surco de ocre en las tapas, oscuridad y haces ámbar.
+  En el desierto el santuario de runas moradas (`com_santuario_obelisco`) se leía como una pieza de otro mundo parada en la
+  arena: las zonas del acto 2 dan solo el altar de cuernos y el monolito pálido (`santuarios`, el efecto es el de siempre).
 - Ojo: un servidor de desarrollo que se levantó antes de crear un archivo nuevo en `catalogo/` no lo ve (el `import.meta.glob`
   se resuelve al cargar): la zona sale sin esas piezas (sin muros). Reiniciar el servidor después de agregar archivos al catálogo.
 - Fotos: `node juego/herramientas/t1040_acto2_fotos.cjs <etiqueta> [zonas]` (mismos puntos relativos del mapa: entrada, tres

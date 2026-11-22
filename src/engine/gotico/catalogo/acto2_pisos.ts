@@ -31,9 +31,9 @@ const lejos = (x0: number, y0: number, m = 8) => { const PP = P * PER, x = x0 % 
 
 // materiales del piso (rampas de la sombra a la luz)
 MATERIALES.a2_arena_duna = { rampa: ['#24170a', '#3f2a14', '#5f411f', '#83592b', '#a7743a', '#c3904c', '#d9aa64'], ruido: 0.12, escala: 0.2 };
-MATERIALES.a2_barro = { rampa: ['#140f0b', '#261d15', '#3a2d20', '#4f3f2d', '#66523b', '#7d6649', '#937a59'], ruido: 0.2, escala: 0.25 };
+MATERIALES.a2_barro = { rampa: ['#3a2716', '#4f3720', '#664a2c', '#7d5e39', '#947348', '#a98858', '#bc9c6a', '#cbb07f'], ruido: 0.2, escala: 0.25 };
 MATERIALES.a2_sal = { rampa: ['#3b352c', '#57503f', '#746b56', '#91876e', '#aca288', '#c4baa0', '#d8cfb6'], ruido: 0.3, escala: 0.4 };
-MATERIALES.a2_grieta = { rampa: ['#050302', '#0d0805', '#160e08', '#20150c'], ruido: 0.1, escala: 0.3 };
+MATERIALES.a2_grieta = { rampa: ['#231710', '#2f2015', '#3c2a1b', '#4a3522'], ruido: 0.1, escala: 0.3 };
 MATERIALES.a2_losa_calle = { rampa: ['#1b150e', '#2f2619', '#463a28', '#5f5038', '#79684a', '#93805d', '#ab9872'], ruido: 0.22, escala: 0.18 };
 MATERIALES.a2_basalto = { rampa: ['#0a0c0d', '#141719', '#1f2326', '#2b3033', '#383e41', '#464d50', '#565e60'], ruido: 0.26, escala: 0.22 };
 MATERIALES.a2_agua_negra = { rampa: ['#020304', '#05080a', '#0a0f12', '#10181c', '#1a2429', '#2b3a40'], ruido: 0.08, escala: 0.3, brillo: 0.5 };
@@ -43,8 +43,10 @@ MATERIALES.a2_oro_viejo = { rampa: ['#2a1a05', '#4a300a', '#6e4a10', '#966818', 
 MATERIALES.a2_basalto_pulido = { rampa: ['#07070a', '#0f0f14', '#18181f', '#22222b', '#2e2e39', '#3c3c49'], ruido: 0.08, escala: 0.2, brillo: 0.4 };
 MATERIALES.a2_porfido = { rampa: ['#120608', '#210b0e', '#321216', '#451a1e', '#5a2328', '#6f2e33'], ruido: 0.25, escala: 0.3 };
 MATERIALES.a2_quitina = { rampa: ['#05070a', '#0b1413', '#12221d', '#1a3226', '#29452c', '#4a6234', '#7d8448'], ruido: 0.1, escala: 0.3, brillo: 0.7 };
-MATERIALES.a2_caliza_dormidos = { rampa: ['#1d1710', '#33291d', '#4b3e2c', '#65553e', '#7f6d51', '#998666', '#b09e7d'], ruido: 0.2, escala: 0.18 };
-MATERIALES.a2_polvo_vendas = { rampa: ['#2b261d', '#423b2e', '#5b5241', '#756a55', '#8d826a', '#a49980'], ruido: 0.3, escala: 0.35 };
+MATERIALES.a2_caliza_dormidos = { rampa: ['#24170b', '#3d2814', '#573b1f', '#73502b', '#8f6738', '#a87f49', '#be965d'], ruido: 0.2, escala: 0.18 };
+MATERIALES.a2_polvo_vendas = { rampa: ['#3a2c1c', '#544129', '#6f5838', '#8b7049', '#a5885c', '#bba071'], ruido: 0.3, escala: 0.35 };
+MATERIALES.a2_ocre_piso = { rampa: ['#2b0f06', '#45190b', '#5f2511', '#7a3118'], ruido: 0.25, escala: 0.3 };
+MATERIALES.a2_resina_piso = { rampa: ['#2a1203', '#4a2306', '#6e370b', '#954f12', '#bb6a1c'], ruido: 0.15, escala: 0.3, brillo: 0.6 };
 MATERIALES.a2_roca_cueva = { rampa: ['#110d09', '#1e1811', '#2d241a', '#3d3224', '#4f412f', '#61513b'], ruido: 0.3, escala: 0.2 };
 
 const NUEVOS: PisoDef[] = [
@@ -58,17 +60,33 @@ const NUEVOS: PisoDef[] = [
     if (f > 0.78) tono -= 0.06; // la sombra del sotavento
     return ['a2_arena_duna', sierra * 1.6, tono];
   } },
-  // el Oasis Muerto: barro seco en placas que se curvan en los cantos, grietas hondas y costra de sal
+  // el Oasis Muerto: el lecho del lago en placas de barro. Placas de tamaños dispares (dos escalas que se mezclan con un campo
+  // suave, así la baldosa no se repite a la vista), cada una con su tono (de barro pardo a casi arena), el canto levantado y
+  // claro donde se enrosca la costra, la grieta angosta con su sombra al lado y costra de sal en algunas
   { id: 'a2_barro_seco', nombre: ['Barro seco', 'Dried mud'], tema: 'desierto', variantes: 8, punto: (x, y, v) => {
-    const [d1, d2, id] = voronoi(x, y, 3, 44), b = d2 - d1;
-    const [e1, e2] = voronoi(x, y, 7, 45), b2 = e2 - e1;
-    if (b < 2.2) return ['a2_grieta', -3, -0.1];
-    if (b2 < 0.9 && b > 5) return ['a2_grieta', -1, 0.05]; // grieta fina dentro de la placa
+    const k = fr(x, y, 2, 70), [g1, g2, gid] = voronoi(x, y, 3, 44), [c1, c2, cid] = voronoi(x, y, 6, 71);
+    const chica = k > 0.52, b = chica ? c2 - c1 : g2 - g1, id = chica ? cid : gid;
+    if (b < 0.8) return ['a2_grieta', -2, 0];
+    if (b < 1.8) return ['a2_barro', -0.4, -0.2 + (b - 0.8) * 0.12]; // la sombra al pie del canto
     const sal = fr(x, y, 4, 46 + (id % 5));
-    const h = 1.2 + Math.max(0, 3 - b) * 0.9 + (fr(x, y, 10, id) - 0.5) * 0.8;
-    const tono = (hash3(id, 3, 7) - 0.5) * 0.16 - Math.max(0, 4 - b) * 0.03;
-    if (sal > 0.68 || (v > 0 && lejos(x, y) && det(x, y, v, 18) > 0.85 && sal > 0.5)) return ['a2_sal', h + 0.3, tono];
+    const canto = Math.max(0, 4.5 - b);
+    const h = 0.8 + canto * 0.35 + (fr(x, y, 10, id) - 0.5) * 0.5;
+    const tono = (hash3(id, 3, 7) - 0.5) * 0.3 + canto * 0.05 + (k - 0.5) * 0.15;
+    if (sal > 0.7 || (v > 0 && lejos(x, y) && det(x, y, v, 18) > 0.88 && sal > 0.5)) return ['a2_sal', h + 0.3, tono * 0.5];
+    if (hash3(id, 9, 2) > 0.86) return ['arena', h - 0.4, tono * 0.4 - 0.04]; // la arena que el viento metió en una placa hundida
     return ['a2_barro', h, tono];
+  } },
+  // la orilla del lago muerto: arena con placas de costra sueltas, chicas y levantadas, cada vez menos hacia afuera
+  { id: 'a2_barro_orilla', nombre: ['Orilla de barro', 'Mud shore'], tema: 'desierto', variantes: 8, punto: (x, y, v) => {
+    const [c1, c2, cid] = voronoi(x, y, 7, 72), b = c2 - c1, costra = fr(x, y, 3, 73) > 0.45 && hash3(cid, 4, 5) > 0.35;
+    if (costra) {
+      if (b < 1.6) return ['arena', -0.6, -0.12];
+      const canto = Math.max(0, 3.4 - b);
+      return ['a2_barro', 1 + canto * 0.6, (hash3(cid, 6, 1) - 0.5) * 0.25 + 0.06 + canto * 0.05];
+    }
+    const ola = Math.sin(((2 * x + y) / P) * Math.PI * 4 + fr(x, y, 4, 74) * 6);
+    if (v > 0 && lejos(x, y) && det(x, y, v, 9) > 0.92) return ['a2_sal', 0.6, 0];
+    return ['arena', ola * 0.6 + fr(x, y, 12, 75), ola * 0.05 - 0.02];
   } },
   // las Ruinas del Sol: calle de losas grandes gastadas, en hiladas, con la arena metida en las juntas y alguna losa que falta
   { id: 'a2_losa_calle', nombre: ['Losas de calle', 'Street slabs'], tema: 'desierto', variantes: 8, punto: (x, y, v) => {
@@ -126,16 +144,18 @@ const NUEVOS: PisoDef[] = [
     if (v > 0 && lejos(x, y) && det(x, y, v, 16) > 0.86) tono -= 0.1;
     return ['a2_basalto_pulido', 1, tono];
   } },
-  // la Galería de los Dormidos: losas largas como tapas de fosa, a lo largo de la galería, con el polvo de las vendas
+  // la Galería de los Dormidos: losas largas como tapas de fosa, de caliza tostada, a lo largo de la galería; el polvo de las
+  // vendas en las juntas, el surco grabado con su línea de ocre en algunas tapas y gotas de resina ámbar de los embalsamadores
   { id: 'a2_losa_dormidos', nombre: ['Losas de fosa', 'Grave slabs'], tema: 'tumba', variantes: 8, punto: (x, y, v) => {
-    const col = Math.floor(x / 18), uy = (y + hash3(col % 9, 1, 61) * 40) % 40, ux = x % 18, losa = col * 7 + Math.floor((y + hash3(col % 9, 1, 61) * 40) / 40);
-    if (ux < 1 || uy < 1) return ['a2_polvo_vendas', -1, -0.2];
+    const col = Math.floor(x / 18), corr = hash3(col % 9, 1, 61) * 40, uy = (y + corr) % 40, ux = x % 18, losa = col * 7 + Math.floor((y + corr) / 40);
+    if (ux < 1 || uy < 1) return ['a2_polvo_vendas', -1, -0.12];
     const polvo = fr(x, y, 4, 62);
-    if (polvo > 0.7) return ['a2_polvo_vendas', 0.3, (polvo - 0.7) * 0.5];
-    let tono = (hash3(losa % 31, 3, 63) - 0.5) * 0.18;
-    // la cruz y el surco grabado en algunas tapas
-    if (hash3(losa % 31, 5, 64) > 0.6 && Math.abs(ux - 9) < 0.7 && uy > 8 && uy < 32) tono -= 0.25;
-    if (v > 0 && lejos(x, y) && det(x, y, v, 12) > 0.86) tono -= 0.14;
+    if (polvo > 0.72) return ['a2_polvo_vendas', 0.3, (polvo - 0.72) * 0.6];
+    let tono = (hash3(losa % 31, 3, 63) - 0.5) * 0.22;
+    const grabada = hash3(losa % 31, 5, 64) > 0.55;
+    if (grabada && Math.abs(ux - 9) < 0.8 && uy > 7 && uy < 33) return ['a2_ocre_piso', 0.2, 0.05];
+    if (v > 0 && lejos(x, y) && det(x, y, v, 6) > 0.93) return ['a2_resina_piso', 1.3, 0.1];
+    if (v > 0 && lejos(x, y) && det(x, y, v, 12) > 0.86) tono -= 0.12;
     return ['a2_caliza_dormidos', 1, tono];
   } },
   // la Cueva de los Escarabajos: roca de cueva con la arena que entra en lenguas y pedazos de quitina que brillan

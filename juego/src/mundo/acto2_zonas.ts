@@ -21,6 +21,12 @@ export interface VarianteZona {
   extra?: Sel[];
   /** El muro de la tumba (x y su gemelo en y). Con muro propio no va la sillería genérica de la Forja (`muro_obra`). */
   muroX?: Muro; muroY?: Muro;
+  /** Bajo tierra: sin el escombro del frente ni las piedras sueltas del tema en las salas (el piso queda limpio para lo suyo). */
+  limpio?: boolean;
+  /** Bajo tierra: con qué se llenan los huecos encerrados entre salas (`rellenarBolsas`): [id, variante, peso] por talla. */
+  relleno?: { alta: [string, string, number][]; media: [string, string, number][]; baja: [string, string, number][] };
+  /** Los santuarios que da la zona (`colocarInteractivos`): las piezas, el efecto es el de siempre. */
+  santuarios?: string[];
   /** Lo que viste el muro de atrás (`PARED_TEMA`). */
   pared?: [string, 'largo' | 'suelto'][];
   /** El castigo de los campamentos comunes (ancla y lo de alrededor, `CASTIGO`). */
@@ -43,6 +49,9 @@ export interface VarianteZona {
 
 const A2 = ['acto2'];
 const TUMBA_LUZ: Sel[] = [{ t: ['tumba'], p: ['antorcha'] }];
+// (en el desierto el obelisco de runas moradas se leía como una pieza de otro mundo: los santuarios de la arena son el altar de
+//  cuernos con su fuego y el monolito pálido con su llama)
+const SANT_DESIERTO = ['com_santuario_cuernos', 'com_santuario_monolito'];
 const pozoMuro = (vs: string[]): [Muro, Muro] => [['a2_muro_pozo', vs], ['a2_muro_pozo', vs.map((v) => v + '_y')]];
 const muro = (id: string, vs: string[]): [Muro, Muro] => [[id, vs], [id, vs.map((v) => v + '_y')]];
 // ruido de valor determinista por baldosa (para las formas del piso afuera: no toca el azar de la zona)
@@ -58,6 +67,7 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // Las Dunas de Sahrim: el mar de arena. Piso de rizos del viento, casi sin ensenadas (se ve lejos), dunas altas y la
   // caravana que no llegó. Nada de ruinas ni columnas: eso es de la ciudad.
   a2_dunas: {
+    santuarios: SANT_DESIERTO,
     piso: 'a2_arena_duna', parches: ['arena', 'a2_arena_duna', 'a2_arena_duna'], camino: 'arena', vinetas: [],
     borde: [{ t: ['desierto'], p: ['des2_duna'], v: (v) => /alta|doble|ondulada/.test(v) }, { t: ['desierto'], p: ['des2_roca_viento'], v: (v) => /yardang|ventifacto/.test(v) }],
     disperso: [{ t: ['desierto'], p: ['des2_huesos', 'des2_craneo_cuernos', 'des2_remolino', 'des2_arenas_movedizas', 'des2_escarabajos', 'des2_restos_batalla'] }, { t: ['desierto'], p: ['des2_arbusto'], v: (v) => /rodante|seco/.test(v) }],
@@ -69,10 +79,11 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // El Oasis Muerto: era un lago. En el medio, el lecho seco en placas de barro con su orilla de tierra; alrededor la arena.
   // Palmeras muertas y quebradas, la barca varada, camellos, buitres y pozos secos.
   a2_oasis_muerto: {
-    piso: 'arena', parches: ['tierra', 'arena', 'a2_barro_seco'], camino: 'tierra', vinetas: [],
+    santuarios: SANT_DESIERTO,
+    piso: 'arena', parches: ['tierra', 'arena', 'arena'], camino: 'tierra', vinetas: [],
     pisoExt: (bx, by, tw, th) => {
       const dx = (bx + 0.5 - tw / 2) / (tw / 2), dy = (by + 0.5 - th / 2) / (th / 2), d = Math.hypot(dx * 0.95, dy * 1.05) + (suave(bx, by, 3, 7) - 0.5) * 0.32;
-      return d < 0.5 ? 'a2_barro_seco' : d < 0.62 ? 'tierra' : undefined;
+      return d < 0.34 ? 'a2_barro_seco' : d < 0.47 ? 'a2_barro_orilla' : undefined;
     },
     borde: [{ t: ['desierto'], p: ['des2_palmera'], v: (v) => /muerta|quebrada/.test(v) }, { t: ['desierto'], p: ['des2_duna'], v: (v) => /baja|con_huesos/.test(v) }, { t: ['desierto'], p: ['des2_roca_viento'], v: (v) => /hongo|columnas/.test(v) }],
     disperso: [{ t: ['desierto'], p: ['des2_palmera'], v: (v) => /muerta|quebrada/.test(v) }, { t: ['desierto'], p: ['des2_camello_muerto', 'des2_buitres', 'des2_huesos', 'des2_craneo_cuernos'] }, { t: ['desierto'], p: ['des2_arbusto'], v: (v) => /seco|espinoso/.test(v) }],
@@ -83,6 +94,7 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // Las Ruinas del Sol: la ciudad que adoraba al sol. Calles enlosadas en cuadrícula, la arena metida en las manzanas,
   // casas sin techo, columnatas, la fuente seca de cada plaza, estatuas caídas, esfinges y obeliscos.
   a2_ruinas: {
+    santuarios: SANT_DESIERTO,
     piso: 'arena', parches: ['a2_losa_calle', 'arenisca', 'arena'], camino: 'a2_losa_calle', vinetas: ['tumba'],
     pisoExt: (bx, by, tw, th, m) => {
       const calle = (bx % 6 === 2) || (by % 6 === 3), plaza = suave(bx, by, 4, 11) > 0.64;
@@ -100,6 +112,7 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // El Pozo de los Nombres: piedra negra y húmeda, agua negra en charcos, los muros cubiertos de los nombres de los que
   // bajaron, sus sogas y cubos. Arriba la boca del pozo deja caer una luz fría.
   a2_nombres1: {
+    santuarios: SANT_DESIERTO,
     piso: 'a2_losa_pozo', parches: ['a2_losa_pozo', 'a2_agua_negra', 'a2_losa_pozo'], oscuridad: 0.8, estilo: 'cementerio',
     ...(() => { const [x, y] = pozoMuro(['nombres', 'nombres', 'cuerdas', 'gotea']); return { muroX: x, muroY: y }; })(),
     disperso: [{ t: A2, p: ['a2_cuerdas_pozo', 'a2_piedra_nombres', 'a2_charca_negra'] }, { t: ['catacumbas'], p: ['cat2_gotera', 'cat2_huesos_suelo'] }],
@@ -113,6 +126,7 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // Los Nombres Borrados: el fondo del pozo. El agua negra lo cubre casi todo, los nombres están raspados (para que él no
   // sepa a quién beber), sin luz de arriba, y la Borradora espera junto a otra boca que sigue bajando.
   a2_nombres2: {
+    santuarios: SANT_DESIERTO,
     piso: 'a2_agua_negra', parches: ['a2_losa_pozo', 'a2_agua_negra', 'a2_losa_pozo'], oscuridad: 0.88, estilo: 'ahogada',
     ...(() => { const [x, y] = pozoMuro(['raspados', 'borrado', 'gotea', 'raspados']); return { muroX: x, muroY: y }; })(),
     disperso: [{ t: A2, p: ['a2_charca_negra', 'a2_piedra_nombres'], v: (v) => v !== 'nombres' }, { t: A2, p: ['a2_cuerdas_pozo'], v: (v) => v === 'cubo_roto' }, { t: ['catacumbas'], p: ['cat2_huesos_suelo'] }],
@@ -126,6 +140,7 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // El Templo del Sol Caído: oro viejo. Losas doradas con el sol de bronce embutido, columnas con su disco, muros con el
   // sol en relieve y la procesión, mucha luz que entra por el techo roto, soles caídos y el altar que mira hacia abajo.
   a2_sol: {
+    santuarios: SANT_DESIERTO,
     piso: 'a2_losa_sol', parches: ['a2_losa_sol', 'arena', 'a2_losa_sol'], oscuridad: 0.66,
     ...(() => { const [x, y] = muro('a2_muro_sol', ['disco', 'rayos', 'friso', 'friso', 'roto']); return { muroX: x, muroY: y }; })(),
     disperso: [{ t: A2, p: ['a2_disco_caido'] }, { t: ['tumba'], p: ['canopos', 'obelisco'] }, { t: ['desierto'], p: ['jarr', 'vasij'], s: ['des2_'] }],
@@ -140,20 +155,24 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // La Galería de los Dormidos: galerías largas y angostas, los muros de nichos con los dormidos acostados en hileras, los
   // lechos de piedra en fila a los dos lados del paso, vendas por el piso, olor a canela. Poca luz, velas.
   a2_tumbas1: {
+    santuarios: SANT_DESIERTO,
     piso: 'a2_losa_dormidos', parches: ['a2_losa_dormidos', 'arenisca', 'a2_losa_dormidos'], oscuridad: 0.8,
     ...(() => { const [x, y] = muro('a2_muro_dormidos', ['loculos', 'loculos', 'vendas', 'sellado', 'vacios']); return { muroX: x, muroY: y }; })(),
     disperso: [{ t: A2, p: ['a2_vendas'] }, { t: ['tumba'], p: ['canopos', 'sarcofago'] }, { t: ['desierto'], p: ['jarr', 'vasij'], s: ['des2_'] }],
-    grande: [{ t: A2, p: ['a2_lecho_dormido'] }], hileras: true,
+    grande: [{ t: A2, p: ['a2_lecho_dormido'] }], hileras: true, limpio: true,
+    // (los huecos entre galerías se llenaban de pilas de sillares y escombro que ensuciaban todo: ahora es la arena que entró)
+    relleno: { alta: [['des2_duna', 'alta', 1], ['des2_duna', 'doble', 1]], media: [['des2_duna', 'ondulada', 1], ['des2_duna', 'alta', 0.6]], baja: [['des2_duna', 'baja', 1]] },
     luces: [{ t: ['tumba'], p: ['antorcha'] }, { t: ['cripta' as any], p: ['cri_candelabro'], v: (v) => !/_der$/.test(v) }],
     deco: [{ t: ['tumba'], p: ['sarcofago'], v: (v) => /momia/.test(v) }],
     pared: [['tum_canopos', 'suelto'], ['mue_velas', 'suelto'], ['cri_vasijas', 'suelto'], ['cat2_momias_pared', 'largo']],
     castigo: [['a2_lecho_dormido', 'vacio'], ['a2_vendas', 'enredo'], ['cri_cuerpo_amortajado', 'momia']],
     sala: { w: [8, 2], h: [4, 1], galeria: true, cada: 80 },
-    tinta: [12, 9, 4], haz: { c: '255,226,170', dens: 0.0024 }, motas: 'polvo',
+    tinta: [18, 10, 2], haz: { c: '255,196,112', dens: 0.0045 }, motas: 'polvo',
   },
   // La Cámara del Rey sin Sombra: basalto pulido, oro y pórfido. Salas grandes y pocas, la avenida de estatuas del rey, el
   // muro donde a todos les pintaron su sombra menos a él, el tesoro. Ningún haz de luz: aquí nada echa sombra.
   a2_tumbas2: {
+    santuarios: SANT_DESIERTO,
     piso: 'a2_losa_rey', parches: ['a2_losa_rey', 'a2_losa_rey', 'a2_losa_rey'], oscuridad: 0.8, estilo: 'cementerio',
     ...(() => { const [x, y] = muro('a2_muro_rey', ['friso', 'rey', 'oro', 'friso', 'roto']); return { muroX: x, muroY: y }; })(),
     disperso: [{ t: A2, p: ['a2_tesoro_rey'] }, { t: ['tumba'], p: ['canopos'] }, { t: A2, p: ['a2_estatua_rey'], v: (v) => v === 'caida' }],
@@ -168,6 +187,7 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   // La Cueva de los Escarabajos: una cueva viva. El piso con la arena que entra y quitina que brilla, nidos, nidadas de
   // huevos que alumbran verde, mudas vacías, arena que cae por las grietas del techo.
   a2_escarabajos: {
+    santuarios: SANT_DESIERTO,
     piso: 'a2_cueva_quitina', parches: ['a2_cueva_quitina', 'arena', 'a2_cueva_quitina'], oscuridad: 0.78,
     disperso: [{ t: A2, p: ['a2_quitina', 'a2_huevos', 'a2_arena_cae'] }, { t: ['desierto'], p: ['des2_escarabajos'] }, { t: ['cueva'], p: ['cue2_nido_huesos', 'cue2_estalagmitas'] }],
     grande: [{ t: ['cueva'], p: ['cue2_pilar_roca', 'cue2_columna'] }],

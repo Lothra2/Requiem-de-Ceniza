@@ -748,7 +748,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   if (desvio) vestirDesvio(k, def, desvio);
   relieveMundo(k, def.tema, 0.2);
   // cofres, santuarios y pozos
-  colocarInteractivos(k, 2 + Math.floor(area / 6000), 1 + Math.floor(area / 9000), def.tema);
+  colocarInteractivos(k, 2 + Math.floor(area / 6000), 1 + Math.floor(area / 9000), def.tema, vz?.santuarios);
   // dónde salen los monstruos: lejos de las entradas
   acampar(k, Math.floor((area / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro' && l.escena !== 'jefe').map((l): [number, number] => [l.cx, l.cy]), (x, y) => lugares.some((l) => (l.escena === 'jefe' && Math.hypot(x - l.cx, y - l.cy) < l.r + 8) || (l.papel === 'desvio' && Math.hypot(x - l.cx, y - l.cy) < 16)));
   if (def.jefe) { const lj = lugares.find((l) => l.escena === 'jefe'), p = lj ? [lj.cx, lj.cy] : lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
@@ -1023,10 +1023,10 @@ function cofresDe(z: Zona, tema: string): string[] {
   }
   return ['cofre_madera', 'cofre_madera', 'cofre_hierro', 'cofre_noble'];
 }
-function colocarInteractivos(k: Constructor, cofres: number, santuarios: number, tema = '') {
+function colocarInteractivos(k: Constructor, cofres: number, santuarios: number, tema = '', propios?: string[]) {
   const z = k.z, c0 = k.capa; k.capa = 'interactivo';
   const pc = cofresDe(z, tema);
-  const ps = ['com_santuario_obelisco', 'com_santuario_cuernos', 'com_santuario_estela', 'com_santuario_calaveras', 'com_santuario_caldero', 'com_santuario_monolito'];
+  const ps = propios ?? ['com_santuario_obelisco', 'com_santuario_cuernos', 'com_santuario_estela', 'com_santuario_calaveras', 'com_santuario_caldero', 'com_santuario_monolito'];
   for (let i = 0, n = 0; i < cofres * 20 && n < cofres; i++) {
     const x = 3 + Math.floor(k.r() * (z.W - 6)), y = 3 + Math.floor(k.r() * (z.H - 6));
     if (z.bloq[y * z.W + x]) continue;
@@ -1850,7 +1850,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   if (t.rieles) rieles(k, suelo, sala);
   // contrafuertes y derrumbes del estilo de la mazmorra, pegados al pie de los muros (cada tanto, no en todos)
   const estMuro = estiloEscombro(def), dMuro = REGISTRO.find((d) => d.id === 'dec_muro'); const dRoca = REGISTRO.find((d) => d.id === 'cue_escombros');
-  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; if (minaRoca && dRoca) { k.poner(dRoca, x, y, q < 0.08 ? 'monton' : 'suelto', true); return; } k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) && !minaRoca ? 'contrafuerte' : 'derrumbe'}`, true); }; // (21 nov 2026: en la mina, al pie de la roca va piedra suelta, no los bloques labrados del derrumbe del páramo) // (entrega 8: contra la roca de la mina no va un contrafuerte de sillería, va el derrumbe)
+  const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || vz?.limpio || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; if (minaRoca && dRoca) { k.poner(dRoca, x, y, q < 0.08 ? 'monton' : 'suelto', true); return; } k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) && !minaRoca ? 'contrafuerte' : 'derrumbe'}`, true); }; // (21 nov 2026: en la mina, al pie de la roca va piedra suelta, no los bloques labrados del derrumbe del páramo) // (entrega 8: contra la roca de la mina no va un contrafuerte de sillería, va el derrumbe)
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!suelo[by * tw + bx]) continue;
     if (by === 0 || !suelo[(by - 1) * tw + bx]) if (defX) {
@@ -1877,7 +1877,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // en las minas los túneles rectos llevan derrubio a los dos lados (queda libre el centro, por donde van los rieles)
   if (minaRoca && !(globalThis as any).__rocaVieja) { const cj = def.jefe ? orden[orden.length - 1] : null; lineaMina(z, k.reserva, cj ? [(cj[0] + cj[2] / 2) * 5, (cj[1] + cj[3] / 2) * 5] : null); }
   if (t.rieles && !abierto) orillaTunel(k, suelo, sala);
-  if (!abierto && !t.islas && !(globalThis as any).__sinEscombro) escombroFrente(k, sala, estiloEscombro(def)); // (solo en las salas: en un pasillo podría cerrar el paso)
+  if (!abierto && !t.islas && !(globalThis as any).__sinEscombro && !vz?.limpio) escombroFrente(k, sala, estiloEscombro(def)); // (solo en las salas: en un pasillo podría cerrar el paso)
   // las puertas (oleada 2): donde un cuello de una baldosa entra a una sala, dos luces del tema a los lados, contra el muro,
   // hacen de jambas. Se leen de lejos como umbral y alumbran el paso. Capa 'umbral': nada las quita ni las desmonta
   if (obra && !viejoCuello && !(globalThis as any).__sinPuertas) {
@@ -1909,7 +1909,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   if (ruedo) for (let dy = -ruedo; dy <= ruedo; dy++) for (let dx = -ruedo; dx <= ruedo; dx++) { const X = pN[0] + dx, Y = pN[1] + 2 + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; }
   // decoración
   const area = orden.reduce((s, c) => s + c[2] * c[3], 0) * 25;
-  for (const c of orden) if (def.casa ? c !== orden[0] && c !== orden[orden.length - 1] : c[2] >= 3 && c[3] >= 3 && (r() < 0.6 || (obra && c === mayor && !def.jefe))) {
+  for (const c of orden) if (def.casa ? c !== orden[0] && c !== orden[orden.length - 1] : c[2] >= 3 && c[3] >= 3 && (r() < 0.6 || (obra && c === mayor && !def.jefe) || !!vz?.hileras)) {
     const gs = k.sel(t.grande); if (!gs.length) continue;
     const g = gs[Math.floor(r() * gs.length)];
     // (antes cuatro piezas en los cuartos de la sala, justo donde se pelea. Ahora en la sala mayor dos filas de columnas que dejan
@@ -1919,7 +1919,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
     //  variante propia la pieza toma solo las variantes de su fila, de lado según la galería)
     const largoX = c[2] >= c[3];
     let pts2 = pts;
-    if (vz?.hileras && obra && c !== mayor) { const L = largoX ? c[2] : c[3], n = Math.max(2, Math.floor((L * 5) / 7)); pts2 = []; for (let i = 0; i < n; i++) { const f = (i + 0.5) / n; pts2.push(largoX ? [f, 0.17] : [0.17, f], largoX ? [f, 0.83] : [0.83, f]); } }
+    if (vz?.hileras && obra) { const L = largoX ? c[2] : c[3], n = Math.max(2, Math.floor((L * 5) / 7)); pts2 = []; for (let i = 0; i < n; i++) { const f = (i + 0.5) / n; pts2.push(largoX ? [f, 0.17] : [0.17, f], largoX ? [f, 0.83] : [0.83, f]); } }
     const vsG = vz ? g.d.variantes.filter(g.v).filter((q) => !vz.hileras || !g.d.variantes.some((w) => w.endsWith('_y')) || q.endsWith('_y') === !largoX) : null;
     for (const [fx, fy] of pts2) k.poner(g.d, Math.floor((c[0] + c[2] * fx) * 5), Math.floor((c[1] + c[3] * fy) * 5), vsG?.length ? vsG[Math.floor(r() * vsG.length)] : undefined);
   }
@@ -1947,7 +1947,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   k.regar(t.luces, Math.floor((area / 500) * lleno), 1, 1, z.W - 1, z.H - 1, enSuelo);
   k.regar(t.deco, Math.floor((area / 2500) * lleno * 2), 1, 1, z.W - 1, z.H - 1, enSuelo);
   // estatuas rotas y piedras con runa del tema, solo dentro de las salas (en un pasillo estorbarían)
-  if (!t.islas) decorarMundo(k, abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : estiloEscombro(def), 0, 0, Math.floor(area / 1700), (x, y) => !!sala[Math.floor(y / 5) * tw + Math.floor(x / 5)] && enSuelo(x, y), def.tema === 'mina' && !(globalThis as any).__minaObra);
+  if (!t.islas && !vz?.limpio) decorarMundo(k, abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : estiloEscombro(def), 0, 0, Math.floor(area / 1700), (x, y) => !!sala[Math.floor(y / 5) * tw + Math.floor(x / 5)] && enSuelo(x, y), def.tema === 'mina' && !(globalThis as any).__minaObra);
   // salidas: la primera en la entrada, las demás al fondo
   def.salidas.forEach((s, i) => {
     const p = i === 0 ? p0 : i === 1 ? pN : centroDe(orden[Math.max(1, Math.floor((orden.length * i) / (def.salidas.length + 1)))]);
@@ -1964,7 +1964,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // (las salas ahora son más grandes, pero el presupuesto de cofres y de monstruos es el de antes: sale del tamaño de la zona
   //  como si las salas midieran lo de antes, 6,8 celdas de sala por baldosa del mapa)
   const areaP = obra || cueva ? def.tam[0] * def.tam[1] * 6.8 : area;
-  colocarInteractivos(k, 2 + Math.floor(areaP / 3500), 1 + Math.floor(areaP / 7000), def.tema);
+  colocarInteractivos(k, 2 + Math.floor(areaP / 3500), 1 + Math.floor(areaP / 7000), def.tema, vz?.santuarios);
   // ni la entrada ni la sala del jefe llevan grupos sembrados: la escolta del jefe llega por oleadas
   const enSalaJefe = (x: number, y: number) => !!def.jefe && !abierto && x >= cN[0] * 5 - 2 && y >= cN[1] * 5 - 2 && x < (cN[0] + cN[2]) * 5 + 2 && y < (cN[1] + cN[3]) * 5 + 2;
   acampar(k, Math.floor(areaP / 260), def.jefe ? [p0, [pN[0], pN[1] + 2]] : [p0], [...orden].filter((c) => c !== c0 && !(def.jefe && c === cN) && c[2] >= 4 && c[3] >= 4).sort((a, b) => b[2] * b[3] - a[2] * a[3] || a[0] - b[0] || a[1] - b[1]).map((c) => centroDe(c)), def.jefe ? (x, y) => enSalaJefe(x, y) || (!!abierto && Math.hypot(x - pN[0], y - pN[1] - 2) < 22) : undefined);
@@ -2284,6 +2284,7 @@ function rellenarBolsas(z: Zona, def: DefZona) {
     media: [...ris('media', 'ab', 1.2), ['dec_ruina', `${est}_pila`, 0.5], ['dec_muro', `${est}_derrumbe`, 0.5], ['dec_hito', `${est}_estatua`, 0.12], ...(EXTRA_FUERA[est]?.media ?? [])],
     baja: [...ris('baja', 'abc', 1.2), ...letras(`${est}_`, 'abcd').map((v) => ['dec_planta', v, FLOJO * 0.45] as Pieza), ['campo_escombros', 'piedra', FLOJO * 0.3], ['cue_escombros', 'monton', FLOJO * 0.25], ['cue_escombros', 'suelto', FLOJO * 0.25], ...(EXTRA_FUERA[est]?.baja ?? [])],
   };
+  const rp = varianteDe(def.id)?.relleno; if (rp) { PAL.alta = rp.alta; PAL.media = rp.media; PAL.baja = rp.baja; }
   const defDe = new Map<string, ObjetoDef>();
   for (const k of Object.keys(PAL) as ('alta' | 'media' | 'baja')[]) PAL[k] = PAL[k].filter(([id, v]) => { const d = REGISTRO.find((q) => q.id === id); if (!d || !d.variantes.includes(v)) return false; defDe.set(id, d); return true; });
   const elegir = (ps: Pieza[], evita: (k: string) => boolean): Pieza | null => {

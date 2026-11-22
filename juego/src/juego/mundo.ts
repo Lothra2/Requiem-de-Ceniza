@@ -309,7 +309,7 @@ export const olvidarZonas = () => zonasVivas.clear();
 /** Versión del trazado de los mundos: va en la clave del mapa descubierto. Se sube cuando una fase mueve el trazado de las zonas
  * (siluetas, salas, cuevas): la niebla vieja no se pinta sobre el mapa nuevo y se descubre otra vez. Héroe, objetos, misiones,
  * piedras de viaje, casas y restos van por id de zona y no se enteran. Las claves viejas quedan en el guardado sin usarse. */
-export const MAPA_V = 4; // (4: entrega 6, el hito con su explanada y el paso que lo rodea abren alguna baldosa distinta a cielo abierto)
+export const MAPA_V = 5; // (4: entrega 6, el hito con su explanada. 5: 22 nov, cada zona del acto 2 con su trazado, silueta y viñetas, acto2_zonas.ts)
 const claveMapa = (z: Zona) => z.id + (z.hueco ? '~o' : '') + '~m' + MAPA_V;
 const empacarMapa = (e: Uint8Array) => { const b = new Uint8Array(Math.ceil(e.length / 8)); for (let i = 0; i < e.length; i++) if (e[i]) b[i >> 3] |= 1 << (i & 7); let s = ''; for (const v of b) s += String.fromCharCode(v); return e.length + ':' + btoa(s); };
 function desempacarMapa(t: string, e: Uint8Array) {

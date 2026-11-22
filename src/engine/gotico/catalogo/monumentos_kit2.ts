@@ -1,4 +1,5 @@
 import type { V3 } from '../objeto';
+import { ruido } from '../render';
 import { G, bloque } from '../kit_muerte';
 import type { Comp } from '../render';
 
@@ -81,4 +82,26 @@ export function sentado(g: G, o: { mat: string; trono: string; tocado?: string; 
 export function derrumbe(g: G, n: number, x: number, y: number, rx: number, ry: number, tam: number, mat: string) {
   const a = g.a;
   for (let i = 0; i < n; i++) { const s = tam * (0.5 + a.r() * 0.8); bloque(g, x + (a.r() - 0.5) * 2 * rx, y + (a.r() - 0.5) * 2 * ry, -s * 0.2, s * (1 + a.r() * 0.8), s * (0.8 + a.r() * 0.5), s * (0.6 + a.r() * 0.5), { mat, giro: a.r() * 180, incl: (a.r() - 0.5) * 40, b: s * 0.15, j: s * 0.3, tono: (a.r() - 0.5) * 0.12 }); }
+}
+
+/**
+ * Sillería de monumento (el patrón de material): hiladas de alto desparejo, bloques de largo y tono distinto, juntas hondas y
+ * oscuras, cantos comidos, bloques picados, manchas grandes (humedad, hollín) y el pie oscurecido. La coordenada a lo largo
+ * de la cara va por su tangente, así sirve en las caras de la diagonal. `o.musgo` aclara/oscurece lo de arriba de cada bloque
+ * (el verde lo pone el material), `o.pie` el alto del pie oscuro.
+ */
+export function sillares(la: number, al: number, o: { var?: number; manchas?: number; pie?: number; junta?: number } = {}) {
+  const V = o.var ?? 0.3, MN = o.manchas ?? 1, PIE = o.pie ?? 46, J = o.junta ?? 1.6;
+  return (p: V3, n: V3) => {
+    const mancha = ruido(p[0] * 0.011 + 7, p[1] * 0.011, p[2] * 0.014), ero = (ruido(p[0] * 0.025 + p[1] * 0.025, 2, p[2] * 0.09) - 0.5) * 0.3 - Math.max(0, 1 - p[2] / PIE) * 0.2 - (mancha > 0.6 ? (mancha - 0.6) * 1.1 * MN : 0);
+    if (Math.abs(n[2]) > 0.7) return (ruido(p[0] * 0.06, p[1] * 0.06, 1) - 0.5) * 0.24 + 0.04;
+    const hn = Math.hypot(n[0], n[1]) || 1, uu = (-p[0] * n[1] + p[1] * n[0]) / hn;
+    const fila = Math.floor(p[2] / al), alto = al * (0.7 + ruido(fila * 1.7, 1, 2) * 0.6), t = (p[2] - fila * al) / alto;
+    const u = uu + fila * la * 0.43, L = la * (0.55 + ruido(fila * 1.3, 3, 1) * 0.9), b = Math.floor(u / L), r = (u - b * L) / L;
+    const borde = Math.min(t * alto, (1 - t) * al, r * L, (1 - r) * L);
+    if (borde < J) return -0.55 + ero * 0.3;
+    const canto = borde < J + 2.6 ? -0.16 * (1 - (borde - J) / 2.6) : 0;
+    const tb = ruido(b * 2.1, fila * 1.7, 9), pic = tb > 0.86 ? (ruido(p[0] * 0.9, p[1] * 0.9, p[2] * 0.9) - 0.5) * 0.5 : 0;
+    return (tb - 0.5) * V + ero + canto + pic + (ruido(p[0] * 0.7, p[1] * 0.7, p[2] * 0.7) > 0.8 ? -0.14 : 0);
+  };
 }

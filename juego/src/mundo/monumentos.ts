@@ -18,6 +18,7 @@ export const MONUMENTOS: Record<string, Mon> = {
   // acto 2: el Templo del Sol Caído, en las Ruinas del Sol (baja al templo, a2_sol)
   // (los colosos a los lados de la avenida, el sol caído a la derecha con el andamio de los saqueadores y su campamento a la izquierda)
   a2_ruinas: mon('mon_sol', 'a2_sol', 'arenisca', [['mon_sol_rampa', 'arenada', 10, 10], ['mon_sol_brasero', 'encendido', 11, 9], ['mon_sol_brasero', 'encendido', 9, 11], ['mon_sol_coloso', 'izq', 6, 17], ['mon_sol_coloso', 'der_partido', 17, 6], ['mon_sol_disco', 'clavado', 13, -7], ['mon_sol_saqueo', 'abandonado', -6, 14]], '255,160,60', ['#ffb040', '#ffe08a', '#b89a70']),
+  a3_pantano: mon('mon_yhuantl', 'a3_templo1', 'lajas_musgo', [['mon_yh_antorcha', 'izq', 8, 17], ['mon_yh_antorcha', 'der', 17, 8], ['mon_yh_tambores', 'circulo', 4, 21], ['mon_yh_altar', 'sangre', 21, 4]], '64,255,144', ['#40ff90', '#b0ffd0', '#6a7a60']),
 };
 
 /** El monumento de una zona (o nada con `__sinMonumentos`). */

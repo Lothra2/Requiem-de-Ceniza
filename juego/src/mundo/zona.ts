@@ -94,10 +94,12 @@ export interface DefZona {
 
 // ------------------------------------------------------------------ búsqueda en el catálogo
 const cacheBusca = new Map<string, ObjetoDef[]>();
+/** Las piezas de los monumentos de los actos (monumentos.ts) no se riegan: van solo en su atrio. */
+const PIEZA_MONUMENTO = /^mon_(sol|yh|yhuantl)_/;
 export function buscar(temas: string[], palabras?: string[], sin?: string[]): ObjetoDef[] {
   const k = temas.join() + '|' + (palabras ?? []).join() + '|' + (sin ?? []).join();
   let r = cacheBusca.get(k);
-  if (!r) { r = REGISTRO.filter((d) => temas.includes(d.tema) && !/^(gore|hor)_/.test(d.id) && !d.id.endsWith('_sin_llama') && (!palabras || palabras.some((p) => d.id.includes(p))) && !(sin ?? []).some((p) => d.id.includes(p))); cacheBusca.set(k, r); }
+  if (!r) { r = REGISTRO.filter((d) => temas.includes(d.tema) && !/^(gore|hor)_/.test(d.id) && !PIEZA_MONUMENTO.test(d.id) && !d.id.endsWith('_sin_llama') && (!palabras || palabras.some((p) => d.id.includes(p))) && !(sin ?? []).some((p) => d.id.includes(p))); cacheBusca.set(k, r); }
   return r;
 }
 

@@ -13,6 +13,7 @@ import type { Elemento } from './tipos_objetos';
 import { R, entre, elegir, clamp, dist, hashTxt } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
 import { oirLibro } from './libro_oido';
+import { repartir, pasoRonda, type SitioTirado } from './reparto';
 import { zancada } from '../../../src/engine/gotico/figura';
 import { manifiesto, objetoMeta } from '../motor/assets';
 /**
@@ -470,6 +471,7 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
     for (const s of z.spawns) if ((s.tipo === 'unico' || s.tipo === 'campeon') && Math.min(...ents.map((e) => dist(s.cx, s.cy, e[0], e[1]))) < 40) mansos.add(s);
   }
   // (el dado de `poblar` es por sesión; los mansos solo quitan élites al que empieza)
+  const porDensidad = !(globalThis as any).__campamentos, sitios: SitioTirado[] = [];
   for (const s of z.spawns) {
     if (s.tipo === 'jefe') {
       const dm = MONSTRUOS[def.jefe!]; if (!dm) continue;
@@ -493,15 +495,17 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
     }
     // ---- un campamento (`acampar` en zona.ts): los cuerpos de `grupos` grupos de los de antes, juntos y con papeles. Cada
     // tirada es el grupo de antes tal cual (mismo dado, mismos cuerpos), así el presupuesto de la zona no cambia
-    const ci = z.spawns.indexOf(s), cuerpos: Monstruo[] = [];
+    const ci = z.spawns.indexOf(s), cuerpos: Monstruo[] = [], cortes: number[] = [];
     let lider: Monstruo | undefined;
     const tirada = (tope = 99) => {
+      cortes.push(cuerpos.length);
       const dm = MONSTRUOS[R() < 0.55 ? pool[0] : elegir(pool)]; if (!dm) return;
       // los sedientos van en manadas de 5 a 8; las manos doradas, de a dos o tres
       const n = dm.id === 'sediento' ? 5 + Math.floor(R() * 4) : dm.id === 'mano_dorada' ? 2 + Math.floor(R() * 2) : Math.max(1, Math.round((dm.ia === 'enjambre' ? (z.nivel < 6 ? 3 : 5) : dm.ia === 'bruto' ? 2 : z.nivel < 6 ? 2 : 3) * s.fuerza));
       for (let i = 0; i < Math.min(n, tope); i++) { const m = crearMonstruo(i > 0 && R() < 0.3 ? MONSTRUOS[elegir(pool)] : dm, nivel, s.cx + 0.5, s.cy + 0.5, 0, dif); if (lider) m.lider = lider; cuerpos.push(m); }
     };
-    if ((s.tipo === 'unico' || s.tipo === 'campeon') && !mansos.has(s)) {
+    const esElite = (s.tipo === 'unico' || s.tipo === 'campeon') && !mansos.has(s);
+    if (esElite) {
       let id = R() < 0.55 ? pool[0] : elegir(pool);
       // en la Corona los campeones suelen ser ángeles sedientos (vuelan y escupen luz)
       if (s.tipo === 'campeon' && pool.includes('angel_sediento') && R() < 0.5) id = 'angel_sediento';
@@ -527,6 +531,16 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
       const tiros = pool.filter((q) => MONSTRUOS[q] && (MONSTRUOS[q].ia === 'mago' || MONSTRUOS[q].ia === 'distancia')), k = cuerpos.findIndex((m, i) => i > 0 && m.calidad === 0 && !m.lider);
       if (tiros.length && k > 0) { const v = cuerpos[k]; cuerpos[k] = crearMonstruo(MONSTRUOS[elegir(tiros)], v.nivel, v.x, v.y, 0, dif); }
     }
+    // (22 nov 2026: sin `__campamentos`, lo tirado no se para acá: `repartir` lo reparte por el mapa, ver reparto.ts)
+    if (porDensidad && s.grupos != null) {
+      // (el élite y su escolta van juntos en su sitio; lo común, tirada por tirada, se reparte)
+      const nEl = esElite ? (cortes.length ? cortes[0] : cuerpos.length) : 0, tir: Monstruo[][] = [];
+      if (!esElite) cortes.forEach((c, k) => { const t = cuerpos.slice(c, cortes[k + 1] ?? cuerpos.length); if (t.length) tir.push(t); });
+      const esc = cuerpos.slice(nEl); if (esElite) for (const m of esc) (m as any).escolta = true;
+      sitios.push({ s, elite: cuerpos.slice(0, nEl), escolta: esElite ? esc : [], tiradas: tir });
+      out.push(...cuerpos);
+      continue;
+    }
     // dónde se para cada uno: el jefe del campamento en el centro, los de cuerpo a cuerpo hacia el frente (de donde llega el
     // héroe) y los de tiro detrás, en el borde del claro. Un grupo suelto de los de antes (sin `grupos`) va apretado como siempre
     const f = s.frente ?? [0, 1], a0 = Math.atan2(f[1], f[0]), campo = s.grupos != null;
@@ -542,7 +556,22 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
       out.push(m);
     }
   }
+  if (porDensidad && sitios.length) {
+    // (por donde llega de verdad, como en `entrarZona`: la puerta, la piedra de viaje o el portal)
+    let ep: [number, number] | undefined = entrada ? z.entradas[entrada] ?? z.entradas['salida_' + d.zona] : undefined;
+    if (entrada === 'viaje') { const mv = z.marcas.find((q) => q.tipo === 'viaje'); if (mv) ep = [mv.cx + 2, mv.cy + 2]; }
+    repartir(z, sitios as any, ep ?? z.entradas.centro ?? Object.values(z.entradas)[0], z.nivel < 6 && dif === 0 && d.nivel <= 3);
+  }
   return out;
+}
+/** Lo que oyen los de alrededor de `m` (un golpe, un quejido): a 6,5 casillas si se ve, a 3 aunque haya un muro. */
+function oir(j: Juego, m: Monstruo, obj: Ent) {
+  for (const o of j.monstruos) {
+    if (o === m || o.muerto || o.dueno || o.camp === m.camp || (o.estado !== 'dormido' && o.estado !== 'deambular')) continue;
+    const d = dist(o.x, o.y, m.x, m.y); if (d > 6.5 || (d > 3 && !lineaLibre(j.zona, o.x, o.y, m.x, m.y))) continue;
+    o.estado = 'perseguir'; o.objetivo = obj; (o as any).alerta = 0.35 + d * 0.08 + entre(0, 0.3);
+    if (o.camp != null) alertarCampamento(j, o, obj);
+  }
 }
 /** Despierta al campamento de `m` (los de su mismo `camp`) contra `obj`, escalonado: llegan en oleada y no en bloque. */
 function alertarCampamento(j: Juego, m: Monstruo, obj: Ent) {
@@ -781,6 +810,9 @@ export function danar(j: Juego, v: Ent, g: Golpe): number {
       else if (R() < 0.45) sonar(j, 'chapoteo', v.x, v.y, 0.4 + Math.min(0.4, total / m.vidaMax));
     }
     if (m.estado === 'dormido' || m.estado === 'deambular') { m.estado = 'perseguir'; m.objetivo = g.fuente ?? j.heroe; if (m.camp != null && !(globalThis as any).__vistaVieja) alertarCampamento(j, m, g.fuente ?? j.heroe); }
+    // lo que se oye (reparto.ts): el golpe y el quejido despiertan a los de otros grupos que estén a pocas casillas, cada uno con
+    // los suyos. No en cadena: el que se despierta por oído no hace oír a nadie más (si no, una pelea despertaba el mapa)
+    if (!m.dueno && !(globalThis as any).__campamentos && j.t - ((m as any).oyeT ?? -9) > 0.6) { (m as any).oyeT = j.t; oir(j, m, g.fuente ?? j.heroe); }
     else if ((m as any).alerta > 0.3) { (m as any).alerta = 0.3; (m as any).espera = false; }
     if (total > m.vidaMax * 0.12 && m.acc !== 'atacar' && m.acc !== 'lanzar' && m.calidad < 3) { m.acc = 'herido'; m.t = 0; m.dur = 0.3; }
     if (crit || total > m.vidaMax * 0.3) j.sacudida = Math.max(j.sacudida, 0.1);
@@ -2362,6 +2394,13 @@ function actualizarMonstruo2(j: Juego, m: Monstruo, dt: number) {
       if (m.camp != null && !(globalThis as any).__vistaVieja) alertarCampamento(j, m, h);
       for (const o of j.monstruos) if (!o.muerto && !o.dueno && o.estado !== 'perseguir' && o.estado !== 'surgir') { const d2 = dist(o.x, o.y, m.x, m.y); if (d2 < 2.5 || (d2 < 5 && R() < 0.4)) { o.estado = 'perseguir'; o.objetivo = h; (o as any).alerta = entre(0.25, 0.7); } }
     } else {
+      // los merodeadores (reparto.ts): la manada ronda despacio alrededor de su sitio, cada uno en su lugar del grupo
+      if ((m as any).ronda && !(globalThis as any).__campamentos) {
+        const q = pasoRonda(j.zona, m, j.t);
+        if (q) { m.estado = 'deambular'; if (moverHacia(j, m, q[0], q[1], m.vel * 0.42, dt, true)) m.acc = 'quieto'; else m.acc = 'caminar'; }
+        else { m.estado = 'dormido'; m.acc = 'quieto'; if (R() < dt * 0.3) m.dir = DIRS[(DIRS.indexOf(m.dir) + (R() < 0.5 ? 1 : 7)) % 8]; }
+        return;
+      }
       // deambular cerca de su lugar
       if (m.pensar <= 0) { m.pensar = entre(2, 5); m.estado = R() < 0.5 ? 'deambular' : 'dormido'; (m as any).dest = [m.ox + entre(-3, 3), m.oy + entre(-3, 3)]; }
       if (m.estado === 'deambular' && (m as any).dest) { if (moverHacia(j, m, (m as any).dest[0], (m as any).dest[1], m.vel * 0.4, dt, true)) { m.estado = 'dormido'; m.acc = 'quieto'; } else m.acc = 'caminar'; }

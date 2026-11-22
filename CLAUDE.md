@@ -1109,7 +1109,7 @@ hay zonas con más pero no como en grupitos de x". Lo de la oleada 1 juntaba tod
 - **Medida** `npx tsx juego/herramientas/t1040_reparto.mts <etiqueta> [zonas|todas] [semillas]` (`BANDERAS=__campamentos` el antes,
   `NIVEL=1`): un explorador entra por su puerta y va siempre a lo más cercano que no vio (lo que queda a 12 casillas de camino) y
   anota cuándo aparece cada grupo (a 14 y a la vista). Una pantalla descubierta son 900 celdas caminables nuevas. Láminas:
-  `python3 juego/herramientas/t1040_lamina.py <antes> <ahora> [zonas]` (`/tmp/requiem-pruebas/enemigos/lamina_<zona>.png`: cada
+  `python3 juego/herramientas/t1042_reparto_lamina.py <antes> <ahora> [zonas]` (`/tmp/requiem-pruebas/enemigos/lamina_<zona>.png`: cada
   grupo de su color, élites con aro de oro, merodeadores con aro celeste, los de tiro con un punto blanco, la puerta y su vista).
   Video: `t1041_video_recorrido.cjs <etiqueta> [zonas]` (el héroe invulnerable explora y pelea con lo que lo persigue; cuenta
   encuentros, segundos entre uno y otro y cuántos grupos despiertan a la vez).

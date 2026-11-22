@@ -2,6 +2,7 @@
 // mucho"). Zonas distintas con el mismo tema salían iguales: mismo piso, mismo muro, misma luz y mismo adorno. Cada acto
 // tiene su tabla (acto2_zonas.ts, acto6_zonas.ts...) y aquí se juntan. `__acto<N>Viejo` vuelve a lo de antes en ese acto.
 import { ZONAS_ACTO2 } from './acto2_zonas';
+import { ZONAS_ACTO3 } from './acto3_zonas';
 import { ZONAS_ACTO6 } from './acto6_zonas';
 import { ZONAS_ACTO7 } from './acto7_zonas';
 
@@ -45,7 +46,7 @@ export interface VarianteZona {
 }
 
 
-export const VARIANTE_ZONA: Record<string, VarianteZona> = { ...ZONAS_ACTO2, ...ZONAS_ACTO6, ...ZONAS_ACTO7 };
+export const VARIANTE_ZONA: Record<string, VarianteZona> = { ...ZONAS_ACTO2, ...ZONAS_ACTO3, ...ZONAS_ACTO6, ...ZONAS_ACTO7 };
 
 /** Lo propio de la zona, o nada con `__acto<N>Viejo` (la bandera de su acto: `__acto2Viejo`, `__acto6Viejo`...). */
 export const varianteDe = (id: string): VarianteZona | undefined => ((globalThis as any)[`__acto${id[1]}Viejo`] ? undefined : VARIANTE_ZONA[id]);

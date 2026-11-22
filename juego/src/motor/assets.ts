@@ -167,7 +167,7 @@ export const cuadrosHeroe = (clase: string, acc: string, dir: string) => lista('
 export const cuadrosMonstruo = (id: string, acc: string, dir: string) => lista('m', `${id}/${acc}/${dir}`);
 export const cuadrosPiso = (id: string, v: number) => lista('p', `${id}|${v}`);
 /** Pisos cuya textura se repite cada dos baldosas (ver pisos.ts de la Forja): la variante sale de la posición de la baldosa. */
-const PISO_DOBLE = new Set(['pasto', 'pasto_seco', 'tierra', 'empedrado', 'lajas', 'lajas_musgo', 'baldosa_catedral', 'madera', 'cueva', 'arena', 'arenisca', 'ladrillo_cloaca', 'nieve', 'hielo', 'selva', 'hueso', 'tierra_infierno',
+const PISO_DOBLE = new Set(['a3_hojarasca', 'a3_lodo', 'a3_cueva_agua', 'a3_telarana', 'a3_mosaico', 'a3_escalones', 'a3_carne', 'pasto', 'pasto_seco', 'tierra', 'empedrado', 'lajas', 'lajas_musgo', 'baldosa_catedral', 'madera', 'cueva', 'arena', 'arenisca', 'ladrillo_cloaca', 'nieve', 'hielo', 'selva', 'hueso', 'tierra_infierno',
   // los del acto 2 (catalogo/acto2_pisos.ts)
   'a2_arena_duna', 'a2_barro_seco', 'a2_barro_orilla', 'a2_losa_calle', 'a2_losa_pozo', 'a2_agua_negra', 'a2_losa_sol', 'a2_losa_rey', 'a2_losa_dormidos', 'a2_cueva_quitina',
   'a6_arena_gris', 'a6_coral', 'a6_adoquin', 'a6_plaza', 'a6_agua_cripta', 'a6_tablas', 'a6_piedra_faro',

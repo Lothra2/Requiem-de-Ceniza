@@ -89,6 +89,8 @@ export const ESQUINAS_MURO: Record<string, [string, string, string]> = {
   a2_muro_pozo: ['a2_muro_pozo', 'nombres', 'nombres_y'], a2_muro_sol: ['a2_muro_sol', 'friso', 'friso_y'], a2_muro_dormidos: ['a2_muro_dormidos', 'sellado', 'sellado_y'], a2_muro_rey: ['a2_muro_rey', 'friso', 'friso_y'],
   // (acto 6)
   a6_muro_faro: ['a6_muro_faro', 'faja', 'faja_y'],
+  tem_muro_musgo: ['tem_muro_musgo', 'con_raices', 'con_raices_y'],
+  a3_muro_casas: ['a3_muro_casas', 'ventanas', 'ventanas_y'], a3_muro_jade: ['a3_muro_jade', 'greca', 'greca_y'],
   // (acto 7)
   a7_muro_astros: ['a7_muro_astros', 'astros', 'astros_y'], a7_muro_relicario: ['a7_muro_relicario', 'vacio', 'vacio_y'], a7_muro_sed: ['a7_muro_sed', 'placas', 'placas_y'],
 };

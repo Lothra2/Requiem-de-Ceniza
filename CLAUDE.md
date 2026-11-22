@@ -23,6 +23,8 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
+- **Enemigos repartidos** (rama `enemigos`, 22 nov 2026): el mismo presupuesto por todo el mapa en grupos de tamaños distintos que
+  despiertan solos, en vez de campamentos de 6 a 10. Ver "Enemigos repartidos, no campamentos". Espera que Rick lo juegue.
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
   que Diablo 2 pero original; nada montado, todo con intención; respaldar ramas de trabajo en origin está bien.
@@ -951,6 +953,71 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   con `SEMILLA` 5000, 6000 y 7000 (0 atascados, objetiva 0), t855 (0 de 192), t370 (288, 0 malas), conectividad 20 (1920), t995
   dos tandas (0 atascados, 0 pegados), t440, t450, t500, t961 y t1001. Fotos `t1021` en las 7 zonas (antes con `__rocaVieja`) y los recortes de
   cerca de cueva, hielo y mina en `/tmp/requiem-pruebas/e10/cerca5_*.png`. Lab: `lab_r3b.png` (tramos bajos y hielo).
+
+## Enemigos repartidos, no campamentos (22 nov 2026, rama `enemigos`)
+
+Rick: "la dinámica de enemigos, que aparecen como en grupos. No parece natural [...] van apareciendo mientras descubro el mundo y si
+hay zonas con más pero no como en grupitos de x". Lo de la oleada 1 juntaba todo el presupuesto en campamentos de 6 a 10 cuerpos a
+24 celdas uno de otro, que despertaban enteros, y entre uno y otro no había nada: islas de grupitos iguales.
+
+- **Dónde**: `juego/reparto.ts` (`repartir`, `campoDensidad`, `pasoRonda`) y en `juego/mundo.ts` `poblar`, `oir` y la ronda en
+  `actualizarMonstruo`. La generación NO cambia: `acampar` y `asentarCampamentos` siguen poniendo los sitios (`z.spawns`), así los
+  relatos, las trampas, la roca y todo lo de la zona salen igual (t1000, t1014 y t855 no se mueven). Solo cambia dónde se paran los
+  cuerpos al entrar, y nada se guarda. `__campamentos` vuelve a todo lo de antes (reparto, oído y rondas).
+- **El mismo presupuesto**: `poblar` tira cada sitio con el dado de siempre (mismas tiradas, élites, escolta, el de tiro que se mete,
+  los `mansos` y el `primero`/`segundo` de la bienvenida) y anota dónde empieza cada tirada; `repartir` solo los mueve.
+- **Lo anclado**: cada élite (campeones, único) se queda en su sitio con su escolta a un lado (4 a 7 celdas, el mismo `camp`: la
+  segunda oleada sigue igual), y cada sitio común guarda una manada (una tirada, a veces dos juntas, a veces solo un par): es la
+  guardia del relato (castigo, fogata, ofrenda). El sitio a la vista de la puerta de llegada (16 casillas, 24 si se ve) o a 9 de
+  cualquier otra no se ancla: lo suyo va al reparto (el élite, a lo más denso que quede lejos de todo).
+- **Lo repartido**: las demás tiradas se parten y se juntan: un 30 % de las de 3 o más se parte en 1 o 2 y el resto, un 30 % de
+  las parejas en dos sueltos, el 16 % se junta con la siguiente (el 60 % si trae un chamán, `invocador`). Van primero los grupos
+  grandes. Cada uno tira 48 candidatos del **campo de densidad** y se queda con el mejor: el campo pide más en lo abierto (despeje 4
+  o más), en los claros, en los cruces (de 3 caminos o más), junto a lo que hay que cuidar (sitios, relatos, escenas, horror,
+  matanzas, cofres, altares), menos en los pasillos y junto a las salidas, nada a la vista de la puerta de llegada (y poco hasta 28),
+  nada a 9 de otra puerta, en el ruedo del jefe (14, 22 si se ve) ni a 16 de un desvío, y todo por una ondulación de 18 celdas
+  (rincones con más y con menos). Separación entre grupos de 4 + 1,25 x raíz de los dos tamaños, por una holgura al azar de 0,75 a
+  1,5 (sin cuadrícula), y un sitio lejos de todo grupo pesa más (así no queda media pantalla vacía). Los sueltos y parejas no le
+  hacen asco al pasillo. Dos cuerpos no quedan en la misma celda. Los de cuerpo a cuerpo van hacia el frente (la puerta más cercana)
+  y los de tiro y conjuro 1,2 a 2,8 casillas detrás de su manada.
+- **Cada grupo despierta solo**: cada grupo lleva su `camp` (desde 10000), así `alertarCampamento` despierta al grupo y no al
+  campamento. Lo que ve (la vista de siempre) y lo que **oye** (`oir`): cuando le pegan a uno, los de otros grupos a 6,5 casillas
+  si se ve o a 3 detrás de un muro se vienen con su grupo, con demora; no en cadena (el que despierta por oído no hace oír a nadie).
+- **Merodeadores** (`ronda`, `pasoRonda`): un 40 % de los sueltos y parejas, 25 % de las manadas de 3 a 4 y 12 % de las mayores
+  rondan despacio (0,42 de su paso) alrededor de su sitio: cada 6 a 14 s eligen otro punto a 4 a 11 celdas que se alcance en línea
+  recta y van juntos, cada uno en su lugar del grupo. No rondan los de a 30 de la puerta de llegada.
+- **Bienvenida**: para un héroe de nivel 3 o menos en una zona de nivel menor que 6, a 40 celdas de su puerta solo hay grupos de 3 o
+  menos y ningún élite (además de los `mansos` y el `primero` de siempre).
+- **Medida** `npx tsx juego/herramientas/t1040_reparto.mts <etiqueta> [zonas|todas] [semillas]` (`BANDERAS=__campamentos` el antes,
+  `NIVEL=1`): un explorador entra por su puerta y va siempre a lo más cercano que no vio (lo que queda a 12 casillas de camino) y
+  anota cuándo aparece cada grupo (a 14 y a la vista). Una pantalla descubierta son 900 celdas caminables nuevas. Láminas:
+  `python3 juego/herramientas/t1040_lamina.py <antes> <ahora> [zonas]` (`/tmp/requiem-pruebas/enemigos/lamina_<zona>.png`: cada
+  grupo de su color, élites con aro de oro, merodeadores con aro celeste, los de tiro con un punto blanco, la puerta y su vista).
+  Video: `t1041_video_recorrido.cjs <etiqueta> [zonas]` (el héroe invulnerable explora y pelea con lo que lo persigue; cuenta
+  encuentros, segundos entre uno y otro y cuántos grupos despiertan a la vez).
+- **Medidas** (96 zonas x 2 semillas, héroe de nivel 30, antes y ahora): cuerpos 5399 a 5356 (el dado es por sesión), grupos 824 a
+  1508, cuerpos por grupo 6,6 a 3,6; tamaños antes 1: 6 %, 2: 1 %, 3 a 4: 14 %, 5 a 6: 37 %, 7 a 9: 30 %, 10 o más: 12 %; ahora
+  17, 22, 29, 21, 9 y 1 %. Pantallas descubiertas sin ningún encuentro 23 a 10 % (exterior 23 a 10, bajo tierra 22 a 11), pantallas
+  entre un encuentro y el siguiente mediana 0,57 a 0,31 y p90 1,31 a 0,79 (lo más largo 3,2 a 2,8); grupos a la vista de la puerta al llegar 17 a 2 (los dos que
+  quedan son casas, que no pasan por el reparto); el primer grupo que se encuentra mediana de 6 a 3 cuerpos (máximo 20 a 8). Nivel 1
+  en el acto 1 (6 zonas x 3): grupos de 5,7 a 2,6 cuerpos, el primero de 6 a 3 (máximo 12 a 7), a la vista de la puerta 4 a 0.
+  t1002 (las 89 zonas, héroe de nivel 30): cuerpos 2714 a 2740 (+1 %), experiencia -0,7 %, campeones 288 y únicos 92 iguales, grupos
+  396 a 739 (6,8 a 3,7 cuerpos), de 6 o más 67 a 27 %. t1010 (niveles 1, 10, 35 y 50, 3 semillas, contra main): cuerpos por pelea
+  3,9 a 3,0, 4,9 a 3,7, 6,0 a 4,4 y 4,7 a 3,7, a la vez 3,5 a 2,3, 4,5 a 3,1, 5,9 a 3,8 y 4,7 a 3,3, pociones por 100 bajas 2,9 a
+  1,8, 6,6 a 5,2, 19,4 a 19,1 y 5,6 a 7,2, muertes por hora 0,4 a 0,4, 0,3 a 0,3, 9,3 a 6,3 y 0 a 0, bajas por minuto 21 a 19, 23 a
+  19, 22 a 18 y 23 a 19 (se camina más entre un grupo y otro). Costo de `repartir`: mediana 20 ms por zona, las peores 200 a 400 ms
+  con la nube cargada (el campo de densidad).
+- Pruebas: tsc, t1000 (todo en su piso, igual que antes: la generación no cambia), t1014 (96 iguales), t855 (0 de 192), t370 (288,
+  0 malas), conectividad 20 (1920), t1002 (arriba), t1011 `todas 2` con `SEMILLA` 5000, 5001, 6000, 7000, 8000, 9000 y 9500 (0
+  atascados en las siete; la objetiva dio 1 de 2759 en la 6000: un zombi de a1_abadia2 en el aro de espera con el corro lleno que
+  sale tarde a un hueco a 26 casillas de camino. t1011 saca los monstruos de `poblar` y pone los suyos, así que lo único que cambia
+  ahí es cuánto azar gasta `poblar` antes: es la IA del corro, que no se tocó, con otra tirada), t995 dos tandas (0 y 0 atascados, 0
+  pegados; una primera corrida con la máquina en carga 17 dio 2), t440, t450, t500, t1001 y t961. Videos (`t1041`, 60 s, el héroe
+  explora y pelea): a1_paramo 3 encuentros de 6, 5 y 5 antes y 4 de 5, 5, 3 y 2 ahora; en ningún momento despierta más de un grupo
+  a la vez. En `/tmp/requiem-pruebas/enemigos/video/{antes,ahora}`.
+- Flojo: el explorador de t1041 tarda unos 30 s en el primer encuentro antes y ahora (recorre a fondo lo que rodea a la puerta, donde
+  a propósito no hay nadie); un jugador que sale derecho lo encuentra antes. La bajas por minuto de t1010 bajan un 10 a 18 % porque
+  entre grupo y grupo se camina más (la experiencia de la zona es la misma).
 
 ## Armas vivas, cofres, poderes y siluetas
 

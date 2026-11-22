@@ -7,14 +7,16 @@ const DIR = '/tmp/requiem-pruebas/mundos1'; fs.mkdirSync(DIR, { recursive: true 
 (async () => {
   const etiqueta = process.argv[2] || 'ahora', otra = process.argv[3];
   const { b, p, errs } = await entrar('pc', 'berserker', 30, undefined, "d.id = 'auditoria1';");
+  for (const bn of (process.env.BANDERAS || '').split(',').filter(Boolean)) await p.evaluate((k) => { window[k] = true; }, bn);
   const ids = await p.evaluate(async () => { const A = await import('/src/mundo/actos.ts'); return Object.values(A.ZONAS).filter((d) => d.tipo !== 'pueblo').map((d) => d.id); });
   const out = {};
   for (const id of ids) {
     await p.evaluate((z) => window.__ir(z, 'arriba'), id);
     await p.waitForFunction((z) => window.__estado() === 'juego' && window.__juego().zona.id === z, id, { timeout: 60000 });
-    out[id] = await p.evaluate(() => { const j = window.__juego(), z = j.zona, ms = j.monstruos.filter((m) => !m.dueno); const camp = z.spawns.map(() => 0);
-      for (const m of ms) { let bi = -1, bd = 9; z.spawns.forEach((s, k) => { const d = Math.hypot(m.ox - s.cx - 0.5, m.oy - s.cy - 0.5); if (d < bd) { bd = d; bi = k; } }); if (bi >= 0) camp[bi]++; }
-      return { tipo: z.tipo, n: ms.length, xp: ms.reduce((t, m) => t + m.xp, 0), cal: [0, 1, 2, 3, 4].map((c) => ms.filter((m) => m.calidad === c).length), camp: camp.filter((n, k) => z.spawns[k].tipo !== 'jefe' && n > 0) }; });
+    out[id] = await p.evaluate(() => { const j = window.__juego(), z = j.zona, ms = j.monstruos.filter((m) => !m.dueno); const grupos = {};
+      // (22 nov 2026: los grupos por \`camp\`, que ahora es de cada grupo y no del campamento; el jefe aparte)
+      for (const m of ms) if (m.camp != null && m.calidad < 3 && !m.def.jefe) grupos[m.camp] = (grupos[m.camp] || 0) + 1;
+      return { tipo: z.tipo, n: ms.length, xp: ms.reduce((t, m) => t + m.xp, 0), cal: [0, 1, 2, 3, 4].map((c) => ms.filter((m) => m.calidad === c).length), camp: Object.values(grupos) }; });
   }
   fs.writeFileSync(`${DIR}/presupuesto_${etiqueta}.json`, JSON.stringify(out));
   const tot = (o) => { const v = Object.values(o), c = v.flatMap((q) => q.camp).sort((a, b) => a - b); return { cuerpos: v.reduce((t, q) => t + q.n, 0), xp: v.reduce((t, q) => t + q.xp, 0), campeones: v.reduce((t, q) => t + q.cal[1], 0), unicos: v.reduce((t, q) => t + q.cal[2], 0), campamentos: c.length, medio: +(c.reduce((a, b) => a + b, 0) / c.length).toFixed(1), mediana: c[c.length >> 1], de6omas: Math.round((c.filter((n) => n >= 6).length / c.length) * 100) + ' %' }; };

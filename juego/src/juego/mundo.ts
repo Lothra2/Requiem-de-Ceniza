@@ -13,7 +13,7 @@ import type { Elemento } from './tipos_objetos';
 import { R, entre, elegir, clamp, dist, hashTxt } from '../nucleo/azar';
 import { Sonido } from '../audio/sonido';
 import { oirLibro } from './libro_oido';
-import { repartir, pasoRonda, type SitioTirado } from './reparto';
+import { repartir, pasoRonda, densidad, type SitioTirado } from './reparto';
 import { zancada } from '../../../src/engine/gotico/figura';
 import { manifiesto, objetoMeta } from '../motor/assets';
 /**
@@ -472,6 +472,9 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
   }
   // (el dado de `poblar` es por sesión; los mansos solo quitan élites al que empieza)
   const porDensidad = !(globalThis as any).__campamentos, sitios: SitioTirado[] = [];
+  // (la densidad, ver DENSIDAD en reparto.ts: tiradas de más, algún trío de campeones de más y lo que da cada baja común)
+  const dens = porDensidad ? densidad() : null, bienv = z.nivel < 6 && dif === 0 && d.nivel <= 3;
+  const tiradasDeMas = (q: number) => { if (!dens) return 0; const v = q * dens.mas * (bienv ? dens.bienvenida : 1); return Math.floor(v) + (R() < v - Math.floor(v) ? 1 : 0); };
   for (const s of z.spawns) {
     if (s.tipo === 'jefe') {
       const dm = MONSTRUOS[def.jefe!]; if (!dm) continue;
@@ -505,13 +508,13 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
       for (let i = 0; i < Math.min(n, tope); i++) { const m = crearMonstruo(i > 0 && R() < 0.3 ? MONSTRUOS[elegir(pool)] : dm, nivel, s.cx + 0.5, s.cy + 0.5, 0, dif); if (lider) m.lider = lider; cuerpos.push(m); }
     };
     const esElite = (s.tipo === 'unico' || s.tipo === 'campeon') && !mansos.has(s);
-    if (esElite) {
+    const elites = (tipo: string, dest: Monstruo[]) => {
       let id = R() < 0.55 ? pool[0] : elegir(pool);
       // en la Corona los campeones suelen ser ángeles sedientos (vuelan y escupen luz)
-      if (s.tipo === 'campeon' && pool.includes('angel_sediento') && R() < 0.5) id = 'angel_sediento';
-      const dm = MONSTRUOS[id]; if (!dm) continue;
-      const cal = s.tipo === 'unico' ? 2 : 1;
-      const n = s.tipo === 'unico' ? 4 : 3;
+      if (tipo === 'campeon' && pool.includes('angel_sediento') && R() < 0.5) id = 'angel_sediento';
+      const dm = MONSTRUOS[id]; if (!dm) return false;
+      const cal = tipo === 'unico' ? 2 : 1;
+      const n = tipo === 'unico' ? 4 : 3;
       const mods = [elegir([...MODS]).id]; if (cal === 2) mods.push(elegir([...MODS]).id);
       for (let i = 0; i < n; i++) {
         const m = crearMonstruo(dm, nivel + (cal === 2 ? 2 : 1), s.cx + 0.5, s.cy + 0.5, cal === 2 && i > 0 ? 0 : cal, dif);
@@ -519,12 +522,18 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
         else if (cal === 1) { m.mods = mods; m.nombre = [`${dm.nombre[0]} campeón`, `Champion ${dm.nombre[1]}`]; }
         else if (lider) m.lider = lider;
         aplicarMods(m);
-        cuerpos.push(m);
+        dest.push(m);
       }
+      return true;
+    };
+    let qComunes = 0;
+    if (esElite) {
+      if (!elites(s.tipo, cuerpos)) continue;
       { const n0 = cuerpos.length; for (let q = 0; q < (s.grupos ?? 0); q++) tirada(); for (let i = n0; i < cuerpos.length; i++) (cuerpos[i] as any).escolta = true; }
+      qComunes = s.grupos ?? 0;
     } else if (s === primero) tirada(s.grupos != null ? 2 : 1);
     else if (s === segundo && s.grupos != null) for (let q = 0; q < Math.min(2, s.grupos); q++) tirada();
-    else for (let q = 0; q < (mansos.has(s) ? 2 : s.grupos ?? 1); q++) tirada();
+    else { qComunes = mansos.has(s) ? 2 : s.grupos ?? 1; for (let q = 0; q < qComunes; q++) tirada(); }
     // el campamento con papeles: si la zona tiene gente de tiro o de conjuro y no salió ninguno, uno de los comunes lo es
     const deTiro = (m: Monstruo) => m.def.ia === 'mago' || m.def.ia === 'distancia' || m.def.ia === 'invocador';
     if (s.grupos != null && cuerpos.length >= 6 && !cuerpos.some(deTiro)) {
@@ -537,8 +546,15 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
       const nEl = esElite ? (cortes.length ? cortes[0] : cuerpos.length) : 0, tir: Monstruo[][] = [];
       if (!esElite) cortes.forEach((c, k) => { const t = cuerpos.slice(c, cortes[k + 1] ?? cuerpos.length); if (t.length) tir.push(t); });
       const esc = cuerpos.slice(nEl); if (esElite) for (const m of esc) (m as any).escolta = true;
+      // la densidad: tiradas de más (al reparto, nunca a la escolta) y, a veces, otro trío de campeones lejos de todo
+      const deMas: Monstruo[] = [];
+      if (dens) {
+        lider = undefined;
+        for (let q = tiradasDeMas(qComunes); q > 0; q--) { const n0 = cuerpos.length; tirada(); const t = cuerpos.slice(n0); if (t.length) { tir.push(t); deMas.push(...t); } }
+        if (esElite && !bienv && R() < dens.elites) { const tri: Monstruo[] = []; if (elites('campeon', tri)) { sitios.push({ s, elite: tri, escolta: [], tiradas: [], suelto: true }); deMas.push(...tri); } }
+      }
       sitios.push({ s, elite: cuerpos.slice(0, nEl), escolta: esElite ? esc : [], tiradas: tir });
-      out.push(...cuerpos);
+      out.push(...cuerpos, ...deMas.filter((m) => !cuerpos.includes(m)));
       continue;
     }
     // dónde se para cada uno: el jefe del campamento en el centro, los de cuerpo a cuerpo hacia el frente (de donde llega el
@@ -560,7 +576,9 @@ function poblar(z: Zona, d: DatosHeroe, entrada?: string): Monstruo[] {
     // (por donde llega de verdad, como en `entrarZona`: la puerta, la piedra de viaje o el portal)
     let ep: [number, number] | undefined = entrada ? z.entradas[entrada] ?? z.entradas['salida_' + d.zona] : undefined;
     if (entrada === 'viaje') { const mv = z.marcas.find((q) => q.tipo === 'viaje'); if (mv) ep = [mv.cx + 2, mv.cy + 2]; }
-    repartir(z, sitios as any, ep ?? z.entradas.centro ?? Object.values(z.entradas)[0], z.nivel < 6 && dif === 0 && d.nivel <= 3);
+    repartir(z, sitios as any, ep ?? z.entradas.centro ?? Object.values(z.entradas)[0], bienv, dens?.sep ?? 1);
+    // con más cuerpos, cada baja común da menos experiencia y suelta botín menos seguido (por hora queda como antes)
+    if (dens) for (const m of out) if (m.calidad === 0 && !m.def.jefe) { m.xp *= dens.xp; (m as any).fBotin = dens.botin; }
   }
   return out;
 }
@@ -1119,7 +1137,8 @@ function morirMonstruo(j: Juego, m: Monstruo, g?: Golpe) {
   if (h.c.mana_por_muerte) h.mana = Math.min(h.c.manaMax, h.mana + h.c.mana_por_muerte);
   // botín
   const cal = m.def.jefe ? 4 : m.calidad;
-  const caidas = botin(m.nivel, cal, h.c.hallazgo, h.c.oro_extra, h.d.clase);
+  const fb: number | undefined = (m as any).fBotin;
+  const caidas = fb != null && fb < 1 && R() >= fb ? [] : botin(m.nivel, cal, h.c.hallazgo, h.c.oro_extra, h.d.clase);
   if (m.def.jefe) caidas.push({ obj: crearObjeto(m.nivel, R() < 0.5 ? 'unico' : 'raro') }, { obj: crearObjeto(m.nivel, 'raro') });
   const tj = TALISMAN_JEFE[m.def.id]; if (tj) { const o = crearUnicoId(tj, m.nivel); if (o) caidas.push({ obj: o }); }
   const lj = legendariaJefe(m.def.id, m.nivel, cal); if (lj) caidas.push({ obj: lj });

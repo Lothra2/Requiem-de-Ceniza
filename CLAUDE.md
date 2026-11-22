@@ -28,6 +28,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
 - **Enemigos repartidos** (rama `enemigos`, 22 nov 2026): el mismo presupuesto por todo el mapa en grupos de tamaños distintos que
   despiertan solos, en vez de campamentos de 6 a 10. Ver "Enemigos repartidos, no campamentos". Espera que Rick lo juegue.
+  Después, un 50 % más de cuerpos con la experiencia y el botín por baja común bajados (ver "Más enemigos, como en Diablo 2").
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
   que Diablo 2 pero original; nada montado, todo con intención; respaldar ramas de trabajo en origin está bien.
@@ -1216,6 +1217,56 @@ Dos mundos abiertos con `celestial`, las dos partes de las Islas de Oro con `cel
 - Ojo al limpiar atlas huérfanos de los horneados con `SOLO`: los pisos (`p`) del manifiesto son listas, no objetos con `f`. Un
   limpiador que solo mire `f` borra los atlas de pisos en uso (pasó una vez y se recuperaron de git).
   `juego/herramientas/_m_huerfanos.py` (no se sube) recorre todo.
+## Más enemigos, como en Diablo 2 (22 nov 2026, rama `enemigos`)
+
+Rick: "Sube la densidad de enemigos como propusiste, quiero que se vaya sintiendo más Diablo 2". El Páramo tenía unos 60 cuerpos en
+todo el mapa y en las láminas se veía mucho vacío. Ahora hay un 50 % más de cuerpos, con lo que da cada baja común bajado para que
+la experiencia y el botín por hora queden como antes.
+
+- **Dónde**: `DENSIDAD` y `densidad()` en `juego/reparto.ts`, `poblar` y `morirMonstruo` (el botín) en `juego/mundo.ts`.
+  `__densidadVieja` vuelve a todo lo de antes, `__densidad = { ... }` cambia los números (pruebas). La generación no cambia (los
+  sitios, relatos y todo lo de la zona salen igual) y nada se guarda: solo cuántos cuerpos se paran al entrar.
+- **Más grupos, no grupos más grandes**: por cada sitio común (y la parte común de los de élite) `poblar` tira `mas` (0,6) tiradas
+  de más por cada una de siempre (la parte fraccionaria al azar). Cada tirada es un grupo de los de antes y va al reparto como las
+  demás: se parte en sueltos y parejas, se junta, ronda. Nunca se suman a la escolta ni a la guardia anclada del sitio. El
+  `primero` y el `segundo` de la bienvenida no llevan de más y, para un héroe de nivel 3 o menos en una zona de inicio, las de más
+  van a un cuarto (`bienvenida`). La separación entre grupos se aprieta a 0,85 (`sep`) para que entren sin irse al azar.
+- **Élites un poco**: uno de cada diez sitios de élite (`elites`) trae otro trío de campeones, que va a lo denso lejos de todo
+  (`suelto` en `SitioTirado`, como el élite que quedaba a la vista de la puerta). Los únicos no suben. Nunca en la bienvenida.
+- **Lo que da cada baja común**: experiencia por 0,92 (`xp`, en `m.xp` al poblar) y su botín sale con 0,9 de probabilidad
+  (`botin`, `fBotin` en el monstruo: si no, no tira nada). Los élites y los jefes dan lo de siempre. Los números salen de t1010:
+  con 0,78 y 0,75 la experiencia por minuto bajaba a 0,85 de main y el equipo por hora a 0,83, porque **matar no se acelera
+  como sube la densidad** (bajas por minuto +2 a +16 %: la pelea manda más que el camino). Así una zona entera da más experiencia
+  que antes (t1002 +14 %, la parte común +38 %), pero también lleva más tiempo limpiarla.
+- **t1010 ahora mide por hora**: `xp/min`, `equipo por hora` (piezas de equipo que caen) y `caídas por hora` (todo lo que cae:
+  oro, pociones, gemas, equipo) en la tabla por nivel.
+- **Medidas** (antes es 0e01c34 con `RAIZ=`):
+  - t1040 (96 zonas x 2 semillas, nivel 30): cuerpos 5355 a 8005 (+49 %), grupos 1506 a 2365, cuerpos por grupo 3,6 a 3,4 (los
+    tamaños igual: 1 18 a 19 %, 2 22 %, 3 a 4 29 a 31 %, 5 a 6 21 %, 7 a 9 9 a 6 %), pantallas descubiertas sin encuentro 10 a 7 %
+    (exterior 9 a 6, bajo tierra 11 a 8), pantallas entre encuentros mediana 0,31 a 0,18, p90 0,80 a 0,52, lo más largo 2,8 a 1,9;
+    a la vista de la puerta al llegar 2 a 1 (una casa). El primer encuentro llega antes (35 a 25 casillas de camino) y sigue de 3
+    de mediana, pero el más grande pasó de 8 a 12.
+  - t1002 (89 zonas, nivel 30): cuerpos 2691 a 4016 (+49 %), experiencia total +14 %, campeones 285 a 336, únicos 92 igual.
+  - t1010 (niveles 1, 10, 20, 35 y 50, 3 semillas, contra main): xp/min 842 a 797, 5140 a 5470, 13995 a 13664, 44674 a 41649, 89520
+    a 89593 (0,98 de media); equipo por hora 272 a 263, 384 a 373, 424 a 376, 354 a 342, 414 a 392 (0,95); caídas por hora 524 a
+    508, 739 a 770, 785 a 769, 689 a 641, 807 a 770; bajas por minuto 19,1 a 19,4, 19,5 a 22,6, 18,5 a 20,3, 19,6 a 20,7, 19,1 a
+    21,3; cuerpos por pelea 2,9 a 3,1, 3,6 a 4,5, 3,5 a 4,1, 4,4 a 4,8, 3,7 a 4,4; a la vez 2,2 a 2,3, 3,0 a 3,3, 3,0 a 3,2, 3,8
+    a 3,9, 3,3 a 3,5; pociones por 100 bajas 1,6 a 1,4, 5,6 a 5,0, 8,5 a 8,3, 14,5 a 14,0, 3,2 a 4,8; muertes por hora 0,4 a 0,3,
+    0,3 a 1,0, 1,0 a 0, 5,3 a 5,6, 0 a 0,5 (suma 7,0 a 7,4, ruido). `--inicio` (nivel 1 en el Páramo, 6 corridas por clase): 0
+    muertes antes y ahora, cuerpos de los dos primeros encuentros 2,3 a 3,8 (antes 1,7 a 7,2).
+  - Costo (`t1043_densidad_costo.cjs [zonas] [vueltas]`, ms de JS por cuadro, mediana de 3 vueltas, nube con lienzo por software):
+    explorando (dormidos y rondando) lógica 0,3 a 0,3 en el Páramo (69 a 105 cuerpos) y 0,3 a 0,6 en la Selva (80 a 121); con la
+    zona entera despierta encima del héroe (el peor caso) el cuadro entero 92 a 104 ms en el Páramo y 148 a 165 en la Selva (+11 a
+    12 %, casi todo dibujo de cuerpos).
+- Láminas: `DIR=/tmp/requiem-pruebas/densidad npx tsx juego/herramientas/t1040_reparto.mts ahora todas 2` (t1040 y t1042 aceptan
+  `DIR=`) y `DIR=/tmp/requiem-pruebas/densidad python3 juego/herramientas/t1042_reparto_lamina.py antes ahora
+  a1_paramo,a2_dunas,a1_cata1,a3_selva`.
+- Pruebas: tsc, t1002, t1040, t1010, t1011 `todas 2` con `SEMILLA` 5000, 6000 y 7000 (0 atascados, objetiva 0, espera con hueco 2,5 s
+  como mucho), t995 dos tandas (0 y 0 atascados, 0 pegados), t440, t450, t500, t1001, t961, t370 (288, 0 malas) y
+  conectividad 20 (1920).
+- Flojo: con la separación más apretada, en la Selva algunos sueltos quedan a 2 o 3 celdas de otro grupo (en la lámina se leen como
+  un grupo de dos colores): despiertan juntos por el oído, que es lo que pasaría en Diablo 2, pero un grupo puede salir de 8 a 12
+  cuerpos de golpe. Las muertes por hora de t1010 tienen mucho ruido con 3 semillas: lo que se ve es que no suben de forma clara.
 
 ## Armas vivas, cofres, poderes y siluetas
 

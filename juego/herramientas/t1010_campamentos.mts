@@ -109,7 +109,7 @@ function armarHeroe(clase: string, nivel: number, nivelObj: number, semilla: num
 const DT = 1 / 30;
 const esMelee = (hb: any, c: any, basico: boolean) => (hb.tipo === 'golpe' && !(basico && c.distancia)) || hb.tipo === 'salto' || hb.tipo === 'carga' || hb.tipo === 'torbellino';
 interface Tramo { dur: number; cuerpos: number; pico: number; pociones: number; vidaMin: number; muertes: number }
-interface Corrida { t: number; bajas: number; muertes: number; pociones: number; vidaMin: number; tramos: Tramo[]; xp: number }
+interface Corrida { t: number; bajas: number; muertes: number; pociones: number; vidaMin: number; tramos: Tramo[]; xp: number; equipo: number; caidas: number; oro: number }
 /**
  * Limpia la zona hasta `tope` bajas o `tMax` segundos. `descuidado`: solo el golpe básico o el don inicial, poción recién al 30 %.
  * Al morir vuelve con la vida llena en el mismo sitio (se cuenta la muerte) y sigue: lo que se mide es cuántas veces.
@@ -134,7 +134,9 @@ function limpiar(d: any, zid: string, entrada: string, tope: number, tMax: numbe
   const todos0 = j.monstruos.filter((m: any) => !m.dueno && !esJefe(m));
   const blancos = () => j.monstruos.filter((m: any) => !m.muerto && !m.dueno && !esJefe(m) && !vetados.has(m));
   const total0 = blancos().length, x0 = h.x, y0 = h.y;
-  const out: Corrida = { t: 0, bajas: 0, muertes: 0, pociones: 0, vidaMin: 1, tramos: [], xp: 0 };
+  const out: Corrida = { t: 0, bajas: 0, muertes: 0, pociones: 0, vidaMin: 1, tramos: [], xp: 0, equipo: 0, caidas: 0, oro: 0 };
+  // lo que cae (para los objetos por hora): cada cosa nueva del suelo una vez
+  const vistosSuelo = new Set<any>(j.suelo.map((q: any) => q.id));
   let tr: Tramo | null = null, tCamino = -9, tPocion = -9, calma = 0, vivos0 = total0, atasco = 0, px = h.x, py = h.y, tAt = 0;
   for (let t = 0; t < tMax; t += DT) {
     out.t = t;
@@ -182,6 +184,7 @@ function limpiar(d: any, zid: string, entrada: string, tope: number, tMax: numbe
     const xp0 = d.xp;
     MU.actualizar(j, DT);
     if (d.xp > xp0) out.xp += d.xp - xp0;
+    for (const q of j.suelo) if (!vistosSuelo.has(q.id)) { vistosSuelo.add(q.id); out.caidas++; if (q.o && q.o.tipo === 'equipo') out.equipo++; if (q.oro) out.oro += q.oro; }
     if (d.nivel !== (d as any).__n0) { d.nivel = (d as any).__n0; }
   }
   for (const m of todos0) if (m.muerto && !vetados.has(m)) { if (m.calidad >= 2) cuenta.unicos++; else if (m.calidad === 1) cuenta.campeones++; else cuenta.comunes++; }
@@ -229,20 +232,20 @@ if (INICIO) {
   linea('|---|---|---|---|---|---|---|---|---|---|---|');
   for (const nivel of NIVELES) for (const clase of CLASES_SIM) {
     const zs = zonasPara(nivel);
-    let t = 0, bajas = 0, muertes = 0, poc = 0, xp = 0; const trs: Tramo[] = [];
+    let t = 0, bajas = 0, muertes = 0, poc = 0, xp = 0, eq = 0, ca = 0; const trs: Tramo[] = [];
     for (const z of zs) for (let s = 0; s < SEMILLAS; s++) {
       const d = armarHeroe(clase, Math.max(nivel, 1), Math.max(1, z.nivel - 2), s); d.id = 'sim' + s; (d as any).__n0 = d.nivel;
       sembrar('corrida', clase, nivel, z.id, s);
       const r = limpiar(d, z.id, 'viaje', MUERTES, 420, false);
-      t += r.t; bajas += r.bajas; muertes += r.muertes; poc += r.pociones; xp += r.xp; trs.push(...r.tramos); filasTr.push(...r.tramos);
+      t += r.t; bajas += r.bajas; muertes += r.muertes; poc += r.pociones; xp += r.xp; eq += r.equipo; ca += r.caidas; trs.push(...r.tramos); filasTr.push(...r.tramos);
     }
-    const f = { clase, nivel, zonas: zs.map((z) => z.id).join(' '), cuerpos: media(trs.map((x) => x.cuerpos)), pico: media(trs.map((x) => x.pico)), picoMax: Math.max(...trs.map((x) => x.pico), 0), durTramo: media(trs.map((x) => x.dur)), bajasMin: (bajas / t) * 60, pocBajas: (poc / Math.max(1, bajas)) * 100, muertesBajas: (muertes / Math.max(1, bajas)) * 100, muertesHora: (muertes / t) * 3600, vidaMin: med(trs.map((x) => x.vidaMin)), xpBaja: xp / Math.max(1, bajas), bajas, t };
+    const f = { clase, nivel, zonas: zs.map((z) => z.id).join(' '), cuerpos: media(trs.map((x) => x.cuerpos)), pico: media(trs.map((x) => x.pico)), picoMax: Math.max(...trs.map((x) => x.pico), 0), durTramo: media(trs.map((x) => x.dur)), bajasMin: (bajas / t) * 60, pocBajas: (poc / Math.max(1, bajas)) * 100, muertesBajas: (muertes / Math.max(1, bajas)) * 100, muertesHora: (muertes / t) * 3600, vidaMin: med(trs.map((x) => x.vidaMin)), xpBaja: xp / Math.max(1, bajas), xpMin: (xp / t) * 60, equipoHora: (eq / t) * 3600, caidasHora: (ca / t) * 3600, bajas, t };
     filas.push(f);
     linea(`| ${clase} | ${nivel} | ${f.zonas} | ${f1(f.cuerpos)} (${f1(f.pico)} / ${f.picoMax}) | ${f1(f.durTramo)} | ${f1(f.bajasMin)} | ${f1(f.pocBajas)} | ${f1(f.muertesBajas)} | ${f1(f.muertesHora)} | ${Math.round(f.vidaMin * 100)} % | ${f1(f.xpBaja)} |`);
   }
-  linea('\n| nivel | cuerpos por pelea | a la vez (media) | s por pelea | bajas/min | pociones por 100 bajas | muertes por hora | vida mínima |');
-  linea('|---|---|---|---|---|---|---|---|');
-  for (const nivel of NIVELES) { const fs = filas.filter((f) => f.nivel === nivel); const m = (k: string) => media(fs.map((f) => f[k])); linea(`| ${nivel} | ${f1(m('cuerpos'))} | ${f1(m('pico'))} | ${f1(m('durTramo'))} | ${f1(m('bajasMin'))} | ${f1(m('pocBajas'))} | ${f1(m('muertesHora'))} | ${Math.round(m('vidaMin') * 100)} % |`); }
+  linea('\n| nivel | cuerpos por pelea | a la vez (media) | s por pelea | bajas/min | pociones por 100 bajas | muertes por hora | vida mínima | xp/min | equipo por hora | caídas por hora |');
+  linea('|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const nivel of NIVELES) { const fs = filas.filter((f) => f.nivel === nivel); const m = (k: string) => media(fs.map((f) => f[k])); linea(`| ${nivel} | ${f1(m('cuerpos'))} | ${f1(m('pico'))} | ${f1(m('durTramo'))} | ${f1(m('bajasMin'))} | ${f1(m('pocBajas'))} | ${f1(m('muertesHora'))} | ${Math.round(m('vidaMin') * 100)} % | ${f1(m('xpMin'))} | ${f1(m('equipoHora'))} | ${f1(m('caidasHora'))} |`); }
 }
 if (DIAG) { const T = filasTr; const e = T.filter((x: any) => x.elite), c = T.filter((x: any) => !x.elite); const su = (v: any[], k: string) => v.reduce((a, x) => a + x[k], 0); console.log('tramos con élite', e.length, 'muertes', su(e, 'muertes'), 'pociones', su(e, 'pociones'), 'cuerpos', su(e, 'cuerpos'), '| sin élite', c.length, 'muertes', su(c, 'muertes'), 'pociones', su(c, 'pociones'), 'cuerpos', su(c, 'cuerpos')); }
 if (DIAG) console.log('daño recibido (en vidas enteras) por fuente:', Object.entries(danoPor).sort((a, b) => b[1] - a[1]).map(([k, v]) => k + ' ' + v.toFixed(1)).join(', '));

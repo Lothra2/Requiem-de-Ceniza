@@ -4,7 +4,7 @@
 #   python3 juego/herramientas/t1042_reparto_lamina.py <antes> <ahora> [zonas]   -> /tmp/requiem-pruebas/enemigos/lamina_<zona>.png
 import json, sys, base64, hashlib, os
 from PIL import Image, ImageDraw, ImageFont
-B = '/tmp/requiem-pruebas/enemigos'
+B = os.environ.get('DIR', '/tmp/requiem-pruebas/enemigos')
 antes, ahora = sys.argv[1], sys.argv[2]
 zonas = sys.argv[3].split(',') if len(sys.argv) > 3 else sorted(f[:-5] for f in os.listdir(f'{B}/{ahora}') if f.endswith('.json') and f != 'resumen.json')
 K = 4

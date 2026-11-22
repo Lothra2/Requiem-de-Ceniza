@@ -1964,6 +1964,9 @@ export function actualizar(j: Juego, dt: number) {
   actualizarHeroe(j, dt);
   actualizarThor(j, dt);
   for (const m of j.monstruos) actualizarMonstruo(j, m, dt);
+  // (entrega 10, tercera vuelta) nadie queda pegado al muro: el que no avanza (quieto, esperando, pegando, empujado por otro o
+  // por un golpe) no pasaba por `apartarDeMuros` y podía quedar a 0,1 de la roca (a1_mina1, a2_tumbas1)
+  if (!(globalThis as any).__esquinaVieja) for (const m of j.monstruos) if (!m.muerto) apartarDeMuros(j.zona, m);
   actualizarTrampas(j, dt);
   // charcos que crecen bajo los muertos y rastro de sangre del que huye herido
   for (const mc of j.manchas) { if (mc.forma === 'charco' && mc.t < 10) mc.t += dt; if (mc.rmax && mc.r < mc.rmax) mc.r = Math.min(mc.rmax, mc.r + (mc.rmax - mc.r) * dt * 0.45 + dt * 0.02); }

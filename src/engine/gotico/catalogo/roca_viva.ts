@@ -25,21 +25,22 @@ import { rng, hashString } from '../../core/rng';
 const M = MATERIALES;
 /** Roca de la mina cortada a pico: estratos en diagonal, marcas del pico en las caras paradas, polvo en lo que mira arriba. */
 M.rv_mina = {
-  rampa: ['#120e0a', '#1f180f', '#2e2317', '#3f3021', '#51402c', '#654f38', '#7b6046', '#927254'], ruido: 0.42, escala: 0.16,
+  rampa: ['#110f0c', '#1d1914', '#2b241c', '#3a3026', '#4a3e31', '#5b4d3d', '#6f5e4b', '#85715a'], ruido: 0.42, escala: 0.16,
   patron: (p, n) => {
-    const s = p[0] + p[1], st = Math.sin((p[2] - s * 0.34) * 0.36 + ruido(p[0] * 0.04, p[1] * 0.04, p[2] * 0.03) * 2.6);
-    let v = st > 0.78 ? -0.1 : st < -0.86 ? 0.06 : 0;
-    v += (ruido(p[0] * 0.08, p[1] * 0.08, p[2] * 0.11) - 0.5) * 0.12;
-    if (Math.abs(n[2]) < 0.6) {
-      // las marcas del pico: golpes cortos en diagonal, de a filas, que no se alinean de una fila a la otra
-      const fila = Math.floor(p[2] / 8), q = (((s * 0.55 + p[2] * 0.8 + fila * 13.7 + ruido(fila * 1.3, s * 0.05, 3) * 9) % 7) + 7) % 7;
-      if (q < 1) v -= 0.2; else if (q < 1.8) v += 0.08;
+    // (tercera vuelta: las rayas de estrato del material y las marcas del pico en filas parejas se leían como vetas de madera.
+    //  Ahora manchas de dos escalas, granos de mineral y los golpes del pico en racimos sueltos, no en filas)
+    const s = p[0] + p[1];
+    let v = (ruido(p[0] * 0.045, p[1] * 0.045, p[2] * 0.05) - 0.5) * 0.26 + (ruido(p[0] * 0.13, p[1] * 0.13, p[2] * 0.13 + 7) - 0.5) * 0.14;
+    const g = ruido(p[0] * 0.5, p[1] * 0.5, p[2] * 0.5 + 3); if (g > 0.8) v += 0.12; else if (g < 0.16) v -= 0.1;
+    if (Math.abs(n[2]) < 0.6 && ruido(p[0] * 0.03 + 9, p[1] * 0.03, p[2] * 0.03) > 0.55) {
+      const q = (((s * 0.5 + p[2] * 0.9 + ruido(s * 0.07, p[2] * 0.07, 5) * 14) % 9) + 9) % 9;
+      if (q < 0.9) v -= 0.17; else if (q < 1.6) v += 0.07;
     } else if (n[2] > 0.55) v -= 0.12; // (lo que mira arriba en una mina no recibe luz: el techo no la deja; si no, cada repisa se lee como un tejado)
     return v - Math.min(1, Math.max(0, (p[2] - 58) / 90)) * 0.17; // (lo alto se pierde en lo oscuro del techo: la roca no termina en un canto contra la nada)
   },
 };
 /** La misma roca con la veta de hierro: más roja y oxidada. */
-M.rv_mina_ox = { ...M.rv_mina, rampa: ['#0e0806', '#1b0f0a', '#2a1810', '#3a2216', '#4b2d1d', '#5e3a26', '#734932', '#88593e'] };
+M.rv_mina_ox = { ...M.rv_mina, rampa: ['#0e0907', '#1a100b', '#281912', '#372319', '#462e21', '#563a2b', '#684a37', '#7c5a44'] };
 /** La roca húmeda de la mina (por donde baja el agua): más oscura y con brillo. */
 M.rv_mina_humeda = { ...M.rv_mina, rampa: ['#0d0c0a', '#181512', '#24201a', '#312b23', '#3f372d', '#4e4438', '#5f5345'], brillo: 0.38 };
 /** Caliza de la cueva: estratos que ondulan en diagonal y chorreones de humedad que bajan. */
@@ -57,16 +58,16 @@ M.rv_cueva = {
 M.rv_cueva_b = { ...M.rv_cueva, rampa: ['#0e0d0c', '#1a1917', '#272522', '#35322d', '#44403a', '#55504a', '#67615a', '#7b746b'] };
 M.rv_junta = { rampa: ['#050404', '#0b0908', '#120f0c', '#1a1612'], ruido: 0.4, escala: 0.4, brillo: 0.45 };
 M.rv_piedra_clara = { rampa: ['#2a251f', '#3a332b', '#4c4338', '#605546', '#756856', '#8b7c67', '#a29079'], ruido: 0.4, escala: 0.4 };
-M.rv_nieve = { rampa: ['#7d8994', '#97a3ad', '#b0bbc4', '#c6d0d7', '#d9e1e6', '#e8eef1', '#f6f9fa'], ruido: 0.16, escala: 0.2, brillo: 0.35 };
+M.rv_nieve = { rampa: ['#4f5f70', '#667789', '#7f90a1', '#98a8b7', '#b0bfcb', '#c5d2dc', '#d8e2ea'], ruido: 0.2, escala: 0.2, brillo: 0.35 };
 // (tercera vuelta) el carámbano: hielo claro casi blanco que deja pasar la luz (el `rv_hielo_vivo` oscuro se leía como bolitas)
 M.rv_caramb = { rampa: ['#5b7a8c', '#7d9cad', '#9dbccb', '#bcd6e2', '#d6eaf2', '#edf7fb'], ruido: 0.1, escala: 0.1, brillo: 0.75 };
 M.rv_hielo = {
-  rampa: ['#0b0f14', '#141b23', '#1e2833', '#2a3644', '#384656', '#495869', '#5d6c7e', '#758597'], ruido: 0.38, escala: 0.14, brillo: 0.45,
+  rampa: ['#070b13', '#0d1520', '#14202f', '#1c2c3f', '#25394f', '#2f4761', '#3c5774', '#4c6988'], ruido: 0.38, escala: 0.14, brillo: 0.5,
   patron: (p, n) => {
     const st = Math.sin((p[2] + (p[0] - p[1]) * 0.25) * 0.4 + ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.04) * 3);
     const amp = 0.5 + Math.max(0, ruido(p[0] * 0.035, p[1] * 0.035, p[2] * 0.02 + 4) - 0.38) * 1.6; let v = (st > 0.72 ? 0.16 : st < -0.8 ? -0.12 : 0) * amp + (ruido(p[0] * 0.3, p[1] * 0.3, p[2] * 0.3) - 0.5) * 0.12;
     v += (ruido(p[0] * 0.1, p[1] * 0.1, p[2] * 0.1) - 0.5) * 0.12;
-    if (n[2] > 0.55) v += 0.28 * (n[2] - 0.55) / 0.45 + 0.08; // (la escarcha se junta en lo que mira arriba)
+    if (n[2] > 0.7) v += 0.16 * (n[2] - 0.7) / 0.3; // (la escarcha se junta en lo que mira arriba; lo blanco de verdad es la nieve, solo arriba)
     return v - Math.min(1, Math.max(0, (p[2] - 58) / 90)) * 0.16; // (lo alto se pierde en lo oscuro del techo: la roca no termina en un canto contra la nada)
   },
 };
@@ -134,8 +135,11 @@ function rocaCortada(r: Az, ps: Pieza[], P: (u: number, w: number, z: number) =>
   const jit = (k: number) => (r() - 0.5) * k;
   const H = (u: number) => altoEn(o.pf, (u / L) * 40) + 2.5 * Math.sin(u * 0.21 + fa * 2) + 1.5 * Math.sin(u * 0.43 + fb);
   // estratos: líneas inclinadas (las mismas para todo el tramo)
-  const inc = (r() - 0.5) * 0.7, est: number[] = [0]; { let z = entre(r, 14, 26); while (z < 180) { est.push(z); z += entre(r, ...(o.estrato ?? [20, 34])); } }
-  const zEst = (k: number, u: number) => (k === 0 ? 0 : est[k] + inc * u);
+  // (tercera vuelta: con la misma inclinación y gruesos parejos los estratos se leían como tablones apilados. Cada línea lleva su
+  //  propia inclinación alrededor de la del tramo y ondula, los gruesos van de muy finos a muy gruesos, y algunas se acuñan)
+  const inc = (r() - 0.5) * 0.7, est: number[] = [0], incK: number[] = [0], ond: number[] = [0], fase: number[] = [0];
+  { const [e0, e1] = o.estrato ?? [20, 34]; let z = entre(r, 12, 30); while (z < 180) { est.push(z); incK.push(inc + (r() - 0.5) * 0.35); ond.push(entre(r, 1.5, 5)); fase.push(r() * 6.28); z += r() < 0.3 ? entre(r, e0 * 0.5, e0 * 0.8) : entre(r, e0, e1 * 1.35); } }
+  const zEst = (k: number, u: number) => (k === 0 ? 0 : est[k] + incK[k] * u + ond[k] * Math.sin(u * 0.09 + fase[k]));
   // cada estrato se retira un poco más que el de abajo (la cara sube en talud, no a plomo), con su propio capricho
   const retiro: number[] = []; { let acc = 0; for (let k = 0; k < est.length; k++) { acc += k === 0 ? 0 : entre(r, 1.5, o.retiro ?? 6.5); retiro.push(acc + (r() < 0.2 ? -entre(r, 2, 5) : 0)); } }
   for (let k = 0; k < est.length; k++) {
@@ -162,7 +166,7 @@ function rocaCortada(r: Az, ps: Pieza[], P: (u: number, w: number, z: number) =>
       // la cresta rota: el canto de arriba se quiebra en una arista que va hacia atrás
       if (false) pts.push(P((ua + ub) / 2 + jit(8), atr + entre(r, 1, 5), Math.max(za0, Math.max(za1, zb1) + entre(r, -3, 3))));
       const humedo = o.humeda && r() < 0.35;
-      ps.push(poli(pts, humedo ? 'rv_mina_humeda' : o.matB && r() < 0.3 ? o.matB : o.mat, (r() - 0.5) * 0.14 + (k % 2 ? -0.035 : 0.025)));
+      ps.push(poli(pts, humedo ? 'rv_mina_humeda' : o.matB && r() < 0.3 ? o.matB : o.mat, (r() - 0.5) * 0.12));
       // la cresta rota: lascas paradas y torcidas sobre el canto (nunca un tejado liso)
       if (top) for (let q = 0; q < 1 + Math.floor(r() * 2); q++) { const u = entre(r, ua, ub), hu = H(u), w = fr(u) - retiro[k] - entre(r, 5, 13), sz = entre(r, 4, 8); const c = P(u, w, Math.min(hu, Math.max(za1, zb1)) - sz * 0.25); ps.push(lasca(r, c[0], c[1], c[2], sz * 1.3, sz * entre(r, 0.6, 0.9), sz * entre(r, 0.4, 0.65), o.mat, 8)); }
     }
@@ -195,7 +199,7 @@ function bolson(r: Az, ps: Pieza[], P: (u: number, w: number, z: number) => V3, 
 }
 
 /** Los tramos de la mina: `m1`..`m8` (perfil), `ov`, `hv`, `sv` (vetas de oro, hierro y sangre), con `_y` el eje y. */
-const TRAMOS = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'ov1', 'ov2', 'hv1', 'hv2', 'sv1', 'sv2', 'n1', 'n2', 'n3', 'n4'];
+const TRAMOS = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'ov1', 'ov2', 'hv1', 'hv2', 'sv1', 'sv2', 'n1', 'n2', 'n3', 'n4', 'b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'q1', 'q2', 'q3', 'q4'];
 /** Los salientes: `e<largo><fondo>_<n>` (largo a lo largo del muro, fondo hacia la galería). */
 const ESPOLONES = ['e21_1', 'e21_2', 'e31_1', 'e31_2', 'e22_1', 'e22_2', 'e32_1', 'e32_2'];
 
@@ -206,8 +210,10 @@ registrar(
     armar: (v, _f) => {
       const ejeY = v.endsWith('_y'), base = ejeY ? v.slice(0, -2) : v, r = azar(base), P = ejeDe(ejeY), ps: Pieza[] = [];
       const veta = base.startsWith('ov') ? 'oro' : base.startsWith('hv') ? 'hierro' : base.startsWith('sv') ? 'sangre' : undefined;
-      const entalle = base[0] === 'n', n = veta ? Math.floor(r() * PERFIL.length) : (+base.slice(1) + (entalle ? 3 : -1)) % PERFIL.length;
-      const pf = PERFIL[n].map((h) => h * entre(r, 0.92, 1.06) + entre(r, -6, 6));
+      const entalle = base[0] === 'n' || base[0] === 'q', n = veta ? Math.floor(r() * PERFIL.length) : (+base.slice(1) + (entalle ? 3 : -1)) % PERFIL.length;
+      // (tercera vuelta) `b`: el tramo que tiene piso detrás (el muro entre dos salas, que se ve de frente desde la de atrás) va bajo,
+      // por la mitad: lo alto atrás, lo bajo adelante. Los demás bajan un poco (los paredones tapaban media sala)
+      const bajo = base[0] === 'b' || base[0] === 'q', pf = PERFIL[n].map((h) => (h * entre(r, 0.92, 1.06) + entre(r, -6, 6)) * (bajo ? 0.42 : 0.86));
       if (+base.slice(1) > 8) pf.reverse();
       rocaCortada(r, ps, P, { mat: veta === 'hierro' ? 'rv_mina_ox' : 'rv_mina', matB: veta === 'hierro' ? 'rv_mina' : undefined, veta, humeda: r() < 0.4, pf, largo: 80, fondo: -22, frente: 13, entalle });
       let luz: [number, number, number] | null = null;
@@ -227,7 +233,7 @@ registrar(
       const ejeY = v.endsWith('_y'), base = ejeY ? v.slice(0, -2) : v, r = azar(base), P = ejeDe(ejeY), ps: Pieza[] = [];
       const a = +base[1], b = +base[2], L = a * 8, D = b * 8;
       // el contrafuerte: alto contra el muro (se mete en la roca de atrás) y baja hacia la galería
-      const alto = entre(r, 56, 96) * (b === 2 ? 0.92 : 1), frente = D - 1.5, fondo = -D - 26;
+      const alto = entre(r, 44, 74) * (b === 2 ? 0.92 : 1), frente = D - 1.5, fondo = -D - 26;
       const pf = [alto * entre(r, 0.2, 0.4), alto * entre(r, 0.7, 0.95), alto, alto * entre(r, 0.6, 0.9), alto * entre(r, 0.15, 0.35)];
       rocaCortada(r, ps, P, { mat: 'rv_mina', pf, largo: L * 2 + 6, fondo, frente, humeda: r() < 0.3, caer: alto * entre(r, 0.05, 0.15), estrato: [34, 52], retiro: 3 });
       cascajoPie(r, ps, P, L, frente, 'rv_mina', 6 + a * 2);
@@ -287,7 +293,7 @@ function macizo(r: Az, ps: Pieza[], alto: number, fam: 'c' | 'h' | 'm', baja: bo
       if (top && hm > zt) pts.push(P((ua + ub) / 2 + jit(6), (atr + fa0) / 2, Math.min(hm, zt + 8)));
       ps.push(poli(pts, k % 3 === 2 && r() < 0.35 && fam !== 'h' ? (fam === 'm' ? 'rv_mina_ox' : 'rv_cueva_b') : mat, jit(0.14) + (k % 2 ? -0.04 : 0.03)));
       // la nieve del hielo: un manto chato pegado a la cara de arriba de la losa (no bolas), que se asoma por el canto
-      if (fam === 'h' && (top || r() < 0.6)) { const zA = Math.max(za0, za1), zB = Math.max(zb0, zb1), e = 2.6; ps.push(poli([P(ua + 1, fa0 - bt + 1.5, zA - ch - 0.3), P(ub - 1, fb0 - bt + 1.5, zB - ch - 0.3), P(ua + 1, fa0 - bt - 1.5, zA - ch + e), P(ub - 1, fb0 - bt - 1.5, zB - ch + e), P(ua + 1, atr + 2, zA + 0.2), P(ub - 1, atr + 2, zB + 0.2), P(ua + 1, atr + 2, zA + e + 1.4), P(ub - 1, atr + 2, zB + e + 1.4)], 'rv_nieve', jit(0.06))); }
+      if (fam === 'h' && top) { const zA = Math.max(za0, za1), zB = Math.max(zb0, zb1), e = 2.6; ps.push(poli([P(ua + 1, fa0 - bt + 1.5, zA - ch - 0.3), P(ub - 1, fb0 - bt + 1.5, zB - ch - 0.3), P(ua + 1, fa0 - bt - 1.5, zA - ch + e), P(ub - 1, fb0 - bt - 1.5, zB - ch + e), P(ua + 1, atr + 2, zA + 0.2), P(ub - 1, atr + 2, zB + 0.2), P(ua + 1, atr + 2, zA + e + 1.4), P(ub - 1, atr + 2, zB + e + 1.4)], 'rv_nieve', jit(0.06))); }
       // la junta: una losa fina, oscura y húmeda, metida un poco bajo el estrato (es la sombra de la repisa)
       if (k > 0 && za0 > 2) ps.push(poli([P(ua, fa0 - 2.5, za0 - 1.6), P(ub, fb0 - 2.5, zb0 - 1.6), P(ua, fa0 - 2.5, za0 + 0.6), P(ub, fb0 - 2.5, zb0 + 0.6), P(ua, atr, za0 - 1.6), P(ub, atr, zb0 - 1.6), P(ua, atr, za0 + 0.6), P(ub, atr, zb0 + 0.6)], junta, -0.08));
       // la repisa que queda arriba (lo que mira arriba: musgo, nieve) y el voladizo de abajo (de donde gotea o cuelga)
@@ -322,7 +328,7 @@ function adornarPenasco(r: Az, ps: Pieza[], fam: 'c' | 'h' | 'm', baja: boolean,
   if (baja) return;
   // lo que cuelga de los voladizos: carámbanos en el hielo, gotas de colada en la cueva
   for (const [x, y, z] of voladizos) {
-    const n = fam === 'h' ? 2 + Math.floor(r() * 4) : r() < 0.45 ? 1 : 0;
+    const n = fam === 'h' ? 1 + Math.floor(r() * 3) : r() < 0.45 ? 1 : 0;
     for (let i = 0; i < n; i++) { const l = fam === 'h' ? entre(r, 9, 22) : entre(r, 4, 9), dx = (r() - 0.5) * 10, dy = (r() - 0.5) * 4; ps.push(masa([hM([x + dx, y + dy, z + 0.5], [x + dx + (r() - 0.5) * 0.6, y + dy, z + 0.5 - l], fam === 'h' ? entre(r, 0.8, 1.4) : 1.6, 0.15)], { mat: fam === 'h' ? 'rv_caramb' : 'rv_cueva', suave: 0.3 })); }
   }
 }

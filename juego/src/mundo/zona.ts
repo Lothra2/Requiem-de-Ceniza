@@ -2387,6 +2387,34 @@ function rocaViva(z: Zona, def: DefZona) {
   const t = tematica(def.tema);
   if (def.tema === 'mina' && !G.__minaObra) { rocaMina(z); rocaCueva(z, 'm'); }
   else if (t.organica && z.hueco && def.tipo === 'mazmorra' && !def.casa) rocaCueva(z, typeof t.organica === 'string' ? 'h' : 'c');
+  else return;
+  // (tercera vuelta) nada repetido: lo suelto que no bloquea ni es de una escena (velas, huesos, herramientas) con la misma pieza y la
+  // misma cara a menos de 3 celdas de otra igual se lee como copia y pega; la segunda sale
+  if (!G.__repetidosRoca) {
+    const vistos = new Map<string, ObjZ[]>(), fuera = new Set<ObjZ>();
+    for (const o of z.objetos) {
+      if (o.bloquea || o.tag || /^roca_/.test(o.id) || ['relato', 'jefe', 'escena', 'escondido', 'umbral', 'interactivo', 'horror'].includes(o.capa ?? '')) continue;
+      const k = o.id + '|' + o.v, L = vistos.get(k) ?? []; vistos.set(k, L);
+      if (L.some((q) => Math.hypot(q.cx - o.cx, q.cy - o.cy) < Math.max(3, (o.hw + o.hh) / 2 + 1.2))) fuera.add(o); else L.push(o);
+    }
+    if (fuera.size) z.objetos = z.objetos.filter((o) => !fuera.has(o));
+  }
+  // (tercera vuelta) el espejo del misterio que se riega en toda mazmorra: en la cueva y la mina quedaba metido entre los peñascos
+  // de antes; con los macizos aclarados se veía parado solo en medio del piso, como una puerta negra. Se queda solo si tiene la
+  // roca a mano (a dos celdas), como algo que alguien apoyó contra la pared
+  if (G.__espejoSuelto) return;
+  const W = z.W, piedra = new Uint8Array(W * z.H);
+  for (const o of z.objetos) if (ES_TRAMO(o) || o.id === 'roca_muro_espolon') { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H) piedra[y * W + x] = 1; }
+  const roca = (x: number, y: number) => x < 0 || y < 0 || x >= W || y >= z.H || !!piedra[y * W + x] || !!(z.hueco && z.hueco[y * W + x]) || !z.pisos[Math.floor(y / 5) * z.tw + Math.floor(x / 5)];
+  for (let k = z.objetos.length - 1; k >= 0; k--) {
+    const o = z.objetos[k]; if (o.id !== 'mis_espejo' || o.capa !== 'riego') continue;
+    const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2), cel: number[] = [];
+    for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) cel.push(y * W + x);
+    let junto = false;
+    for (const i of cel) { const x = i % W, y = (i - x) / W; for (let dy = -2; dy <= 2 && !junto; dy++) for (let dx = -2; dx <= 2 && !junto; dx++) if (!cel.includes((y + dy) * W + x + dx) && roca(x + dx, y + dy)) junto = true; }
+    if (junto) continue;
+    z.objetos.splice(k, 1); if (o.bloquea) for (const i of cel) if (z.bloq[i] === 1) z.bloq[i] = 0;
+  }
 }
 const ES_TRAMO = (o: ObjZ) => (o.id === 'cue_muro' || o.id === 'min_pared_veta' || o.id === 'roca_muro') && o.bloquea && ((o.hw === 5 && o.hh === 2) || (o.hw === 2 && o.hh === 5));
 /**
@@ -2490,6 +2518,10 @@ function rocaMina(z: Zona) {
   for (const o of tramos) { const [x0, y0] = caja(o), ejeY = o.hh === 5, k = ejeY ? 'y' + x0 : 'x' + (y0 + (o.id === 'roca_muro' ? 0 : 0)); if (!linea.has(k)) linea.set(k, []); linea.get(k)!.push(o); }
   const NORMAL = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10'], VETA: Record<string, string> = { oro: 'ov', hierro: 'hv', sangre: 'sv' };
   const pies: ObjZ[] = [];
+  // (tercera vuelta) el tramo con piso detrás (el muro entre dos salas: desde la de atrás se ve de frente y tapaba media sala) va bajo
+  const pisoEn = (x: number, y: number) => enMapa(x, y) && !!z.pisos[Math.floor(y / 5) * z.tw + Math.floor(x / 5)] && z.bloq[y * W + x] !== 1;
+  // (también con un hueco de roca de por medio: la sala de atrás queda arriba en pantalla y el paredón de la de adelante la tapaba)
+  const detras = (o: ObjZ) => { const [x0, y0] = caja(o), ejeY = o.hh === 5; let n = 0; for (let u = 0; u < 5; u++) { let hay = false; for (let k = 1; k <= 9 && !hay; k++) hay = ejeY ? pisoEn(x0 - k, y0 + u) || pisoEn(x0 - k, y0 + u - k) : pisoEn(x0 + u, y0 - k) || pisoEn(x0 + u - k, y0 - k); if (hay) n++; } return n >= 3; };
   // (por eje, en orden a lo largo: así la cara de al lado se ve aunque un entrante esté una celda corrido)
   const porEje = (ejeY: boolean) => tramos.filter((o) => (o.hh === 5) === ejeY).sort((a, b) => (ejeY ? a.cx - b.cx || a.cy - b.cy : a.cy - b.cy || a.cx - b.cx));
   for (const ejeY of [false, true]) {
@@ -2497,7 +2529,8 @@ function rocaMina(z: Zona) {
     for (const o of porEje(ejeY)) {
       let v: string;
       if (o.id === 'min_pared_veta') v = VETA[o.v.replace(/_y$/, '')] + (1 + Math.floor(rr() * 2));
-      else if (o.dato?.entalle) v = 'n' + (1 + Math.floor(rr() * 4));
+      else if (o.dato?.entalle) v = (detras(o) && !(globalThis as any).__tramosAltos ? 'q' : 'n') + (1 + Math.floor(rr() * 4));
+      else if (detras(o) && !(globalThis as any).__tramosAltos) v = 'b' + (1 + Math.floor(rr() * 6));
       else { const ops = NORMAL.filter((q) => !prev || Math.abs(prev.cx - o.cx) + Math.abs(prev.cy - o.cy) > 6 || q + (ejeY ? '_y' : '') !== prev.v); v = ops[Math.floor(rr() * ops.length)]; }
       o.id = 'roca_muro'; o.v = v + (ejeY ? '_y' : ''); prev = o;
       pies.push({ id: 'roca_pie', v: 'm' + (1 + Math.floor(rr() * 4)) + (ejeY ? '_y' : ''), cx: ejeY ? o.cx + 1 : o.cx, cy: ejeY ? o.cy : o.cy + 1, hw: o.hw, hh: o.hh, bloquea: false, capa: 'roca' });
@@ -2507,12 +2540,23 @@ function rocaMina(z: Zona) {
   const pisable = (i: number) => z.bloq[i] === 0 || z.bloq[i] === 3;
   const celdasDe = (o: ObjZ) => { const [x0, y0] = caja(o), out: number[] = []; for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (enMapa(x, y)) out.push(y * W + x); return out; };
   const quitar = (o: ObjZ) => { for (const i of celdasDe(o)) if (z.bloq[i] === 1) z.bloq[i] = 0; z.objetos.splice(z.objetos.indexOf(o), 1); };
+  // las celdas de delante del saliente que su dibujo tapa (más cerca de la cámara que su punta de atrás, menos que la de adelante)
+  const tapaEspolon = (o: ObjZ) => { const [x0, y0] = caja(o), fondo = x0 + o.hw - 1 + y0 + o.hh - 1, out: number[] = [];
+    for (let y = y0 - 1; y <= y0 + o.hh + 1; y++) for (let x = x0 - 1; x <= x0 + o.hw + 1; x++) { const dentro = x >= x0 && x < x0 + o.hw && y >= y0 && y < y0 + o.hh; if (!dentro && enMapa(x, y) && (x >= x0 + o.hw || y >= y0 + o.hh) && x + y < fondo) out.push(y * W + x); }
+    return out; };
   const cerca: [number, number, number][] = [];
   for (const s of z.salidas) cerca.push([s.cx, s.cy, 7]);
   for (const e of Object.values(z.entradas)) cerca.push([e[0], e[1], 6]);
   for (const sp of z.spawns) cerca.push([sp.cx, sp.cy, sp.tipo === 'jefe' ? 13 : 6.5]);
   let esp = z.objetos.filter((o) => o.id === 'roca_muro_espolon');
   for (const o of esp) if (cerca.some(([a, b, d]) => Math.hypot(a - o.cx, b - o.cy) < d)) quitar(o);
+  // (tercera vuelta) el saliente no se ordena en franjas (es corto): su punta de adelante lo pinta encima de lo que tiene pegado
+  // delante en la celda de al lado de la punta de atrás (un cofre quedaba medio tapado, t1015). Con algo así delante, se va
+  for (const o of z.objetos.filter((q) => q.id === 'roca_muro_espolon')) {
+    if ((globalThis as any).__espolonTapa) break;
+    const ocupa = new Set<number>(); for (const q of z.objetos) if (q !== o && !/^roca_/.test(q.id) && q.capa !== 'roca') for (const i of celdasDe(q)) ocupa.add(i);
+    if (tapaEspolon(o).some((i) => ocupa.has(i))) quitar(o);
+  }
   esp = z.objetos.filter((o) => o.id === 'roca_muro_espolon');
   const alcanza = () => { const e0 = z.entradas.arriba ?? Object.values(z.entradas)[0], vis = new Uint8Array(W * H); if (!e0) return vis; const i0 = Math.floor(e0[1]) * W + Math.floor(e0[0]); if (!pisable(i0)) return vis; const pila = [i0]; vis[i0] = 1; while (pila.length) { const i = pila.pop()!, x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (!enMapa(X, Y)) continue; const j = Y * W + X; if (!vis[j] && pisable(j)) { vis[j] = 1; pila.push(j); } } } return vis; };
   if (esp.length) {
@@ -2535,26 +2579,32 @@ function rocaMina(z: Zona) {
     for (const o of [...z.objetos, ...pies]) if (o.id !== 'roca_pie') for (const i of celdasDe(o)) ocup[i] = 1;
     const piso = (x: number, y: number) => enMapa(x, y) && !!z.pisos[Math.floor(y / 5) * z.tw + Math.floor(x / 5)];
     const libre = (x: number, y: number) => { for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) { const X = x + dx, Y = y + dy, i = Y * W + X; if (!piso(X, Y) || z.bloq[i] !== 0 || ocup[i]) return false; } return !cerca.some(([a, b, d]) => Math.hypot(a - x - 0.5, b - y - 0.5) < Math.min(d, 5)); };
+    const cajaS = (id: string, v: string, cx: number, cy: number): [number, number, number, number] | null => { const k = CAJAS[id + '|' + v] ?? CAJAS_DECO[id + '|' + v]; if (!k) return null; const sx = (cx - cy) * 16, sy = (cx + cy) * 8; return [sx - k[2], sy - k[3], sx - k[2] + k[0], sy - k[3] + k[1]]; };
+    const cajasHay: [number, number, number, number][] = [];
+    for (const q of z.objetos) { if (/^roca_/.test(q.id) || q.capa === 'relleno') continue; const k = cajaS(q.id, q.v ?? '', q.cx, q.cy); if (k) cajasHay.push(k); }
     const SUELTO: [string, string[]][] = [['cue_escombros', ['suelto', 'monton']], ['cue_escombros', ['suelto']], ['cue_huesos', ['pequeno', 'grande']], ['min_herramientas', ['tiradas', 'apoyadas']]];
     const poner = (cand: [number, number][]) => {
       for (let k = cand.length - 1; k > 0; k--) { const q = Math.floor(rr() * (k + 1)); [cand[k], cand[q]] = [cand[q], cand[k]]; }
-      const c = cand.find(([x, y]) => libre(x, y)); if (!c) return;
-      const [id, vs] = SUELTO[Math.floor(rr() * SUELTO.length)];
-      const o: ObjZ = { id, v: vs[Math.floor(rr() * vs.length)], cx: c[0] + 0.5, cy: c[1] + 0.5, hw: 2, hh: 2, bloquea: false, capa: 'roca' };
+      const [id, vs] = SUELTO[Math.floor(rr() * SUELTO.length)], v = vs[Math.floor(rr() * vs.length)];
+      // (nada montado: su dibujo no pisa el de nada de lo que ya está, tampoco lo de la pared, que tiene el dibujo más grande que la huella)
+      const c = cand.find(([x, y]) => { if (!libre(x, y) || z.objetos.some((q) => q.id === id && q.v === v && Math.hypot(q.cx - x - 0.5, q.cy - y - 0.5) < 4)) return false; const k = cajaS(id, v, x + 0.5, y + 0.5); return !k || !cajasHay.some((q) => { const ix = Math.min(k[2], q[2]) - Math.max(k[0], q[0]), iy = Math.min(k[3], q[3]) - Math.max(k[1], q[1]); return ix > 0 && iy > 0 && (ix * iy) / Math.min((k[2] - k[0]) * (k[3] - k[1]), (q[2] - q[0]) * (q[3] - q[1])) > 0.3; }); });
+      if (!c) return;
+      const o: ObjZ = { id, v, cx: c[0] + 0.5, cy: c[1] + 0.5, hw: 2, hh: 2, bloquea: false, capa: 'roca' };
+      { const k = cajaS(id, v, o.cx, o.cy); if (k) cajasHay.push(k); }
       z.objetos.push(o); for (const i of celdasDe(o)) ocup[i] = 1;
     };
     if (!(globalThis as any).__rocaSinSuelto) {
       for (const o of tramos) {
-        if (!o.dato?.entra && !o.dato?.entalle) continue;
-        if (rr() > 0.85) continue;
+        const hueco = o.dato?.entra || o.dato?.entalle;
+        if (rr() > (hueco ? 0.9 : 0.5)) continue;
         const [x0, y0] = caja(o), ejeY = o.hh === 5, fr0 = (ejeY ? x0 : y0) + (o.dato?.entalle ? 1 : 2), a0 = ejeY ? y0 : x0, cand: [number, number][] = [];
-        for (let u = a0; u <= a0 + 3; u++) for (let c = fr0; c <= fr0 + 1; c++) cand.push(ejeY ? [c, u] : [u, c]);
+        for (let u = a0 - 1; u <= a0 + 4; u++) for (let c = fr0; c <= fr0 + 2; c++) cand.push(ejeY ? [c, u] : [u, c]);
         poner(cand);
       }
       for (const e of z.objetos.filter((q) => q.id === 'roca_muro_espolon')) {
         if (rr() > 0.75) continue;
-        const [x0, y0] = caja(e), cand: [number, number][] = [];
-        for (let y = y0 - 2; y <= y0 + e.hh; y++) for (let x = x0 - 2; x <= x0 + e.hw; x++) if (x < x0 || y < y0 || x >= x0 + e.hw || y >= y0 + e.hh) cand.push([x, y]);
+        const [x0, y0] = caja(e), cand: [number, number][] = [], tapa = new Set(tapaEspolon(e));
+        for (let y = y0 - 2; y <= y0 + e.hh; y++) for (let x = x0 - 2; x <= x0 + e.hw; x++) if ((x < x0 || y < y0 || x >= x0 + e.hw || y >= y0 + e.hh) && ![0, 1, W, W + 1].some((d) => tapa.has(y * W + x + d))) cand.push([x, y]);
         poner(cand);
       }
     }
@@ -2595,7 +2645,9 @@ function rocaCueva(z: Zona, fam: 'c' | 'h' | 'm') {
     const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
     const atras = hay ? (nx + ny) / Math.SQRT2 : 0.5, talla = o.v.slice(pre.length);
     const q = campo[Math.min(H - 1, Math.max(0, Y)) * W + Math.min(W - 1, Math.max(0, X))] + (rc() - 0.5) * 0.2 - (fam === 'm' ? 0.15 : 0) - (o.capa === 'relleno' ? 0.2 : 0);
-    const clase = talla.startsWith('baja') || atras < -0.15 ? 'b' : atras < 0.35 ? (q > 0.5 ? 'm' : 'b') : q > 0.42 ? 'a' : 'm';
+    // (tercera vuelta) con piso detrás en diagonal (hacia arriba en pantalla: la roca queda delante de una sala y la tapaba) va baja
+    let trasPiso = false; if (!(globalThis as any).__frenteAlto) for (let s2 = 2; s2 <= 7 && !trasPiso; s2++) trasPiso = piso(X - s2, Y - s2);
+    const clase = trasPiso || talla.startsWith('baja') || atras < -0.15 ? 'b' : atras < 0.35 ? (q > 0.5 ? 'm' : 'b') : q > (fam === 'm' ? 0.55 : 0.42) ? 'a' : 'm';
     const bajo = clase === 'b', lejos = bajo ? 2 : 2.4;
     // (lo que está sobre una celda de piso, como las piedras de la orilla de los túneles que bloquean su celda, no sale: se queda)
     const sobrePiso = !!z.pisos[Math.floor(Y / 5) * z.tw + Math.floor(X / 5)] && !(z.hueco && z.hueco[Y * W + X]);

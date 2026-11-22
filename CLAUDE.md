@@ -19,7 +19,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
-  abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) está en `mundos`, sin publicar.
+  abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477`; su tercera vuelta (lo flojo cerrado) está en `mundos`.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
@@ -885,7 +885,7 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   pintado, `MURO_TAPA`, `despegarDeMuros`, las medidas) y `roca_penasco` en lo que mira `penasco`. `cajas_muro.json` y
   `cajas_sprite.json` al día (`t1013_cajas.mjs`). Los atlas que quedan sueltos de un horneado con `SOLO` (el prefijo cambia cada
   vez) y las variantes que ya no existen se borraron del manifiesto con sus archivos.
-- **Medidas** (4 minas y 8 cuevas x 3 semillas, `_m_roca.mjs`, no se sube): en las minas 794 tramos, unos 50 entrantes y 188
+- **Medidas, segunda vuelta** (4 minas y 8 cuevas x 3 semillas, `_m_roca.mjs`, no se sube): en las minas 794 tramos, unos 50 entrantes y 188
   salientes, 796 taludes y unos 1100 peñascos de mina; celdas libres de las minas 40.257 a 40.440. En las cuevas unos 6.100
   macizos (antes 11.700 peñascos) y 2.700 taludes. t1000 (3 semillas, con `BANDERAS=__rocaVieja` el antes): arena exterior 56,
   cueva 40, obra 55 igual; **piso legible de la cueva 10 a 16** y objetos dibujados por pantalla 240 a 193; arena de las cuatro
@@ -902,11 +902,52 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   `/tmp/requiem-pruebas/e10/cerca_*.png` y `zoom_pie_*.png`.
 - `MAPA_V` sigue en 4: las baldosas no cambian, solo qué celdas de adentro de las de la mina son roca (como en la entrega 8), y la
   partida guarda la niebla por baldosa.
-- Flojo: el frente de las galerías de la mina (los bordes de adelante, hacia la cámara) sigue cortado a regla contra lo negro: eso
-  no es roca, es el piso que se acaba, y no se tocó. Los entrantes salen pocos en las minas chicas (las líneas son de uno o dos
-  tramos y las puntas no se mueven). Los macizos de la cueva son redondos y con estratos: de cerca todavía tienen algo de
-  almohada o de barro, y el hielo es gris azulado con poca escarcha (antes era nieve blanca encima de todo). El talud se ve al pie
-  de la roca pero sigue discreto con la luz de la mina. Nada se jugó a mano: solo las vistas de t1021 y los recortes.
+- **Tercera vuelta** (el coordinador: "cierra todo lo flojo, de verdad"). Lo de la segunda que quedó a medias, resuelto en el juego:
+  - **Macizos de roca, no almohadas** (`macizo` en `roca_viva.ts`): estratos de losas facetadas (`poli`) con su retiro, unos que
+    vuelan sobre el de abajo y dejan sombra, juntas oscuras y húmedas entre estrato y estrato (`rv_junta`), grietas cavadas hondas,
+    lascas sueltas en las repisas y bloques caídos al pie. El musgo solo en lo que mira arriba (45 % de las repisas). En el relleno
+    de las bolsas va lo mismo (no queda bosque de picos) y lo que tiene piso detrás en diagonal (la roca delante de una sala, que
+    la tapaba) va siempre bajo (`trasPiso` en `rocaCueva`, `__frenteAlto` lo de antes).
+  - **Hielo azul oscuro con copete** (`rv_hielo` más hondo, `rv_nieve` y `rv_caramb`): la masa es roca de hielo azul oscura, la
+    nieve es una losa encima solo de la losa de más arriba de cada estrato (antes en todas: se leía como papel o vidrio roto) y no
+    pasa del gris claro (no encandila más que el piso); los carámbanos son claros, finos y largos (1 a 3 por voladizo; antes
+    bolitas oscuras con palito). El brillo frío va en los cantos (brillo 0,5).
+  - **Talud que se ve**: piedra clara (`rv_piedra_clara`) arriba del montón, contra la roca, y una sombra (`rv_junta`) bajo cada
+    piedra grande; polvo y grava más claros.
+  - **La mina con roca, no tablones** (`rv_mina` y `rocaCortada`): el material deja las rayas de estrato y las marcas del pico en
+    filas (se leían como vetas de madera) por manchas de dos escalas, granos de mineral y golpes del pico en racimos, en un pardo
+    más gris; cada línea de estrato lleva su inclinación y ondula, los gruesos van de muy finos a muy gruesos, sin el tono par e
+    impar. **Lo alto atrás, lo bajo adelante**: el tramo con piso detrás, aunque sea pasando un hueco de roca o en diagonal (el muro
+    entre dos salas, que desde la de atrás se ve de frente y tapaba media sala) es bajo (`b1`..`b6` y `q1`..`q4` con entalle, a
+    0,42 del alto; `detras` en `rocaMina`, `__tramosAltos` lo de antes), unos 15 de cada 100 tramos. Los demás bajan a 0,86 y los
+    salientes a 44 a 74 de alto.
+  - **Arena y adornos de las minas** (`_m_minas_props.mjs`, no se sube; t1000 con 3 semillas): el entrante y el entalle se deciden
+    en `lineaMina` pero se cavan al final (`CAVAR`, en `rocaMina`): todo lo de en medio sale igual que sin ellos y el azar de lo de
+    después no se corre. Las celdas que se le quitan a la roca (el bolsillo) quedan ocupadas pero pisables (bloq 3, `BOLSILLOS`,
+    `__bolsilloLibre`): es el pie de la roca con su talud. Lo suelto que cayó de la roca (cascajo, huesos, herramientas,
+    `__rocaSinSuelto`) va en cada entrante y entalle (9 de 10), al pie de la mitad de los tramos y de cada saliente, sin bloquear,
+    sin pisar la caja de dibujo de nada (más de 30 %, lo de la pared incluido) y sin la misma pieza a menos de 4 celdas. Al final
+    de la roca viva, en minas y cuevas, lo suelto repetido (misma pieza y cara a menos de 3 celdas) sale (`__repetidosRoca`).
+    Arena de las minas, media de las 12 (3 semillas): antes de la entrega 10 53,5 %, ahora 54,7; con 48 semillas 54,3 a 54,7.
+    Adornos por pantalla 56 a 57,6 (3 semillas). t1033 en las 12 zonas, antes de la entrega 10 y ahora: montados 93 a 92,
+    repetidos 9 a 8, flotando 0.
+  - **Entalles** (`lineaMina`, la pieza `n`/`q`): el medio del tramo (tres celdas) se mete una celda en la roca aunque las puntas
+    sigan, así sale también en las líneas cortas (`__sinEntalles`). 382 entalles en las 4 minas x 3 semillas (24 a 40 por mina);
+    los entrantes, que ahora se cancelan si al final tienen algo detrás, quedan en 35.
+  - **El frente de la galería** (`rocaMina`, `__frenteCortado`): los bordes de adelante del piso (hacia la cámara, +x y +y), que
+    quedaban cortados a regla contra lo negro, llevan roca baja de la mina (`roca_penasco m_b*`) cada 2,2 a 3,3 celdas afuera del
+    piso: no tapa la pelea ni cierra paso.
+  - **Pegados a 0** (`apartarDeMuros` en `juego/mundo.ts`, `__esquinaVieja`): se aparta también de las esquinas que salen (la celda
+    de al lado libre y la de la diagonal no), y se aparta a todo monstruo vivo en cada cuadro después de moverlos a todos: el que
+    está quieto, espera o pega no pasa por `avanzar` y lo empujaban los otros (un zombi de a2_tumbas1 a 0,12 del muro, uno de
+    a1_mina1 a 0,09). t995 ahora dice dónde quedó cada pegado.
+  - **t1015 en 0**: el saliente no se pinta en franjas y su punta de adelante tapaba el cofre pegado delante de la de atrás: si
+    algo ocupa esas celdas, el saliente se va (`tapaEspolon`, `__espolonTapa`), y lo suelto no cae ahí.
+  - **El espejo suelto**: el `mis_espejo` que el misterio riega en toda mazmorra quedaba metido entre los peñascos de antes de la
+    cueva y la mina; con los macizos aclarados se veía parado en medio del piso como una puerta negra. Se queda solo con roca a dos
+    celdas (`__espejoSuelto`).
+- Pruebas (tercera vuelta): ver el informe de la entrega. Fotos `t1021` en las 7 zonas (antes con `__rocaVieja`) y los recortes de
+  cerca de cueva, hielo y mina en `/tmp/requiem-pruebas/e10/cerca5_*.png`. Lab: `lab_r3b.png` (tramos bajos y hielo).
 
 ## Armas vivas, cofres, poderes y siluetas
 

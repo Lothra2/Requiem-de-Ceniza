@@ -172,7 +172,9 @@ function mirarLejos(p: Pose) { p.cabeza = Math.min(p.cabeza, -2); void mirar; }
 function nigromante(p: Pose, arma: ArmaPose): Guion {
   plantar(p, [-1.4, 2.4], [1.4, 1.5], [14, 10]);
   const dos = arma === 'dos';
-  const armaReposo: Vals = dos ? { hombroD: [10, 8, 118, 0], armaRel: [128, 28], manoI: [6, -8, 34], codoI: [-0.4, -1, 0] }
+  // (22 nov 2026, Rick: con la guadaña no se le veía el brazo derecho: la izquierda quedaba colgando detrás del cuerpo. Ahora las
+  //  dos manos en el mango: la izquierda lo toma más abajo, del lado de la hoja)
+  const armaReposo: Vals = dos ? { hombroD: [10, 8, 118, 0], armaRel: [128, 28], agarreI: -9, pegaI: 1, poloI: [-0.3, -1, -0.35] }
     : { manoD: [12, 3, 31.5], armaD: [90, -84], codoD: [-1, 0.25, -0.4], manoI: [12.2, -5.6, 31.2], codoI: [-0.3, -1, -0.4] };
   const bucle: Clave[] = [
     K(0, { bajar: 1, torso: 5, lateral: 0.4, ladeoCadera: 1.6, ladeo: -0.6, giroTorso: 4, giroCadera: -2, respira: 0.1, hombros: [0.3, 0.3], cabeza: -2, giroCabeza: 8, ladeoCabeza: 2, ...armaReposo }),
@@ -181,9 +183,9 @@ function nigromante(p: Pose, arma: ArmaPose): Guion {
     K(0.75, { respira: 0.9, hombros: [0.7, 0.7], torso: 4, bajar: 0.8, giroCabeza: 10, ladeoCabeza: 3 }),
   ];
   const entrada: Clave[] = dos ? [
-    K(0.2, { bajar: 2.4, torso: 14, cabeza: 10, manoI: [17, -4, 14], codoI: [0.2, -1, 0.4] }, true),
-    K(0.42, { bajar: 2.6, torso: 16, cabeza: 12, manoI: [17.5, -4.2, 12] }, true),
-    K(0.7, { bajar: 0.6, torso: 2, cabeza: -6, respira: 1, manoI: [12, -5, 40] }),
+    K(0.2, { bajar: 2.4, torso: 14, cabeza: 10, pegaI: 0, manoI: [17, -4, 14], codoI: [0.2, -1, 0.4] }, true),
+    K(0.42, { bajar: 2.6, torso: 16, cabeza: 12, pegaI: 0, manoI: [17.5, -4.2, 12] }, true),
+    K(0.7, { bajar: 0.6, torso: 2, cabeza: -6, respira: 1, pegaI: 0.5, manoI: [12, -5, 40] }),
   ] : [
     K(0.2, { bajar: 2.4, torso: 14, cabeza: 10, manoD: [9, 7, 30], armaD: [150, 20], manoI: [17, -4, 14], codoI: [0.2, -1, 0.4] }, true),
     K(0.42, { bajar: 2.6, torso: 16, cabeza: 12, manoI: [17.5, -4.2, 12] }, true),

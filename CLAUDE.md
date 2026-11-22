@@ -1957,6 +1957,17 @@ la historia ordenada por **hilos**, no por dónde se leyó.
   22 letras por renglón): entra todo, pero se lee apretado, y el índice pasa a una segunda hoja con muchos hilos (cada fila
   mide 44 pt). En una sola hoja (vertical) la tapa no gira al cerrar: el libro se apaga. Nada se oyó con oídos humanos.
 
+## Arreglos del 22 nov 2026
+
+- **El portal no cruza de acto** (`irAZona` en `main.ts`): Rick venció al jefe del acto 1, subió por su portal, la cinemática lo
+  pasó al Oasis y al volver a entrar al portal (que seguía en el pueblo del acto 2) apareció otra vez en la guarida del acto 1, sin
+  saber cómo volver. Ahora el portal al pueblo es de su acto: al entrar al pueblo de otro acto se cierra (como en Diablo 2). Y al
+  entrar a un pueblo de un acto anterior al más alto alcanzado, el registro recuerda que la piedra de viaje lleva al acto que sigue
+  (pestaña del acto en la piedra). Probado en el juego: portal abierto en a1_guarida, en a1_refugio sigue, en a2_oasis no está.
+- **El nigromante con guadaña en la vigilia** (`nigromante` en `seleccion.ts`): con un arma de dos manos la izquierda quedaba colgando
+  detrás del cuerpo y no se veía ese brazo. Ahora agarra el mango (`agarreI`, `pegaI`) y lo suelta solo para el gesto de invocar.
+  Toca `src/engine/gotico/`: cambia `__PINTOR__` y los héroes con equipo se repintan solos una vez.
+
 ## Publicar
 
 - **Sitio**: cada push a `main` arma el juego y lo deja en `gh-pages` (`.github/workflows/publicar.yml`).

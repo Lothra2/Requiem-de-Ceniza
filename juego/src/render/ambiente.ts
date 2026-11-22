@@ -2,6 +2,7 @@
 // peces que saltan), las huellas que quedan en la nieve y la arena, el chapoteo al correr bajo la lluvia, las ratas de
 // las mazmorras, la neblina baja que se arrastra, los haces de luz que entran por las grietas y las motas de cada mundo
 // (brasas, polvo, oro, escarcha). Todo es dibujo: nada de esto pega, estorba ni se guarda.
+import { varianteDe } from '../mundo/acto2_zonas';
 import { ctx, W, H, E } from '../nucleo/lienzo';
 import { ZONAS } from '../mundo/actos';
 import type { Juego, Ent } from '../juego/mundo';
@@ -361,13 +362,16 @@ export function ambienteAire(j: Juego, dt: number, t: number, aP: AP) {
     }
   }
   // ---- haces de luz: por las grietas del techo entra un rayo inclinado, con polvo que flota adentro
-  if (z.tipo === 'mazmorra' && HAZ.test(tema)) {
-    const frio = /cueva|catedral_ahogada|mina/.test(tema), c = frio ? '170,205,235' : '255,226,170';
+  // (acto 2: cada tumba con sus haces: muchos de oro en el templo del sol, la luz fría de la boca del pozo, ninguno en la cámara
+  //  del rey sin sombra ni en el fondo del pozo)
+  const vz = varianteDe(z.id), vh = vz?.haz;
+  if (z.tipo === 'mazmorra' && HAZ.test(tema) && vh !== null) {
+    const frio = vh ? !!vh.frio : /cueva|catedral_ahogada|mina/.test(tema), c = vh ? vh.c : frio ? '170,205,235' : '255,226,170';
     if ((window as any).__hazViejo) hacesViejos(z, h, t, aP, c, poco);
-    else haces(z, h, t, aP, c, frio, poco);
+    else haces(z, h, t, aP, c, frio, poco, vh?.dens);
   }
   // ---- motas del mundo: brasas que suben, polvo que flota, oro que asciende, escarcha que brilla
-  const tipo = /infierno|santuario|abismo/.test(tema) ? 'brasa' : /celestial/.test(tema) ? 'oro' : /hielo/.test(tema) ? 'escarcha' : z.tipo === 'mazmorra' && /tumba|cripta|catacumbas|abadia|mina|templo/.test(tema) ? 'polvo' : '';
+  const tipo = vz?.motas !== undefined ? vz.motas : /infierno|santuario|abismo/.test(tema) ? 'brasa' : /celestial/.test(tema) ? 'oro' : /hielo/.test(tema) ? 'escarcha' : z.tipo === 'mazmorra' && /tumba|cripta|catacumbas|abadia|mina|templo/.test(tema) ? 'polvo' : '';
   if (tipo) {
     const n = Math.round((E.tactil ? 26 : 46) * (poco ? 0.5 : 1));
     while (motas.length < n) motas.push({ x: Math.random() * W, y: Math.random() * H, v: 0.5 + Math.random(), f: Math.random() * 6.28 });
@@ -462,13 +466,13 @@ function charcoHaz(c: string): HTMLCanvasElement {
 }
 function texDe(c: string): TexHaz { let q = texHaces.get(c); if (!q) { q = { a: texturaHaz(c, 13), b: texturaHaz(c, 57), charco: charcoHaz(c) }; texHaces.set(c, q); } return q; }
 
-function haces(z: Juego['zona'], h: Ent, t: number, aP: AP, c: string, frio: boolean, poco: boolean) {
+function haces(z: Juego['zona'], h: Ent, t: number, aP: AP, c: string, frio: boolean, poco: boolean, dens = 0.0042) {
   const x0 = Math.floor(h.x) - 26, y0 = Math.floor(h.y) - 26, tx = texDe(c), fuerza = (window as any).__hazFuerza ?? 1;
   const nPolvo = poco ? 0 : E.tactil ? 9 : 22, cm = frio ? '214,232,248' : '255,240,212';
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   let n = 0;
   for (let cy = y0; cy < y0 + 52; cy++) for (let cx = x0; cx < x0 + 52; cx++) {
-    if (cx < 0 || cy < 0 || cx >= z.W || cy >= z.H || hc(cx * 1.7 + 11, cy * 2.3 + 5) > 0.0042 || z.bloq[cy * z.W + cx]) continue;
+    if (cx < 0 || cy < 0 || cx >= z.W || cy >= z.H || hc(cx * 1.7 + 11, cy * 2.3 + 5) > dens || z.bloq[cy * z.W + cx]) continue;
     if (!z.explorado[Math.floor(cy / 5) * z.tw + Math.floor(cx / 5)]) continue;
     const [px, py] = aP(cx + 0.5, cy + 0.5); if (px < -100 || px > W + 100 || py < -20 || py > H + 220) continue;
     n++;

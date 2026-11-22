@@ -20,6 +20,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
+- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): acto 2 hecho (ver su sección). Siguen, con el mismo mecanismo, los actos 6, 7, 3, 4, 5 y 1.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
@@ -951,6 +952,54 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   con `SEMILLA` 5000, 6000 y 7000 (0 atascados, objetiva 0), t855 (0 de 192), t370 (288, 0 malas), conectividad 20 (1920), t995
   dos tandas (0 atascados, 0 pegados), t440, t450, t500, t961 y t1001. Fotos `t1021` en las 7 zonas (antes con `__rocaVieja`) y los recortes de
   cerca de cueva, hielo y mina en `/tmp/requiem-pruebas/e10/cerca5_*.png`. Lab: `lab_r3b.png` (tramos bajos y hielo).
+
+## Cada zona con lo suyo: el acto 2 (22 nov 2026)
+
+Rick: "Bajé por unas escaleras y por el portal y el mundo se parece mucho." Confirmado con fotos (`t1040`): las cinco tumbas del
+acto 2 (Pozo de los Nombres, Nombres Borrados, Templo del Sol Caído, Galería de los Dormidos, Cámara del Rey sin Sombra) tenían el
+mismo tema `tumba` (arenisca, `tum_muro` o la sillería de la Forja, la misma luz y el mismo riego) y los tres mundos abiertos el
+mismo `desierto` (arena, arenisca, el mismo bazar de viñeta). Eran la misma mazmorra con otro nombre.
+
+- **El mecanismo** (`juego/src/mundo/acto2_zonas.ts`, `VARIANTE_ZONA`; `tematicaDe(def)` en `zona.ts`): lo propio de cada zona va
+  encima de su tema sin tocar el tema (las tablas por tema siguen igual para las demás zonas). Campos: `piso`, `parches`,
+  `camino`, `oscuridad`, `borde`, `disperso`, `grande`, `luces`, `deco`, `extra`, `vinetas`, `muroX`/`muroY` (con muro propio no
+  va la sillería genérica de la Forja), `estilo` (escombro, relleno y aderezo), `pared` (`PARED_TEMA`), `castigo` (el relato de
+  los campamentos comunes), `foco` y `brasero` (el asiento del jefe), `sala` (ancho, alto, galerías largas, área por sala y sala
+  mayor), `hileras` (lo grande de las salas va en filas a lo largo de la galería), `pisoExt` (el piso por baldosa afuera),
+  `silueta` (ensenadas y macizos), y para el dibujo `tinta` (el color de la oscuridad, `dibujarLuz` en escena.ts), `haz` (color y
+  densidad de los haces del techo, `null` sin haces) y `motas`. **`__acto<N>Viejo`** apaga lo de ese acto (`varianteDe`). Los
+  dados de antes se tiran igual donde se pudo, pero las zonas del acto cambian (pisos, trazado, silueta, viñetas): **`MAPA_V`
+  pasó a 5** (se pierde solo la niebla).
+- **Pisos nuevos** (`src/engine/gotico/catalogo/acto2_pisos.ts`, en el catálogo para no mover `__PINTOR__`; se empujan a `PISOS`
+  y van en `PISO_DOBLE` de motor/assets.ts): arena de duna con rizos del viento, barro seco en placas con costra de sal, losas
+  de calle con arena en las juntas, piedra negra del pozo con charcos, agua negra, losas doradas con el sol de bronce embutido,
+  basalto pulido con filete de oro y pórfido, losas largas de fosa con el polvo de las vendas y el suelo de la cueva con la
+  arena que entra y quitina. Lab sin servidor: `npx tsx juego/herramientas/_m_pisos_lab.mts <ids>` (no se sube).
+- **Piezas nuevas** (`catalogo/acto2.ts`, tema `acto2`: ningún riego viejo las toma): los muros de cada tumba
+  (`a2_muro_pozo` con los nombres de los que bajaron, sogas, el reguero y los nombres raspados; `a2_muro_sol` con el gran disco,
+  los rayos, la procesión y el friso de oro y lapislázuli; `a2_muro_dormidos` con tres hileras de nichos y sus dormidos, vendas y
+  nichos sellados; `a2_muro_rey` de basalto con el rey de oro y el hueco claro donde debería ir su sombra, los reyes de antes con
+  la suya y paneles de oro con el nombre raspado), con su fila en `ESQUINAS_MURO`; la boca del pozo con su cabria, sogas y cubos,
+  la charca negra, la piedra de los nombres; la columna del sol, el altar que mira hacia abajo, el sol caído; el lecho del
+  dormido, las vendas; la estatua del rey, su tesoro; el nido de escarabajos, la nidada que alumbra verde, las mudas, la arena que
+  cae del techo; y afuera la columnata, la casa caída y la fuente seca de las Ruinas y la barca varada del Oasis. Lab:
+  `t1020_pieza_lab.mts a2_muro_pozo,...` (`/tmp/requiem-pruebas/acto2/lab`).
+- **Cada zona**: las **Dunas** sin viñetas ni ruinas, casi sin ensenadas (se ve lejos), dunas altas, caravanas; el **Oasis Muerto**
+  con el lecho seco en el medio (barro en placas y su orilla de tierra), palmeras muertas, la barca varada, el oasis seco; las
+  **Ruinas** con calles enlosadas en cuadrícula y plazas, casas caídas, columnatas, fuentes, esfinges; el **Pozo** negro azulado
+  con la luz fría de arriba y piedras de nombres en filas; los **Nombres Borrados** casi todo agua negra, nombres raspados, sin
+  haces; el **Templo del Sol** de oro, con la sala mayor grande, columnas con disco, haces de oro y motas de oro; la **Galería de
+  los Dormidos** en galerías largas con los lechos en hilera a los dos lados del paso; la **Cámara del Rey** de basalto y pórfido,
+  salas grandes, la avenida de estatuas, sin un solo haz, oscuridad morada; la **Cueva de los Escarabajos** verde parda con nidos,
+  huevos que alumbran y arena que cae. Cada una con su castigo de campamento y su asiento del jefe.
+- Ojo: un servidor de desarrollo que se levantó antes de crear un archivo nuevo en `catalogo/` no lo ve (el `import.meta.glob`
+  se resuelve al cargar): la zona sale sin esas piezas (sin muros). Reiniciar el servidor después de agregar archivos al catálogo.
+- Fotos: `node juego/herramientas/t1040_acto2_fotos.cjs <etiqueta> [zonas]` (mismos puntos relativos del mapa: entrada, tres
+  fijos, jefe, hito; `BANDERAS=__acto2Viejo` el antes) y `python3 juego/herramientas/t1040_lamina.py antes ahora`
+  (`/tmp/requiem-pruebas/acto2/lamina_<zona>.png` y `lamina_tumbas_{p1,p2,entrada}.png`: las seis de bajo tierra lado a lado).
+- Pruebas: tsc, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 9 zonas (antes y ahora: flotando 23 a
+  14, repetidos 43 a 34, montados 143 a 83), t855 (0 de 192), t370 (288, 0 malas), conectividad 20 (1920), t1011 `todas 2`
+  (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0), t440, t450, t500, t1001 y t961.
 
 ## Armas vivas, cofres, poderes y siluetas
 

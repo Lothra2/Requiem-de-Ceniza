@@ -12,6 +12,7 @@ import { rng, clamp } from '../nucleo/azar';
 import CAJAS_SPRITE from './cajas_sprite.json';
 import CAJAS_MURO_J from './cajas_muro.json';
 import CAJAS_DECO_J from './cajas_deco.json';
+import { varianteDe } from './acto2_zonas';
 
 export interface ObjZ { id: string; v: string; cx: number; cy: number; hw: number; hh: number; bloquea: boolean; tag?: string; dato?: any; /** De qué paso de la generación salió (riego, vida, macabro, relleno, escena, horror, jefe...): lo usa `curarAdornos`. No se guarda. */ capa?: string; }
 export interface Salida { cx: number; cy: number; destino: string; entrada: string; nombre: [string, string]; obj?: ObjZ; /** Misión que hay que haber aceptado para pasar (si no, la puerta está sellada). */ sello?: string; /** Misión que, cumplida, deja la pieza herida. */ herida?: string; /** Piezas que cambian de variante con la historia. */ piezas?: ObjZ[] }
@@ -320,6 +321,23 @@ const TEMATICAS: Record<string, Tematica> = {
   },
 };
 export const tematica = (t: string) => TEMATICAS[t] ?? TEMATICAS.paramo;
+/**
+ * La temática de una zona: la de su tema con lo propio de la zona encima (acto2_zonas.ts: piso, muro, lo que se riega). Las
+ * zonas sin variante (o con `__acto2Viejo`) son su tema tal cual.
+ */
+const cacheTemZona = new Map<string, Tematica>();
+export function tematicaDe(def: DefZona): Tematica {
+  const base = tematica(def.tema), vz = varianteDe(def.id);
+  if (!vz) return base;
+  let t = cacheTemZona.get(def.id);
+  if (!t) {
+    t = { ...base } as Tematica;
+    for (const k of ['piso', 'parches', 'camino', 'oscuridad', 'borde', 'disperso', 'grande', 'luces', 'deco', 'muroX', 'muroY'] as const) if ((vz as any)[k] !== undefined) (t as any)[k] = (vz as any)[k];
+    if (vz.muroX) t.murosAlt = [];
+    cacheTemZona.set(def.id, t);
+  }
+  return t;
+}
 
 // ------------------------------------------------------------------ construcción
 class Constructor {
@@ -422,11 +440,11 @@ export function tamZona(def: DefZona): [number, number] {
 }
 function nuevaZona(def: DefZona, semilla: number): Zona {
   const [tw, th] = tamZona(def), W = tw * 5, H = th * 5;
-  const t = tematica(def.tema);
+  const t = tematicaDe(def), vz = varianteDe(def.id);
   return {
     id: def.id, nombre: def.nombre, acto: def.acto, nivel: def.nivel, tipo: def.tipo, tw, th, W, H,
     pisos: Array.from({ length: tw * th }, () => ({ id: t.piso, v: 0 })), objetos: [], bloq: new Uint8Array(W * H),
-    ambiente: t.ambiente, oscuridad: def.oscuridad ?? t.oscuridad, salidas: [], entradas: {}, spawns: [], explorado: new Uint8Array(tw * th), semilla,
+    ambiente: t.ambiente, oscuridad: vz?.oscuridad ?? def.oscuridad ?? t.oscuridad, salidas: [], entradas: {}, spawns: [], explorado: new Uint8Array(tw * th), semilla,
     lluvia: def.lluvia, niebla: def.niebla, ceniza: def.ceniza, nieve: def.nieve, marcas: [],
   };
 }
@@ -446,7 +464,7 @@ function ruido2(r: () => number, w: number, h: number, escala: number): Float32A
 
 // ------------------------------------------------------------------ exterior
 function exterior(def: DefZona, semilla: number): Zona {
-  const z = nuevaZona(def, semilla), k = new Constructor(z), t = tematica(def.tema), r = k.r;
+  const z = nuevaZona(def, semilla), k = new Constructor(z), t = tematicaDe(def), r = k.r, vz = varianteDe(def.id);
   k.reserva = new Uint8Array(z.W * z.H);
   const { tw, th } = z;
   // forma: un manchón irregular que llena casi todo el rectángulo
@@ -457,15 +475,15 @@ function exterior(def: DefZona, semilla: number): Zona {
   // quede suelto del cuerpo principal se borra. Lleva su propio azar para no correr el del resto de la generación.
   let hz = 0; for (let i = 0; i < def.id.length; i++) hz = (hz * 31 + def.id.charCodeAt(i)) >>> 0;   // cada zona, su silueta
   const rs = rng((semilla ^ 0x5f3a91 ^ hz) >>> 0), ens: [number, number, number, number, number][] = [];
-  { const n = 4 + Math.floor(rs() * 3), per = 2 * (tw + th), paso = per / n, d0 = rs() * per;
+  { const sil = vz?.silueta, n = (sil ? sil.ens[0] : 4) + Math.floor(rs() * (sil ? sil.ens[1] + 1 : 3)), per = 2 * (tw + th), paso = per / n, d0 = rs() * per;
     for (let i = 0; i < n; i++) {
       let d = (d0 + i * paso + (rs() - 0.5) * paso * 0.5 + per) % per, cx: number, cy: number;
       if (d < tw) { cx = d; cy = 0; } else if (d < tw + th) { cx = tw - 1; cy = d - tw; } else if (d < 2 * tw + th) { cx = tw - 1 - (d - tw - th); cy = th - 1; } else { cx = 0; cy = th - 1 - (d - 2 * tw - th); }
-      const hondo = 0.16 + rs() * 0.17, ancho = 0.12 + rs() * 0.13, enX = cy === 0 || cy === th - 1;
+      const hondo = (0.16 + rs() * 0.17) * (sil?.hondo ?? 1), ancho = 0.12 + rs() * 0.13, enX = cy === 0 || cy === th - 1;
       ens.push([cx, cy, (enX ? ancho : hondo) * tw, (enX ? hondo : ancho) * th, rs() * 6.28]);
     }
     // macizos de adentro: lejos del centro y del borde
-    for (let i = 0, m = 1 + Math.floor(rs() * 2); i < m; i++) { const a = rs() * 6.28, q = 0.24 + rs() * 0.08; ens.push([tw / 2 + Math.cos(a) * tw * q, th / 2 + Math.sin(a) * th * q, tw * (0.05 + rs() * 0.04), th * (0.05 + rs() * 0.04), rs() * 6.28]); }
+    for (let i = 0, m = (sil ? sil.mac[0] : 1) + Math.floor(rs() * (sil ? sil.mac[1] + 1 : 2)); i < m; i++) { const a = rs() * 6.28, q = 0.24 + rs() * 0.08; ens.push([tw / 2 + Math.cos(a) * tw * q, th / 2 + Math.sin(a) * th * q, tw * (0.05 + rs() * 0.04), th * (0.05 + rs() * 0.04), rs() * 6.28]); }
   }
   const enCuadro = (bx: number, by: number) => {
     const ex = Math.min(bx, tw - 1 - bx), ey = Math.min(by, th - 1 - by), borde = Math.min(ex, ey);
@@ -489,7 +507,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!dentro(bx, by)) { k.vaciar(bx, by); continue; }
     const m = manchas[by * tw + bx], m2 = manchas2[by * tw + bx];
-    k.piso(m > 0.62 ? t.parches[0] : m2 > 0.6 ? t.parches[1] : m < 0.25 ? t.parches[2] ?? t.piso : t.piso, bx, by);
+    k.piso(vz?.pisoExt?.(bx, by, tw, th, m, m2) ?? (m > 0.62 ? t.parches[0] : m2 > 0.6 ? t.parches[1] : m < 0.25 ? t.parches[2] ?? t.piso : t.piso), bx, by);
   }
   // salidas en los lados y el camino que las une pasando por el centro
   const puntos: [number, number][] = [];
@@ -621,7 +639,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   if (lugares.length) { escenasLugares(k, def, lugares, centro); gargantaDe(k, t, sendas); }
   const desvio = lugares.length && DESVIO[def.id] && !(globalThis as any).__sinDesvios ? trazarDesvio(k, def, semilla ^ hz, puntos, lugares, centro) : null;
   // viñetas: paisajes del motor estampados donde haya lugar
-  const vin = def.vinetas ?? t.vinetas ?? [];
+  const vin = vz?.vinetas ?? def.vinetas ?? t.vinetas ?? [];
   const usadas: [number, number, number, number][] = [];
   // (oleada 2: con lugares, dos viñetas estampadas como mucho, y de sus árboles en pie queda la mitad: eran el 10 % del piso tapado)
   const ralo = !(globalThis as any).__sinLugares && !!ESTILO_BORDE[def.tema] && !(globalThis as any).__sinMacizos;
@@ -693,7 +711,8 @@ function exterior(def: DefZona, semilla: number): Zona {
     k.racimos(t.disperso, Math.floor((area / 1900) * dens), 3, 3, z.W - 3, z.H - 3);
   }
   k.regar(t.luces, Math.floor(area / 2600), 4, 4, z.W - 4, z.H - 4);
-  if (def.extra) k.regar(def.extra, Math.floor((area / (sinLugares ? 1100 : 1700)) * dens), 4, 4, z.W - 4, z.H - 4, undefined, 12);
+  const extraZ = (vz?.extra as Sel[] | undefined) ?? def.extra;
+  if (extraZ) k.regar(extraZ, Math.floor((area / (sinLugares ? 1100 : 1700)) * dens), 4, 4, z.W - 4, z.H - 4, undefined, 12);
   if (def.tipo === 'exterior') k.regar([{ t: ['misterio' as Tema], p: ['arbol_rostros', 'manos', 'ojos', 'estatua', 'pozo'] }], 2 + Math.floor(area / 5000), 4, 4, z.W - 4, z.H - 4);
   // salidas reales
   def.salidas.forEach((s, i) => {
@@ -1652,6 +1671,8 @@ function orillaTunel(k: Constructor, suelo: Uint8Array, sala: Uint8Array) {
   }
   if (regiones() !== antes) { const fuera = new Set(puestos.map((q) => q.o)); z.objetos = z.objetos.filter((o) => !fuera.has(o)); for (const q of puestos) z.bloq[q.i] = 0; }
 }
+/** El estilo del escombro y del relleno de una mazmorra: el de su tema, o el propio de la zona (acto2_zonas.ts). */
+const estiloEscombro = (def: DefZona) => varianteDe(def.id)?.estilo ?? ESCOMBRO_TEMA[def.tema] ?? 'cementerio';
 const ESCOMBRO_TEMA: Record<string, string> = { tumba: 'desierto', templo: 'selva', santuario: 'infierno', abismo: 'infierno', celestial_interior: 'celestial', catedral_ahogada: 'ahogada', mina: 'paramo' };
 function escombroFrente(k: Constructor, suelo: Uint8Array, estilo: string) {
   const z = k.z, r = k.r, { W, tw, th } = z;
@@ -1676,7 +1697,7 @@ function escombroFrente(k: Constructor, suelo: Uint8Array, estilo: string) {
 
 // ------------------------------------------------------------------ mazmorra
 function mazmorra(def: DefZona, semilla: number): Zona {
-  const z = nuevaZona(def, semilla), k = new Constructor(z), t = tematica(def.tema), r = k.r;
+  const z = nuevaZona(def, semilla), k = new Constructor(z), t = tematicaDe(def), r = k.r, vz = varianteDe(def.id);
   k.reserva = new Uint8Array(z.W * z.H);
   const { tw, th } = z;
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) k.vaciar(bx, by);
@@ -1696,11 +1717,15 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   //  celdas con los obeliscos, el tesoro y el portal adentro, ruedo libre de 4)
   const islaJefe = !viejo && !!t.islas && !!def.jefe && !def.casa;
   if (obra || islaJefe) {
-    const lj = islaJefe ? 6 : def.jefe ? SALA_MAYOR[def.jefe] ?? 8 : 0, w = Math.min(tw - 2, lj || 6 + Math.floor(r() * 2)), h = Math.min(th - 2, lj || 5 + Math.floor(r() * 2));
+    const lj = islaJefe ? 6 : def.jefe ? SALA_MAYOR[def.jefe] ?? 8 : 0, w = Math.min(tw - 2, lj || (vz?.sala?.mayor ? vz.sala.mayor[0] + Math.floor(r() * 2) - 1 : 6 + Math.floor(r() * 2))), h = Math.min(th - 2, lj || (vz?.sala?.mayor ? vz.sala.mayor[1] + Math.floor(r() * 2) - 1 : 5 + Math.floor(r() * 2)));
     mayor = [1 + Math.floor(r() * Math.max(1, tw - w - 1)), 1 + Math.floor(r() * Math.max(1, th - h - 1)), w, h]; cuartos.push(mayor);
   }
-  for (let i = 0; i < (def.casa ? 400 : 120) && cuartos.length < (def.casa ? 5 : Math.max(obra ? 4 : 3, Math.floor((tw * th) / (obra ? 80 : cueva ? 62 : 45)))); i++) {
-    const w = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4)), h = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4));
+  for (let i = 0; i < (def.casa ? 400 : 120) && cuartos.length < (def.casa ? 5 : Math.max(obra ? 4 : 3, Math.floor((tw * th) / (obra ? vz?.sala?.cada ?? 80 : cueva ? 62 : 45)))); i++) {
+    let w = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4)), h = obra ? 4 + Math.floor(r() * 3) : cueva ? 3 + Math.floor(r() * 3) : 2 + Math.floor(r() * (def.casa ? 2 : 4));
+    // (acto 2: cada tumba con su trazado; los dados de arriba se tiran igual. La galería de los dormidos va en salas largas y
+    //  angostas, a lo largo de x o de y)
+    const sv = obra ? vz?.sala : undefined;
+    if (sv) { const a0 = sv.w[0] + Math.floor(r() * (sv.w[1] + 1)), b0 = sv.h[0] + Math.floor(r() * (sv.h[1] + 1)); [w, h] = sv.galeria && r() < 0.5 ? [b0, a0] : [a0, b0]; w = Math.min(w, tw - 3); h = Math.min(h, th - 3); }
     let x = 1 + Math.floor(r() * Math.max(1, tw - w - 2)), y = 1 + Math.floor(r() * Math.max(1, th - h - 2));
     // (oleada 2, Rick: "puertas y cuellos cortos, no pasillos eternos"): en las de obra tres de cada cuatro salas nacen junto a
     // otra, a una o dos baldosas y con los centros alineados: se unen por un cuello corto que se lee como puerta
@@ -1805,8 +1830,8 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // muros: en los bordes de atrás (hacia -x y -y) de cada baldosa con suelo
   const opcionesMuro: [[string, string[]], [string, string[]]][] = [[t.muroX ?? ['mon_muro', ['izq']], t.muroY ?? ['mon_muro', ['der']]], ...(t.murosAlt ?? [])];
   // la mitad de las mazmorras de obra va con la sillería nueva de la Forja (muro_obra) en el estilo de su tema
-  const estObra = ESCOMBRO_TEMA[def.tema] ?? 'cementerio', panos = ['liso', 'liso', 'pilastras', 'arco_ciego', 'pilastras', 'roto'];
-  if (!t.organica && !t.islas && REGISTRO.some((d) => d.id === 'muro_obra') && r() < 0.5) opcionesMuro.splice(0, opcionesMuro.length, [['muro_obra', panos.map((q) => `${estObra}_${q}`)], ['muro_obra', panos.map((q) => `${estObra}_${q}_y`)]]);
+  const estObra = estiloEscombro(def), panos = ['liso', 'liso', 'pilastras', 'arco_ciego', 'pilastras', 'roto'];
+  if (!t.organica && !t.islas && REGISTRO.some((d) => d.id === 'muro_obra') && r() < 0.5 && !vz?.muroX) opcionesMuro.splice(0, opcionesMuro.length, [['muro_obra', panos.map((q) => `${estObra}_${q}`)], ['muro_obra', panos.map((q) => `${estObra}_${q}_y`)]]);
   // (entrega 8) La mina es roca cortada: la mitad salía con la sillería de obra (muro_obra) y se leía como una mazmorra con
   // farolitos, y la otra mitad podía salir entera de pared con veta. Ahora siempre la roca de la galería (`cue_muro`) y en uno de
   // cada seis tramos la veta que se trabajaba (`min_pared_veta`: oro, hierro o la sangre que brilla), con su propio azar (`rv`, no
@@ -1824,7 +1849,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   if (t.islas) islas(k, t.islas, suelo, sala);
   if (t.rieles) rieles(k, suelo, sala);
   // contrafuertes y derrumbes del estilo de la mazmorra, pegados al pie de los muros (cada tanto, no en todos)
-  const estMuro = ESCOMBRO_TEMA[def.tema] ?? 'cementerio', dMuro = REGISTRO.find((d) => d.id === 'dec_muro'); const dRoca = REGISTRO.find((d) => d.id === 'cue_escombros');
+  const estMuro = estiloEscombro(def), dMuro = REGISTRO.find((d) => d.id === 'dec_muro'); const dRoca = REGISTRO.find((d) => d.id === 'cue_escombros');
   const aderezo = (x: number, y: number) => { const q = r(); if (!dMuro || q > (obra ? 0.15 : 0.34) || x < 1 || y < 1 || x >= z.W - 1 || y >= z.H - 1 || k.reserva[y * z.W + x]) return; if (minaRoca && dRoca) { k.poner(dRoca, x, y, q < 0.08 ? 'monton' : 'suelto', true); return; } k.poner(dMuro, x, y, `${estMuro}_${q < (obra ? 0.1 : 0.24) && !minaRoca ? 'contrafuerte' : 'derrumbe'}`, true); }; // (21 nov 2026: en la mina, al pie de la roca va piedra suelta, no los bloques labrados del derrumbe del páramo) // (entrega 8: contra la roca de la mina no va un contrafuerte de sillería, va el derrumbe)
   for (let by = 0; by < th; by++) for (let bx = 0; bx < tw; bx++) {
     if (!suelo[by * tw + bx]) continue;
@@ -1852,7 +1877,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // en las minas los túneles rectos llevan derrubio a los dos lados (queda libre el centro, por donde van los rieles)
   if (minaRoca && !(globalThis as any).__rocaVieja) { const cj = def.jefe ? orden[orden.length - 1] : null; lineaMina(z, k.reserva, cj ? [(cj[0] + cj[2] / 2) * 5, (cj[1] + cj[3] / 2) * 5] : null); }
   if (t.rieles && !abierto) orillaTunel(k, suelo, sala);
-  if (!abierto && !t.islas && !(globalThis as any).__sinEscombro) escombroFrente(k, sala, ESCOMBRO_TEMA[def.tema] ?? 'cementerio'); // (solo en las salas: en un pasillo podría cerrar el paso)
+  if (!abierto && !t.islas && !(globalThis as any).__sinEscombro) escombroFrente(k, sala, estiloEscombro(def)); // (solo en las salas: en un pasillo podría cerrar el paso)
   // las puertas (oleada 2): donde un cuello de una baldosa entra a una sala, dos luces del tema a los lados, contra el muro,
   // hacen de jambas. Se leen de lejos como umbral y alumbran el paso. Capa 'umbral': nada las quita ni las desmonta
   if (obra && !viejoCuello && !(globalThis as any).__sinPuertas) {
@@ -1890,7 +1915,13 @@ function mazmorra(def: DefZona, semilla: number): Zona {
     // (antes cuatro piezas en los cuartos de la sala, justo donde se pelea. Ahora en la sala mayor dos filas de columnas que dejan
     //  la nave del medio libre, y en las demás las cuatro esquinas)
     const pts = !obra ? [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]] : c === mayor ? (c[2] >= c[3] ? [[0.2, 0.17], [0.5, 0.17], [0.8, 0.17], [0.2, 0.83], [0.5, 0.83], [0.8, 0.83]] : [[0.17, 0.2], [0.17, 0.5], [0.17, 0.8], [0.83, 0.2], [0.83, 0.5], [0.83, 0.8]]) : [[0.14, 0.14], [0.86, 0.14], [0.14, 0.86], [0.86, 0.86]];
-    for (const [fx, fy] of pts) k.poner(g.d, Math.floor((c[0] + c[2] * fx) * 5), Math.floor((c[1] + c[3] * fy) * 5));
+    // (acto 2: en la galería de los dormidos los lechos van en hileras a los dos lados del paso, a lo largo de la galería; y con
+    //  variante propia la pieza toma solo las variantes de su fila, de lado según la galería)
+    const largoX = c[2] >= c[3];
+    let pts2 = pts;
+    if (vz?.hileras && obra && c !== mayor) { const L = largoX ? c[2] : c[3], n = Math.max(2, Math.floor((L * 5) / 7)); pts2 = []; for (let i = 0; i < n; i++) { const f = (i + 0.5) / n; pts2.push(largoX ? [f, 0.17] : [0.17, f], largoX ? [f, 0.83] : [0.83, f]); } }
+    const vsG = vz ? g.d.variantes.filter(g.v).filter((q) => !vz.hileras || !g.d.variantes.some((w) => w.endsWith('_y')) || q.endsWith('_y') === !largoX) : null;
+    for (const [fx, fy] of pts2) k.poner(g.d, Math.floor((c[0] + c[2] * fx) * 5), Math.floor((c[1] + c[3] * fy) * 5), vsG?.length ? vsG[Math.floor(r() * vsG.length)] : undefined);
   }
   // el medio de cada sala y de cada cámara queda libre: lo que adorna va en una franja de 3 celdas contra el muro o la roca
   // (las columnas de arriba ya están puestas; lo del jefe, las piezas de horror y las matanzas sí entran)
@@ -1916,7 +1947,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   k.regar(t.luces, Math.floor((area / 500) * lleno), 1, 1, z.W - 1, z.H - 1, enSuelo);
   k.regar(t.deco, Math.floor((area / 2500) * lleno * 2), 1, 1, z.W - 1, z.H - 1, enSuelo);
   // estatuas rotas y piedras con runa del tema, solo dentro de las salas (en un pasillo estorbarían)
-  if (!t.islas) decorarMundo(k, abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : ESCOMBRO_TEMA[def.tema] ?? 'cementerio', 0, 0, Math.floor(area / 1700), (x, y) => !!sala[Math.floor(y / 5) * tw + Math.floor(x / 5)] && enSuelo(x, y), def.tema === 'mina' && !(globalThis as any).__minaObra);
+  if (!t.islas) decorarMundo(k, abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : estiloEscombro(def), 0, 0, Math.floor(area / 1700), (x, y) => !!sala[Math.floor(y / 5) * tw + Math.floor(x / 5)] && enSuelo(x, y), def.tema === 'mina' && !(globalThis as any).__minaObra);
   // salidas: la primera en la entrada, las demás al fondo
   def.salidas.forEach((s, i) => {
     const p = i === 0 ? p0 : i === 1 ? pN : centroDe(orden[Math.max(1, Math.floor((orden.length * i) / (def.salidas.length + 1)))]);
@@ -1963,14 +1994,14 @@ function mazmorra(def: DefZona, semilla: number): Zona {
         for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && z.bloq[y * z.W + x] === 1 && !(z.hueco && z.hueco[y * z.W + x])) z.bloq[y * z.W + x] = 0;
       }
       // la arena propia del jefe: sus estorbos en su figura; si ninguno alumbra, cada tercero es una piedra con runa encendida
-      const estA = abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : ESCOMBRO_TEMA[def.tema] ?? 'cementerio';
+      const estA = abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : estiloEscombro(def);
       const rx = abierto ? RA[0] : Math.min(RA[0] * g, cN[2] * 2.5 - 4.5), ry = abierto ? RA[1] : Math.min(RA[1] * g, cN[3] * 2.5 - 4.5);
       const piezas = ar.piezas.filter((id) => REGISTRO.some((d) => d.id === id)), conLuz = /brasero|fuego|pira|velas|luz|estrella/.test(piezas.join());
       puntosArena(ar, rx, ry, r).map(([dx, dy]) => fuera(dx, dy)).forEach(([dx, dy], i) => {
         if (!piezas.length || (!conLuz && i % 3 === 2)) k.poner('dec_hito', pN[0] + dx, pN[1] + 2 + dy, `${estA}_runa`);
         else k.poner(piezas[i % piezas.length], pN[0] + dx, pN[1] + 2 + dy);
       });
-    } else { const estA = abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : ESCOMBRO_TEMA[def.tema] ?? 'cementerio';
+    } else { const estA = abierto ? (typeof t.organica === 'string' ? t.organica : 'paramo') : estiloEscombro(def);
       for (const [dx, dy] of ruedo ? [[-11.5, -11], [11.5, -11], [-11.5, 11.5], [11.5, 11.5]] : abierto ? [[-5, -4], [5, -4], [-5, 5], [5, 5]] : [[-7, -5], [7, -5], [-7, 6], [7, 6]]) k.poner('dec_hito', pN[0] + dx * g, pN[1] + 2 + dy * g, `${estA}_runa`); }
     if (ar) rarezas();
     // la sala de Ozmaren: el piso se raja y deja ver la lava
@@ -2182,11 +2213,11 @@ const EXTRA_FUERA: Record<string, Partial<Record<'alta' | 'media' | 'baja', [str
   desierto: { baja: [['des_esqueleto', 'enterrado', 0.2], ['des_esqueleto', 'craneo', 0.15]] },
 };
 function rellenarBolsas(z: Zona, def: DefZona) {
-  const t = TEMATICAS[def.tema]; if (!t || (globalThis as any).__sinRelleno) return;
+  const t = tematicaDe(def); if (!t || (globalThis as any).__sinRelleno) return;
   const cueva = !!(z.hueco && t.organica && def.tipo === 'mazmorra');
   if (def.tipo === 'mazmorra' && !cueva && t.islas) return;
   const { W, H, tw, th } = z;
-  const pre = cueva ? (typeof t.organica === 'string' ? t.organica + '_' : '') : def.tipo === 'mazmorra' ? (ESCOMBRO_TEMA[def.tema] ?? 'cementerio') + '_' : (ESTILO_BORDE[def.tema] ?? 'paramo') + '_';
+  const pre = cueva ? (typeof t.organica === 'string' ? t.organica + '_' : '') : def.tipo === 'mazmorra' ? (estiloEscombro(def)) + '_' : (ESTILO_BORDE[def.tema] ?? 'paramo') + '_';
   const pen = REGISTRO.find((d) => d.id === (pre ? 'bor_risco' : 'cue_penasco')); if (!pen) return;
   const hu = z.hueco, r = rng(z.semilla * 7919 + 4243);
   const abre = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)] && z.bloq[y * W + x] !== 2 && !(hu && hu[y * W + x]);
@@ -2335,7 +2366,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   const fort = def.tipo === 'mazmorra' ? 'baldosa_catedral' : def.tema === 'celestial' ? 'arenisca' : 'lajas';
   for (const t of z.pisos) if (t && (t.id === 'fortaleza' || t.id === 'arcano')) t.id = t.id === 'fortaleza' ? fort : 'arenisca';
   // red de seguridad: ninguna baldosa con piso queda sin nombre (sin arte se pinta negra y parece un hoyo)
-  for (const t of z.pisos) if (t && !t.id) t.id = tematica(def.tema).piso;
+  for (const t of z.pisos) if (t && !t.id) t.id = tematicaDe(def).piso;
   if (def.tipo !== 'pueblo') ambientarHorror(z, def);
   ambientarVida(z, def);
   conectar(z);
@@ -2384,7 +2415,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
  */
 function rocaViva(z: Zona, def: DefZona) {
   const G = globalThis as any; if (G.__rocaVieja) return;
-  const t = tematica(def.tema);
+  const t = tematicaDe(def);
   if (def.tema === 'mina' && !G.__minaObra) { rocaMina(z); rocaCueva(z, 'm'); }
   else if (t.organica && z.hueco && def.tipo === 'mazmorra' && !def.casa) rocaCueva(z, typeof t.organica === 'string' ? 'h' : 'c');
   else return;
@@ -2820,7 +2851,7 @@ function desmontarFinal(z: Zona, def: DefZona) {
  */
 function ponerTrampas(z: Zona, def: DefZona) {
   if ((globalThis as any).__sinTrampas || def.tipo === 'pueblo' || def.casa) return;
-  const r = rng(z.semilla * 6151 + 97 + def.id.length * 131), { W, H } = z, t = tematica(def.tema), cueva = !!t.organica;
+  const r = rng(z.semilla * 6151 + 97 + def.id.length * 131), { W, H } = z, t = tematicaDe(def), cueva = !!t.organica;
   const obra = def.tipo === 'mazmorra' && !cueva && !t.islas, afuera = def.tipo === 'exterior';
   const piso = (x: number, y: number) => x >= 1 && y >= 1 && x < W - 1 && y < H - 1 && !!z.pisos[Math.floor(y / 5) * z.tw + Math.floor(x / 5)] && !(z.hueco && z.hueco[y * W + x]);
   const libre = (x: number, y: number, rr: number) => { for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) { const X = x + dx, Y = y + dy; if (!piso(X, Y) || z.bloq[Y * W + X]) return false; } return true; };
@@ -3133,7 +3164,7 @@ const PAL_VIDA = ['pasto', 'hierba', 'helecho', 'hongo', 'seta', 'musgo', 'flor'
 const PAL_MACABRO = ['telar', 'craneo', 'calav', 'hueso', 'costill', 'sangre', 'cadaver', 'esquel', 'osario', 'vela', 'candel', 'lampara', 'linterna', 'cadena', 'gancho', 'restos', 'ceniza', 'mortaja', 'ofrenda'];
 const SIN_AMBIENTE = /^(mis_|arma_|bot_|mon_|per_|jefe_|npc_|portal|com_|camp_|pue_|casa_|mur|borde|piso|par_arroyo|inf2_rio)|_sin_llama$|puerta|escalera|cofre|baul|altar|trono|puente/;
 function ambientarVida(z: Zona, def: DefZona) {
-  const t = TEMATICAS[def.tema]; if (!t) return;
+  const t = tematicaDe(def); if (!t) return;
   const k = new Constructor(z), r = rng(z.semilla * 4099 + 977);
   k.reserva = new Uint8Array(z.W * z.H);
   const res = (x: number, y: number, rr: number) => { for (let dy = -rr; dy <= rr; dy++) for (let dx = -rr; dx <= rr; dx++) { const X = Math.round(x) + dx, Y = Math.round(y) + dy; if (X >= 0 && Y >= 0 && X < z.W && Y < z.H) k.reserva[Y * z.W + X] = 1; } };
@@ -3495,7 +3526,7 @@ function curarAdornos(z: Zona, def: DefZona) {
         // (castigo, fogata, castigo, bebidos: lo que dejaron los de este campamento, con las piezas de su tierra)
         const k = [3, 0, 3, 1][turno++ % 4];
         if (k === 3) {
-          const c = CASTIGO[def.tema] ?? CASTIGO.paramo, [ia, va] = c[0];
+          const c = varianteDe(def.id)?.castigo ?? CASTIGO[def.tema] ?? CASTIGO.paramo, [ia, va] = c[0];
           ancla = pon(ia, va, s.cx, s.cy, 9, 12.5, fondo) ?? pon(ia, va, s.cx, s.cy, 8.5, 13);
           if (ancla) { const A = ancla; for (const [id, v] of c.slice(1)) pon(id, v, A.cx, A.cy, 2.2, 4.2, undefined, true); } // (lo de alrededor no tranca el paso: se pisa)
           else ancla = muerto(s.cx, s.cy, 6, 9.5, fondo);
@@ -3524,14 +3555,14 @@ function curarAdornos(z: Zona, def: DefZona) {
     if (jf && !(globalThis as any).__sinEscenaJefe) {
       let ux = 0, uy = 1, bd = 1e9; for (const [x, y] of Object.values(z.entradas)) { const dd = Math.hypot(x - jf.cx, y - jf.cy); if (dd < bd && dd > 0.5) { bd = dd; ux = (x - jf.cx) / dd; uy = (y - jf.cy) / dd; } }
       const cos = (x: number, y: number) => ((x - jf.cx) * ux + (y - jf.cy) * uy) / (Math.hypot(x - jf.cx, y - jf.cy) || 1);
-      const [fi, fv] = FOCO_JEFE[def.tema] ?? FOCO_JEFE.paramo;
+      const [fi, fv] = varianteDe(def.id)?.foco ?? FOCO_JEFE[def.tema] ?? FOCO_JEFE.paramo;
       let foco = pon(fi, fv, jf.cx, jf.cy, 12.5, 16, (x, y) => cos(x, y) < -0.6) ?? pon(fi, fv, jf.cx, jf.cy, 12.5, 17, (x, y) => cos(x, y) < -0.2) ?? pon(fi, fv, jf.cx, jf.cy, 12.5, 19, (x, y) => cos(x, y) < 0.5);
       let foco2 = foco ?? (fi !== 'mue_trono' ? pon('mue_trono', 'ruina', jf.cx, jf.cy, 12.5, 19, (x, y) => cos(x, y) < 0.5) : null) ?? pon('cri_relicario', 'abierto', jf.cx, jf.cy, 12, 19, (x, y) => cos(x, y) < 0.5);
       // sin sitio libre (el anillo de 12 a 19 lo llenan el tesoro, los hitos de la sala y el riego): se le hace lugar detrás del
       // jefe sacando solo lo suelto que estorba, y el tesoro que estaba ahí se junta a los pies del asiento (es su botín)
       if (!foco2 && !(globalThis as any).__sinAsientoForzado) foco2 = asientoForzado(fi, fv, jf, cos);
       if (foco2) foco2.capa = 'jefe';
-      const br = BRASERO_JEFE[def.tema] ?? 'mon_brasero', puestos: ObjZ[] = [];
+      const br = varianteDe(def.id)?.brasero ?? BRASERO_JEFE[def.tema] ?? 'mon_brasero', puestos: ObjZ[] = [];
       for (let i = 0; i < 16 && puestos.length < 4; i++) {
         const o = pon(br, undefined, jf.cx, jf.cy, 12, i < 8 ? 14 : 17, (x, y) => Math.abs(cos(x, y)) < 0.8 && puestos.every((q) => Math.hypot(q.cx - x, q.cy - y) >= 7));
         if (o) puestos.push(o);
@@ -3589,8 +3620,8 @@ function curarAdornos(z: Zona, def: DefZona) {
   // una antorcha): la arena no baja. Nada en pasillos, puertas, el ruedo del jefe ni encima de otro sprite. Azar propio
   if (def.tipo === 'mazmorra' && !def.casa && !(globalThis as any).__sinParedes) vestirParedes();
   function vestirParedes() {
-    const t = tematica(def.tema), cueva = !!t.organica, rp = rng(z.semilla * 7349 + 911);
-    const lista = PARED_TEMA[def.tema] ?? (cueva ? PARED_TEMA.cueva : PARED_TEMA.obra), rincon = cueva ? RINCON_CUEVA : RINCON_OBRA;
+    const t = tematicaDe(def), cueva = !!t.organica, rp = rng(z.semilla * 7349 + 911);
+    const lista = varianteDe(def.id)?.pared ?? PARED_TEMA[def.tema] ?? (cueva ? PARED_TEMA.cueva : PARED_TEMA.obra), rincon = cueva ? RINCON_CUEVA : RINCON_OBRA;
     // qué es muro: fuera del piso, roca de la cueva, o una pieza de estructura que bloquea (los muros de obra son objetos)
     const muro = new Uint8Array(N);
     for (let i = 0; i < N; i++) { const x = i % W, y = (i - x) / W; if (!piso(x, y) || (z.hueco && z.hueco[i]) || (z.bloq[i] === 2)) muro[i] = 1; }

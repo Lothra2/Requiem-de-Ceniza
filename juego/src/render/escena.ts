@@ -33,6 +33,7 @@ import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha,
 const ENCIMA = /^fx_(aturdido|confundido|maldito|presa_marcada)$/;
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { pisadaHeroe } from './ambiente';
+import { varianteDe } from '../mundo/acto2_zonas';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
 import { seguirPoderes, itemsPoderes, dibujarArcos, dibujarCombustion, poderesVivos, sinHorneado } from './poderes_vivos';
 import { seguirPresencias, itemsPresencias, presenciasVivas, alfaInvocado, aroInvocado, rimHeroe, tieneEstilo } from './presencias';
@@ -1440,7 +1441,9 @@ function dibujarLuz(j: Juego, t: number) {
   const oscuro = Math.min((window as any).__topeOscuro ?? 0.88, z.oscuridad + (z.tipo === 'pueblo' ? -0.1 : 0.08)) * (1 - destello * 0.5);
   lctx.globalCompositeOperation = 'source-over';
   lctx.clearRect(0, 0, W, H);
-  lctx.fillStyle = `rgba(0,0,0,${oscuro})`; lctx.fillRect(0, 0, W, H);
+  // (acto 2: cada tumba con el color de su oscuridad: el negro azulado del pozo, el ámbar del templo, el morado del rey)
+  const tinta = varianteDe(z.id)?.tinta;
+  lctx.fillStyle = tinta ? `rgba(${tinta[0]},${tinta[1]},${tinta[2]},${oscuro})` : `rgba(0,0,0,${oscuro})`; lctx.fillRect(0, 0, W, H);
   lctx.globalCompositeOperation = 'destination-out';
   bctx.clearRect(0, 0, W, H);
   // degradados pintados una vez y escalados: mucho más baratos que crear uno por luz y por cuadro

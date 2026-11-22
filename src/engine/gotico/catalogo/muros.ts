@@ -85,6 +85,8 @@ export const ESQUINAS_MURO: Record<string, [string, string, string]> = {
   inf_muro_carne: ['inf_muro_carne', 'liso', 'liso_y'], for_muro_runas: ['for_muro_runas', 'recto', 'recto_y'],
   cri_muro: ['cri_muro', 'liso', 'liso_der'], cri_muro_nichos: ['cri_muro_nichos', 'huesos', 'huesos_der'], cri_osario_pared: ['cri_osario_pared', 'calaveras', 'calaveras_der'],
   for2_muralla: ['for2_muralla', 'recta', 'recta_y'], for2_almena: ['for2_almena', 'recta', 'recta_y'],
+  // (acto 2: cada tumba con su muro, 22 nov 2026)
+  a2_muro_pozo: ['a2_muro_pozo', 'nombres', 'nombres_y'], a2_muro_sol: ['a2_muro_sol', 'friso', 'friso_y'], a2_muro_dormidos: ['a2_muro_dormidos', 'sellado', 'sellado_y'], a2_muro_rey: ['a2_muro_rey', 'friso', 'friso_y'],
 };
 
 const restaV = (a: V3, b: V3): V3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];

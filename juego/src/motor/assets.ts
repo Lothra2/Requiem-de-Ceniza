@@ -167,7 +167,9 @@ export const cuadrosHeroe = (clase: string, acc: string, dir: string) => lista('
 export const cuadrosMonstruo = (id: string, acc: string, dir: string) => lista('m', `${id}/${acc}/${dir}`);
 export const cuadrosPiso = (id: string, v: number) => lista('p', `${id}|${v}`);
 /** Pisos cuya textura se repite cada dos baldosas (ver pisos.ts de la Forja): la variante sale de la posición de la baldosa. */
-const PISO_DOBLE = new Set(['pasto', 'pasto_seco', 'tierra', 'empedrado', 'lajas', 'lajas_musgo', 'baldosa_catedral', 'madera', 'cueva', 'arena', 'arenisca', 'ladrillo_cloaca', 'nieve', 'hielo', 'selva', 'hueso', 'tierra_infierno']);
+const PISO_DOBLE = new Set(['pasto', 'pasto_seco', 'tierra', 'empedrado', 'lajas', 'lajas_musgo', 'baldosa_catedral', 'madera', 'cueva', 'arena', 'arenisca', 'ladrillo_cloaca', 'nieve', 'hielo', 'selva', 'hueso', 'tierra_infierno',
+  // los del acto 2 (catalogo/acto2_pisos.ts)
+  'a2_arena_duna', 'a2_barro_seco', 'a2_losa_calle', 'a2_losa_pozo', 'a2_agua_negra', 'a2_losa_sol', 'a2_losa_rey', 'a2_losa_dormidos', 'a2_cueva_quitina']);
 export const variantePiso = (id: string, v: number, bx: number, by: number) => (PISO_DOBLE.has(id) ? (bx & 1) + 2 * (by & 1) + 4 * (v & 1) : v);
 /** Retrato grande de la clase en su pose de presentación (nivel 0 novato, 2 leyenda). */
 /** Alto en pixeles del héroe de la presentación (horneado a 2,25 veces el del juego): se dibuja a puntos enteros. */

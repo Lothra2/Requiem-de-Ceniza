@@ -3,6 +3,7 @@ import { BASES, PREFIJOS, SUFIJOS, UNICOS, CONJUNTOS, GEMAS, RUNAS, PALABRAS, NO
 import '../datos/talismanes';
 import { LEGENDARIA_JEFE } from '../datos/legendarias';
 import '../datos/reliquias';
+import { afinidadDe } from '../datos/arsenal';
 import type { Base, Elemento, Stat, Ranura, Afijo, Unico } from './tipos_objetos';
 import { R, entero, elegir, clamp } from '../nucleo/azar';
 
@@ -93,17 +94,57 @@ function afijosPosibles(lista: Afijo[], b: Base, nivel: number) {
   const d = familiaDonde(b);
   return lista.filter((a) => a.nivel <= nivel && a.donde.some((x) => d.includes(x)));
 }
-function elegirAfijo(lista: Afijo[], usados: Set<string>): Afijo | null {
+/** Botín de antes (bases parejas en la ventana de 30 niveles, afijos por su peso de siempre, únicos parejos). */
+const botinViejo = () => !!(globalThis as any).__botinViejo;
+/**
+ * Los números del botín en evolución (las pruebas los cambian con `__botin = { ... }`): cada cuántos niveles por debajo
+ * del objeto una base, un grado de afijo o un único pierden la mitad de su chance, cuánto sube la tirada de un afijo que
+ * cae por encima de su nivel, el piso de daño contra la curva de la familia y qué parte del equipo se tira para la clase.
+ */
+export const BOTIN = { mediaBase: 9, mediaAfijo: 18, mediaUnico: 10, sesgo: 0, piso: 0, clase: 0.25, hechizo: 0.5 };
+const bt = (k: keyof typeof BOTIN): number => (globalThis as any).__botin?.[k] ?? BOTIN[k];
+/**
+ * Botín en evolución (22 nov 2026, Rick: "esperaba armas en evolución"). Los grados de un mismo afijo (Feroz, Cruel,
+ * Brutal...) se reparten el peso que el grupo tenía, pero el grado que queda lejos por debajo del nivel del objeto pierde
+ * la mitad cada 10 niveles: a nivel 40 sale más Implacable que Feroz. El grupo pesa lo mismo que antes, así que los tipos
+ * de afijo (daño, vida, resistencias...) salen igual de seguido. Sin azar adentro: los pesos se arman antes de la tirada.
+ */
+function pesosAfijo(ok: Afijo[], nivel: number): number[] {
+  if (botinViejo() || !(nivel > 0)) return ok.map((a) => a.peso);
+  const bruto = ok.map((a) => a.peso * Math.pow(0.5, Math.max(0, nivel - a.nivel) / bt('mediaAfijo')));
+  const sumaG = new Map<string, [number, number]>();
+  ok.forEach((a, i) => { const g = sumaG.get(a.grupo) ?? [0, 0]; g[0] += a.peso; g[1] += bruto[i]; sumaG.set(a.grupo, g); });
+  return ok.map((a, i) => { const g = sumaG.get(a.grupo)!; return g[1] > 0 ? (bruto[i] * g[0]) / g[1] : a.peso; });
+}
+function elegirAfijo(lista: Afijo[], usados: Set<string>, nivel = 0): Afijo | null {
   const ok = lista.filter((a) => !usados.has(a.grupo));
   if (!ok.length) return null;
-  let s = 0; for (const a of ok) s += a.peso;
+  const w = pesosAfijo(ok, nivel);
+  let s = 0; for (const x of w) s += x;
   let k = R() * s;
-  for (const a of ok) { k -= a.peso; if (k <= 0) return a; }
+  for (let i = 0; i < ok.length; i++) { k -= w[i]; if (k <= 0) return ok[i]; }
   return ok[ok.length - 1];
 }
+/**
+ * Qué base sale: antes pareja entre todas las de los últimos 30 niveles (a nivel 20 salía tanto el hacha de nivel 1 como la
+ * de 20, y el piso se llenaba de armas viejas). Ahora cada base pierde la mitad de su chance cada 8 niveles que queda por
+ * debajo del nivel del objeto: lo de tu nivel es lo que más cae y lo viejo sigue saliendo, pero de vez en cuando. Las joyas
+ * y los talismanes no tienen escalón: pesan parejo.
+ */
+function elegirBase(cand: Base[], nivel: number, sinEscalon: (b: Base) => boolean): Base {
+  if (botinViejo() || cand.length < 2) return elegir(cand);
+  const w = cand.map((b) => (sinEscalon(b) ? 1 : Math.pow(0.5, Math.max(0, nivel - b.nivel) / bt('mediaBase'))));
+  let s = 0; for (const x of w) s += x;
+  let k = R() * s;
+  for (let i = 0; i < cand.length; i++) { k -= w[i]; if (k <= 0) return cand[i]; }
+  return cand[cand.length - 1];
+}
 function sumarAfijo(o: Objeto, a: Afijo) {
+  // botín en evolución: el mismo grado tira más alto cuanto más por encima de su nivel cae el objeto (nunca pasa de su
+  // máximo): Brutal en un objeto de nivel 25 tira parejo entre 41 y 65; en uno de nivel 45, casi siempre por arriba de 55
+  const t = botinViejo() || bt('sesgo') <= 0 ? 0 : clamp((o.nivel - a.nivel) / 20, 0, 1);
   for (const st of a.stats) {
-    const v = rollStat(st.min, st.max);
+    const v = t > 0 ? Math.round(st.min + (st.max - st.min) * Math.pow(R(), 1 / (1 + bt('sesgo') * t))) : rollStat(st.min, st.max);
     if (st.stat === 'huecos') { o.huecos = Math.max(o.huecos, v); continue; }
     o.stats.push([st.stat, v]);
   }
@@ -120,6 +161,19 @@ function medianaFamilia(fam: string, nivel: number): number {
   }
   return m;
 }
+const VARAS = new Set(['varita', 'baculo', 'cetro']);
+/** Daño medio de la curva de una familia a un nivel: interpolado entre sus bases de siempre (sin el arsenal ni lo de único). */
+const curvas = new Map<string, Base[]>();
+function curvaFamilia(fam: string, nivel: number): number {
+  let c = curvas.get(fam);
+  if (!c) { c = BASES.filter((b) => b.ranura === 'arma' && b.familia === fam && b.dano && !(b as any).arsenal && !(b as any).soloUnico).sort((a, b) => a.nivel - b.nivel); curvas.set(fam, c); }
+  if (!c.length) return 0;
+  const m = (x: Base) => (x.dano![0] + x.dano![1]) / 2;
+  let i = c.findIndex((b) => b.nivel > nivel); if (i < 0) return m(c[c.length - 1]);
+  if (i === 0) return m(c[0]);
+  const a = c[i - 1], b = c[i], t = (nivel - a.nivel) / Math.max(1, b.nivel - a.nivel);
+  return m(a) + (m(b) - m(a)) * t;
+}
 export function crearObjeto(nivel: number, rareza: Rareza, filtro?: (b: Base) => boolean): Objeto {
   // bases de los últimos 30 niveles (las joyas y talismanes no tienen escalones: siempre entran)
   const sinEscalon = (b: Base) => b.ranura === 'anillo' || b.ranura === 'amuleto' || b.ranura === 'talisman';
@@ -128,16 +182,22 @@ export function crearObjeto(nivel: number, rareza: Rareza, filtro?: (b: Base) =>
   { const ars = cand.filter((b) => (b as any).arsenal), resto = cand.filter((b) => !(b as any).arsenal); if (ars.length && resto.length) cand = R() < 0.35 ? ars : resto; }
   // si nada entra en la ventana, la base más alta que respete el filtro
   const resto = cand.length ? cand : BASES.filter((x) => x.nivel <= Math.max(3, nivel) && (!filtro || filtro(x)));
-  const b = resto.length ? (cand.length ? elegir(cand) : resto.reduce((m, x) => (x.nivel > m.nivel ? x : m))) : elegir(BASES.filter((x) => x.nivel <= Math.max(3, nivel)));
+  const b = resto.length ? (cand.length ? elegirBase(cand, nivel, sinEscalon) : resto.reduce((m, x) => (x.nivel > m.nivel ? x : m))) : elegir(BASES.filter((x) => x.nivel <= Math.max(3, nivel)));
   if (rareza === 'unico' || rareza === 'legendario') { const u = crearUnico(nivel, rareza === 'legendario', filtro); if (u) return u; rareza = 'raro'; }
   if (rareza === 'conjunto') { const s = crearConjunto(nivel); if (s) return s; rareza = 'raro'; }
   const o = crearBase(b, nivel);
   o.rareza = rareza;
-  // piso de daño: un arma vieja de la ventana nunca pega menos del 70 % de la mediana de su familia a este nivel
+  // piso de daño: un arma vieja de la ventana nunca pega menos del 70 % de la mediana de su familia a este nivel. Con el
+  // botín en evolución el piso es el 75 % de la curva de su familia a este nivel (la base de tu nivel pega el 100 %): un arma
+  // vieja que cae alto nunca es basura, pero la de tu nivel le gana
   if (b.ranura === 'arma' && b.dano) {
-    const med = medianaFamilia(b.familia, nivel), media = (b.dano[0] + b.dano[1]) / 2;
+    const med = botinViejo() || bt('piso') <= 0 ? medianaFamilia(b.familia, nivel) : curvaFamilia(b.familia, nivel) * bt('piso') / 0.7, media = (b.dano[0] + b.dano[1]) / 2;
     if (med > 0 && media < med * 0.7) { o.kDano = Math.round((med * 0.7 / media) * 100) / 100; o.dano = [Math.round(b.dano[0] * o.kDano), Math.round(b.dano[1] * o.kDano)]; }
   }
+  // las varas de los que lanzan (varitas, báculos y cetros) traen su daño de hechizos propio, que crece con el nivel de la
+  // base: el báculo de nivel 50 le sirve al arcanista más que el de nivel 5 aunque los dos caigan sin afijos (antes la vara
+  // de un lanzador valía solo por sus afijos y una de nivel 2 duraba 30 niveles). Fijo por base, sin tirada
+  if (!botinViejo() && b.ranura === 'arma' && VARAS.has(b.familia)) o.stats.push(['dano_hechizos', Math.round(2 + b.nivel * bt('hechizo'))]);
   if (rareza === 'normal' && b.huecosMax && R() < 0.25) o.huecos = entero(1, b.huecosMax);
   if (rareza === 'normal' && R() < 0.06) { o.rareza = 'gris'; o.durab = o.durabMax = Math.ceil(b.durab * 0.5); if (o.dano) o.dano = [Math.max(1, Math.floor(o.dano[0] * 0.7)), Math.max(1, Math.floor(o.dano[1] * 0.7))]; if (o.def) o.def = Math.floor(o.def * 0.7); o.nombre = [`${b.nombre[0]} gastado`, `Worn ${b.nombre[1]}`]; }
   if (rareza === 'magico' || rareza === 'raro') {
@@ -147,8 +207,8 @@ export function crearObjeto(nivel: number, rareza: Rareza, filtro?: (b: Base) =>
     if (rareza === 'magico') { const q = R(); np = q < 0.4 ? 1 : q < 0.75 ? 0 : 1; ns = np === 0 ? 1 : R() < 0.5 ? 1 : 0; }
     else { const n = entero(3, 6); np = clamp(entero(1, 3), 1, n - 1); ns = Math.min(3, n - np); }
     let pre: Afijo | null = null, suf: Afijo | null = null;
-    for (let i = 0; i < np; i++) { const a = elegirAfijo(pres, usados); if (!a) break; usados.add(a.grupo); sumarAfijo(o, a); if (!pre) pre = a; }
-    for (let i = 0; i < ns; i++) { const a = elegirAfijo(sufs, usados); if (!a) break; usados.add(a.grupo); sumarAfijo(o, a); if (!suf) suf = a; }
+    for (let i = 0; i < np; i++) { const a = elegirAfijo(pres, usados, nivel); if (!a) break; usados.add(a.grupo); sumarAfijo(o, a); if (!pre) pre = a; }
+    for (let i = 0; i < ns; i++) { const a = elegirAfijo(sufs, usados, nivel); if (!a) break; usados.add(a.grupo); sumarAfijo(o, a); if (!suf) suf = a; }
     if (rareza === 'magico') {
       o.nombre = [[b.nombre[0], pre?.nombre[0], suf?.nombre[0]].filter(Boolean).join(' '), [pre?.nombre[1], b.nombre[1], suf?.nombre[1]].filter(Boolean).join(' ')];
       o.precio = Math.round(b.precio * 2.5 + nivel * 5);
@@ -178,7 +238,11 @@ export function crearUnico(nivel: number, legendario: boolean, filtro?: (b: Base
   if (!todos.length) return null;
   // a nivel alto no caen los de los primeros actos: los de los últimos 35 niveles (o, si no hay, los más altos que haya)
   const tope = todos.reduce((m, u) => Math.max(m, u.nivel), 0);
-  const u = elegir(todos.filter((x) => x.nivel >= Math.min(nivel - 35, tope - 15)));
+  const ventana = todos.filter((x) => x.nivel >= Math.min(nivel - 35, tope - 15));
+  // botín en evolución: el único de tu nivel sale más que el de 30 niveles atrás (la mitad cada 10 niveles por debajo)
+  let u: Unico;
+  if (botinViejo()) u = elegir(ventana);
+  else { const w = ventana.map((x) => Math.pow(0.5, Math.max(0, nivel - x.nivel) / bt('mediaUnico'))); let s = 0; for (const x of w) s += x; let k = R() * s; u = ventana[ventana.length - 1]; for (let i = 0; i < ventana.length; i++) { k -= w[i]; if (k <= 0) { u = ventana[i]; break; } } }
   return deUnico(u, BASE_POR_ID.get(u.base)!, nivel);
 }
 /** Arma un único o legendario con sus estadísticas, su elemento vivo y su nivel necesario. */
@@ -296,7 +360,15 @@ export function engarzar(o: Objeto, g: Objeto): boolean {
 // ------------------------------------------------------------------ qué cae
 export interface Caida { oro?: number; obj?: Objeto }
 /** Qué suelta un monstruo de ese nivel. calidad: 0 normal, 1 campeón, 2 único, 3 jefe, 4 jefe de acto. */
-export function botin(nivel: number, calidad: number, hallazgo: number, oroExtra: number): Caida[] {
+/**
+ * Lo que sirve a la clase (botín en evolución): un arma de familia afín, una pieza de su clase o cualquier otra cosa que
+ * no sea arma (armadura, joyas). Antes un monje veía caer unas 40 garras en toda la campaña normal (menos de una por nivel)
+ * y una cazadora unos 57 arcos y ballestas: la mejora tardaba lo que tardaba en caer una de las suyas.
+ */
+export function sirveA(clase: string): (b: Base) => boolean {
+  return (b) => (!b.clase || b.clase === clase) && (b.ranura !== 'arma' || afinidadDe(b, clase) === 'afin');
+}
+export function botin(nivel: number, calidad: number, hallazgo: number, oroExtra: number, clase?: string): Caida[] {
   const out: Caida[] = [];
   const tiradas = [1, 2, 3, 5, 8][calidad];
   for (let t = 0; t < tiradas; t++) {
@@ -309,7 +381,10 @@ export function botin(nivel: number, calidad: number, hallazgo: number, oroExtra
     if (k < 0.46) { out.push({ obj: crearGema(nivel) }); continue; }
     if (k < 0.475 && nivel > 4) { out.push({ obj: crearRuna(nivel) }); continue; }
     if (k < 0.49) { out.push({ obj: crearPergamino('portal') }); continue; }
-    out.push({ obj: crearObjeto(nivel, tirarRareza(calidad, hallazgo, nivel)) });
+    // lo común, lo mágico y lo raro a veces se tira para la clase; los únicos, legendarios y conjuntos siguen siendo suerte pura
+    const rz = tirarRareza(calidad, hallazgo, nivel);
+    const paraClase = !!clase && !botinViejo() && (rz === 'normal' || rz === 'magico' || rz === 'raro') && R() < bt('clase');
+    out.push({ obj: crearObjeto(nivel, rz, paraClase ? sirveA(clase!) : undefined) });
   }
   return out;
 }

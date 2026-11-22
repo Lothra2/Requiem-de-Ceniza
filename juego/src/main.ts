@@ -47,6 +47,7 @@ function empezarCine(acto: number, despues: () => void, clave = claveCine(acto))
 import { crearJuego, volcarBrasero, entrarZona, actualizar, usarHabilidad, habilidadDe, costoMana, DIR_VEC, caminarA, usarPocion, curarEnTiempo, recogerSuelo, abrirPortal, recalc, soltar, efecto, msg, particulas, olvidarZonas, anotarMapas, esDistancia, aspectoThor, thorDe, type Juego, type Monstruo, type Npc, type Suelo } from './juego/mundo';
 import { nuevoHeroe, nivelHab, firmaVisual, equipoVisual, cuerpoDe, type DatosHeroe, type EnBolsa, nivelEnDificultad, volverAEmpezar } from './juego/heroe';
 import { botin, colorObj, crearObjeto } from './juego/objetos';
+import { mejoraCacheada } from './juego/mejora';
 import { libreCerca } from './mundo/zona';
 import { ZONAS, PUEBLO_DE, MUSICA_ACTO, ENTRADA_ZONA, MISIONES, POBL_ZONA, VOZ_MARCA } from './mundo/actos';
 import { POBLACION, MONSTRUOS } from './datos/monstruos';
@@ -276,7 +277,14 @@ function encimaDe(): Pick | null {
   for (const p of picks) if (E.x >= p.x0 && E.x <= p.x1 && E.y >= p.y0 && E.y <= p.y1) if (!best || prio(p) > prio(best) || (prio(p) === prio(best) && p.prof > best.prof)) best = p;
   return best;
 }
+/** Flecha de pixel (9 x 9): verde con canto oscuro, la punta encendida. */
+function flechaMejora(x: number, y: number) {
+  const F = ['....#....', '...#o#...', '..#ooo#..', '.#ooooo#.', '#ooooooo#', '###ooo###', '..#ooo#..', '..#ooo#..', '..#####..'];
+  for (let j = 0; j < F.length; j++) for (let i = 0; i < 9; i++) { const c = F[j][i]; if (c === '.') continue; ctx.fillStyle = c === '#' ? '#0c1a08' : j <= 3 ? '#c8ffa8' : i === 3 || j === 4 ? '#7ae860' : '#38b030'; ctx.fillRect(x + i, y + j, 1, 1); }
+  (window as any).__marcasMejora = ((window as any).__marcasMejora ?? 0) + 1;
+}
 function etiquetasBotin(jj: Juego) {
+  (window as any).__marcasMejora = 0;
   // nombres del botín en el piso (siempre los cercanos; con Alt todos)
   const h = jj.heroe;
   const usadas: [number, number, number, number][] = [];
@@ -285,13 +293,17 @@ function etiquetasBotin(jj: Juego) {
   for (const s of lista) {
     const [px, py0] = aPantUI(s.x, s.y), py = py0 - 28 * (ZM - 1);
     const txt = s.oro ? `${s.oro} ${T('de oro', 'gold')}` : TT(s.o!.nombre);
-    const w = ctx.measureText(txt).width + 10, hh = 16;
+    // mejora para este héroe y la puede llevar ya: una flechita verde a la izquierda del nombre (nada más: no guía)
+    const mej = !s.oro && s.o!.tipo === 'equipo' && !(window as any).__sinMarcaMejora ? mejoraCacheada(h.d, s.o!) : null;
+    const marca = !!mej && mej.puede && mej.veredicto > 0;
+    const w = ctx.measureText(txt).width + 10 + (marca ? 13 : 0), hh = 16;
     let x = px - w / 2, y = py - 28;
     for (let k = 0; k < 40 && usadas.some(([a, b, c, d]) => x < a + c && x + w > a && y < b + d && y + hh > b); k++) y -= hh + 1;
     usadas.push([x, y, w, hh]);
     const encima = E.x >= x && E.x <= x + w && E.y >= y && E.y <= y + hh;
     ctx.fillStyle = encima ? 'rgba(40,40,80,0.85)' : 'rgba(0,0,0,0.7)'; ctx.fillRect(x, y, w, hh);
-    texto(txt, px, y + 12, { alin: 'center', tam: 12, color: s.oro ? '#e8c050' : colorObj(s.o!) });
+    texto(txt, px + (marca ? 6.5 : 0), y + 12, { alin: 'center', tam: 12, color: s.oro ? '#e8c050' : colorObj(s.o!) });
+    if (marca) flechaMejora(Math.round(x + 4), Math.round(y + 3 + (Math.sin(performance.now() / 260) > 0.3 ? -1 : 0)));
     picks.push({ tipo: 'suelo', ref: s, x0: x, y0: y, x1: x + w, y1: y + hh, prof: 1e9 });
   }
 }
@@ -512,7 +524,7 @@ function usarObjeto(jj: Juego, o: ObjZ) {
       msg(jj, ['Bajo las tablas, lo que alguien escondió antes de huir.', 'Under the boards, what someone hid before fleeing.'], '#ffd070');
     } else if (deCasa) msg(jj, ['Ya te llevaste lo que había aquí.', 'You already took what was here.'], '#a09080');
     const bueno = premio ? 3 : escondido ? 3 : /ornado|noble|sarcofago|gg/.test(o.id) ? 2 : 1;
-    setTimeout(() => soltar(jj, o.cx + 0.5, o.cy + 1.2, botin(nivelEnDificultad(jj.zona.nivel, h.d.dificultad), bueno, h.c.hallazgo, h.c.oro_extra)), 450);
+    setTimeout(() => soltar(jj, o.cx + 0.5, o.cy + 1.2, botin(nivelEnDificultad(jj.zona.nivel, h.d.dificultad), bueno, h.c.hallazgo, h.c.oro_extra, h.d.clase)), 450);
     if (R() < 0.12) { // terror: el cofre era una trampa
       msg(jj, ['Del cofre sale un grito.', 'A scream comes from the chest.'], '#ff6060'); Sonido.susurro(); jj.sacudida = 0.4;
     }
@@ -520,7 +532,7 @@ function usarObjeto(jj: Juego, o: ObjZ) {
     volcarBrasero(jj, o);
   } else if (o.tag === 'romper') {
     if (o.id === 'com_barril_explosivo') { o.v = 'reventado'; jj.areas.push({ x: o.cx + 0.5, y: o.cy + 0.5, radio: 2.5, dano: [5 + jj.zona.nivel * 3, 10 + jj.zona.nivel * 5], elem: 'fuego', t: 0, dur: 0.1, tick: 1, prox: 0, deHeroe: true, efecto: '', retraso: 0.4 }); efecto(jj, 'explosion_fuego', o.cx + 0.5, o.cy + 0.5, 0, 1.4); Sonido.efecto('explosion'); }
-    else { o.v = 'rota'; Sonido.efecto('golpe_hueso'); particulas(jj, o.cx + 0.5, o.cy + 0.5, 10, 'chispa', '#8a7a60'); if (R() < 0.6) soltar(jj, o.cx + 0.5, o.cy + 0.5, botin(jj.zona.nivel, 0, h.c.hallazgo, h.c.oro_extra)); }
+    else { o.v = 'rota'; Sonido.efecto('golpe_hueso'); particulas(jj, o.cx + 0.5, o.cy + 0.5, 10, 'chispa', '#8a7a60'); if (R() < 0.6) soltar(jj, o.cx + 0.5, o.cy + 0.5, botin(jj.zona.nivel, 0, h.c.hallazgo, h.c.oro_extra, h.d.clase)); }
     o.tag = undefined; o.bloquea = false; jj.zona.bloq[o.cy * jj.zona.W + o.cx] = 0;
   } else if (o.tag === 'santuario') {
     if (o.v === 'gastado') return;
@@ -947,6 +959,7 @@ async function arrancar() {
   Promise.all([import('./juego/heroe'), import('./juego/objetos'), import('./datos/objetos_datos'), import('./motor/pintor')]).then(([H, O, D, P]) => { (window as any).__T = { H, O, D, P }; });
   (window as any).__ir = (id: string, e: string) => irAZona(id, e);
   (window as any).__ui = ui;
+  (window as any).__mejora = (o: any) => { const j = (window as any).__juego?.(); return j ? mejoraCacheada(j.heroe.d, o) : null; };
   (window as any).__historia = { entreacto: (n: number) => empezarEntreacto(n), revelacion: (luegoFinal = false) => empezarRevelacion(luegoFinal), final: () => { estado = 'final'; finalT = 0; }, t: (s: number) => { entreT = s; revT = s; finalT = s; } };
   (window as any).__vista = () => { const c = document.getElementById('juego') as HTMLCanvasElement; return { W, H, ZM, cw: c.width, ch: c.height }; };
   (window as any).__aPant = (x: number, y: number) => { const [a, b] = aPantUI(x, y); const r = (document.getElementById('juego') as HTMLCanvasElement).getBoundingClientRect(); return [r.left + a * r.width / W, r.top + b * r.height / H]; };

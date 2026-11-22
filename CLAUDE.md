@@ -946,7 +946,10 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   - **El espejo suelto**: el `mis_espejo` que el misterio riega en toda mazmorra quedaba metido entre los peñascos de antes de la
     cueva y la mina; con los macizos aclarados se veía parado en medio del piso como una puerta negra. Se queda solo con roca a dos
     celdas (`__espejoSuelto`).
-- Pruebas (tercera vuelta): ver el informe de la entrega. Fotos `t1021` en las 7 zonas (antes con `__rocaVieja`) y los recortes de
+- Pruebas (tercera vuelta, servidor fresco): tsc, t1000 (todo en su piso; arena cueva 40 y obra 55 igual, piso legible de la cueva
+  10 a 18), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 12 zonas (flotando 0, montados 92, repetidos 8), t1011 `todas 2`
+  con `SEMILLA` 5000, 6000 y 7000 (0 atascados, objetiva 0), t855 (0 de 192), t370 (288, 0 malas), conectividad 20 (1920), t995
+  dos tandas (0 atascados, 0 pegados), t440, t450, t500, t961 y t1001. Fotos `t1021` en las 7 zonas (antes con `__rocaVieja`) y los recortes de
   cerca de cueva, hielo y mina en `/tmp/requiem-pruebas/e10/cerca5_*.png`. Lab: `lab_r3b.png` (tramos bajos y hielo).
 
 ## Armas vivas, cofres, poderes y siluetas

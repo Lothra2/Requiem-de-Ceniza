@@ -69,6 +69,7 @@ import { tramo, cerrarTramos, rend } from '../nucleo/rendimiento';
 import { fijarGanchoRelieve, relieveDe } from '../motor/assets';
 import { brilloPuas } from './puas';
 import { aperturaRecorte, piezaRecortada, ALTO_PECHO, RX_REC } from './recorte';
+import { luzMonumento } from '../mundo/monumentos';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
 export const cam = { x: 0, y: 0 };
@@ -187,17 +188,19 @@ function puertaCatedral(j: Juego, dt: number, t: number) {
     const fa = sa.piezas?.[sa.piezas.length - 1]; if (!fa || fa.v === 'sellada') continue;
     const [px, py] = aPant(fa.cx + 0.5, fa.cy + 1.5); if (px < -300 || px > W + 300 || py < -200 || py > H + 300) continue;
     const pulso = 0.5 + 0.5 * Math.sin(t * 1.4);
+    // (los monumentos de los actos 2 a 7 llevan la luz de su puerta y sus motas: monumentos.ts)
+    const mon = luzMonumento(fa.id), C = mon?.color ?? '255,70,24', C2 = mon?.color ?? '255,120,60';
     // el cono: del umbral hacia +y (abajo a la izquierda en pantalla), abriéndose
     const [ex, ey] = aPant(fa.cx + 0.5, fa.cy + 8), ux = 16, uy = 8; // +x en pantalla, para el ancho
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createLinearGradient(px, py, ex, ey);
-    g.addColorStop(0, `rgba(255,70,24,${0.42 + pulso * 0.15})`); g.addColorStop(0.5, `rgba(255,50,16,${0.18 + pulso * 0.07})`); g.addColorStop(1, 'rgba(255,40,10,0)');
+    g.addColorStop(0, `rgba(${C},${0.42 + pulso * 0.15})`); g.addColorStop(0.5, `rgba(${C},${0.18 + pulso * 0.07})`); g.addColorStop(1, `rgba(${C},0)`);
     ctx.fillStyle = g; ctx.beginPath();
     ctx.moveTo(px - ux * 0.9, py - uy * 0.9); ctx.lineTo(px + ux * 0.9, py + uy * 0.9);
     ctx.lineTo(ex + ux * 2.6, ey + uy * 2.6); ctx.lineTo(ex - ux * 2.6, ey - uy * 2.6); ctx.closePath(); ctx.fill();
     // resplandor en el umbral
     const r = ctx.createRadialGradient(px, py - 10, 2, px, py - 10, 60);
-    r.addColorStop(0, `rgba(255,120,60,${0.35 + pulso * 0.2})`); r.addColorStop(1, 'rgba(255,40,10,0)');
+    r.addColorStop(0, `rgba(${C2},${0.35 + pulso * 0.2})`); r.addColorStop(1, `rgba(${C},0)`);
     ctx.fillStyle = r; ctx.fillRect(px - 60, py - 70, 120, 120);
     ctx.restore();
     // brasas y ceniza que salen por la puerta y suben
@@ -205,7 +208,7 @@ function puertaCatedral(j: Juego, dt: number, t: number) {
       const n = (dt * 18) + (Math.random() < (dt * 18) % 1 ? 1 : 0);
       for (let i = 0; i < Math.floor(n); i++) {
         const ceniza = Math.random() < 0.3;
-        j.particulas.push({ x: fa.cx + 0.5 + (Math.random() - 0.5) * 1.6, y: fa.cy + 1.6, z: 6 + Math.random() * 30, vx: (Math.random() - 0.5) * 0.5, vy: 0.6 + Math.random() * 1.1, vz: ceniza ? 8 + Math.random() * 8 : 20 + Math.random() * 30, t: 0, dur: ceniza ? 2.2 + Math.random() : 1.2 + Math.random() * 0.8, color: ceniza ? '#8a8078' : Math.random() < 0.5 ? '#ff5020' : '#ffa040', tam: ceniza ? 2 : 1.5, tipo: ceniza ? 'humo' : 'brasa' } as any);
+        j.particulas.push({ x: fa.cx + 0.5 + (Math.random() - 0.5) * 1.6, y: fa.cy + 1.6, z: 6 + Math.random() * 30, vx: (Math.random() - 0.5) * 0.5, vy: 0.6 + Math.random() * 1.1, vz: ceniza ? 8 + Math.random() * 8 : 20 + Math.random() * 30, t: 0, dur: ceniza ? 2.2 + Math.random() : 1.2 + Math.random() * 0.8, color: ceniza ? mon?.motas?.[2] ?? '#8a8078' : Math.random() < 0.5 ? mon?.motas?.[0] ?? '#ff5020' : mon?.motas?.[1] ?? '#ffa040', tam: ceniza ? 2 : 1.5, tipo: ceniza ? 'humo' : 'brasa' } as any);
       }
     }
   }
@@ -221,7 +224,17 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   let alzar = 0;
   for (const sa of z.salidas) if (sa.piezas?.length) {
     const fa = sa.piezas[sa.piezas.length - 1], dy = h.y - fa.cy, dx = Math.abs(h.x - fa.cx);
-    if (dy > -2 && dy < 26 && dx < 16) alzar = Math.max(alzar, 240 * Math.min(1, (26 - dy) / 14) * Math.min(1, (16 - dx) / 6));
+    if (!(dy > -2 && dy < 26 && dx < 16)) continue;
+    const w = Math.min(1, (26 - dy) / 14) * Math.min(1, (16 - dx) / 6);
+    // (los monumentos de los actos 2 a 7, monumentos.ts) sube lo justo para que entre la pieza más alta, a lo sumo 240 como la
+    // catedral: con 240 fijo el héroe quedaba pegado al HUD frente a una obra que no lo necesitaba
+    let tope = 240;
+    if (luzMonumento(fa.id) && !(window as any).__alzarCatedral) {
+      const yc = (MH - ALTO_HUD / ZM) / 2; let cima = 1e9;
+      for (const o of sa.piezas) { const q = objetoMeta(o.id, o.v)?.f[0]; if (q) cima = Math.min(cima, (o.cx + o.cy + 1) * 8 - q.ay - (h.x + h.y) * 8 + yc); }
+      if (cima < 1e9) tope = Math.max(0, Math.min(240, 14 - cima));
+    }
+    alzar = Math.max(alzar, tope * w);
   }
   // (entrega 6) frente a un hito del acto la cámara también sube lo justo para que entre entero en la pantalla, a lo sumo
   // 150 puntos (el héroe queda en el tercio de abajo, nunca bajo el HUD). Antes el gigante del glaciar, la escalera de los

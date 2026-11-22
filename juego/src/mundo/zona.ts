@@ -1,8 +1,12 @@
+/** El atrio de un monumento: lo que se pone alrededor (`marco`, relativo a la pieza del medio), lo que se reserva y el piso bajo la obra. */
+export interface Atrio { marco: [string, string, number, number][]; reservar: [number, number, number, number]; tierra: [number, number, number, number]; piso?: string }
+
 // Zonas del mundo: exteriores grandes armados con paisajes del motor como viñetas, mazmorras de cuartos y pasillos
 // con muros del tema, y campamentos seguros. Todo con semilla. Celdas de juego de 32x16 (5x5 por baldosa).
 import './actos67';
 import { REGISTRO, huellaDe, generarPaisaje, type ObjetoDef, type Tema, type AmbienteId } from '../../../src/engine/gotico/index';
 import { ATRIO_CATEDRAL } from '../../../src/engine/gotico/catalogo/atrio_oria';
+import { monumentoDe } from './monumentos';
 import { ESQUINAS_MURO } from '../../../src/engine/gotico/catalogo/muros';
 import { FAM_SENDERO } from '../../../src/engine/gotico/catalogo/senderos';
 import { juncosDeTramo } from '../../../src/engine/gotico/agua';
@@ -81,7 +85,7 @@ export interface DefZona {
    * Pieza ancla en el centro del mapa (la catedral del camposanto): `id` entera o en `piezas` de adelante hacia atrás.
    * Su puerta es la salida hacia `salida`; con `sello`, la puerta está sellada hasta aceptar esa misión. `cerca` se riega alrededor.
    */
-  ancla?: { piezas: [string, number, number][]; puerta: [number, number]; salida: string; sello?: string; herida?: string; cerca?: Sel[]; /** El atrio de la Forja alrededor (losas, sendero, derrumbes, niebla baja): ATRIO_CATEDRAL. */ marco?: boolean };
+  ancla?: { piezas: [string, number, number][]; puerta: [number, number]; salida: string; sello?: string; herida?: string; cerca?: Sel[]; /** El atrio de la Forja alrededor (losas, sendero, derrumbes, niebla baja): ATRIO_CATEDRAL; o el de un monumento (monumentos.ts). */ marco?: boolean | Atrio };
   /** Casa abandonada de un mundo abierto: interior chico con muebles, un guardián y el cofre escondido bajo las tablas. */
   casa?: boolean;
   /** Pueblo amurallado: murallas de fortaleza en los bordes de atrás y portones en las salidas. */
@@ -565,7 +569,7 @@ function exterior(def: DefZona, semilla: number): Zona {
         let d = 1e9;
         for (const [a, b] of puntos) d = Math.min(d, Math.hypot(a - x, b - y) - lejosSalida);
         for (const l of lugares) d = Math.min(d, Math.hypot(l.cx - x, l.cy - y) - l.r - rad - lejosLugar);
-        d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ? 36 : 12) - rad);
+        d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ?? monumentoDe(def.id) ? 36 : 12) - rad);
         if (d > bd) { bd = d; mejor = [x, y]; }
       }
       return bd >= 0 ? mejor : null;
@@ -601,7 +605,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   // la pieza ancla: la catedral en el centro, por piezas con su desplazamiento (la Forja da el ancla de cada una);
   // la puerta es la salida y el pie de la escalinata, el punto de llegada
   let anclaObj: ObjZ | null = null; const anclaPiezas: ObjZ[] = [];
-  const anc = def.ancla, ia = anc ? def.salidas.findIndex((s) => s.destino === anc.salida) : -1;
+  const anc = def.ancla ?? monumentoDe(def.id), ia = anc ? def.salidas.findIndex((s) => s.destino === anc.salida) : -1;
   if (anc) {
     const [ax, ay] = [centro[0], centro[1] + 2];
     for (const [id, dx, dy] of anc.piezas) {
@@ -617,8 +621,8 @@ function exterior(def: DefZona, semilla: number): Zona {
     // el atrio de la Forja: tierra pisada bajo la obra, el marco (plaza, sendero, derrumbes, lápidas, faroles, verja y niebla)
     // y la plaza reservada para que el riego al azar no caiga encima
     if (anclaObj && anc.marco) {
-      const A = ATRIO_CATEDRAL, [t0, t1, t2, t3] = A.tierra;
-      for (let by = Math.floor((ay + t1) / 5); by <= Math.floor((ay + t3) / 5); by++) for (let bx = Math.floor((ax + t0) / 5); bx <= Math.floor((ax + t2) / 5); bx++) if (z.pisos[by * z.tw + bx]) k.piso('tierra', bx, by);
+      const A: Atrio = anc.marco === true ? ATRIO_CATEDRAL as unknown as Atrio : anc.marco, [t0, t1, t2, t3] = A.tierra;
+      for (let by = Math.floor((ay + t1) / 5); by <= Math.floor((ay + t3) / 5); by++) for (let bx = Math.floor((ax + t0) / 5); bx <= Math.floor((ax + t2) / 5); bx++) if (z.pisos[by * z.tw + bx]) k.piso(A.piso ?? 'tierra', bx, by);
       for (const [id, v, dx, dy] of A.marco) k.poner(id, ax + dx, ay + dy, v, true);
       const [r0, r1, r2, r3] = A.reservar;
       for (let yy = Math.floor(ay + r1); yy <= ay + r3; yy++) for (let xx = Math.floor(ax + r0); xx <= ax + r2; xx++) if (xx >= 0 && yy >= 0 && xx < z.W && yy < z.H) k.reserva![yy * z.W + xx] = 1;

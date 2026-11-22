@@ -24,18 +24,29 @@ const M = MATERIALES;
 const TAU = Math.PI * 2;
 /** Sillares grandes y desparejos de arenisca dorada: hiladas de alto distinto, juntas comidas por el viento (anchas y oscuras),
  *  los cantos de cada bloque gastados, bandas horizontales de erosión y la arena que oscurece el pie. */
-const sillarSol = (la: number, al: number) => (p: V3, n: V3) => {
-  const ero = (ruido(p[0] * 0.025 + p[1] * 0.025, 2, p[2] * 0.09) - 0.5) * 0.3 - Math.max(0, 1 - p[2] / 40) * 0.12;
-  if (Math.abs(n[2]) > 0.7) return (ruido(p[0] * 0.06, p[1] * 0.06, 1) - 0.5) * 0.2 + 0.06;
-  const fq = p[2] / al, fila = Math.floor(fq + (ruido(Math.floor(fq), 3, 5) - 0.5) * 0.0), alto = al * (0.7 + ruido(fila * 1.7, 1, 2) * 0.6);
+const sillarSol = (la: number, al: number, var0 = 0.3) => (p: V3, n: V3) => {
+  // la humedad y el hollín en manchas grandes, la erosión del viento en bandas, el pie oscurecido por la arena
+  const mancha = ruido(p[0] * 0.011 + 7, p[1] * 0.011, p[2] * 0.014), ero = (ruido(p[0] * 0.025 + p[1] * 0.025, 2, p[2] * 0.09) - 0.5) * 0.3 - Math.max(0, 1 - p[2] / 46) * 0.2 - (mancha > 0.6 ? (mancha - 0.6) * 1.1 : 0);
+  if (Math.abs(n[2]) > 0.7) return (ruido(p[0] * 0.06, p[1] * 0.06, 1) - 0.5) * 0.24 + 0.06;
+  // (la coordenada a lo largo de la cara va por su tangente: en las caras de la diagonal, x o y saltaban de una a otra)
+  const hn = Math.hypot(n[0], n[1]) || 1, uu = (-p[0] * n[1] + p[1] * n[0]) / hn;
+  const fq = p[2] / al, fila = Math.floor(fq), alto = al * (0.7 + ruido(fila * 1.7, 1, 2) * 0.6);
   const z0 = fila * al, t = (p[2] - z0) / alto;
-  const u = (Math.abs(n[0]) > Math.abs(n[1]) ? p[1] : p[0]) + fila * la * 0.43, L = la * (0.6 + ruido(fila * 1.3, 3, 1) * 0.8), b = Math.floor(u / L), r = (u - b * L) / L;
+  const u = uu + fila * la * 0.43, L = la * (0.55 + ruido(fila * 1.3, 3, 1) * 0.9), b = Math.floor(u / L), r = (u - b * L) / L;
   const borde = Math.min(t * alto, (1 - t) * al, r * L, (1 - r) * L);
-  if (borde < 1.2) return -0.36 + ero * 0.4;
-  const canto = borde < 3.4 ? -0.1 * (1 - (borde - 1.2) / 2.2) : 0;
-  return (ruido(b * 2.1, fila * 1.7, 9) - 0.5) * 0.22 + ero + canto + (ruido(p[0] * 0.7, p[1] * 0.7, p[2] * 0.7) > 0.8 ? -0.12 : 0);
+  if (borde < 1.6) return -0.55 + ero * 0.3;
+  const canto = borde < 4.2 ? -0.16 * (1 - (borde - 1.6) / 2.6) : 0;
+  // bloques de tono desparejo, alguno picado o comido por el viento
+  const tb = ruido(b * 2.1, fila * 1.7, 9), pic = tb > 0.86 ? (ruido(p[0] * 0.9, p[1] * 0.9, p[2] * 0.9) - 0.5) * 0.5 : 0;
+  return (tb - 0.5) * var0 + ero + canto + pic + (ruido(p[0] * 0.7, p[1] * 0.7, p[2] * 0.7) > 0.8 ? -0.14 : 0);
 };
-M.mon_sol_piedra = { rampa: ['#120b05', '#22160a', '#372511', '#4f3718', '#694a21', '#835e2b', '#9c7337', '#b38947'], ruido: 0.2, escala: 0.16, patron: sillarSol(52, 24) };
+M.mon_sol_piedra = { rampa: ['#0e0804', '#1d1209', '#311f0f', '#4a3016', '#64431e', '#7e5728', '#976b33', '#ae8143', '#c29757'], ruido: 0.2, escala: 0.16, patron: sillarSol(52, 24) };
+/** Arenisca rosada (la de la portada y la corona: la cantera de otra veta) y la piedra quemada (donde ardió el sol al caer). */
+M.mon_sol_rosa = { rampa: ['#100706', '#20100c', '#351c15', '#4d2a1f', '#663a2a', '#7f4c36', '#975f44', '#ae7456', '#c08a6a'], ruido: 0.2, escala: 0.16, patron: sillarSol(46, 22) };
+M.mon_sol_quemada = { rampa: ['#070504', '#110b08', '#1d130c', '#2b1d12', '#3b2818', '#4c3420'], ruido: 0.3, escala: 0.2, patron: sillarSol(40, 20, 0.36) };
+/** Ocre oscuro (el zócalo y los pedestales) y la luz cálida de adentro (la puerta, las troneras). */
+M.mon_sol_ocre_osc = { rampa: ['#0f0703', '#1d0e06', '#30180a', '#46240f', '#5d3115', '#743f1b', '#8a4e23'], ruido: 0.22, escala: 0.16, patron: sillarSol(60, 26) };
+M.mon_sol_luz = { rampa: ['#3a1406', '#6a2608', '#9c400e', '#cc6218', '#ee8a2a', '#ffb448', '#ffd884'], ruido: 0.4, escala: 0.25, emite: true };
 M.mon_sol_liso = { rampa: ['#140c05', '#26190b', '#3c2a13', '#563d1b', '#715224', '#8b672f', '#a37c3d', '#b9914f'], ruido: 0.16, escala: 0.14, patron: (p, n) => (Math.abs(n[2]) > 0.7 ? 0.04 : 0) + (ruido(p[0] * 0.04 + p[1] * 0.04, 1, p[2] * 0.16) - 0.5) * 0.2 + (ruido(p[0] * 0.6, p[1] * 0.6, p[2] * 0.6) > 0.8 ? -0.1 : 0) };
 /** El bronce del disco: oscuro, con verdín en lo hondo y el oro que asoma donde lo frotaron. */
 M.mon_sol_bronce = { rampa: ['#120c06', '#22170b', '#3a2810', '#563c16', '#74521d', '#946a26', '#b28634', '#cca350'], ruido: 0.16, escala: 0.22, brillo: 0.55, patron: (p) => (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.05) > 0.7 ? -0.12 : 0) + (ruido(p[0] * 0.5, p[1] * 0.5, p[2] * 0.5) - 0.5) * 0.12 };
@@ -51,7 +62,7 @@ M.mon_sol_azul = { rampa: ['#070b16', '#0d162a', '#152340', '#1e3257', '#2a446e'
 M.mon_sol_ocre = { rampa: ['#1d0904', '#331107', '#4c1a0b', '#68240f', '#843014'], ruido: 0.35, escala: 0.3, patron: (p) => (ruido(p[0] * 0.25, p[1] * 0.25, p[2] * 0.25) > 0.55 ? -0.45 : 0) };
 /** La arena que el viento junta en las repisas y contra los muros: la misma del piso, apenas más clara. */
 M.mon_sol_arena = { rampa: ['#3a2c1a', '#544028', '#6e5536', '#886b45', '#a18255', '#b99a68', '#cbae7c'], ruido: 0.28, escala: 0.3, patron: (p) => (Math.sin(p[0] * 0.35 + p[1] * 0.2 + ruido(p[0] * 0.05, p[1] * 0.05, 2) * 6) > 0.7 ? -0.06 : 0) };
-const S = 'mon_sol_piedra', L = 'mon_sol_liso', B = 'mon_sol_bronce', O = 'mon_sol_oro', AZ = 'mon_sol_azul', OC = 'mon_sol_ocre', AR = 'mon_sol_arena';
+const S = 'mon_sol_piedra', RS = 'mon_sol_rosa', QM = 'mon_sol_quemada', OS = 'mon_sol_ocre_osc', L = 'mon_sol_liso', B = 'mon_sol_bronce', O = 'mon_sol_oro', AZ = 'mon_sol_azul', OC = 'mon_sol_ocre', AR = 'mon_sol_arena';
 
 // ================================================================== oficio
 /** Cara de un muro en talud: un grupo con x a lo largo de la cara, z por la cara (inclinada) y +y afuera. */
@@ -119,7 +130,7 @@ function armar(F: G, _v: string, f: number) {
 
   // ------------------------------------------------------------ el santuario y el marco vacío del sol (atrás)
   const U0 = -235, U1 = -122, HS = 168, TS = 12, VS = 54;
-  tronco(F, 0, (U0 + U1) / 2, 0, 16, VS * 2 + 18, U1 - U0 + 14, VS * 2 + 12, U1 - U0 + 8, { mat: S });
+  tronco(F, 0, (U0 + U1) / 2, 0, 16, VS * 2 + 18, U1 - U0 + 14, VS * 2 + 12, U1 - U0 + 8, { mat: OS });
   tronco(F, 0, (U0 + U1) / 2, 16, HS, VS * 2, U1 - U0, VS * 2 - TS * 2, U1 - U0 - TS * 2, { mat: S });
   const tS = (Math.atan(TS / (HS - 16)) * 180) / Math.PI;
   { const c = cara(F, 0, U1, 0, tS); golaCara(c, -VS + TS, VS - TS, HS - 20, 18, 8, true);
@@ -131,7 +142,7 @@ function armar(F: G, _v: string, f: number) {
   // alrededor (en relieve bajo) y los garfios de bronce del soporte, torcidos y rotos
   const UC = U1 - 18, ZC = HS, RH = 48;
   const mc = F.sub(0, UC, ZC);
-  mc.poli([[-80, -14, 0], [80, -14, 0], [-80, 14, 0], [80, 14, 0], [-68, -9, 78], [68, -9, 78], [-68, 9, 78], [68, 9, 78]], { mat: S });
+  mc.poli([[-80, -14, 0], [80, -14, 0], [-80, 14, 0], [80, 14, 0], [-68, -9, 78], [68, -9, 78], [-68, 9, 78], [68, 9, 78]], { mat: RS });
   golaCara(mc.sub(0, 10, 0), -68, 68, 72, 12, 6, true);
   mc.cil(0, 16, 46, RH, 26, { mat: S, resta: true, eje: [0, -1, 0] });
   mc.cil(0, -9.5, 46, RH, 2, { mat: L, eje: [0, 1, 0], tono: -0.2 });
@@ -216,6 +227,10 @@ function armar(F: G, _v: string, f: number) {
     solRelieve(cf, -sx * 6 + sx * 30, 216, 20, true);
     letras(cf, -w1 / 2 + 8, w1 / 2 - 8, 0.4, 60, 4, S, 4, 1.8);
     grieta(cf, sx * 26, 0.2, 90, 240, S);
+    // las troneras: rendijas altas por donde sale la luz de las escaleras de adentro, con su hollín arriba
+    for (const [tx, tz] of [[sx * 22, 150], [-sx * 14, 196], [sx * 6, 104]] as number[][]) { cf.caja(tx, 0, tz, 5, 14, 22, { mat: S, resta: true }); cf.caja(tx, -6, tz, 5, 1, 22, { mat: 'mon_sol_luz', tono: -0.3 }); cf.poli([[tx - 3, 0.4, tz + 22], [tx + 3, 0.4, tz + 22], [tx - 3, 1, tz + 22], [tx + 3, 1, tz + 22], [tx - 1, 0.4, tz + 50], [tx + 1, 0.4, tz + 50], [tx - 1, 1, tz + 50], [tx + 1, 1, tz + 50]], { mat: QM, tono: -0.25 }); }
+    // la arena que el viento deja en la repisa de la gola
+    arena(F, xc, UP1 - 4 - TP, HP + 30, w1 * 0.6, 10, 5, 0);
     for (const gx of [-w1 / 2 + 6, w1 / 2 - 6]) for (let i = 0; i < 6; i++) letras(cf.sub(gx, 0, 0), -2, 2, 0.4, 190 - i * 2, 1, S, 4, 1.4);
     for (let i = 0; i < 10; i++) { const ex = (i % 2 ? 1 : -1) * (w0 / 2 - 2), z = 20 + a.r() * (HP - 60); F.caja(xc + ex - Math.sign(ex) * (z / HP) * TP, UP1 - 2 - (z / HP) * TP, z, 10 + a.r() * 8, 10, 8 + a.r() * 12, { mat: S, resta: true, giro: a.r() * 40 }); }
     for (let i = 0; i < 5; i++) cf.caja((a.r() - 0.5) * w1 * 0.8, 0, 30 + a.r() * (HP - 90), 14 + a.r() * 12, 4, 10 + a.r() * 8, { mat: S, resta: true });
@@ -224,12 +239,14 @@ function armar(F: G, _v: string, f: number) {
   arena(F, -VP1 - 4, (UP0 + UP1) / 2, 0, 60, 30, 80, 90); arena(F, -96, UP1 + 4, 0, 50, 22, 36, 20); arena(F, -80, (UP0 + UP1) / 2, HP + 2, 30, 16, 6, 0);
   // la portada entre los pilonos, más baja, con el pórtico hondo: el hueco alto, la sombra adentro y la puerta al fondo
   const UQ = 150, HQ = 238;
-  tronco(F, 0, (UP0 - 20 + UQ) / 2, 0, HQ, VP0 * 2 + 4, UQ - UP0 + 20, VP0 * 2, UQ - UP0 + 14, { mat: S }, -3);
+  tronco(F, 0, (UP0 - 20 + UQ) / 2, 0, HQ, VP0 * 2 + 4, UQ - UP0 + 20, VP0 * 2, UQ - UP0 + 14, { mat: RS }, -3);
   { const c = cara(F, 0, UQ, 0, 1); golaCara(c, -VP0, VP0, HQ - 4, 22, 8, true);
     c.caja(0, 2, 0, 48, 12, 128, { mat: S, resta: true });
     c.caja(0, -6, 0, 36, 70, 104, { mat: S, resta: true });
     c.caja(0, -12, 104, 36, 40, 4, { mat: L });
-    c.caja(0, -72, 0, 36, 2, 104, { mat: 'mon_sol_hondo', tono: -0.08 });
+    c.caja(0, -72, 0, 36, 2, 104, { mat: 'mon_sol_luz', tono: -0.42 });
+    // el hollín de siglos de braseros sobre la puerta: lenguas negras que suben por la piedra rosada
+    for (let i = 0; i < 5; i++) { const x = -20 + i * 10 + (a.r() - 0.5) * 4, h = 40 + a.r() * 50; c.poli([[x - 5, 0.3, 128], [x + 5, 0.3, 128], [x - 5, 0.9, 128], [x + 5, 0.9, 128], [x - 1.5 + (a.r() - 0.5) * 6, 0.3, 128 + h], [x + 1.5 + (a.r() - 0.5) * 6, 0.3, 128 + h], [x - 1.5, 0.9, 128 + h], [x + 1.5, 0.9, 128 + h]], { mat: QM, tono: -0.2 }); }
     for (let i = 0; i < 7; i++) c.caja(0, -14 - i * 8, -1 - i * 4, 34, 8, 3.6, { mat: L, tono: -0.24 - i * 0.05 });
     for (const sx of [-1, 1]) letras(c.sub(sx * 21, -1, 0), -1.5, 1.5, 0, 120, 10, S, 10, 1.6);
     for (let i = 0; i < 3; i++) figura(c, -18 + i * 18, 170, 40, i === 1 ? 'disco' : 'ofrenda');
@@ -243,7 +260,7 @@ function armar(F: G, _v: string, f: number) {
   arena(F, -26, UQ - 4, 0, 30, 14, 10, 30);
 
   return {
-    der: { c: [10, UQ - 24, 50] as V3, r: 60 + p * 10, color: '#ffa040' },
+    der: { c: [10, UQ - 30, 60] as V3, r: 72 + p * 10, color: '#ffa040' },
     izq: { c: [-10, UQ - 24, 50] as V3, r: 40, color: '#ffa040' },
     atras: { c: [0, UC, ZC + 46] as V3, r: 36 + p * 6, color: '#ff8a30' },
   };
@@ -259,10 +276,10 @@ registrarMonumento({ id: 'mon_sol', nombre: ['Templo del Sol Caído', 'Temple of
 function coloso(g: G, partido: boolean) {
   const k = 3.5, s = g.esc(k), cs: Comp[] = [], m = L;
   // el pedestal y el trono
-  bloque(g, 0, -2, 0, 124, 160, 12, { mat: S, b: 2, j: 1, tono: -0.04 });
+  bloque(g, 0, -2, 0, 124, 160, 12, { mat: OS, b: 2, j: 1, tono: -0.04 });
   letras(g.sub(0, 78, 0), -54, 54, 0, 8, 1, S, 4, 2);
-  bloque(s, 0, -10, 3, 27, 24, 18.5, { mat: S, b: 0.5, j: 0.25 });
-  bloque(s, 0, -20, 21, 27, 4.6, 26, { mat: S, b: 0.4, j: 0.2, tono: -0.03 });
+  bloque(s, 0, -10, 3, 27, 24, 18.5, { mat: RS, b: 0.5, j: 0.25 });
+  bloque(s, 0, -20, 21, 27, 4.6, 26, { mat: RS, b: 0.4, j: 0.2, tono: -0.03 });
   for (const sx of [-1, 1]) { const c = s.sub(sx * 13.6, -10, 3, sx > 0 ? -90 : 90); c.palo([-6, 0.1, 6], [6, 0.1, 6], 0.7, { mat: S, resta: true }); c.elip(0, 0.1, 11, 4, 0.5, 4, { mat: S, resta: true }); c.palo([-6, 0.1, 13], [6, 0.1, 13], 0.5, { mat: S, resta: true }); }
   // el cuerpo en tres masas (piernas, tronco, brazos: una sola masa de 300 de alto inflaba la caja del sprite)
   const cl: Comp[] = [], ca: Comp[] = [];
@@ -279,9 +296,10 @@ function coloso(g: G, partido: boolean) {
     ca.push(s.hu([sx * 12, -11, 45], [sx * 11.6, -4, 30], 3.8, 3.3));
     ca.push(s.hu([sx * 11.4, -3.6, 29.6], [sx * 7.6, 9, 25.6], 3.2, 2.9));
     ca.push(s.bu([sx * 7.2, 11.6, 25.4], [3.2, 4.6, 1.6]));
+    ca.push(s.bu([sx * 12.4, -10.6, 44.6], [3.6, 3.8, 3.4]), s.bu([sx * 12, -7.6, 38], [3.4, 3.4, 4.4]), s.bu([sx * 10, 3, 28.4], [2.8, 4, 2.4]));
   }
   s.masa(cs, { mat: m, suave: 0.8 }); s.masa(cl, { mat: m, suave: 0.8 });
-  for (const sx of [-1, 1]) s.masa(ca.filter((_, i) => (i % 6 < 3) === (sx < 0)), { mat: m, suave: 0.6 });
+  for (const sx of [-1, 1]) s.masa(ca.filter((_, i) => (i < 6) === (sx < 0)), { mat: m, suave: 0.6 });
   // el pecho tallado a planos: los pectorales y el canto del esternón
   for (const sx of [-1, 1]) s.poli([[sx * 0.4, -3.4, 37], [sx * 9.4, -4.2, 38], [sx * 0.4, -2, 43], [sx * 9.4, -3, 43.6], [sx * 0.4, -5, 37], [sx * 9.4, -6, 38], [sx * 0.4, -5, 43], [sx * 9.4, -6, 43.6]], { mat: m, tono: 0.02 });
   // el faldellín plisado (estrías hundidas) y el cinto
@@ -295,14 +313,28 @@ function coloso(g: G, partido: boolean) {
     s.poli([[-5.6, -13, 64.6], [5.6, -13, 64.6], [-5.6, -6, 64], [5.6, -6, 64], [-10, -13.6, 50], [10, -13.6, 50], [-9.4, -7.2, 50.4], [9.4, -7.2, 50.4]], { mat: L, tono: 0.02 });
     for (const sx of [-1, 1]) s.poli([[sx * 4.6, -6.4, 60.4], [sx * 7.8, -6.8, 60.4], [sx * 4.8, -4.6, 48.6], [sx * 8.6, -5, 48.6], [sx * 4.6, -4.6, 60.4], [sx * 7.8, -5, 60.4], [sx * 4.8, -2.8, 48.6], [sx * 8.6, -3.2, 48.6]], { mat: L });
     for (let i = 0; i < 4; i++) for (const sx of [-1, 1]) s.caja(sx * 6.6, -3.9 + i * 0.3, 50.6 + i * 2.5, 3.4, 0.7, 0.9, { mat: AZ, tono: -0.2 });
-    // la cara: los ojos hundidos, la nariz que se fue, los labios gastados, la barba postiza
-    s.elip(0, -4, 58.4, 3.6, 1.4, 3.4, { mat: m });
-    for (const sx of [-1, 1]) s.elip(sx * 1.7, -3, 59.6, 1, 0.6, 0.5, { mat: m, resta: true });
-    s.caja(0, -2.8, 57.2, 1.6, 1.4, 2, { mat: m, resta: true });
-    s.palo([0, -4.4, 54.6], [0, -3.4, 50], 1.1, { mat: m, r1: 0.8 });
-    s.cil(0, -9.6, 64, 5, 3.6, { mat: L, r1: 4.6 }); s.cil(0, -9.6, 67.4, 4.4, 8, { mat: L, r1: 2.4 }); s.esf(0, -9.6, 75.6, 2.4, { mat: L });
-    s.caja(0, -6, 64.2, 0.9, 1.4, 2.8, { mat: L, tono: 0.05 });
-    s.caja(-2, -2.6, 56, 6, 1.4, 5, { mat: m, resta: true, giro: 15 });
+    // el paño: franjas de oro y lapislázuli gastadas en toda la tela, la que cae detrás y las aletas
+    for (let i = 0; i < 6; i++) { const z = 51 + i * 2.2, w = 9.6 - i * 0.62; s.poli([[-w, -13.9 + i * 0.05, z], [w, -13.9 + i * 0.05, z], [-w + 0.2, -7.4 + i * 0.1, z], [w - 0.2, -7.4 + i * 0.1, z], [-w, -13.9 + i * 0.05, z + 0.9], [w, -13.9 + i * 0.05, z + 0.9], [-w + 0.2, -7.4 + i * 0.1, z + 0.9], [w - 0.2, -7.4 + i * 0.1, z + 0.9]], { mat: i % 2 ? O : AZ, tono: -0.18 }); }
+    for (let i = 0; i < 5; i++) for (const sx of [-1, 1]) s.caja(sx * 6.6, -3.2 + i * 0.25, 49.4 + i * 2.3, 3.8, 0.6, 1, { mat: i % 2 ? O : AZ, tono: -0.15 });
+    // la cara: frente bajo el paño, los ojos almendrados con el trazo largo del cosmético, los pómulos, la nariz partida, la
+    // boca de labios llenos con la sonrisa quieta, el mentón con la barba postiza trenzada; el viento la comió de un lado
+    s.elip(0, -4.4, 58.6, 3.8, 1.7, 3.6, { mat: m });
+    for (const sx of [-1, 1]) {
+      s.elip(sx * 1.8, -2.9, 59.8, 1.15, 0.7, 0.55, { mat: m, resta: true });
+      s.elip(sx * 1.8, -3.1, 59.8, 0.5, 0.35, 0.45, { mat: 'mon_sol_quemada' });
+      s.palo([sx * 2.9, -2.8, 59.9], [sx * 4, -3.2, 59.4], 0.22, { mat: m, resta: true });
+      s.palo([sx * 0.8, -2.6, 60.9], [sx * 3, -3, 60.7], 0.28, { mat: m, tono: 0.08 });
+      s.elip(sx * 2.4, -3.3, 58.1, 1.2, 0.9, 0.9, { mat: m, tono: 0.04 });
+    }
+    s.poli([[-0.5, -2.6, 59.6], [0.5, -2.6, 59.6], [-0.9, -2, 57.6], [0.9, -2, 57.6], [-0.5, -3.4, 59.6], [0.5, -3.4, 59.6], [-0.9, -3.4, 57.6], [0.9, -3.4, 57.6]], { mat: m });
+    s.caja(0.4, -1.7, 57.2, 1.6, 1.2, 1.4, { mat: m, resta: true, giro: 20 });
+    s.elip(0, -2.7, 56.6, 1.5, 0.6, 0.38, { mat: m, tono: 0.03 }); s.elip(0, -2.65, 56.1, 1.3, 0.6, 0.42, { mat: m, tono: -0.02 }); s.palo([-1.4, -2.3, 56.35], [1.4, -2.3, 56.35], 0.12, { mat: m, resta: true });
+    s.palo([0, -3.2, 55], [0, -2.6, 50.6], 1.15, { mat: m, r1: 0.85 }); for (let i = 0; i < 4; i++) s.cil(0, -2.9 + i * 0.12, 51.4 + i * 1, 1.05, 0.25, { mat: m, resta: true });
+    s.cil(0, -9.6, 64, 5, 3.6, { mat: L, r1: 4.6 }); s.cil(0, -9.6, 67.4, 4.4, 8, { mat: RS, r1: 2.4 }); s.esf(0, -9.6, 75.6, 2.4, { mat: RS });
+    s.palo([0, -5.6, 64], [0, -4.8, 66.8], 0.7, { mat: O, tono: -0.1 }); s.esf(0, -4.6, 67.2, 0.8, { mat: O, tono: -0.1 });
+    s.caja(-2.4, -2.4, 56.4, 4, 1.6, 6, { mat: m, resta: true, giro: 25 });
+    // la mano derecha se partió: falta el puño y el pedazo está tirado en el pedestal
+    s.caja(-7.4, 12, 25.6, 5, 7, 4, { mat: m, resta: true, giro: 10 }); bloque(g, -40, 58, 12, 16, 12, 9, { mat: L, giro: 40, incl: 18, b: 2, j: 2 });
   } else {
     // partido: el pecho cortado en diagonal, la cabeza con su corona tirada delante, de cara al cielo, hundida en la arena
     s.poli([[-16, -20, 47], [16, -20, 53], [-16, 4, 45], [16, 4, 51], [-16, -20, 80], [16, -20, 80], [-16, 4, 80], [16, 4, 80]], { mat: m, resta: true });
@@ -313,6 +345,8 @@ function coloso(g: G, partido: boolean) {
     cascotes(g, 12, 50, 30, L, 30, 100, 6);
     for (let i = 0; i < 3; i++) bloque(g, -40 + i * 9, 90 + i * 14, 0, 26, 20, 16, { mat: L, giro: i * 40, incl: 20 + i * 10, b: 3, j: 3 });
   }
+  // las grietas que bajan por el cuerpo y el trono
+  for (const [x, y, z0, z1] of [[-6, 1, 6, 40], [8, 6, 10, 22], [4, -2, 30, 46]] as number[][]) grieta(s.sub(x, y, 0), 0, 0.4, z0, z1, m);
   // la arena: lenguas contra el trono del lado del viento, y en las rodillas
   arena(g, -60, -10, 0, 90, 36, 44, 90); arena(g, 30, 80, 0, 60, 24, 12, 160);
   s.elip(-5.6, 9, 26.4, 4, 3, 0.8, { mat: AR });
@@ -356,7 +390,10 @@ function disco(g: G, f: number) {
   };
   mitad(-1, 0, 16, -6, 0); mitad(1, 7, 24, 10, -8);
   // la grieta: al rojo adentro, entre las dos mitades
-  for (let i = 0; i < 7; i++) g.esf(-2 + (a.r() - 0.5) * 4, -4 + (a.r() - 0.5) * 6, 30 + i * 22, 3.2, brasa);
+  { let q: V3 = [-2, -4, 6]; for (let i = 0; i < 10; i++) { const n: V3 = [-2 + (a.r() - 0.5) * 9, -4 + (a.r() - 0.5) * 5, 6 + (i + 1) * 19]; g.palo(q, n, 4.4 - (i % 3) * 0.8, brasa); if (i % 3 === 1) g.palo(n, [n[0] + (a.r() < 0.5 ? -1 : 1) * (10 + a.r() * 10), n[1], n[2] + 8], 1.6, brasa); q = n; } }
+  // la arena vidriada y quemada alrededor, donde pegó al caer, con grietas que todavía brillan
+  for (let i = 0; i < 6; i++) g.elip(-10 + (a.r() - 0.5) * 70, 10 + (a.r() - 0.5) * 60, 0.2, 18 + a.r() * 16, 12 + a.r() * 10, 0.8, { mat: QM, giro: a.r() * 180, tono: -0.1 });
+  for (let i = 0; i < 6; i++) { const t = (i / 6) * TAU + 0.4; g.palo([Math.cos(t) * 10, Math.sin(t) * 10, 0.4], [Math.cos(t) * (40 + a.r() * 30), Math.sin(t) * (40 + a.r() * 30), 0.4], 1.4, { ...brasa, tono: brasa.tono - 0.12 }); }
   // la arena que se lo traga: un médano contra el lado del viento y lo que saltó al caer
   arena(g, -40, -60, 0, 120, 44, 50, 30); arena(g, 30, 40, 0, 80, 34, 22, 120);
   // el andamio de los saqueadores: postes, travesaños, la polea y las cuerdas que bajan al disco, la escala
@@ -378,7 +415,7 @@ function disco(g: G, f: number) {
   huesos(g, 10, 24, 14, 10, 50, 0.9, 0.4);
   calavera(g.sub(26, 46, 2, 200), 4, 'mu_hueso', true, -0.2); calavera(g.sub(-30, 52, 1.5, 70), 4, 'mu_hueso', false, -0.25);
   for (let i = 0; i < 3; i++) g.sub(-10 + i * 18, 62 + i * 4, 6).palo([0, 0, 0], [14, 8, 30], 1.4, { mat: 'mu_hueso', tono: -0.2 });
-  return { c: [0, 0, 120] as V3, r: 46 + p * 10, color: '#ff8a30' };
+  return { c: [0, 0, 90] as V3, r: 70 + p * 14, color: '#ff6a20' };
 }
 registrar({
   id: 'mon_sol_disco', nombre: ['El sol caído', 'The fallen sun'], tema: 'desierto', variantes: ['clavado'], huella: [9, 6], bloquea: true, cuadros: 4, t: 3,
@@ -409,5 +446,26 @@ registrar({
     calavera(g.sub(-26, 14, 10, 30), 3.4, 'mu_hueso', true, -0.2); g.palo([-26, 14, 2], [-26, 13, 9], 2.4, { mat: 'mu_hueso', tono: -0.25 }); huesos(g, 6, 8, 6, -18, 8, 0.7, 0.3);
     duna(g, [-40, -4, 0], 30, 14, 9, 80, 3, AR); duna(g, [40, 30, 0], 24, 12, 6, 120, 3, AR);
     bajoTierra(ps); return ps;
+  },
+});
+
+// ================================================================== los braseros del pórtico
+/** Brasero alto de bronce sobre su pie de piedra: el cuenco con el fuego que no se apaga (el juego le pone su fuego vivo). */
+registrar({
+  id: 'mon_sol_brasero', nombre: ['Brasero del Sol Caído', 'Brazier of the Fallen Sun'], tema: 'desierto', variantes: ['encendido'], huella: [1, 1], bloquea: true, cuadros: 4, t: 3,
+  armar: (_v, f, a) => {
+    const { ps, g } = raiz(a), p = 0.5 + 0.5 * Math.sin((f / 4) * TAU);
+    bloque(g, 0, 0, 0, 22, 22, 12, { mat: OS, b: 1.4, j: 0.6 });
+    tronco(g, 0, 0, 12, 18, 18, 18, 14, 14, { mat: RS });
+    g.cil(0, 0, 18, 4.4, 34, { mat: B, r1: 3 });
+    for (let i = 0; i < 3; i++) { const t = (i / 3) * TAU + 0.5; g.palo([Math.cos(t) * 10, Math.sin(t) * 10, 18], [Math.cos(t) * 3, Math.sin(t) * 3, 40], 1.4, { mat: B }); }
+    g.cil(0, 0, 50, 6, 8, { mat: B, r1: 13 }); g.cil(0, 0, 58, 13, 2, { mat: B, tono: 0.1 });
+    for (let i = 0; i < 8; i++) { const t = (i / 8) * TAU; g.palo([Math.cos(t) * 13, Math.sin(t) * 13, 59], [Math.cos(t) * 15.5, Math.sin(t) * 15.5, 63], 1, { mat: B }); }
+    g.elip(0, 0, 59, 11, 11, 2.4, { mat: 'ext_carbon' });
+    for (let i = 0; i < 5; i++) g.elip((a.r() - 0.5) * 12, (a.r() - 0.5) * 12, 60, 2.4, 2.4, 1.6, { mat: 'mon_sol_brasa', tono: -0.1 + p * 0.2 });
+    // el hollín en la piedra de atrás y la arena al pie
+    duna(g, [-10, -6, 0], 18, 8, 5, 30, 3, AR);
+    bajoTierra(ps);
+    return { piezas: ps, resplandor: { c: [0, 0, 66] as V3, r: 46 + p * 8, color: '#ff9a3a' } };
   },
 });

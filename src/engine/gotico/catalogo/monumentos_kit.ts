@@ -44,6 +44,8 @@ export interface Monumento {
   variantes?: string[];
   cuadros?: number;
   piezas?: PiezaMon[];
+  /** La celda de la puerta desde la pieza del medio (por omisión PUERTA_DIAGONAL). */
+  puerta?: [number, number];
   /** Arma la obra entera. `F` es el marco de la avenida (ver arriba); `g` el de la grilla (por si hace falta). Devuelve las luces por pieza. */
   armar: (F: G, v: string, f: number, g: G) => Record<string, { c: V3; r: number; color: string }> | void;
 }
@@ -76,10 +78,10 @@ function partir(ps: Pieza[], x0: number, x1: number, y0: number, y1: number): Pi
   return out;
 }
 
-const DEFS = new Map<string, PiezaMon[]>();
+const DEFS = new Map<string, PiezaMon[]>(), PUERTAS = new Map<string, [number, number]>();
 export function registrarMonumento(m: Monumento) {
   const variantes = m.variantes ?? ['entera'], pzs = m.piezas ?? DIAGONAL;
-  DEFS.set(m.id, pzs);
+  DEFS.set(m.id, pzs); PUERTAS.set(m.id, m.puerta ?? PUERTA_DIAGONAL);
   for (const pz of pzs) {
     const ox = pz.dx * 16, oy = pz.dy * 16;
     registrar({
@@ -101,3 +103,5 @@ export function registrarMonumento(m: Monumento) {
 export const piezasMonumento = (id: string): [string, number, number][] => (DEFS.get(id) ?? DIAGONAL).map((p) => [`${id}_${p.fr}`, p.dx, p.dy]);
 /** De un punto del marco de la avenida (u hacia la cámara, v a la derecha, unidades) a la grilla (unidades). */
 export const deAvenida = (v: number, u: number): [number, number] => [(v + u) * 0.7071, (u - v) * 0.7071];
+/** La celda de la puerta de un monumento (desde la pieza del medio). */
+export const puertaMonumento = (id: string): [number, number] => PUERTAS.get(id) ?? PUERTA_DIAGONAL;

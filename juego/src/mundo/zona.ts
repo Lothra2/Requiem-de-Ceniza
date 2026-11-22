@@ -1850,6 +1850,7 @@ function mazmorra(def: DefZona, semilla: number): Zona {
   // el frente de las mazmorras de obra (hacia la cámara) no lleva muro: en vez de un piso cortado a regla, escombro y roca
   // caída del tema a lo largo de esos bordes, que estrecha y desordena el filo
   // en las minas los túneles rectos llevan derrubio a los dos lados (queda libre el centro, por donde van los rieles)
+  if (minaRoca && !(globalThis as any).__rocaVieja) { const cj = def.jefe ? orden[orden.length - 1] : null; lineaMina(z, k.reserva, cj ? [(cj[0] + cj[2] / 2) * 5, (cj[1] + cj[3] / 2) * 5] : null); }
   if (t.rieles && !abierto) orillaTunel(k, suelo, sala);
   if (!abierto && !t.islas && !(globalThis as any).__sinEscombro) escombroFrente(k, sala, ESCOMBRO_TEMA[def.tema] ?? 'cementerio'); // (solo en las salas: en un pasillo podría cerrar el paso)
   // las puertas (oleada 2): donde un cuello de una baldosa entra a una sala, dos luces del tema a los lados, contra el muro,
@@ -2357,9 +2358,178 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   ponerTrampas(z, def);
   alumbrarVias(z, def);
   desmontarFinal(z, def);
+  rocaViva(z, def);
   esquinasMuro(z);
   despegarDeMuros(z);
   return z;
+}
+/**
+ * (entrega 10, Rick 22 nov 2026: "las paredes de roca de las minas y las cuevas se leen como pared") La roca viva. Va al final
+ * de todo, con su propio azar, y solo cambia la roca y lo que la toca: no mueve ningún otro adorno ni el azar de lo de antes.
+ * `__rocaVieja` lo apaga entero (las piezas de antes, a regla).
+ *
+ * En la mina: cada tramo de `cue_muro` (y la pared con veta) pasa a `roca_muro` (roca cortada a pico, ocho perfiles de cresta y
+ * dos espejos, sin dos vecinos iguales; la veta guarda su mineral). La línea se rompe en planta: un tramo de cada tantos se mete
+ * una celda en la roca (el entrante: la celda de piso que tapaba queda libre) y otros echan un saliente (`roca_muro_espolon`, de
+ * 2 o 3 celdas de largo y 1 o 2 de fondo) que entra a la galería. El saliente solo va donde delante quedan 8 celdas o más de
+ * galería (nunca en un túnel ni en un paso de una baldosa), 3 libres delante de él, lejos de salidas, campamentos, cofres, la
+ * vía y el ruedo del jefe (13), sobre celdas sin nada; y si al final algo de lo que se alcanzaba deja de alcanzarse, el saliente
+ * de al lado se va. El entrante no va en las puntas de un tramo (la esquina) ni donde algo está apoyado contra la roca. Al pie de
+ * cada tramo, el talud (`roca_pie`, plano).
+ *
+ * En la cueva: los peñascos del contorno pasan a `roca_penasco` (roca natural: estratos, humedad, musgo o nieve, raíces y
+ * goteras). La altura de los de atrás sale de un campo suave (la cresta sube y baja en picos, hombros y caídas) con cinco
+ * escalones y tres caras por escalón, sin repetir la misma cara a menos de 4 celdas; los de adelante siguen bajos. Y el talud al
+ * pie de la roca de atrás cada 2 a 4 celdas.
+ */
+function rocaViva(z: Zona, def: DefZona) {
+  const G = globalThis as any; if (G.__rocaVieja) return;
+  const t = tematica(def.tema);
+  if (def.tema === 'mina' && !G.__minaObra) { rocaMina(z); rocaCueva(z, 'm'); }
+  else if (t.organica && z.hueco && def.tipo === 'mazmorra' && !def.casa) rocaCueva(z, typeof t.organica === 'string' ? 'h' : 'c');
+}
+const ES_TRAMO = (o: ObjZ) => (o.id === 'cue_muro' || o.id === 'min_pared_veta' || o.id === 'roca_muro') && o.bloquea && ((o.hw === 5 && o.hh === 2) || (o.hw === 2 && o.hh === 5));
+/**
+ * (entrega 10) La línea de la roca de la mina, rota en planta. Va en `mazmorra` apenas se tiende la roca (antes de vestir nada: lo
+ * que se apoya contra la roca después se apoya contra la línea nueva), con su propio azar (`rl`). Un tramo de cada tres o cuatro se
+ * mete una celda en la roca (el entrante: la celda de piso que tapaba queda libre; nunca en la punta de una línea, donde dobla la
+ * esquina, ni donde atrás hay piso) y otros echan un saliente (`roca_muro_espolon`, 2 o 3 de largo y 1 o 2 de fondo) que entra a la
+ * galería: solo donde delante quedan 8 celdas de galería o más (nunca en un túnel ni en un paso de una baldosa), con 3 libres delante
+ * del saliente, sin nada debajo (ni la vía) y lejos de la sala del jefe. Lo que no se sabe todavía (salidas, campamentos, que todo se
+ * siga alcanzando) lo revisa `rocaMina` al final.
+ */
+function lineaMina(z: Zona, reserva: Uint8Array | undefined, jefeC: [number, number] | null) {
+  const W = z.W, H = z.H, rl = rng(z.semilla * 5281 + 73);
+  const enMapa = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  const piso = (x: number, y: number) => enMapa(x, y) && !!z.pisos[Math.floor(y / 5) * z.tw + Math.floor(x / 5)];
+  const caja = (o: ObjZ) => [Math.round(o.cx - (o.hw - 1) / 2), Math.round(o.cy - (o.hh - 1) / 2)];
+  const tramos = z.objetos.filter(ES_TRAMO); if (!tramos.length) return;
+  const todo = new Uint8Array(W * H), roca = new Uint8Array(W * H);
+  for (const o of z.objetos) { const [x0, y0] = caja(o), es = ES_TRAMO(o); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (enMapa(x, y)) { if (es) roca[y * W + x]++; else todo[y * W + x] = 1; } }
+  const libreDe = (x: number, y: number) => enMapa(x, y) && z.bloq[y * W + x] === 0 && !todo[y * W + x];
+  const linea = new Map<string, ObjZ[]>();
+  for (const o of tramos) { const [x0, y0] = caja(o), ejeY = o.hh === 5, k = ejeY ? 'y' + x0 : 'x' + y0; if (!linea.has(k)) linea.set(k, []); linea.get(k)!.push(o); }
+  for (const k of [...linea.keys()].sort()) {
+    const L = linea.get(k)!, ejeY = k[0] === 'y'; L.sort((a, b) => (ejeY ? a.cy - b.cy : a.cx - b.cx));
+    let prevTipo = '';
+    L.forEach((o, n) => {
+      const [x0, y0] = caja(o), a0 = ejeY ? y0 : x0, c0 = ejeY ? x0 : y0;
+      // (u a lo largo, c de frente: la roca está en c0 y c0 + 1; la galería empieza en c0 + 2)
+      const C = (u: number, c: number): [number, number] => (ejeY ? [c, u] : [u, c]);
+      const vec = (m: number) => m >= 0 && m < L.length && Math.abs((ejeY ? L[m].cy : L[m].cx) - (ejeY ? o.cy : o.cx)) === 5;
+      const q = rl();
+      let tipo = q < 0.34 && prevTipo !== 'entra' ? 'entra' : q < 0.56 ? 'sale' : 'nada';
+      if (tipo === 'entra' && (globalThis as any).__sinEntrantes) tipo = 'nada';
+      if (tipo === 'sale' && (globalThis as any).__sinSalientes) tipo = 'nada';
+      if (tipo === 'entra') {
+        let puede = vec(n - 1) && vec(n + 1);
+        for (let u = a0; u < a0 + 5 && puede; u++) { const [bx, by] = C(u, c0 - 1); if (!enMapa(bx, by) || piso(bx, by) || roca[by * W + bx] || todo[by * W + bx]) puede = false; }
+        for (let u = a0; u < a0 + 5 && puede; u++) { const [x, y] = C(u, c0 + 1); if (roca[y * W + x] !== 1 || todo[y * W + x] || (reserva && reserva[y * W + x] && z.bloq[y * W + x] !== 1)) puede = false; }
+        if (!puede) tipo = 'sale';
+        else {
+          if (ejeY) o.cx -= 1; else o.cy -= 1;
+          for (let u = a0; u < a0 + 5; u++) { const [x, y] = C(u, c0 + 1), i = y * W + x; roca[i] = 0; z.bloq[i] = 0; const [bx, by] = C(u, c0 - 1); roca[by * W + bx]++; z.bloq[by * W + bx] = 1; }
+        }
+      }
+      if (tipo === 'sale') {
+        const la = rl() < 0.55 ? 2 : 3, fo = rl() < 0.7 ? 1 : 2, s0 = a0 + Math.floor(rl() * (6 - la)), celdas: number[] = [];
+        let puede = !jefeC || Math.hypot(...C(s0 + la / 2, c0 + 2).map((v, i) => v - jefeC[i]) as [number, number]) > 15;
+        for (let u = s0; u < s0 + la && puede; u++) {
+          for (let c = c0 + 2; c < c0 + 2 + fo && puede; c++) { const [x, y] = C(u, c), i = y * W + x; if (!piso(x, y) || !libreDe(x, y) || roca[i] || (reserva && reserva[i])) puede = false; else celdas.push(i); }
+          let hondo = 0; for (let c = c0 + 2; c < c0 + 2 + 12; c++) { const [x, y] = C(u, c); if (!enMapa(x, y) || z.bloq[y * W + x] === 1) break; hondo++; } if (hondo < 10 + fo) puede = false;
+          for (let c = c0 + 2 + fo; c < c0 + 5 + fo && puede; c++) for (const du of [-1, 0, 1]) { const [x, y] = C(u + du, c); if (!libreDe(x, y)) puede = false; }
+        }
+        for (const u of [s0 - 1, s0 + la]) for (let c = c0 + 2; c < c0 + 2 + fo && puede; c++) { const [x, y] = C(u, c); if (enMapa(x, y) && z.bloq[y * W + x] === 1 && !roca[y * W + x]) puede = false; }
+        if (puede) {
+          const [cx, cy] = C(s0 + (la - 1) / 2, c0 + 2 + (fo - 1) / 2);
+          z.objetos.push({ id: 'roca_muro_espolon', v: `e${la}${fo}_${1 + Math.floor(rl() * 2)}${ejeY ? '_y' : ''}`, cx, cy, hw: ejeY ? fo : la, hh: ejeY ? la : fo, bloquea: true, capa: 'roca' });
+          for (const i of celdas) { z.bloq[i] = 1; todo[i] = 1; }
+        } else tipo = 'nada';
+      }
+      prevTipo = tipo;
+    });
+  }
+}
+/**
+ * (entrega 10) Lo de la roca de la mina que va al final: la cara de cada tramo (`roca_muro`: la veta guarda su mineral, los demás
+ * sin repetir la cara del de al lado), el talud al pie (`roca_pie`, plano) y la revisión de los salientes de `lineaMina`: el que
+ * quedó a menos de 7 de una salida, a 6 de una entrada, a 6,5 de un campamento o a 13 del jefe se va, y si algo de lo que se
+ * alcanza sin salientes deja de alcanzarse, el saliente de al lado también.
+ */
+function rocaMina(z: Zona) {
+  const W = z.W, H = z.H, rr = rng(z.semilla * 5281 + 71);
+  const enMapa = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H;
+  const caja = (o: ObjZ) => [Math.round(o.cx - (o.hw - 1) / 2), Math.round(o.cy - (o.hh - 1) / 2)];
+  const tramos = z.objetos.filter(ES_TRAMO); if (!tramos.length) return;
+  const linea = new Map<string, ObjZ[]>();
+  for (const o of tramos) { const [x0, y0] = caja(o), ejeY = o.hh === 5, k = ejeY ? 'y' + x0 : 'x' + (y0 + (o.id === 'roca_muro' ? 0 : 0)); if (!linea.has(k)) linea.set(k, []); linea.get(k)!.push(o); }
+  const NORMAL = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10'], VETA: Record<string, string> = { oro: 'ov', hierro: 'hv', sangre: 'sv' };
+  const pies: ObjZ[] = [];
+  // (por eje, en orden a lo largo: así la cara de al lado se ve aunque un entrante esté una celda corrido)
+  const porEje = (ejeY: boolean) => tramos.filter((o) => (o.hh === 5) === ejeY).sort((a, b) => (ejeY ? a.cx - b.cx || a.cy - b.cy : a.cy - b.cy || a.cx - b.cx));
+  for (const ejeY of [false, true]) {
+    let prev: ObjZ | null = null;
+    for (const o of porEje(ejeY)) {
+      let v: string;
+      if (o.id === 'min_pared_veta') v = VETA[o.v.replace(/_y$/, '')] + (1 + Math.floor(rr() * 2));
+      else { const ops = NORMAL.filter((q) => !prev || Math.abs(prev.cx - o.cx) + Math.abs(prev.cy - o.cy) > 6 || q + (ejeY ? '_y' : '') !== prev.v); v = ops[Math.floor(rr() * ops.length)]; }
+      o.id = 'roca_muro'; o.v = v + (ejeY ? '_y' : ''); prev = o;
+      pies.push({ id: 'roca_pie', v: 'm' + (1 + Math.floor(rr() * 4)) + (ejeY ? '_y' : ''), cx: ejeY ? o.cx + 1 : o.cx, cy: ejeY ? o.cy : o.cy + 1, hw: o.hw, hh: o.hh, bloquea: false, capa: 'roca' });
+    }
+  }
+  // los salientes que estorban
+  const pisable = (i: number) => z.bloq[i] === 0 || z.bloq[i] === 3;
+  const celdasDe = (o: ObjZ) => { const [x0, y0] = caja(o), out: number[] = []; for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (enMapa(x, y)) out.push(y * W + x); return out; };
+  const quitar = (o: ObjZ) => { for (const i of celdasDe(o)) if (z.bloq[i] === 1) z.bloq[i] = 0; z.objetos.splice(z.objetos.indexOf(o), 1); };
+  const cerca: [number, number, number][] = [];
+  for (const s of z.salidas) cerca.push([s.cx, s.cy, 7]);
+  for (const e of Object.values(z.entradas)) cerca.push([e[0], e[1], 6]);
+  for (const sp of z.spawns) cerca.push([sp.cx, sp.cy, sp.tipo === 'jefe' ? 13 : 6.5]);
+  let esp = z.objetos.filter((o) => o.id === 'roca_muro_espolon');
+  for (const o of esp) if (cerca.some(([a, b, d]) => Math.hypot(a - o.cx, b - o.cy) < d)) quitar(o);
+  esp = z.objetos.filter((o) => o.id === 'roca_muro_espolon');
+  const alcanza = () => { const e0 = z.entradas.arriba ?? Object.values(z.entradas)[0], vis = new Uint8Array(W * H); if (!e0) return vis; const i0 = Math.floor(e0[1]) * W + Math.floor(e0[0]); if (!pisable(i0)) return vis; const pila = [i0]; vis[i0] = 1; while (pila.length) { const i = pila.pop()!, x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (!enMapa(X, Y)) continue; const j = Y * W + X; if (!vis[j] && pisable(j)) { vis[j] = 1; pila.push(j); } } } return vis; };
+  if (esp.length) {
+    const guard = esp.map((o) => celdasDe(o).map((i) => [i, z.bloq[i]] as [number, number]));
+    for (const g of guard) for (const [i] of g) z.bloq[i] = 0;
+    const sin = alcanza();
+    guard.forEach((g) => { for (const [i, b] of g) z.bloq[i] = b; });
+    for (let vuelta = 0; vuelta < 5 && esp.length; vuelta++) {
+      const con = alcanza(), perdidas: number[] = [];
+      for (let i = 0; i < W * H; i++) if (sin[i] && !con[i] && pisable(i)) perdidas.push(i);
+      if (!perdidas.length) break;
+      for (let k = esp.length - 1; k >= 0; k--) if (perdidas.some((i) => Math.hypot((i % W) - esp[k].cx, Math.floor(i / W) - esp[k].cy) < 6)) { quitar(esp[k]); esp.splice(k, 1); }
+    }
+  }
+  z.objetos.push(...pies);
+}
+function rocaCueva(z: Zona, fam: 'c' | 'h' | 'm') {
+  const W = z.W, H = z.H, rc = rng(z.semilla * 6029 + 37), campo = ruido2(rc, W, H, 7);
+  const id = fam === 'c' ? 'cue_penasco' : 'bor_risco', pre = fam === 'h' ? 'nieve_' : fam === 'm' ? 'paramo_' : '';
+  const puestos: { x: number; y: number; v: string }[] = [];
+  const contorno = z.objetos.filter((o) => o.id === id && o.hw === 2 && o.hh === 2 && o.v.startsWith(pre) && /^(alta|media|baja)/.test(o.v.slice(pre.length)));
+  contorno.sort((a, b) => a.cy - b.cy || a.cx - b.cx);
+  for (const o of contorno) {
+    const talla = o.v.slice(pre.length);
+    let clase: string;
+    if (talla.startsWith('baja')) clase = 'b';
+    else { const q = campo[Math.min(H - 1, Math.max(0, Math.round(o.cy))) * W + Math.min(W - 1, Math.max(0, Math.round(o.cx)))] + (rc() - 0.5) * 0.22 + (talla.startsWith('media') ? -0.12 : 0) - (fam === 'm' ? 0.16 : 0) - (o.capa === 'relleno' ? 0.2 : 0); /* (el relleno, la roca de las bolsas de adentro, va más bajo: una masa, no un bosque de agujas) */ clase = q > 0.64 ? 'a1' : q > 0.48 ? 'a2' : q > 0.34 ? 'm1' : q > 0.22 ? 'm2' : 'm3'; }
+    const n = clase === 'b' ? 4 : 3, cerca = puestos.filter((p) => Math.hypot(p.x - o.cx, p.y - o.cy) < 4).map((p) => p.v);
+    const ops = Array.from({ length: n }, (_, i) => `${fam}_${clase}_${i + 1}`).filter((v) => !cerca.includes(v));
+    const v = ops.length ? ops[Math.floor(rc() * ops.length)] : `${fam}_${clase}_${1 + Math.floor(rc() * n)}`;
+    o.id = 'roca_penasco'; o.v = v; puestos.push({ x: o.cx, y: o.cy, v });
+  }
+  // el talud: al pie de la roca de atrás (la que se ve de frente), cada 2 a 4 celdas
+  if (!z.hueco) return;
+  const hueco = z.hueco, pies: ObjZ[] = [], vs = fam === 'h' ? ['h1', 'h2', 'h3'] : ['c1', 'c2', 'c3', 'c4'];
+  const lejos = (x: number, y: number) => z.salidas.every((s) => Math.hypot(s.cx - x, s.cy - y) > 4) && Object.values(z.entradas).every((e) => Math.hypot(e[0] - x, e[1] - y) > 3);
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    const i = y * W + x; if (hueco[i] || !(z.bloq[i] === 0 || z.bloq[i] === 3)) continue;
+    if (!(hueco[i - 1] || hueco[i - W] || hueco[i - W - 1])) continue;
+    if (!lejos(x, y) || pies.some((p) => Math.abs(p.cx - x) + Math.abs(p.cy - y) < 2.5 + rc() * 2)) continue;
+    pies.push({ id: 'roca_pie', v: vs[Math.floor(rc() * vs.length)], cx: x, cy: y, hw: 2, hh: 2, bloquea: false, capa: 'roca' });
+  }
+  z.objetos.push(...pies);
 }
 /**
  * (entrega 6) Las vías alumbradas. En las minas los túneles iban pelados (la orilla de piedra y los rieles por el medio: las

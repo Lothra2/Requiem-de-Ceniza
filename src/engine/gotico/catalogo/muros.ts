@@ -81,7 +81,7 @@ export const ESQUINAS_MURO: Record<string, [string, string, string]> = {
   cat_nichos: ['cat_nichos', 'izq', 'der'], cat2_loculos: ['cat2_loculos', 'sellados', 'sellados_der'],
   cat2_pasillo_osario: ['cat2_pasillo_osario', 'femures', 'femures_der'], cat2_pared_toba: ['cat2_pared_toba', 'lisa', 'lisa_der'],
   tum_muro: ['tum_muro', 'liso', 'liso_y'], tem_muro_glifos: ['tem_muro_glifos', 'entero', 'entero_y'],
-  hie_muro: ['hie_muro', 'x', 'y'], cue_muro: ['cue_muro', 'x', 'y'], min_pared_veta: ['min_pared_veta', 'hierro', 'hierro_y'],
+  hie_muro: ['hie_muro', 'x', 'y'], cue_muro: ['cue_muro', 'x', 'y'], roca_muro: ['roca_muro', 'm1', 'm1_y'], min_pared_veta: ['min_pared_veta', 'hierro', 'hierro_y'],
   inf_muro_carne: ['inf_muro_carne', 'liso', 'liso_y'], for_muro_runas: ['for_muro_runas', 'recto', 'recto_y'],
   cri_muro: ['cri_muro', 'liso', 'liso_der'], cri_muro_nichos: ['cri_muro_nichos', 'huesos', 'huesos_der'], cri_osario_pared: ['cri_osario_pared', 'calaveras', 'calaveras_der'],
   for2_muralla: ['for2_muralla', 'recta', 'recta_y'], for2_almena: ['for2_almena', 'recta', 'recta_y'],

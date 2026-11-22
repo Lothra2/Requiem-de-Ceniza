@@ -2,7 +2,7 @@
 // peces que saltan), las huellas que quedan en la nieve y la arena, el chapoteo al correr bajo la lluvia, las ratas de
 // las mazmorras, la neblina baja que se arrastra, los haces de luz que entran por las grietas y las motas de cada mundo
 // (brasas, polvo, oro, escarcha). Todo es dibujo: nada de esto pega, estorba ni se guarda.
-import { varianteDe } from '../mundo/acto2_zonas';
+import { varianteDe } from '../mundo/zonas_propias';
 import { ctx, W, H, E } from '../nucleo/lienzo';
 import { ZONAS } from '../mundo/actos';
 import type { Juego, Ent } from '../juego/mundo';

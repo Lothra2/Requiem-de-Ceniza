@@ -1,6 +1,7 @@
 // Fotos del acto 2 en los mismos puntos (relativos al mapa) para comparar antes y después: entrada, tres puntos
 // fijos del mapa (fracción del ancho y el alto, a la celda libre más cercana), el jefe y el hito si hay.
-// Uso: node juego/herramientas/t1040_acto2_fotos.cjs <etiqueta> [zonas] (BANDERAS=__acto2Viejo para el antes, VISTA=pc)
+// Uso: node juego/herramientas/t1040_acto2_fotos.cjs <etiqueta> [zonas] (BANDERAS=__acto2Viejo para el antes, VISTA=pc,
+//   DIR=/tmp/requiem-pruebas/acto6 para otro acto)
 // Salida: /tmp/requiem-pruebas/acto2/<etiqueta>/<zona>_<sitio>.png e indice.json
 const { entrar } = require('./comun_pruebas.cjs');
 const fs = require('fs');

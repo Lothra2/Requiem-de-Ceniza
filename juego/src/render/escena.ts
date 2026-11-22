@@ -33,7 +33,7 @@ import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha,
 const ENCIMA = /^fx_(aturdido|confundido|maldito|presa_marcada)$/;
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
 import { pisadaHeroe } from './ambiente';
-import { varianteDe } from '../mundo/acto2_zonas';
+import { varianteDe } from '../mundo/zonas_propias';
 import { ambienteSuelo, ambienteAire, ambienteCfg } from './ambiente';
 import { seguirPoderes, itemsPoderes, dibujarArcos, dibujarCombustion, poderesVivos, sinHorneado } from './poderes_vivos';
 import { seguirPresencias, itemsPresencias, presenciasVivas, alfaInvocado, aroInvocado, rimHeroe, tieneEstilo } from './presencias';

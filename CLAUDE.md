@@ -20,7 +20,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
-- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): acto 2 hecho (ver su sección). Siguen, con el mismo mecanismo, los actos 6, 7, 3, 4, 5 y 1.
+- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2, 6 y 7 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 3, 4, 5 y 1.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Botín en evolución** (rama `botin`, 22 nov 2026): bases y grados de afijo por nivel, parte del botín para la clase, varas con
@@ -1136,6 +1136,86 @@ hay zonas con más pero no como en grupitos de x". Lo de la oleada 1 juntaba tod
 - Flojo: el explorador de t1041 tarda unos 30 s en el primer encuentro antes y ahora (recorre a fondo lo que rodea a la puerta, donde
   a propósito no hay nadie); un jugador que sale derecho lo encuentra antes. La bajas por minuto de t1010 bajan un 10 a 18 % porque
   entre grupo y grupo se camina más (la experiencia de la zona es la misma).
+
+## Cada zona con lo suyo: el acto 6 (22 nov 2026)
+
+El coordinador (por Rick, "revisar todos los actos"): cuatro mundos abiertos con `ahogada` y cinco mazmorras con
+`catedral_ahogada` salían con el mismo piso de lajas con musgo y agua, el mismo muro de vitrales y el mismo riego.
+
+- **El mecanismo, para todos los actos**: `juego/src/mundo/zonas_propias.ts` junta las tablas de cada acto (`acto2_zonas.ts`,
+  `acto6_zonas.ts`...) en `VARIANTE_ZONA` y da `varianteDe` (con `__acto<N>Viejo`). El ruido de los pisos de afuera está en
+  `ruido_zona.ts`. `t1041_zonas_propias.mjs` revisa las tablas contra el manifiesto: cada pieza, variante, muro y piso que se
+  nombra tiene que estar horneado (un muro con una variante `_der` sin hornear dejaba el tramo sin muro).
+- **Pisos nuevos** (`catalogo/acto6_pisos.ts`, usa los ayudantes que exporta `acto2_pisos.ts`): arena gris mojada con las líneas
+  de la marea, coral de hueso en crestas con charcas, adoquín negro y brillante con charcos, las losas de la plaza en anillos con
+  la rosa de bronce, la cripta inundada (losas bajo agua verde), las tablas mojadas del campanario y la piedra del faro en
+  anillos con hollín.
+- **Cada zona**: la **Costa** de arena gris con lo que escupe el mar (cascos, mástiles, anclas, botes, barriles, ahogados) y luz
+  azul gris; el **Arrecife** de coral blanco con charcas, ballenas, conchas, tentáculos y coral que alumbra, verde mar; las
+  **Calles Mojadas** con adoquín en cuadrícula, agua entre manzanas, puertas tapiadas, casas caídas y faroles; la **Plaza de las
+  Ánimas** con la plaza en anillos en el medio, santos, la pescadora, la torre, campanas y cruces de marinos, luz morada; el
+  **Faro** de piedra gris en anillos con la sillería de la costa, aceite, redes y faroles fríos, sin haces; las **Criptas
+  Inundadas** con agua verde, pared de toba húmeda, sarcófagos y algas, verde ahogado; el **Osario Ahogado** con piso de hueso,
+  pared de cráneos, pozos de huesos y coral sobre los muertos, sin haces; la **Nave** con el damero, los vitrales, bancos,
+  santos, el rosetón caído y haces fríos de los vitrales; el **Campanario** con tablas negras, el muro de la torre, campanas
+  colgando y caídas y sogas. Cada una con su castigo y, las del jefe, su asiento.
+- Ojo: `cri_muro_nichos` mide 5 x 2: en las criptas angostaba un cuello y un santuario de 3 x 3 lo cerraba (t370 contó una sala
+  aislada en a6_criptas). Las criptas van con `cat2_pared_toba` (5 x 1). Las columnas con percebes en filas se montaban (t1033):
+  la nave y las criptas usan los pilares de siempre.
+- **Segunda vuelta** (el coordinador: el faro no se leía como faro y los de afuera salían oscuros):
+  - **El faro es un faro** (`catalogo/acto6.ts`, tema `acto6`, fila en `ESQUINAS_MURO`): `a6_muro_faro` de cal con la faja roja,
+    troneras por donde entra la luz fría del mar, sogas y algún tramo roto; adentro la escalera de caracol (`cri_escalera_caracol`
+    en todas las salas), la linterna muerta (`a6_linterna_faro`, apagada o rota, es el asiento del jefe), redes, aceite y haces
+    fríos y ralos (`haz.dens` 0,0085). Va `limpio` (sin escombro de obra) y el relleno es roca con percebes.
+  - **Afuera con luna**: oscuridad 0,36 a 0,40 y la tinta de la oscuridad más clara; `FAROL` (farol de pescador, boya con luz y
+    farol de altar encendido) va en `luces` y en `extra` (en los exteriores `deco` no se usa), y el arrecife suma coral que
+    alumbra. Brillo medio de la vista sin el HUD (`/tmp/claude-0/brillo.py`, no se sube): costa 41, arrecife 56, calles 45,
+    plaza 45, contra páramo 36 y selva 36.
+- Fotos: `DIR=/tmp/requiem-pruebas/acto6 node juego/herramientas/t1040_acto2_fotos.cjs <etiqueta> <zonas>` (el antes con
+  `BANDERAS=__acto6Viejo`) y `DIR=... LADO=<mazmorras> python3 juego/herramientas/t1040_lamina.py antes ahora`
+  (`/tmp/requiem-pruebas/acto6/lamina_mazmorras_{p1,p2,entrada}.png`, `lamina_<zona>.png`, `ext_antes.png` y `ext_ahora.png`).
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 9 zonas (flotando 23 a 18,
+  salida 1 a 0), t370 (288, 0 malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados,
+  objetiva 0), t995 (0), t440, t450, t500, t1001 y t961.
+
+## Cada zona con lo suyo: el acto 7 (22 nov 2026)
+
+Dos mundos abiertos con `celestial`, las dos partes de las Islas de Oro con `celestial_islas` y cuatro interiores con
+`celestial_interior` salían con la misma arenisca, la misma muralla de runas y el mismo riego de oro y mármol.
+
+- **Ojo con `fortaleza` y `arcano`**: al final de `generarZona` esos dos pisos se cambian por `baldosa_catedral` (en las
+  mazmorras) y `arenisca` (se veían de prueba). Por eso las Islas no cambiaban con solo elegir otro de esos dos: van con pisos
+  propios.
+- **Pisos nuevos** (`catalogo/acto7_pisos.ts`): los astros (lapislázuli con estrellas de oro, constelaciones y el aro de una
+  esfera armilar), el relicario (alfombras de terciopelo carmesí con filete de oro sobre mármol), los peldaños de mármol, el
+  oro reseco agrietado con la sangre seca en las grietas, la ceniza sobre mármol, el musgo de oro con piedras de paso y las losas
+  de oro y mármol de las Islas.
+- **Muros nuevos** (`catalogo/acto7.ts`, tema `acto7`, con su fila en `ESQUINAS_MURO`): `a7_muro_astros` (lapislázuli con
+  estrellas que brillan, constelaciones y la esfera armilar), `a7_muro_relicario` (mármol con tres nichos de arco, el relicario
+  de oro con su halo sobre terciopelo y las velas) y `a7_muro_sed` (placas de oro resecas que se despegan, la sangre que baja y
+  las bocas).
+- **Cada zona**: el **Cielo Roto** de ceniza sobre mármol con lo que se cayó del cielo (ángeles, la cabeza del coloso, alas,
+  lanzas, torres), gris ceniza; el **Jardín** de musgo de oro con suplicantes, árboles de oro muertos y fuentes secas; las **Islas
+  del Puente Quebrado** de mármol blanco con oro, azul de cielo y motas de oro; las **Islas Altas** de ceniza con el oro que se
+  seca, gris violeta; la **Bóveda** de lapislázuli con estrellas en piso y muros, esferas y atriles, motas de oro; el
+  **Relicario** carmesí y oro con nichos y relicarios; las **Escaleras** de peldaños blancos, sillería del cielo con pilastras,
+  ángeles y mucha luz blanca que baja; el **Trono** de oro reseco con la sangre en las grietas, muros que sangran y brasas que
+  suben. Las Islas siguen siendo islas (`celestial_islas` no cambia de trazado).
+- **Segunda vuelta** (el coordinador: las Islas casi iguales, las Islas Altas oscuras, las Escaleras quemadas en blanco, una
+  cuadrícula marcada y manchas negras en el Cielo, el musgo plano): las Islas del Puente van con `a7_oro_losas` (mármol gris azul
+  con juntas de oro, oscuridad 0,28) y las Islas Altas con `a7_losas_ceniza` (ceniza con parches de oro y brasas que suben,
+  oscuridad 0,3); mirado en el juego, no solo en el código. Las Escaleras con `a7_marmol_esc` (más oscuro: los muros siguen
+  blancos y el piso se lee) y menos haces (0,006). El Cielo con la junta suave y la ceniza más clara, y menos nubes en el borde;
+  el Jardín con el musgo en matas (`a7_musgo_verde`, `a7_tallo_oro`). Brillo (sin HUD): islas 31 y 25, escaleras 73, cielo 81,
+  jardín 70.
+- Fotos: `DIR=/tmp/requiem-pruebas/acto7` (antes con `BANDERAS=__acto7Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
+  `lamina_<zona>.png` y `ext_lamina.png` (cielo y jardín, antes arriba).
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014, t1015 (0), t1033 en las 8 zonas (antes y ahora: montados 100 a 72,
+  repetidos 34 a 32; lo flotando es lo del vacío, a propósito), t370 (288, 0 malas), conectividad 20 (1920), t855 (0), t1011
+  (`SEMILLA=5000`, 0 atascados), t995, t440, t450, t500, t1001 y t961.
+- Ojo al limpiar atlas huérfanos de los horneados con `SOLO`: los pisos (`p`) del manifiesto son listas, no objetos con `f`. Un
+  limpiador que solo mire `f` borra los atlas de pisos en uso (pasó una vez y se recuperaron de git).
+  `juego/herramientas/_m_huerfanos.py` (no se sube) recorre todo.
 
 ## Armas vivas, cofres, poderes y siluetas
 

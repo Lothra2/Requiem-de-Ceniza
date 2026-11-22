@@ -1,5 +1,5 @@
 # Láminas del acto 2: por zona, antes arriba y ahora abajo, en los mismos puntos; y las cinco tumbas lado a lado.
-# Uso: python3 juego/herramientas/t1040_lamina.py <antes> <ahora> (DIR=/tmp/requiem-pruebas/acto2)
+# Uso: python3 juego/herramientas/t1040_lamina.py <antes> <ahora> (DIR=/tmp/requiem-pruebas/acto2, LADO=zonas de la lámina lado a lado)
 import json, os, sys
 from PIL import Image, ImageDraw
 D = os.environ.get('DIR', '/tmp/requiem-pruebas/acto2')
@@ -27,7 +27,7 @@ for z in zonas:
     out = Image.new('RGB', (max(f.width for f in filas), sum(f.height for f in filas)), (0, 0, 0)); y = 0
     for f in filas: out.paste(f, (0, y)); y += f.height
     out.save(f'{D}/lamina_{z}.png')
-TUMBAS = ['a2_nombres1', 'a2_nombres2', 'a2_sol', 'a2_tumbas1', 'a2_tumbas2', 'a2_escarabajos']
+TUMBAS = os.environ.get('LADO', 'a2_nombres1,a2_nombres2,a2_sol,a2_tumbas1,a2_tumbas2,a2_escarabajos').split(',')
 for sitio in ['p1', 'p2', 'entrada']:
     filas = [f for f in [fila(antes, [f'{z}_{sitio}.png' for z in TUMBAS]), fila(ahora, [f'{z}_{sitio}.png' for z in TUMBAS]) if ahora else None] if f]
     if not filas: continue

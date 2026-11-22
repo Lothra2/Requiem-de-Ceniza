@@ -174,6 +174,16 @@ async function irAZona(id: string, entrada: string) {
   cerrarPaneles(); ui.mano = null;
   await new Promise((r) => setTimeout(r, 30));
   entrarZona(j, id, entrada);
+  // (22 nov 2026, Rick: volvió al Acto 2 por el portal que había abierto en el Acto 1 y apareció de nuevo en la guarida del Acto 1, sin
+  //  saber cómo volver) El portal al pueblo es de un acto: en el pueblo de otro acto no existe (como en Diablo 2, pasar de acto lo
+  //  cierra). Y si el héroe ya llegó a un acto más adelante, al entrar a un pueblo de antes se le recuerda la piedra de viaje
+  { const z = ZONAS[id], pz = (j as any).portalZona as string | undefined;
+    if (j.portal && pz && z.tipo === 'pueblo' && ZONAS[pz] && ZONAS[pz].acto !== z.acto) { j.portal = null; (j as any).portalZona = undefined; }
+    const d = j.heroe.d, mas = [2, 3, 4, 5, 6, 7].filter((a) => a > z.acto && d.viajes.some((v) => ZONAS[v]?.acto === a));
+    if (z.tipo === 'pueblo' && mas.length) {
+      const a = mas[mas.length - 1], pu = ZONAS[d.viajes.find((v) => ZONAS[v]?.acto === a && ZONAS[v]?.tipo === 'pueblo') ?? ''];
+      msg(j, [`Tu camino sigue en el Acto ${a}. La piedra de viaje del campamento te lleva${pu ? ' a ' + pu.nombre[0] : ''}: tócala y elige la pestaña del Acto ${a}.`, `Your road goes on in Act ${a}. The camp's travel stone takes you there${pu ? ' to ' + pu.nombre[1] : ''}: touch it and pick the Act ${a} tab.`], '#80c0ff');
+    } }
   historiaEntrar(j);
   // el presagio: al bajar a una mazmorra o meterse en una casa abandonada (no al volver a un lugar ya limpio de sustos)
   if (ZONAS[id].tipo === 'mazmorra' && !ZONAS[id].jefe) setTimeout(() => Sonido.efecto('presagio' as any, { vol: (ZONAS[id] as any).casa ? 0.7 : 0.9 }), 900);

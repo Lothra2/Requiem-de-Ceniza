@@ -20,7 +20,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
-- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): acto 2 hecho (ver su sección). Siguen, con el mismo mecanismo, los actos 6, 7, 3, 4, 5 y 1.
+- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2 y 6 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 7, 3, 4, 5 y 1.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
@@ -1009,6 +1009,38 @@ mismo `desierto` (arena, arenisca, el mismo bazar de viñeta). Eran la misma maz
 - Pruebas: tsc, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 9 zonas (antes y ahora: flotando 23 a
   14, repetidos 43 a 34, montados 143 a 83), t855 (0 de 192), t370 (288, 0 malas), conectividad 20 (1920), t1011 `todas 2`
   (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0), t440, t450, t500, t1001 y t961.
+
+## Cada zona con lo suyo: el acto 6 (22 nov 2026)
+
+El coordinador (por Rick, "revisar todos los actos"): cuatro mundos abiertos con `ahogada` y cinco mazmorras con
+`catedral_ahogada` salían con el mismo piso de lajas con musgo y agua, el mismo muro de vitrales y el mismo riego.
+
+- **El mecanismo, para todos los actos**: `juego/src/mundo/zonas_propias.ts` junta las tablas de cada acto (`acto2_zonas.ts`,
+  `acto6_zonas.ts`...) en `VARIANTE_ZONA` y da `varianteDe` (con `__acto<N>Viejo`). El ruido de los pisos de afuera está en
+  `ruido_zona.ts`. `t1041_zonas_propias.mjs` revisa las tablas contra el manifiesto: cada pieza, variante, muro y piso que se
+  nombra tiene que estar horneado (un muro con una variante `_der` sin hornear dejaba el tramo sin muro).
+- **Pisos nuevos** (`catalogo/acto6_pisos.ts`, usa los ayudantes que exporta `acto2_pisos.ts`): arena gris mojada con las líneas
+  de la marea, coral de hueso en crestas con charcas, adoquín negro y brillante con charcos, las losas de la plaza en anillos con
+  la rosa de bronce, la cripta inundada (losas bajo agua verde), las tablas mojadas del campanario y la piedra del faro en
+  anillos con hollín.
+- **Cada zona**: la **Costa** de arena gris con lo que escupe el mar (cascos, mástiles, anclas, botes, barriles, ahogados) y luz
+  azul gris; el **Arrecife** de coral blanco con charcas, ballenas, conchas, tentáculos y coral que alumbra, verde mar; las
+  **Calles Mojadas** con adoquín en cuadrícula, agua entre manzanas, puertas tapiadas, casas caídas y faroles; la **Plaza de las
+  Ánimas** con la plaza en anillos en el medio, santos, la pescadora, la torre, campanas y cruces de marinos, luz morada; el
+  **Faro** de piedra gris en anillos con la sillería de la costa, aceite, redes y faroles fríos, sin haces; las **Criptas
+  Inundadas** con agua verde, pared de toba húmeda, sarcófagos y algas, verde ahogado; el **Osario Ahogado** con piso de hueso,
+  pared de cráneos, pozos de huesos y coral sobre los muertos, sin haces; la **Nave** con el damero, los vitrales, bancos,
+  santos, el rosetón caído y haces fríos de los vitrales; el **Campanario** con tablas negras, el muro de la torre, campanas
+  colgando y caídas y sogas. Cada una con su castigo y, las del jefe, su asiento.
+- Ojo: `cri_muro_nichos` mide 5 x 2: en las criptas angostaba un cuello y un santuario de 3 x 3 lo cerraba (t370 contó una sala
+  aislada en a6_criptas). Las criptas van con `cat2_pared_toba` (5 x 1). Las columnas con percebes en filas se montaban (t1033):
+  la nave y las criptas usan los pilares de siempre.
+- Fotos: `DIR=/tmp/requiem-pruebas/acto6 node juego/herramientas/t1040_acto2_fotos.cjs <etiqueta> <zonas>` (el antes con
+  `BANDERAS=__acto6Viejo`) y `DIR=... LADO=<mazmorras> python3 juego/herramientas/t1040_lamina.py antes ahora`
+  (`/tmp/requiem-pruebas/acto6/lamina_mazmorras_{p1,p2,entrada}.png`, `lamina_<zona>.png`, `ext_antes.png` y `ext_ahora.png`).
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 9 zonas (flotando 23 a 18,
+  salida 1 a 0), t370 (288, 0 malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados,
+  objetiva 0), t995 (0), t440, t450, t500, t1001 y t961.
 
 ## Armas vivas, cofres, poderes y siluetas
 

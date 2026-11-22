@@ -8,14 +8,14 @@ import { BALDOSA, hash3 } from '../render';
 // repiten cada dos baldosas (como los quietos de pisos.ts: `PISO_DOBLE` en motor/assets.ts los lista).
 
 const P = BALDOSA, PER = 2;
-function rper(x: number, y: number, per: number, s = 0): number {
+export function rper(x: number, y: number, per: number, s = 0): number {
   const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
   const pp = per * PER, h = (a: number, b: number) => hash3(((a % pp) + pp) % pp, ((b % pp) + pp) % pp, s);
   const sm = (t: number) => t * t * (3 - 2 * t), u = sm(xf), v = sm(yf);
   return (h(xi, yi) * (1 - u) + h(xi + 1, yi) * u) * (1 - v) + (h(xi, yi + 1) * (1 - u) + h(xi + 1, yi + 1) * u) * v;
 }
-const fr = (x: number, y: number, e: number, s = 0) => rper((x / P) * e, (y / P) * e, e, s) * 0.6 + rper((x / P) * e * 2, (y / P) * e * 2, e * 2, s + 1) * 0.3 + rper((x / P) * e * 4, (y / P) * e * 4, e * 4, s + 2) * 0.1;
-function voronoi(x: number, y: number, n: number, s = 0): [number, number, number] {
+export const fr = (x: number, y: number, e: number, s = 0) => rper((x / P) * e, (y / P) * e, e, s) * 0.6 + rper((x / P) * e * 2, (y / P) * e * 2, e * 2, s + 1) * 0.3 + rper((x / P) * e * 4, (y / P) * e * 4, e * 4, s + 2) * 0.1;
+export function voronoi(x: number, y: number, n: number, s = 0): [number, number, number] {
   const c = P / n, cx = Math.floor(x / c), cy = Math.floor(y / c);
   let d1 = 1e9, d2 = 1e9, id = 0;
   for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
@@ -26,8 +26,8 @@ function voronoi(x: number, y: number, n: number, s = 0): [number, number, numbe
   }
   return [d1, d2, id];
 }
-const det = (x: number, y: number, v: number, k: number) => hash3(Math.floor(x / k), Math.floor(y / k), v * 7 + 3);
-const lejos = (x0: number, y0: number, m = 8) => { const PP = P * PER, x = x0 % PP, y = y0 % PP; return x > m && y > m && x < PP - m && y < PP - m; };
+export const det = (x: number, y: number, v: number, k: number) => hash3(Math.floor(x / k), Math.floor(y / k), v * 7 + 3);
+export const lejos = (x0: number, y0: number, m = 8) => { const PP = P * PER, x = x0 % PP, y = y0 % PP; return x > m && y > m && x < PP - m && y < PP - m; };
 
 // materiales del piso (rampas de la sombra a la luz)
 MATERIALES.a2_arena_duna = { rampa: ['#24170a', '#3f2a14', '#5f411f', '#83592b', '#a7743a', '#c3904c', '#d9aa64'], ruido: 0.12, escala: 0.2 };

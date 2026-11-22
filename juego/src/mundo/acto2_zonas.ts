@@ -8,44 +8,8 @@
 // Las listas son las de siempre (`Sel` de zona.ts): `t` los temas del catálogo, `p` lo que tiene que estar en el id, `s` lo
 // que no, `v` qué variantes. Las piezas nuevas van con el tema `acto2` (src/engine/gotico/catalogo/acto2.ts).
 
-type Sel = { t: string[]; p?: string[]; s?: string[]; v?: (v: string) => boolean };
-type Muro = [string, string[]];
-export interface VarianteZona {
-  /** El estilo del escombro, el relleno y la sillería de las mazmorras (muros.ts: paramo, cementerio, desierto, nieve...). */
-  estilo?: string;
-  piso?: string; parches?: string[]; camino?: string; oscuridad?: number;
-  borde?: Sel[]; disperso?: Sel[]; grande?: Sel[]; luces?: Sel[]; deco?: Sel[];
-  /** Afuera: los paisajes del motor que se estampan (reemplaza `vinetas`; [] ninguno). */
-  vinetas?: string[];
-  /** Reemplaza `extra` de la zona (los mundos abiertos). */
-  extra?: Sel[];
-  /** El muro de la tumba (x y su gemelo en y). Con muro propio no va la sillería genérica de la Forja (`muro_obra`). */
-  muroX?: Muro; muroY?: Muro;
-  /** Bajo tierra: sin el escombro del frente ni las piedras sueltas del tema en las salas (el piso queda limpio para lo suyo). */
-  limpio?: boolean;
-  /** Bajo tierra: con qué se llenan los huecos encerrados entre salas (`rellenarBolsas`): [id, variante, peso] por talla. */
-  relleno?: { alta: [string, string, number][]; media: [string, string, number][]; baja: [string, string, number][] };
-  /** Los santuarios que da la zona (`colocarInteractivos`): las piezas, el efecto es el de siempre. */
-  santuarios?: string[];
-  /** Lo que viste el muro de atrás (`PARED_TEMA`). */
-  pared?: [string, 'largo' | 'suelto'][];
-  /** El castigo de los campamentos comunes (ancla y lo de alrededor, `CASTIGO`). */
-  castigo?: [string, string | undefined][];
-  /** El asiento del jefe y sus braseros (`FOCO_JEFE`, `BRASERO_JEFE`). */
-  foco?: [string, string | undefined]; brasero?: string;
-  /** Trazado de las salas de obra: ancho y alto (mínimo y cuántas más), galería (largas en x o en y), cuánta área por sala y la sala mayor. */
-  sala?: { w: [number, number]; h: [number, number]; galeria?: boolean; cada?: number; mayor?: [number, number] };
-  /** Lo grande de las salas que no son la mayor va en hileras a lo largo de la galería (los lechos de los dormidos). */
-  hileras?: boolean;
-  /** Afuera: el piso dominante por baldosa (lecho seco, calles). Devuelve un id o nada para dejar el de siempre. */
-  pisoExt?: (bx: number, by: number, tw: number, th: number, m: number, m2: number) => string | undefined;
-  /** Afuera: cuántas ensenadas y macizos (mínimo y cuántos más) y qué tan hondas. */
-  silueta?: { ens: [number, number]; mac: [number, number]; hondo?: number };
-  /** Dibujo: el color de la oscuridad (rgb), los haces del techo (color, densidad y si son fríos; null sin haces) y las motas. */
-  tinta?: [number, number, number];
-  haz?: { c: string; dens: number; frio?: boolean } | null;
-  motas?: 'polvo' | 'oro' | 'brasa' | '';
-}
+import type { VarianteZona, Sel, Muro } from './zonas_propias';
+import { suave } from './ruido_zona';
 
 const A2 = ['acto2'];
 const TUMBA_LUZ: Sel[] = [{ t: ['tumba'], p: ['antorcha'] }];
@@ -54,15 +18,7 @@ const TUMBA_LUZ: Sel[] = [{ t: ['tumba'], p: ['antorcha'] }];
 const SANT_DESIERTO = ['com_santuario_cuernos', 'com_santuario_monolito'];
 const pozoMuro = (vs: string[]): [Muro, Muro] => [['a2_muro_pozo', vs], ['a2_muro_pozo', vs.map((v) => v + '_y')]];
 const muro = (id: string, vs: string[]): [Muro, Muro] => [[id, vs], [id, vs.map((v) => v + '_y')]];
-// ruido de valor determinista por baldosa (para las formas del piso afuera: no toca el azar de la zona)
-const hz = (x: number, y: number, s: number) => { const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
-const suave = (x: number, y: number, e: number, s: number) => {
-  const fx = x / e, fy = y / e, ix = Math.floor(fx), iy = Math.floor(fy), u = fx - ix, v = fy - iy, k = (t: number) => t * t * (3 - 2 * t);
-  const a = hz(ix, iy, s), b = hz(ix + 1, iy, s), c = hz(ix, iy + 1, s), d = hz(ix + 1, iy + 1, s);
-  return (a * (1 - k(u)) + b * k(u)) * (1 - k(v)) + (c * (1 - k(u)) + d * k(u)) * k(v);
-};
-
-export const VARIANTE_ZONA: Record<string, VarianteZona> = {
+export const ZONAS_ACTO2: Record<string, VarianteZona> = {
   // ---------------------------------------------------------------- mundos abiertos
   // Las Dunas de Sahrim: el mar de arena. Piso de rizos del viento, casi sin ensenadas (se ve lejos), dunas altas y la
   // caravana que no llegó. Nada de ruinas ni columnas: eso es de la ciudad.
@@ -199,5 +155,3 @@ export const VARIANTE_ZONA: Record<string, VarianteZona> = {
   },
 };
 
-/** Lo propio de la zona, o nada con `__acto<N>Viejo` (la bandera de su acto: `__acto2Viejo`, `__acto6Viejo`...). */
-export const varianteDe = (id: string): VarianteZona | undefined => ((globalThis as any)[`__acto${id[1]}Viejo`] ? undefined : VARIANTE_ZONA[id]);

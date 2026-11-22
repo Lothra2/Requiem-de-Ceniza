@@ -12,7 +12,7 @@ import { rng, clamp } from '../nucleo/azar';
 import CAJAS_SPRITE from './cajas_sprite.json';
 import CAJAS_MURO_J from './cajas_muro.json';
 import CAJAS_DECO_J from './cajas_deco.json';
-import { varianteDe } from './acto2_zonas';
+import { varianteDe } from './zonas_propias';
 
 export interface ObjZ { id: string; v: string; cx: number; cy: number; hw: number; hh: number; bloquea: boolean; tag?: string; dato?: any; /** De qué paso de la generación salió (riego, vida, macabro, relleno, escena, horror, jefe...): lo usa `curarAdornos`. No se guarda. */ capa?: string; }
 export interface Salida { cx: number; cy: number; destino: string; entrada: string; nombre: [string, string]; obj?: ObjZ; /** Misión que hay que haber aceptado para pasar (si no, la puerta está sellada). */ sello?: string; /** Misión que, cumplida, deja la pieza herida. */ herida?: string; /** Piezas que cambian de variante con la historia. */ piezas?: ObjZ[] }

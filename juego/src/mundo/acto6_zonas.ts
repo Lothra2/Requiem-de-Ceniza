@@ -7,8 +7,8 @@ import { suave } from './ruido_zona';
 
 const AH = ['ahogada'];
 const muro = (id: string, vx: string[], vy: string[]): { muroX: Muro; muroY: Muro } => ({ muroX: [id, vx], muroY: [id, vy] });
-const obra = (est: string, panos: string[]): { muroX: Muro; muroY: Muro } => ({ muroX: ['muro_obra', panos.map((p) => `${est}_${p}`)], muroY: ['muro_obra', panos.map((p) => `${est}_${p}_y`)] });
-const FAROL: Sel[] = [{ t: AH, p: ['ahg_farol_pescador'] }];
+// (la noche con lluvia se leía demasiado negra: más faroles de pescador, boyas con luz y torres de faro encendidas en la costa)
+const FAROL: Sel[] = [{ t: AH, p: ['ahg_farol_pescador'] }, { t: AH, p: ['ahg_boya_campana'], v: (v) => v === 'con_luz' }, { t: AH, p: ['ahg_farol_altar'], v: (v) => v !== 'apagado' }];
 
 export const ZONAS_ACTO6: Record<string, VarianteZona> = {
   // ---------------------------------------------------------------- mundos abiertos
@@ -21,7 +21,8 @@ export const ZONAS_ACTO6: Record<string, VarianteZona> = {
     grande: [{ t: AH, p: ['ahg_casco_proa', 'ahg_casco_popa', 'ahg_casco_costillar', 'ahg_mastil_roto', 'ahg_ancla', 'ahg_bote_roto', 'ahg_casco_bote_colgado'] }],
     luces: FAROL,
     castigo: [['ahg_red_huesos', 'llena'], ['ahg_marino_ahogado', 'enredado'], ['ahg_peces_muertos', 'podridos']],
-    tinta: [4, 9, 14],
+    extra: FAROL,
+    oscuridad: 0.38, tinta: [10, 18, 28],
   },
   // El Arrecife de Huesos: la marea baja dejó al aire un lecho de coral blanco de hueso con charcas; costillares de ballena,
   // conchas gigantes, tentáculos y coral que alumbra. Verde mar.
@@ -30,9 +31,11 @@ export const ZONAS_ACTO6: Record<string, VarianteZona> = {
     borde: [{ t: AH, p: ['ahg_arrecife_huesos', 'ahg_roca_percebes', 'ahg_coral_hueso'] }],
     disperso: [{ t: AH, p: ['ahg_coral_hueso', 'ahg_charco_marea', 'ahg_concha_gigante', 'ahg_peces_muertos', 'ahg_roca_percebes', 'ahg_tentaculo'] }],
     grande: [{ t: AH, p: ['ahg_ballena_huesos', 'ahg_arrecife_huesos', 'ahg_concha_gigante'] }],
-    luces: [{ t: AH, p: ['ahg_coral_hueso'], v: (v) => v === 'con_luz' }, { t: AH, p: ['ahg_boya_campana'], v: (v) => v === 'con_luz' }],
+    luces: [{ t: AH, p: ['ahg_coral_hueso'], v: (v) => v === 'con_luz' }, { t: AH, p: ['ahg_boya_campana'], v: (v) => v === 'con_luz' }, ...FAROL],
+    // (el coral que alumbra también va suelto, con más faroles: la bioluminiscencia del arrecife)
+    extra: [{ t: AH, p: ['ahg_coral_hueso'], v: (v) => v === 'con_luz' }, ...FAROL],
     castigo: [['ahg_ballena_huesos', 'craneo'], ['ahg_marino_ahogado', 'boca_abajo'], ['ahg_tentaculo', 'con_marino']],
-    tinta: [3, 12, 10],
+    oscuridad: 0.36, tinta: [6, 22, 20],
   },
   // El Barrio Sumergido, las Calles Mojadas: calles de adoquín negro y brillante en cuadrícula, charcos, las casas caídas y
   // las puertas tapiadas, faroles de pescador, escaleras que se meten en el agua.
@@ -42,9 +45,9 @@ export const ZONAS_ACTO6: Record<string, VarianteZona> = {
     borde: [{ t: AH, p: ['ahg_puerta_hundida', 'ahg_arco_hundido'] }, { t: ['pueblo'], p: ['pue_ruina_derrumbada', 'pue_casa_calcinada'] }],
     disperso: [{ t: AH, p: ['ahg_barril_marino', 'ahg_nasa', 'ahg_tablones', 'ahg_escalera_agua', 'ahg_peces_muertos', 'ahg_marino_ahogado'] }, { t: ['pueblo'], p: ['pue_escombros', 'pue_carreta'] }],
     grande: [{ t: AH, p: ['ahg_puerta_hundida', 'ahg_arco_hundido', 'ahg_muelle'] }, { t: ['pueblo'], p: ['pue_ruina_derrumbada'] }],
-    luces: [{ t: AH, p: ['ahg_farol_pescador'] }, { t: ['pueblo'], p: ['pue_farol'] }],
+    luces: [...FAROL, { t: ['pueblo'], p: ['pue_farol'] }], extra: [...FAROL, { t: ['pueblo'], p: ['pue_farol'] }],
     castigo: [['pue_horca', undefined], ['ahg_marino_ahogado', 'sentado'], ['ahg_red_huesos', 'colgada']],
-    tinta: [6, 6, 12],
+    oscuridad: 0.4, tinta: [12, 14, 26],
   },
   // El Barrio Sumergido, la Plaza de las Ánimas: la plaza grande en anillos con su rosa de bronce, los santos de piedra y la
   // pescadora, columnas con percebes, la torre del campanario, campanas caídas, cruces de marinos. Luz morada de las ánimas.
@@ -54,23 +57,25 @@ export const ZONAS_ACTO6: Record<string, VarianteZona> = {
     borde: [{ t: AH, p: ['ahg_columna_percebes', 'ahg_arco_hundido', 'ahg_torre_campanario'] }],
     disperso: [{ t: AH, p: ['ahg_cruz_marinos', 'ahg_campana_caida', 'ahg_pila_ahogada', 'ahg_columna_percebes'] }, { t: ['cementerio'], p: ['losa', 'cruz', 'urna'] }],
     grande: [{ t: AH, p: ['ahg_estatua_santo', 'ahg_pescadora_estatua', 'ahg_torre_campanario', 'ahg_campana_colgante', 'ahg_columna_caida_algas'] }],
-    luces: [{ t: AH, p: ['ahg_farol_altar', 'ahg_pila_ahogada'], v: (v) => /velas|faroles|con_velas/.test(v) }, { t: AH, p: ['ahg_farol_pescador'] }],
+    luces: [{ t: AH, p: ['ahg_farol_altar', 'ahg_pila_ahogada'], v: (v) => /velas|faroles|con_velas/.test(v) }, ...FAROL], extra: FAROL,
     castigo: [['ahg_cruz_marinos', 'con_redes'], ['ahg_marino_ahogado', 'tendido'], ['ahg_campana_caida', 'chica']],
-    tinta: [10, 5, 16],
+    oscuridad: 0.4, tinta: [18, 10, 28],
   },
   // ---------------------------------------------------------------- bajo tierra
   // El Faro Apagado: la torre por dentro. Piedra gris clara en anillos con el hollín del fuego que se apagó, la sillería de la
   // costa, barriles de aceite, nasas, timones, redes y faroles fríos. Gris y sin haces: la luz que daba está muerta.
   a6_faro: {
-    piso: 'a6_piedra_faro', parches: ['a6_piedra_faro', 'a6_tablas', 'a6_piedra_faro'], estilo: 'ahogada',
-    ...obra('ahogada', ['liso', 'pilastras', 'liso', 'roto']),
+    piso: 'a6_piedra_faro', parches: ['a6_piedra_faro', 'a6_tablas', 'a6_piedra_faro'], estilo: 'ahogada', oscuridad: 0.8, limpio: true,
+    ...muro('a6_muro_faro', ['tronera', 'sogas', 'tronera', 'faja', 'roto'], ['tronera_y', 'sogas_y', 'tronera_y', 'faja_y']),
+    // (los huecos entre salas son la roca de la costa con percebes, no escombro de obra)
+    relleno: { alta: [['ahg_roca_percebes', 'grande', 1], ['ahg_roca_percebes', 'con_algas', 1]], media: [['ahg_roca_percebes', 'con_mejillones', 1], ['ahg_roca_percebes', 'chica', 0.6]], baja: [['ahg_tablones', 'sueltos', 0.5], ['ahg_roca_percebes', 'chica', 1]] },
     disperso: [{ t: AH, p: ['ahg_barril_marino', 'ahg_nasa', 'ahg_timon', 'ahg_red_huesos', 'ahg_cadena_ancla', 'ahg_tablones'] }],
-    grande: [{ t: ['monasterio'], p: ['mon_pilar'] }],
-    luces: [{ t: AH, p: ['ahg_farol_pescador'] }], deco: [{ t: AH, p: ['ahg_farol_altar'], v: (v) => v === 'apagado' }],
-    pared: [['ahg_nasa', 'suelto'], ['ahg_barril_marino', 'suelto'], ['ahg_algas_colgantes', 'suelto'], ['cri_vasijas', 'suelto']],
+    grande: [{ t: ['cripta'], p: ['cri_escalera_caracol'] }],
+    luces: [{ t: AH, p: ['ahg_farol_pescador'] }], deco: [{ t: ['acto6'], p: ['a6_linterna_faro'] }],
+    pared: [['ahg_nasa', 'suelto'], ['ahg_barril_marino', 'suelto'], ['ahg_red_huesos', 'suelto'], ['ahg_farol_pescador', 'suelto']],
     castigo: [['ahg_red_huesos', 'en_poste'], ['ahg_marino_ahogado', 'contra_ancla'], ['ahg_barril_marino', 'reventado']],
-    foco: ['ahg_farol_altar', 'apagado'], brasero: 'ahg_farol_pescador',
-    tinta: [8, 10, 13], haz: null, motas: '',
+    foco: ['a6_linterna_faro', 'rota'], brasero: 'ahg_farol_pescador',
+    tinta: [10, 16, 22], haz: { c: '150,205,235', dens: 0.0085, frio: true }, motas: '',
   },
   // Las Criptas Inundadas: el agua verde llega a los tobillos y las losas asoman; nichos de huesos en los muros, sarcófagos,
   // algas colgando, faroles de altar. Verde ahogado.

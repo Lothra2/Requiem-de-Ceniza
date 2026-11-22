@@ -1035,6 +1035,15 @@ El coordinador (por Rick, "revisar todos los actos"): cuatro mundos abiertos con
 - Ojo: `cri_muro_nichos` mide 5 x 2: en las criptas angostaba un cuello y un santuario de 3 x 3 lo cerraba (t370 contó una sala
   aislada en a6_criptas). Las criptas van con `cat2_pared_toba` (5 x 1). Las columnas con percebes en filas se montaban (t1033):
   la nave y las criptas usan los pilares de siempre.
+- **Segunda vuelta** (el coordinador: el faro no se leía como faro y los de afuera salían oscuros):
+  - **El faro es un faro** (`catalogo/acto6.ts`, tema `acto6`, fila en `ESQUINAS_MURO`): `a6_muro_faro` de cal con la faja roja,
+    troneras por donde entra la luz fría del mar, sogas y algún tramo roto; adentro la escalera de caracol (`cri_escalera_caracol`
+    en todas las salas), la linterna muerta (`a6_linterna_faro`, apagada o rota, es el asiento del jefe), redes, aceite y haces
+    fríos y ralos (`haz.dens` 0,0085). Va `limpio` (sin escombro de obra) y el relleno es roca con percebes.
+  - **Afuera con luna**: oscuridad 0,36 a 0,40 y la tinta de la oscuridad más clara; `FAROL` (farol de pescador, boya con luz y
+    farol de altar encendido) va en `luces` y en `extra` (en los exteriores `deco` no se usa), y el arrecife suma coral que
+    alumbra. Brillo medio de la vista sin el HUD (`/tmp/claude-0/brillo.py`, no se sube): costa 41, arrecife 56, calles 45,
+    plaza 45, contra páramo 36 y selva 36.
 - Fotos: `DIR=/tmp/requiem-pruebas/acto6 node juego/herramientas/t1040_acto2_fotos.cjs <etiqueta> <zonas>` (el antes con
   `BANDERAS=__acto6Viejo`) y `DIR=... LADO=<mazmorras> python3 juego/herramientas/t1040_lamina.py antes ahora`
   (`/tmp/requiem-pruebas/acto6/lamina_mazmorras_{p1,p2,entrada}.png`, `lamina_<zona>.png`, `ext_antes.png` y `ext_ahora.png`).
@@ -1065,6 +1074,13 @@ Dos mundos abiertos con `celestial`, las dos partes de las Islas de Oro con `cel
   **Relicario** carmesí y oro con nichos y relicarios; las **Escaleras** de peldaños blancos, sillería del cielo con pilastras,
   ángeles y mucha luz blanca que baja; el **Trono** de oro reseco con la sangre en las grietas, muros que sangran y brasas que
   suben. Las Islas siguen siendo islas (`celestial_islas` no cambia de trazado).
+- **Segunda vuelta** (el coordinador: las Islas casi iguales, las Islas Altas oscuras, las Escaleras quemadas en blanco, una
+  cuadrícula marcada y manchas negras en el Cielo, el musgo plano): las Islas del Puente van con `a7_oro_losas` (mármol gris azul
+  con juntas de oro, oscuridad 0,28) y las Islas Altas con `a7_losas_ceniza` (ceniza con parches de oro y brasas que suben,
+  oscuridad 0,3); mirado en el juego, no solo en el código. Las Escaleras con `a7_marmol_esc` (más oscuro: los muros siguen
+  blancos y el piso se lee) y menos haces (0,006). El Cielo con la junta suave y la ceniza más clara, y menos nubes en el borde;
+  el Jardín con el musgo en matas (`a7_musgo_verde`, `a7_tallo_oro`). Brillo (sin HUD): islas 31 y 25, escaleras 73, cielo 81,
+  jardín 70.
 - Fotos: `DIR=/tmp/requiem-pruebas/acto7` (antes con `BANDERAS=__acto7Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
   `lamina_<zona>.png` y `ext_lamina.png` (cielo y jardín, antes arriba).
 - Pruebas: tsc, t1041, t1000 (todo en su piso), t1014, t1015 (0), t1033 en las 8 zonas (antes y ahora: montados 100 a 72,

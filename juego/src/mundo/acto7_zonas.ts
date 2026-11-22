@@ -36,13 +36,13 @@ export const ZONAS_ACTO7: Record<string, VarianteZona> = {
   },
   // Las Islas de Oro, el Puente Quebrado: las islas de mármol claro con oro, columnas rotas y escaleras flotantes. Azul de cielo.
   a7_islas1: {
-    piso: 'a7_oro_losas', parches: ['a7_oro_losas', 'a7_oro_losas', 'a7_oro_losas'],
-    tinta: [6, 9, 16], haz: null, motas: 'oro',
+    piso: 'a7_oro_losas', parches: ['a7_oro_losas', 'a7_oro_losas', 'a7_oro_losas'], oscuridad: 0.28,
+    tinta: [10, 16, 30], haz: null, motas: 'oro',
   },
   // Las Islas Altas: más cerca del trono las islas son losas de runas y llueve ceniza; el oro se apaga. Gris violeta.
   a7_islas2: {
-    piso: 'a7_ceniza_marmol', parches: ['a7_ceniza_marmol', 'a7_sed', 'a7_ceniza_marmol'],
-    tinta: [10, 8, 13], haz: null, motas: '',
+    piso: 'a7_losas_ceniza', parches: ['a7_losas_ceniza', 'a7_ceniza_marmol', 'a7_losas_ceniza'], oscuridad: 0.3,
+    tinta: [20, 14, 26], haz: null, motas: 'brasa',
   },
   // La Bóveda de los Astros: lapislázuli con estrellas de oro en el piso y en los muros, esferas armilares, atriles y
   // obeliscos de oro. Azul noche y motas de oro.
@@ -82,7 +82,7 @@ export const ZONAS_ACTO7: Record<string, VarianteZona> = {
     luces: LUZ_BLANCA, deco: [{ t: CE, p: ['cel_escalera_oro', 'cel_balaustrada'] }],
     pared: [['cel_estandarte', 'suelto'], ['cel_candelabro_oro', 'suelto']],
     castigo: [['cel_estatua_suplica', 'tendiendo'], ['sed_cuerpo_seco', undefined], ['cel_estatua_suplica', 'encogido']],
-    tinta: [14, 13, 10], haz: { c: '255,246,220', dens: 0.011 }, motas: 'oro',
+    oscuridad: 0.76, tinta: [14, 12, 8], haz: { c: '255,236,200', dens: 0.006 }, motas: 'oro',
   },
   // El Trono Sediento: oro reseco y agrietado como tierra sin agua, la sangre seca en las grietas, los muros de placas de oro
   // por donde baja la sangre, bebidos por todas partes y la copa volcada. Rojo negro.

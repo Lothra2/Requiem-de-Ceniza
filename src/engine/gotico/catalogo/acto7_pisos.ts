@@ -11,12 +11,15 @@ MATERIALES.a7_lapis = { rampa: ['#04060f', '#080d1d', '#0e152c', '#151e3d', '#1e
 MATERIALES.a7_estrella = { rampa: ['#6a5418', '#a08028', '#d4b048', '#f4dc86'], ruido: 0.1, escala: 0.3, emite: true };
 MATERIALES.a7_oro_mate = { rampa: ['#2a1d08', '#46310d', '#664914', '#88631d', '#a87e2a', '#c49a3c'], ruido: 0.12, escala: 0.2, brillo: 0.5 };
 MATERIALES.a7_marmol = { rampa: ['#3a3836', '#57544f', '#75716a', '#938e85', '#aea9a0', '#c6c1b8', '#d9d5cd'], ruido: 0.12, escala: 0.2 };
+MATERIALES.a7_marmol_esc = { rampa: ['#24221f', '#34312d', '#45423c', '#57534c', '#69645c', '#7a756b', '#8a8479'], ruido: 0.12, escala: 0.2 };
 MATERIALES.a7_veta = { rampa: ['#2e2a26', '#45403a', '#5d574f'], ruido: 0.2, escala: 0.4 };
 MATERIALES.a7_terciopelo = { rampa: ['#12030a', '#220610', '#350a18', '#4a1022', '#60172d'], ruido: 0.3, escala: 0.5 };
-MATERIALES.a7_ceniza = { rampa: ['#141312', '#201e1c', '#2e2b28', '#3d3a36', '#4d4944', '#5e5a54'], ruido: 0.3, escala: 0.3 };
+MATERIALES.a7_ceniza = { rampa: ['#2e2c2a', '#3b3936', '#4a4743', '#5a5651', '#6a665f', '#7a756e'], ruido: 0.3, escala: 0.3 };
 MATERIALES.a7_oro_seco = { rampa: ['#1e1406', '#32220b', '#4a3311', '#644618', '#7e5a20', '#966e2b'], ruido: 0.2, escala: 0.25 };
 MATERIALES.a7_sangre_seca = { rampa: ['#0f0303', '#1c0606', '#2b0a0a', '#3b0f0e'], ruido: 0.2, escala: 0.3 };
-MATERIALES.a7_musgo_oro = { rampa: ['#141107', '#25200c', '#3a3212', '#524718', '#6c5e1f', '#877627', '#a08f33'], ruido: 0.35, escala: 0.35 };
+MATERIALES.a7_musgo_oro = { rampa: ['#120d06', '#21180a', '#33250f', '#473414', '#5d451a', '#745720', '#8c6a28', '#a37e33'], ruido: 0.35, escala: 0.35 };
+MATERIALES.a7_musgo_verde = { rampa: ['#0a0c06', '#141a0b', '#202810', '#2d3714', '#3b4719'], ruido: 0.4, escala: 0.4 };
+MATERIALES.a7_tallo_oro = { rampa: ['#3a2a0e', '#5a4214', '#7c5d1c', '#a07a26', '#c49a34', '#e0b84a'], ruido: 0.2, escala: 0.3, brillo: 0.5 };
 
 const NUEVOS: PisoDef[] = [
   // la Bóveda de los Astros: lapislázuli pulido con estrellas de oro, líneas de constelación y, cada dos baldosas, el aro de
@@ -48,10 +51,10 @@ const NUEVOS: PisoDef[] = [
   { id: 'a7_peldanos', nombre: ['Peldaños de mármol', 'Marble steps'], tema: 'celestial', variantes: 8, punto: (x, y, v) => {
     const u = x % 16, losa = Math.floor(y / 26) + Math.floor(x / 16) * 7;
     if (u < 1.4) return ['a7_veta', -1, -0.25];
-    if (u < 3) return ['a7_marmol', 1.6, 0.14];
+    if (u < 3) return ['a7_marmol_esc', 1.6, 0.14];
     if (y % 26 < 0.7) return ['a7_veta', -0.3, -0.05];
     const veta = Math.abs(Math.sin((x * 0.3 + y) * 0.1 + fr(x, y, 4, 135) * 7)) < 0.05;
-    return [veta ? 'a7_veta' : 'a7_marmol', 1, (hash3(losa, 3, 1) - 0.5) * 0.12 + (v > 0 && lejos(x, y) && det(x, y, v, 12) > 0.9 ? -0.18 : 0)];
+    return [veta ? 'a7_veta' : 'a7_marmol_esc', 1, (hash3(losa, 3, 1) - 0.5) * 0.12 + (v > 0 && lejos(x, y) && det(x, y, v, 12) > 0.9 ? -0.18 : 0)];
   } },
   // el Trono Sediento: oro reseco y agrietado como tierra sin agua, la sangre seca en las grietas
   { id: 'a7_sed', nombre: ['Oro reseco', 'Parched gold'], tema: 'celestial', variantes: 8, punto: (x, y, v) => {
@@ -66,16 +69,19 @@ const NUEVOS: PisoDef[] = [
     const ceniza = fr(x, y, 3, 138);
     if (ceniza > 0.52) return ['a7_ceniza', (ceniza - 0.52) * 4 + fr(x, y, 14, 139), (fr(x, y, 9, 140) - 0.5) * 0.2];
     const c = 26, ux = x % c, uy = (y + (Math.floor(x / c) % 2) * 13) % c;
-    if (ux < 1 || uy < 1) return ['a7_ceniza', -0.5, -0.15];
+    if (ux < 0.7 || uy < 0.7) return ['a7_marmol', 0.4, -0.12];
     return ['a7_marmol', 1, (fr(x, y, 6, 141) - 0.5) * 0.2 - (ceniza > 0.45 ? 0.15 : 0) + (v > 0 && lejos(x, y) && det(x, y, v, 14) > 0.88 ? -0.15 : 0)];
   } },
   // el Jardín de los que Intentaron: musgo de oro seco y piedras de paso de mármol
   { id: 'a7_musgo_oro', nombre: ['Musgo de oro', 'Golden moss'], tema: 'celestial', variantes: 8, punto: (x, y, v) => {
-    const [d1, d2, id] = voronoi(x, y, 3, 142);
-    if (hash3(id, 8, 8) > 0.72 && d1 < 9) return d1 > 8 ? ['a7_veta', -0.3, 0] : ['a7_marmol', 1.2, (hash3(id, 1, 4) - 0.5) * 0.15];
-    const n = fr(x, y, 10, 143), m = fr(x, y, 3, 144);
-    if (v > 0 && lejos(x, y) && det(x, y, v, 4) > 0.93) return ['a7_oro_mate', 0.8, 0.1];
-    return ['a7_musgo_oro', n * 1.6, (n - 0.5) * 0.3 + (m - 0.5) * 0.15 - (d2 - d1 < 1 ? 0.05 : 0)];
+    const [d1, , id] = voronoi(x, y, 3, 142);
+    if (hash3(id, 8, 8) > 0.72 && d1 < 9 - hash3(id, 2, 1) * 3) return d1 > 7.5 ? ['a7_veta', -0.3, 0] : ['a7_marmol', 1.2, (hash3(id, 1, 4) - 0.5) * 0.15 - 0.05];
+    // matas: montoncitos de musgo seco con su sombra y su cresta encendida, tallos de oro que asoman y el verde viejo abajo
+    const [m1, m2, mid] = voronoi(x, y, 12, 147), mata = Math.max(0, 1 - m1 / 3.2), bajo = fr(x, y, 3, 144);
+    if (bajo < 0.3 && mata < 0.3) return ['a7_musgo_verde', 0, (fr(x, y, 9, 148) - 0.5) * 0.3];
+    if (v > 0 && lejos(x, y) && det(x, y, v, 3) > 0.94) return ['a7_tallo_oro', 1.6, 0.1];
+    if (m2 - m1 < 0.5) return ['a7_musgo_verde', -0.5, -0.05];
+    return ['a7_musgo_oro', mata * 2.2 + fr(x, y, 20, 143) * 0.6, (hash3(mid, 6, 2) - 0.5) * 0.3 + mata * 0.12 + (bajo - 0.5) * 0.2];
   } },
   // las Islas de Oro: losas grandes de mármol blanco con filetes de oro embutidos y una estrella de oro en cada cruce
   { id: 'a7_oro_losas', nombre: ['Losas de oro y mármol', 'Gold and marble slabs'], tema: 'celestial', variantes: 8, punto: (x, y, v) => {
@@ -84,6 +90,15 @@ const NUEVOS: PisoDef[] = [
     if (dx < 1.3 || dy < 1.3) return ['a7_oro_mate', 0.5, -0.05];
     const veta = Math.abs(Math.sin((x - y * 0.5) * 0.09 + fr(x, y, 4, 145) * 7)) < 0.05;
     return [veta ? 'a7_veta' : 'a7_marmol', 1, (fr(x, y, 5, 146) - 0.5) * 0.14 + 0.06 + (v > 0 && lejos(x, y) && det(x, y, v, 14) > 0.88 ? -0.15 : 0)];
+  } },
+  // las Islas Altas: las mismas losas de las islas, pero el mármol ya es oro que se seca y la ceniza se junta en las juntas
+  { id: 'a7_losas_ceniza', nombre: ['Losas de oro con ceniza', 'Ash-strewn gold slabs'], tema: 'celestial', variantes: 8, punto: (x, y, v) => {
+    const ceniza = fr(x, y, 3, 176);
+    const c = 40, ux = x % c, uy = y % c, dx = Math.min(ux, c - ux), dy = Math.min(uy, c - uy);
+    if (dx < 1.5 || dy < 1.5) return ['a7_ceniza', -0.4, 0.05];
+    if (ceniza > 0.6) return ['a7_ceniza', 0.6 + (ceniza - 0.6) * 3, (fr(x, y, 9, 177) - 0.5) * 0.2];
+    const id = Math.floor(x / c) * 7 + Math.floor(y / c);
+    return ['a7_oro_mate', 1, (hash3(id, 4, 4) - 0.5) * 0.25 + (fr(x, y, 8, 178) - 0.5) * 0.15 - (ceniza > 0.5 ? 0.15 : 0) + (v > 0 && lejos(x, y) && det(x, y, v, 12) > 0.88 ? -0.15 : 0)];
   } },
 ];
 for (const d of NUEVOS) if (!PISOS.some((q) => q.id === d.id)) PISOS.push(d);

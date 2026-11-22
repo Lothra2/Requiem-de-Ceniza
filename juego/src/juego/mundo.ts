@@ -2590,6 +2590,18 @@ function apartarDeMuros(z: Zona, e: Ent) {
   if (fx < R0 && !pasable(z, cx - 1, cy + 0.5)) nx = cx + R0; else if (fx > 1 - R0 && !pasable(z, cx + 1, cy + 0.5)) nx = cx + 1 - R0;
   if (fy < R0 && !pasable(z, cx + 0.5, cy - 1)) ny = cy + R0; else if (fy > 1 - R0 && !pasable(z, cx + 0.5, cy + 1)) ny = cy + 1 - R0;
   if ((nx !== e.x || ny !== e.y) && pasable(z, nx, ny)) { e.x = nx; e.y = ny; }
+  // (entrega 10) las esquinas que salen (los salientes de roca de las minas, las puntas de los muros): con la celda de al lado
+  // libre y la de la diagonal no, el cuerpo podía quedar pegado al vértice. Se aparta de él a lo largo de la diagonal.
+  if ((globalThis as any).__esquinaVieja) return;
+  const bx = Math.floor(e.x), by = Math.floor(e.y), gx = e.x - bx, gy = e.y - by;
+  for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    if ((dx < 0 ? gx : 1 - gx) >= R0 || (dy < 0 ? gy : 1 - gy) >= R0) continue;
+    if (pasable(z, bx + dx + 0.5, by + dy + 0.5)) continue;
+    const qx = bx + (dx > 0 ? 1 : 0), qy = by + (dy > 0 ? 1 : 0), d = Math.hypot(e.x - qx, e.y - qy);
+    if (d >= R0) continue;
+    const ux = d > 1e-6 ? (e.x - qx) / d : -dx * Math.SQRT1_2, uy = d > 1e-6 ? (e.y - qy) / d : -dy * Math.SQRT1_2, mx = qx + ux * R0, my = qy + uy * R0;
+    if (pasable(z, mx, my)) { e.x = mx; e.y = my; }
+  }
 }
 /**
  * (entrega 7) Los huecos del corro que ya tomó alguien: cada uno que va rodeando a los otros cuerpos reserva el suyo hasta que
@@ -2922,6 +2934,9 @@ function avanzar(j: Juego, m: Monstruo, obj: Ent, dt: number, lento: number) {
     const dx = m.x - o.x, dy = m.y - o.y, dd = Math.hypot(dx, dy), min = m.radio + o.radio;
     if (dd < min && dd > 0.001) { const k = (min - dd) * 0.5; const nx = m.x + (dx / dd) * k, ny = m.y + (dy / dd) * k; if (pasable(j.zona, nx, ny)) { m.x = nx; m.y = ny; } }
   }
+  // (entrega 10) el empujón de los otros también puede arrimarlo al muro (el que está pegando no pasa por `avanzar`): se vuelve a
+  // apartar después de separarse
+  if (!(globalThis as any).__esquinaVieja) apartarDeMuros(j.zona, m);
 }
 function iniciarAtaque(j: Juego, m: Monstruo, obj: Ent, distancia: boolean) {
   m.dir = dirDe(obj.x - m.x, obj.y - m.y);

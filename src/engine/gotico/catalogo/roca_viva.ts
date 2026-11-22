@@ -44,20 +44,24 @@ M.rv_mina_ox = { ...M.rv_mina, rampa: ['#0e0806', '#1b0f0a', '#2a1810', '#3a2216
 M.rv_mina_humeda = { ...M.rv_mina, rampa: ['#0d0c0a', '#181512', '#24201a', '#312b23', '#3f372d', '#4e4438', '#5f5345'], brillo: 0.38 };
 /** Caliza de la cueva: estratos que ondulan en diagonal y chorreones de humedad que bajan. */
 M.rv_cueva = {
-  rampa: ['#0d0c0a', '#181613', '#24211c', '#322d26', '#413a31', '#52493d', '#655a4b', '#7a6d5b'], ruido: 0.4, escala: 0.14, brillo: 0.18,
+  rampa: ['#0f0d0b', '#1b1814', '#28231d', '#363027', '#463e33', '#574d3f', '#6a5e4d', '#7f705c'], ruido: 0.42, escala: 0.15, brillo: 0.12,
   patron: (p, n) => {
-    const st = Math.sin((p[2] + (p[0] - p[1]) * 0.22) * (0.36 + ruido(p[0] * 0.02, p[1] * 0.02, 7) * 0.16) + ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.04) * 6); // (estratos que se cortan y cambian de paso: no curvas de nivel)
-    const amp = 0.5 + Math.max(0, ruido(p[0] * 0.035, p[1] * 0.035, p[2] * 0.02 + 4) - 0.38) * 1.6; let v = (st > 0.7 ? -0.2 : st > 0.45 ? 0.09 : st < -0.85 ? -0.08 : 0) * amp;
-    // la humedad que chorrea: rayas largas que bajan por las caras paradas
-    if (Math.abs(n[2]) < 0.7) { const c = ruido(p[0] * 0.32, p[1] * 0.32, p[2] * 0.012); if (c > 0.64) v -= 0.14 * (c - 0.64) / 0.36 + 0.06; }
-    v += (ruido(p[0] * 0.1, p[1] * 0.1, p[2] * 0.1) - 0.5) * 0.22 + (ruido(p[0] * 0.35, p[1] * 0.35, p[2] * 0.35) - 0.5) * 0.1;
-    if (n[2] > 0.65) v += 0.04;
-    return v - Math.min(1, Math.max(0, (p[2] - 58) / 90)) * 0.15; // (lo alto se pierde en lo oscuro del techo: la roca no termina en un canto contra la nada)
+    // (estratos finos en la piedra; la humedad solo en lo que mira arriba: el agua corre por las juntas, que son piezas aparte)
+    const st = Math.sin((p[2] + (p[0] - p[1]) * 0.2) * 0.9 + ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.05) * 5);
+    let v = st > 0.8 ? -0.09 : st < -0.85 ? 0.05 : 0;
+    v += (ruido(p[0] * 0.1, p[1] * 0.1, p[2] * 0.1) - 0.5) * 0.2 + (ruido(p[0] * 0.4, p[1] * 0.4, p[2] * 0.4) - 0.5) * 0.1;
+    if (n[2] > 0.6) v -= 0.08;
+    return v - Math.min(1, Math.max(0, (p[2] - 64) / 90)) * 0.14;
   },
 };
-/** Roca de las cuevas de hielo: gris azulada, escarcha en los estratos. */
+M.rv_cueva_b = { ...M.rv_cueva, rampa: ['#0e0d0c', '#1a1917', '#272522', '#35322d', '#44403a', '#55504a', '#67615a', '#7b746b'] };
+M.rv_junta = { rampa: ['#050404', '#0b0908', '#120f0c', '#1a1612'], ruido: 0.4, escala: 0.4, brillo: 0.45 };
+M.rv_piedra_clara = { rampa: ['#2a251f', '#3a332b', '#4c4338', '#605546', '#756856', '#8b7c67', '#a29079'], ruido: 0.4, escala: 0.4 };
+M.rv_nieve = { rampa: ['#7d8994', '#97a3ad', '#b0bbc4', '#c6d0d7', '#d9e1e6', '#e8eef1', '#f6f9fa'], ruido: 0.16, escala: 0.2, brillo: 0.35 };
+// (tercera vuelta) el carámbano: hielo claro casi blanco que deja pasar la luz (el `rv_hielo_vivo` oscuro se leía como bolitas)
+M.rv_caramb = { rampa: ['#5b7a8c', '#7d9cad', '#9dbccb', '#bcd6e2', '#d6eaf2', '#edf7fb'], ruido: 0.1, escala: 0.1, brillo: 0.75 };
 M.rv_hielo = {
-  rampa: ['#0a0c0f', '#12161b', '#1b2128', '#252d36', '#303a45', '#3c4855', '#4a5766', '#5b6878'], ruido: 0.38, escala: 0.14, brillo: 0.25,
+  rampa: ['#0b0f14', '#141b23', '#1e2833', '#2a3644', '#384656', '#495869', '#5d6c7e', '#758597'], ruido: 0.38, escala: 0.14, brillo: 0.45,
   patron: (p, n) => {
     const st = Math.sin((p[2] + (p[0] - p[1]) * 0.25) * 0.4 + ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.04) * 3);
     const amp = 0.5 + Math.max(0, ruido(p[0] * 0.035, p[1] * 0.035, p[2] * 0.02 + 4) - 0.38) * 1.6; let v = (st > 0.72 ? 0.16 : st < -0.8 ? -0.12 : 0) * amp + (ruido(p[0] * 0.3, p[1] * 0.3, p[2] * 0.3) - 0.5) * 0.12;
@@ -117,7 +121,7 @@ const altoEn = (pf: number[], u: number) => {
   const t = Math.max(0, Math.min(4, (u + 40) / 20)), i = Math.min(3, Math.floor(t)), f = Math.max(0, Math.min(1, (t - i - 0.3) / 0.4)), s = (1 - Math.cos(f * PI)) / 2; // (hombros planos y escalones: la cresta no sube en punta)
   return pf[i] + (pf[i + 1] - pf[i]) * s;
 };
-interface OpcTramo { mat: string; matB?: string; veta?: 'oro' | 'hierro' | 'sangre'; humeda?: boolean; pf: number[]; largo: number; fondo: number; frente: number; caer?: number; estrato?: [number, number]; retiro?: number }
+interface OpcTramo { mat: string; matB?: string; veta?: 'oro' | 'hierro' | 'sangre'; humeda?: boolean; pf: number[]; largo: number; fondo: number; frente: number; caer?: number; estrato?: [number, number]; retiro?: number; entalle?: boolean }
 /**
  * Roca cortada por estratos: el tramo se parte a lo largo en losas de ancho dispar y a lo alto por las líneas de estrato
  * (inclinadas, las mismas en todo el tramo); cada pedazo es un poliedro con la cara de adelante plana, apenas en talud, el
@@ -126,7 +130,7 @@ interface OpcTramo { mat: string; matB?: string; veta?: 'oro' | 'hierro' | 'sang
 function rocaCortada(r: Az, ps: Pieza[], P: (u: number, w: number, z: number) => V3, o: OpcTramo) {
   const L = o.largo / 2, ext = 3;
   // la línea del frente en planta: ondula de verdad (la cara no queda a regla)
-  const fa = r() * 6.28, fb = r() * 6.28, fr = (u: number) => o.frente - 2.5 + 3.2 * Math.sin(u * 0.075 + fa) + 2 * Math.sin(u * 0.19 + fb);
+  const fa = r() * 6.28, fb = r() * 6.28, fr = (u: number) => o.frente - 2.5 + 3.2 * Math.sin(u * 0.075 + fa) + 2 * Math.sin(u * 0.19 + fb) - (o.entalle ? 16 * Math.max(0, Math.min(1, (27 - Math.abs(u)) / 7)) : 0); // (el entalle: el medio del tramo se mete una celda)
   const jit = (k: number) => (r() - 0.5) * k;
   const H = (u: number) => altoEn(o.pf, (u / L) * 40) + 2.5 * Math.sin(u * 0.21 + fa * 2) + 1.5 * Math.sin(u * 0.43 + fb);
   // estratos: líneas inclinadas (las mismas para todo el tramo)
@@ -191,7 +195,7 @@ function bolson(r: Az, ps: Pieza[], P: (u: number, w: number, z: number) => V3, 
 }
 
 /** Los tramos de la mina: `m1`..`m8` (perfil), `ov`, `hv`, `sv` (vetas de oro, hierro y sangre), con `_y` el eje y. */
-const TRAMOS = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'ov1', 'ov2', 'hv1', 'hv2', 'sv1', 'sv2'];
+const TRAMOS = ['m1', 'm2', 'm3', 'm4', 'm5', 'm6', 'm7', 'm8', 'm9', 'm10', 'ov1', 'ov2', 'hv1', 'hv2', 'sv1', 'sv2', 'n1', 'n2', 'n3', 'n4'];
 /** Los salientes: `e<largo><fondo>_<n>` (largo a lo largo del muro, fondo hacia la galería). */
 const ESPOLONES = ['e21_1', 'e21_2', 'e31_1', 'e31_2', 'e22_1', 'e22_2', 'e32_1', 'e32_2'];
 
@@ -202,13 +206,13 @@ registrar(
     armar: (v, _f) => {
       const ejeY = v.endsWith('_y'), base = ejeY ? v.slice(0, -2) : v, r = azar(base), P = ejeDe(ejeY), ps: Pieza[] = [];
       const veta = base.startsWith('ov') ? 'oro' : base.startsWith('hv') ? 'hierro' : base.startsWith('sv') ? 'sangre' : undefined;
-      const n = veta ? Math.floor(r() * PERFIL.length) : (+base.slice(1) - 1) % PERFIL.length;
+      const entalle = base[0] === 'n', n = veta ? Math.floor(r() * PERFIL.length) : (+base.slice(1) + (entalle ? 3 : -1)) % PERFIL.length;
       const pf = PERFIL[n].map((h) => h * entre(r, 0.92, 1.06) + entre(r, -6, 6));
       if (+base.slice(1) > 8) pf.reverse();
-      rocaCortada(r, ps, P, { mat: veta === 'hierro' ? 'rv_mina_ox' : 'rv_mina', matB: veta === 'hierro' ? 'rv_mina' : undefined, veta, humeda: r() < 0.4, pf, largo: 80, fondo: -22, frente: 13 });
+      rocaCortada(r, ps, P, { mat: veta === 'hierro' ? 'rv_mina_ox' : 'rv_mina', matB: veta === 'hierro' ? 'rv_mina' : undefined, veta, humeda: r() < 0.4, pf, largo: 80, fondo: -22, frente: 13, entalle });
       let luz: [number, number, number] | null = null;
       if (veta) luz = bolson(r, ps, P, 40, 11, veta);
-      cascajoPie(r, ps, P, 40, 12, 'rv_mina', 9 + Math.floor(r() * 6));
+      cascajoPie(r, ps, entalle ? (u, w, z) => P(u, w - 16 * Math.max(0, Math.min(1, (27 - Math.abs(u)) / 7)), z) : P, 40, 12, 'rv_mina', 9 + Math.floor(r() * 6));
       ps.push(suelo());
       if (veta === 'sangre' && luz) return { piezas: ps, resplandor: { c: luz, r: 46, color: '#e0403a' } };
       return ps;
@@ -244,62 +248,82 @@ registrar(
  */
 const CLASES_MAC: Record<string, [number, number]> = { a: [76, 104], m: [50, 66], b: [20, 34] };
 const MACIZOS = ['a', 'm', 'b'].flatMap((c) => ['1', '2', '3'].flatMap((n) => [0, 1, 2, 3, 4, 5, 6, 7].map((d) => `${c}${n}_${d}`)));
-function macizo(r: Az, ps: Pieza[], alto: number, fam: 'c' | 'h' | 'm', baja: boolean, dir: number): [number, number, number, number][] {
-  const mat = fam === 'h' ? 'rv_hielo' : fam === 'm' ? 'rv_mina' : 'rv_cueva', matB = fam === 'h' ? 'rv_hielo' : fam === 'm' ? 'rv_mina_humeda' : 'sub_roca_humeda';
+/** Lo que se apoya arriba de cada repisa (para el musgo, la nieve y lo que gotea): x, y, z, ancho, y el rumbo del canto. */
+type Repisa = [number, number, number, number];
+function macizo(r: Az, ps: Pieza[], alto: number, fam: 'c' | 'h' | 'm', baja: boolean, dir: number): { sobre: Repisa[]; voladizos: V3[] } {
+  // (tercera vuelta: la masa de bultos se leía como almohada o barro. Ahora roca de verdad: estratos de losas facetadas, cada
+  //  uno con su retiro (unos vuelan sobre el de abajo y dejan su sombra), juntas húmedas oscuras entre estrato y estrato, cantos
+  //  achaflanados, grietas cavadas y lascas sueltas. La planta se curva y se cierra en las puntas: el macizo es redondo de lejos
+  //  y de cerca es piedra partida)
+  const mat = fam === 'h' ? 'rv_hielo' : fam === 'm' ? 'rv_mina' : 'rv_cueva', junta = fam === 'h' ? 'rv_hielo_vivo' : fam === 'm' ? 'rv_mina_humeda' : 'rv_junta';
   const an = (dir * PI) / 4, fx = Math.cos(an), fy = Math.sin(an), P = (u: number, w: number, z: number): V3 => [-fy * u + fx * w, fx * u + fy * w, z];
-  const sobre: [number, number, number, number][] = [], cs: Comp[] = [], cuerpo: number[][] = [];
-  const L = baja ? entre(r, 22, 30) : entre(r, 30, 40), n = baja ? 3 + Math.floor(r() * 2) : 4 + Math.floor(r() * 2);
-  for (let i = 0; i < n; i++) {
-    const u = -L + (2 * L * (i + 0.5)) / n + entre(r, -4, 4), h = alto * (i === 0 || i === n - 1 ? entre(r, 0.55, 0.85) : entre(r, 0.75, 1));
-    const w = baja ? entre(r, -6, 2) : entre(r, -14, -6), ru = entre(r, 14, 20), rw = baja ? entre(r, 12, 16) : entre(r, 15, 21);
-    const c = P(u, w, h * 0.5); cuerpo.push([u, w, h * 0.5, ru, rw, h * 0.52]); cs.push(bulto(c, [ru, rw, h * 0.52], { giro: (an * 180) / PI + 90 + entre(r, -20, 20), tono: (r() - 0.5) * 0.08 }));
-    sobre.push([c[0], c[1], h * 0.98, ru * 0.5]);
-    // la cara se hincha: un bulto a media altura, hacia el piso
-    if (!baja && r() < 0.75) { const z = h * entre(r, 0.3, 0.6), q = P(u + entre(r, -6, 6), w + rw * 0.55, z); cs.push(bulto(q, [entre(r, 9, 14), entre(r, 7, 10), entre(r, 9, 15)], { giro: (an * 180) / PI + 90, tono: 0.03 })); sobre.push([q[0], q[1], z + 9, 5]); }
+  const sobre: Repisa[] = [], voladizos: V3[] = [];
+  const L = baja ? entre(r, 22, 30) : entre(r, 30, 40), fondo = -26, jit = (k: number) => (r() - 0.5) * k;
+  const fa = r() * 6.28, fb = r() * 6.28;
+  // el frente en planta: ondula y se cierra en las puntas
+  const fr = (u: number) => (baja ? 6 : 8) + 5 * Math.sin(u * 0.09 + fa) + 2.5 * Math.sin(u * 0.23 + fb) - 22 * Math.pow(Math.min(1, Math.abs(u) / L), 2.6);
+  // la cresta: dos a cuatro lomos de alturas dispares que bajan en las puntas
+  const nl = baja ? 2 : 2 + Math.floor(r() * 3), lomos: [number, number, number][] = [];
+  for (let i = 0; i < nl; i++) lomos.push([-L + (2 * L * (i + 0.5)) / nl + jit(10), alto * (i === 0 || i === nl - 1 ? entre(r, 0.6, 0.85) : entre(r, 0.85, 1)), entre(r, 12, 20)]);
+  const H = (u: number) => { let h = 0; for (const [c, a, w] of lomos) h = Math.max(h, a * Math.exp(-((u - c) * (u - c)) / (2 * w * w)) ** 0.6); return Math.max(baja ? 6 : 10, h * (1 - Math.pow(Math.min(1, Math.abs(u) / (L + 4)), 4))); };
+  const est: number[] = [0]; { let z = entre(r, baja ? 6 : 10, baja ? 11 : 20); while (z < alto + 10) { est.push(z); z += baja ? entre(r, 7, 12) : entre(r, 13, 24); } }
+  const inc = jit(0.3), zEst = (k: number, u: number) => (k === 0 ? 0 : est[k] + inc * u);
+  const retiro: number[] = []; { let acc = 0; for (let k = 0; k < est.length; k++) { acc += k === 0 ? 0 : entre(r, 1, 6); retiro.push(acc - (k > 0 && r() < 0.3 ? entre(r, 3, 6) : 0)); } }
+  for (let k = 0; k < est.length; k++) {
+    const cortes: number[] = [-L - 2]; { let u = -L - 2 + entre(r, 0, 8); while (u < L - 4) { cortes.push(u); u += entre(r, 10, 20); } cortes.push(L + 2); if (cortes[1] - cortes[0] < 4) cortes.splice(1, 1); }
+    for (let i = 0; i < cortes.length - 1; i++) {
+      const ua = cortes[i] - 0.5, ub = cortes[i + 1] + 0.5, ha = H(ua), hb = H(ub), hm = H((ua + ub) / 2);
+      const za1 = Math.min(k + 1 < est.length ? zEst(k + 1, ua) : 999, ha), zb1 = Math.min(k + 1 < est.length ? zEst(k + 1, ub) : 999, hb);
+      const za0 = Math.min(Math.max(0, zEst(k, ua)), za1), zb0 = Math.min(Math.max(0, zEst(k, ub)), zb1);
+      if (za1 - za0 < 2.5 && zb1 - zb0 < 2.5) continue;
+      const top = za1 >= ha - 0.1 || zb1 >= hb - 0.1, fa0 = fr(ua) - retiro[k] + jit(3), fb0 = fr(ub) - retiro[k] + jit(3);
+      const bt = entre(r, 1, 4), ch = top ? entre(r, 4, 9) : entre(r, 1, 3), atr = Math.max(fondo, Math.min(fa0, fb0) - entre(r, 12, 22));
+      const zt = Math.max(za1, zb1), pts: V3[] = [
+        P(ua, atr - 6, za0), P(ub, atr - 6, zb0), P(ua, atr, Math.max(za0, za1)), P(ub, atr, Math.max(zb0, zb1)),
+        P(ua, fa0, za0), P(ub, fb0, zb0), P(ua, fa0 - bt, Math.max(za0, za1 - ch)), P(ub, fb0 - bt, Math.max(zb0, zb1 - ch)),
+        // la cara se parte en dos planos (la panza de la losa) y el canto de arriba se achaflana en el medio
+        P((ua + ub) / 2 + jit(5), (fa0 + fb0) / 2 + entre(r, 0.5, 3), (za0 + zb0) / 2 + (zt - (za0 + zb0) / 2) * entre(r, 0.3, 0.6)),
+      ];
+      if (top && hm > zt) pts.push(P((ua + ub) / 2 + jit(6), (atr + fa0) / 2, Math.min(hm, zt + 8)));
+      ps.push(poli(pts, k % 3 === 2 && r() < 0.35 && fam !== 'h' ? (fam === 'm' ? 'rv_mina_ox' : 'rv_cueva_b') : mat, jit(0.14) + (k % 2 ? -0.04 : 0.03)));
+      // la nieve del hielo: un manto chato pegado a la cara de arriba de la losa (no bolas), que se asoma por el canto
+      if (fam === 'h' && (top || r() < 0.6)) { const zA = Math.max(za0, za1), zB = Math.max(zb0, zb1), e = 2.6; ps.push(poli([P(ua + 1, fa0 - bt + 1.5, zA - ch - 0.3), P(ub - 1, fb0 - bt + 1.5, zB - ch - 0.3), P(ua + 1, fa0 - bt - 1.5, zA - ch + e), P(ub - 1, fb0 - bt - 1.5, zB - ch + e), P(ua + 1, atr + 2, zA + 0.2), P(ub - 1, atr + 2, zB + 0.2), P(ua + 1, atr + 2, zA + e + 1.4), P(ub - 1, atr + 2, zB + e + 1.4)], 'rv_nieve', jit(0.06))); }
+      // la junta: una losa fina, oscura y húmeda, metida un poco bajo el estrato (es la sombra de la repisa)
+      if (k > 0 && za0 > 2) ps.push(poli([P(ua, fa0 - 2.5, za0 - 1.6), P(ub, fb0 - 2.5, zb0 - 1.6), P(ua, fa0 - 2.5, za0 + 0.6), P(ub, fb0 - 2.5, zb0 + 0.6), P(ua, atr, za0 - 1.6), P(ub, atr, zb0 - 1.6), P(ua, atr, za0 + 0.6), P(ub, atr, zb0 + 0.6)], junta, -0.08));
+      // la repisa que queda arriba (lo que mira arriba: musgo, nieve) y el voladizo de abajo (de donde gotea o cuelga)
+      const ret = retiro[k + 1] ?? retiro[k] + 4, ancho = Math.max(0, ret - retiro[k]);
+      if (!top && ancho > 2.5) sobre.push([...P((ua + ub) / 2, (fa0 + fb0) / 2 - bt - ancho / 2, (za1 + zb1) / 2).slice(0, 3) as [number, number, number], Math.min(ancho, 8)] as Repisa);
+      if (top) sobre.push([...P((ua + ub) / 2, (fa0 + fb0) / 2 - bt - 5, zt).slice(0, 3) as [number, number, number], 6] as Repisa);
+      if (fam === 'h' && r() < 0.55) voladizos.push(P((ua + ub) / 2 + jit(6), Math.min(fa0, fb0) + 0.5, Math.min(za0, zb0) + 2)); // (carámbanos por el canto de cada estrato)
+      if (k > 0 && retiro[k] < retiro[k - 1]) voladizos.push(P((ua + ub) / 2 + jit(4), (fa0 + fb0) / 2, (za0 + zb0) / 2));
+    }
   }
-  // el banco que se derrama adelante
-  for (let i = 0; i < (baja ? 2 : 3 + Math.floor(r() * 2)); i++) { const c = P(entre(r, -L * 0.8, L * 0.8), baja ? entre(r, 6, 10) : entre(r, 6, 13), 0); cs.push(bulto([c[0], c[1], 2], [entre(r, 12, 18), entre(r, 8, 12), baja ? entre(r, 5, 8) : entre(r, 8, 14)], { giro: (an * 180) / PI + 90 + entre(r, -25, 25), tono: -0.02 })); }
-  ps.push(masa(cs, { mat, suave: baja ? 5 : 7 }));
-  // el canto de la piedra: lascas a medio hundir en lo que mira al piso, y bloques caídos al pie
-  // (sobre la cáscara de cada bulto, del lado del piso: así asoman de verdad y dejan su grieta)
-  for (let i = 0; i < (baja ? 7 : 16); i++) {
-    const [u, w, z, ru, rw, rz] = cuerpo[Math.floor(r() * cuerpo.length)], th = entre(r, -1.1, 1.1), el = entre(r, -0.5, 0.9), k = entre(r, 0.86, 0.98);
-    const sz = entre(r, 5, 11) * (baja ? 0.7 : 1), c = P(u + ru * Math.sin(th) * Math.cos(el) * k, w + rw * Math.cos(th) * Math.cos(el) * k, z + rz * Math.sin(el) * k);
-    ps.push(lasca(r, c[0], c[1], c[2], sz, sz * entre(r, 0.5, 0.8), sz * entre(r, 0.45, 0.8), r() < 0.25 ? matB : mat, 9));
+  // grietas hondas que bajan por la cara
+  for (let g = 0; g < (baja ? 1 : 2 + Math.floor(r() * 2)); g++) {
+    const u = entre(r, -L * 0.7, L * 0.7), z1 = H(u) - 3, z0 = Math.max(2, z1 - entre(r, 16, 50)), w = fr(u) + 3, du = jit(10);
+    if (z1 - z0 < 8) continue;
+    ps.push(poli([P(u - 1.2, w, z0), P(u + 1.2, w, z0), P(u + du - 1.6, w, z1), P(u + du + 1.6, w, z1), P(u + du * 0.5, w - entre(r, 6, 11), (z0 + z1) / 2)], 'roca', 0, true));
   }
-  for (let i = 0; i < 2 + Math.floor(r() * 3); i++) { const c = P(entre(r, -L, L), entre(r, 16, 24), 0), sz = entre(r, 3.5, 7.5); ps.push(lasca(r, c[0], c[1], sz * 0.3, sz, sz * entre(r, 0.6, 0.9), sz * 0.6, mat, 8)); }
-  return sobre;
+  // lascas sueltas en las repisas y bloques caídos al pie
+  for (let i = 0; i < Math.min(sobre.length, baja ? 2 : 5); i++) { const [x, y, z] = sobre[Math.floor(r() * sobre.length)], sz = entre(r, 2.5, 5); ps.push(lasca(r, x + jit(5), y + jit(5), z + sz * 0.3, sz, sz * 0.8, sz * 0.6, mat, 7)); }
+  for (let i = 0; i < 3 + Math.floor(r() * 3); i++) { const u = entre(r, -L, L), c = P(u, fr(u) + entre(r, 3, 14), 0), sz = entre(r, 3, 8); ps.push(lasca(r, c[0], c[1], sz * 0.3, sz, sz * entre(r, 0.6, 0.9), sz * 0.65, mat, 8)); }
+  return { sobre, voladizos };
 }
-function adornarPenasco(r: Az, ps: Pieza[], alto: number, fam: 'c' | 'h' | 'm', baja: boolean, sobre: [number, number, number, number][], dir = 1) {
-  const fx = Math.cos((dir * PI) / 4) * 5.6, fy = Math.sin((dir * PI) / 4) * 5.6; // (hacia el piso: lo que cuelga o gotea va por la cara que se ve)
-  if (fam === 'm') return; // (en la mina la roca va pelada: ni musgo ni raíces)
-  // musgo o nieve sobre lo que mira arriba
-  for (const [x, y, z, e] of sobre) if (r() < (fam === 'h' ? 0.18 : 0.5)) {
-    const cs2: Comp[] = []; const n = 2 + Math.floor(r() * 3);
-    for (let i = 0; i < n; i++) cs2.push(bulto([x + (r() - 0.5) * e, y + (r() - 0.5) * e, z + 0.5], [e * entre(r, 0.4, 0.7), e * entre(r, 0.3, 0.55), entre(r, 1.2, 2.4)], { giro: r() * 180 }));
-    ps.push(masa(cs2, { mat: fam === 'h' ? 'nieve' : r() < 0.6 ? 'rv_musgo' : 'rv_musgo_seco', suave: 1.5 }));
+function adornarPenasco(r: Az, ps: Pieza[], fam: 'c' | 'h' | 'm', baja: boolean, sobre: Repisa[], voladizos: V3[]) {
+  if (fam === 'm') return; // (en la mina la roca va pelada: ni musgo ni nieve)
+  // lo que mira arriba: en la cueva musgo en algunas repisas; en el hielo, el copete de nieve en todas (chato, como un manto, no bolas)
+  for (const [x, y, z, e] of sobre) {
+    if (fam === 'h') break; // (la nieve va en la losa misma)
+    if (r() > 0.45) continue;
+    const cs2: Comp[] = [], n = 2 + Math.floor(r() * 2);
+    for (let i = 0; i < n; i++) cs2.push(bulto([x + (r() - 0.5) * e * 1.6, y + (r() - 0.5) * e * 1.6, z + 0.3], [e * entre(r, 0.6, 1), e * entre(r, 0.45, 0.8), entre(r, 0.6, 1.2)], { giro: r() * 180 }));
+    ps.push(masa(cs2, { mat: r() < 0.6 ? 'rv_musgo' : 'rv_musgo_seco', suave: 1.4 }));
   }
   if (baja) return;
-  const q = r();
-  if (fam === 'h') {
-    // carámbanos bajo las repisas
-    for (let i = 0; i < 3 + Math.floor(r() * 4); i++) { const [x, y, z] = sobre[Math.floor(r() * sobre.length)]; const l = entre(r, 8, 20); ps.push(masa([hM([x + fx, y + fy, z - 2], [x + fx + (r() - 0.5) * 2, y + fy, z - 2 - l], entre(r, 1.6, 2.6), 0.3)], { mat: 'rv_hielo_vivo', suave: 1 })); }
-  } else if (q < 0.0) {
-    // (las raíces quedaban colgando por fuera de la masa: fuera)
-    for (let i = 0; i < 2 + Math.floor(r() * 2); i++) {
-      const t = (dir * PI) / 4 + entre(r, -0.6, 0.6), cs2: Comp[] = []; let p: V3 = [Math.cos(t) * 8, Math.sin(t) * 8, alto * entre(r, 0.82, 0.98)];
-      for (let k = 0; k < 5; k++) { const d = entre(r, 0.9, 1.3), q2: V3 = [p[0] + Math.cos(t) * 3.4 * d + (r() - 0.5) * 3, p[1] + Math.sin(t) * 3.4 * d + (r() - 0.5) * 3, p[2] - entre(r, 12, 22)]; cs2.push(hM(p, q2, 2 - k * 0.3, 1.7 - k * 0.3)); p = q2; if (p[2] < 6) break; }
-      ps.push(masa(cs2, { mat: 'rv_raiz', suave: 1.2 }));
-    }
-  } else if (q < 0.66) {
-    // la gotera: una estalactita bajo la repisa y la mancha de agua al pie
-    const [x, y, z] = sobre[Math.floor(r() * sobre.length)], l = entre(r, 10, 22);
-    ps.push(masa([hM([x + fx, y + fy, z - 1], [x + fx * 1.1, y + fy * 1.1, z - l], 3, 0.4), bulto([x + fx, y + fy, z - 1], [5, 4, 2])], { mat: 'rv_cueva', suave: 1.6 }));
-    ps.push(masa([bulto([x + fx * 3, y + fy * 3, 0.1], [7, 5, 0.6]), bulto([x + fx * 4, y + fy * 4, 0.1], [4, 3, 0.5])], { mat: 'sub_roca_humeda', suave: 1.5 }));
-  } else if (q < 0.85) {
-    // una estalagmita al pie, delante
-    const t = (dir * PI) / 4 + entre(r, -0.7, 0.7), d = entre(r, 24, 30), x = Math.cos(t) * d, y = Math.sin(t) * d, h = entre(r, 12, 24);
-    ps.push(masa([bulto([x, y, 1], [6, 5, 2.4]), hM([x, y, 1], [x + (r() - 0.5) * 2, y, h], entre(r, 3.6, 5), 0.5)], { mat: 'rv_cueva', suave: 1.8 }));
+  // lo que cuelga de los voladizos: carámbanos en el hielo, gotas de colada en la cueva
+  for (const [x, y, z] of voladizos) {
+    const n = fam === 'h' ? 2 + Math.floor(r() * 4) : r() < 0.45 ? 1 : 0;
+    for (let i = 0; i < n; i++) { const l = fam === 'h' ? entre(r, 9, 22) : entre(r, 4, 9), dx = (r() - 0.5) * 10, dy = (r() - 0.5) * 4; ps.push(masa([hM([x + dx, y + dy, z + 0.5], [x + dx + (r() - 0.5) * 0.6, y + dy, z + 0.5 - l], fam === 'h' ? entre(r, 0.8, 1.4) : 1.6, 0.15)], { mat: fam === 'h' ? 'rv_caramb' : 'rv_cueva', suave: 0.3 })); }
   }
 }
 
@@ -309,7 +333,7 @@ registrar(
     variantes: ['c', 'h', 'm'].flatMap((f) => MACIZOS.map((v) => f + '_' + v)), huella: [2, 2], bloquea: false,
     armar: (v, _f) => {
       const r = azar(v), ps: Pieza[] = [], fam = v[0] as 'c' | 'h' | 'm', cl = v[2], dir = +v.split('_')[2], [lo, hi] = CLASES_MAC[cl] ?? [50, 66];
-      { const al = entre(r, lo, hi), sb = macizo(r, ps, al, fam, cl === 'b', dir); adornarPenasco(r, ps, al, fam, cl === 'b', sb, dir); }
+      { const al = entre(r, lo, hi), m = macizo(r, ps, al, fam, cl === 'b', dir); adornarPenasco(r, ps, fam, cl === 'b', m.sobre, m.voladizos); }
       ps.push(suelo());
       return ps;
     },
@@ -332,7 +356,11 @@ function talud(r: Az, ps: Pieza[], P: (u: number, w: number, z: number) => V3, L
   const n = Math.round(L * 3);
   for (let i = 0; i < n; i++) {
     const f = Math.pow(r(), 1.35), u = entre(r, -L, L), w = w0 + (w1 - w0) * f + (r() - 0.5) * 2, s = (1 - f) * entre(r, 3.5, 8) + entre(r, 1, 2.2);
-    const c = P(u, w, s * 0.22); ps.push(lasca(r, c[0], c[1], c[2], s, s * entre(r, 0.6, 0.95), s * entre(r, 0.35, 0.6), r() < 0.35 ? 'rv_grava' : roca, 6));
+    const c = P(u, w, s * 0.22);
+    // (tercera vuelta: el talud no se leía con la luz de la mina. La sombra oscura de cada piedra grande, hacia donde cae la luz, y
+    //  la piedra de arriba del montón más clara, como recién caída)
+    if (s > 2.6) ps.push(masa([bulto([c[0] + s * 0.45, c[1] - s * 0.3, 0.05], [s * 1.15, s * 0.85, 0.35], { giro: r() * 180 })], { mat: 'rv_junta', suave: 0.5 }));
+    ps.push(lasca(r, c[0], c[1], c[2], s, s * entre(r, 0.6, 0.95), s * entre(r, 0.35, 0.6), f < 0.45 && r() < 0.55 ? 'rv_piedra_clara' : r() < 0.35 ? 'rv_grava' : roca, 6));
   }
   if (fam === 'c' && r() < 0.6) { const c = P(entre(r, -L * 0.6, L * 0.6), w0 + 4, 0); ps.push(masa([bulto([c[0], c[1], 0.3], [entre(r, 4, 7), entre(r, 3, 5), 1.2]), bulto([c[0] + 3, c[1] - 2, 0.4], [3, 2.5, 1])], { mat: 'rv_musgo', suave: 1.4 })); }
 }

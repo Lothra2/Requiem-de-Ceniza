@@ -67,7 +67,7 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
           // (el que quedó a más de 22 casillas suelta al héroe y vuelve a deambular, así es el juego: no es un atascado)
           if (m.estado !== 'perseguir') continue;
           if (!Z.pasable(z, m.x, m.y)) enMuro++;
-          if (cerca(m.x, m.y) < 0.25) pegados++;
+          if (cerca(m.x, m.y) < 0.25) { pegados++; malos.push(['pegado', +m.x.toFixed(2), +m.y.toFixed(2), m.def.id, +cerca(m.x, m.y).toFixed(2), m.acc]); }
           // ¿hay camino de verdad al héroe? (si no lo hay, quedarse quieto no es atascarse)
           const cam = Z.buscarCamino(z, m.x, m.y, h.x, h.y, 40000, true);
           const llega = cam && Math.hypot(cam[cam.length - 1][0] - h.x, cam[cam.length - 1][1] - h.y) < 1.5;
@@ -87,7 +87,7 @@ const ZONAS = (process.argv[2] || 'a1_cripta,a1_cata1,a1_abadia1,a1_mina1,a1_pas
         return { perseguian, atascados, pegados, enMuro, esperan, malos: malos.slice(0, 4) };
       });
       total.lugares++; for (const k of ['perseguian', 'atascados', 'pegados', 'enMuro', 'esperan']) total[k] = (total[k] ?? 0) + res[k];
-      if (res.atascados) console.log(zona, x, y, JSON.stringify(res));
+      if (res.atascados || res.pegados) console.log(zona, x, y, JSON.stringify(res));
     }
   }
   console.log(JSON.stringify(total), errs.slice(0, 3));

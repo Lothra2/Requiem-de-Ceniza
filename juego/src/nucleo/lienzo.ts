@@ -161,7 +161,7 @@ export function instalarEntrada() {
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (!E.teclas.has(k)) E.pulsadas.add(k);
     E.teclas.add(k); E.shift = e.shiftKey; E.ctrl = e.ctrlKey; E.alt = e.altKey;
-    if (['Tab', 'Alt', ' ', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8'].includes(k) || (e.ctrlKey && k !== 'r')) e.preventDefault();
+    if (['Tab', 'Alt', ' ', 'F1', 'F2', 'F3', 'F4', 'F5', 'F6', 'F7', 'F8', 'F9', 'F10'].includes(k) || (e.ctrlKey && k !== 'r')) e.preventDefault();
   });
   window.addEventListener('keyup', (e) => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; E.teclas.delete(k); E.shift = e.shiftKey; E.alt = e.altKey; E.ctrl = e.ctrlKey; });
   window.addEventListener('blur', () => { E.teclas.clear(); E.izq = E.der = false; });

@@ -36,7 +36,7 @@ export type PanelId = 'inv' | 'pers' | 'habs' | 'cofre' | 'tienda' | 'dialogo' |
 export const ui = {
   izq: null as PanelId, der: null as PanelId, mapa: false, mano: null as Objeto | null,
   npc: null as string | null, dialogoTexto: null as string | null, tienda: [] as EnBolsa[], tiendaTipo: 'herrero' as 'herrero' | 'curandera' | 'vidente', pestana: 0,
-  elegirLado: 'izq' as 'izq' | 'der', ramaHab: 0, cofre: [] as EnBolsa[], encima: null as any, sobreUI: false,
+  elegirLado: 'izq' as 'izq' | 'der', /** El atajo que se está llenando desde la elección (clic derecho en una casilla), o -1. */ elegirAtajo: -1, ramaHab: 0, cofre: [] as EnBolsa[], encima: null as any, sobreUI: false,
   confirmar: null as null | { txt: string; si: () => void },
   /** Táctil: la ficha del objeto tocado en la tienda o la bolsa (comprar, equipar, mover... con botones aparte). */
   ficha: null as null | { e: EnBolsa; tipo: 'tienda' | 'bolsa'; todos: EnBolsa[] },
@@ -130,17 +130,22 @@ export function casillaPoder(j: Juego, lado: 'izq' | 'der', x: number, y: number
   const hb = habilidadDe(j.heroe.d[lado]);
   // la ficha entera del poder que está puesto en el botón: qué hace, cuánto pega y cómo se usa
   if (!E.tactil && !ui.mano) fichaBarra = [...lineasHab(j, hb, false), ['', ''], [lado === 'izq' ? T('Botón izquierdo del ratón · clic acá para cambiarlo', 'Left mouse button · click here to change it') : T('Botón derecho del ratón · clic acá para cambiarlo', 'Right mouse button · click here to change it'), '#a09070']];
-  if (E.clicIzq) { ui.izq = null; ui.der = 'elegirHab'; ui.elegirLado = lado; E.clicIzq = false; }
+  if (E.clicIzq) { ui.izq = null; ui.der = 'elegirHab'; ui.elegirLado = lado; ui.elegirAtajo = -1; E.clicIzq = false; }
 }
 /** La tecla de cada atajo (5 a 9, 0 y F7 a F10). */
 export const teclaAtajo = (i: number) => (i < 5 ? `${i + 5}` : i === 5 ? '0' : `F${i + 1}`);
+/** Pone un poder en el atajo i (y lo saca de otro atajo si ya estaba: cada poder en una sola tecla). */
+function ponerAtajo(d: DatosHeroe, i: number, id: string) { d.atajos = d.atajos.map((a) => (a === id ? null : a)); d.atajos[i] = id; }
 /** Lo que hace un atajo bajo el puntero: ficha, y con clic lo pone en el botón derecho (o abre la elección si está vacío). */
 export function casillaAtajo(j: Juego, i: number, x: number, y: number, w: number, h: number) {
   if (!dentro(x, y, w, h)) return;
   const hh = j.heroe, id = hh.d.atajos[i];
-  if (id && !E.tactil) fichaBarra = [...lineasHab(j, habilidadDe(id), false), ['', ''], [`${T('Tecla', 'Key')} ${teclaAtajo(i)} ${T('o clic: ponerlo en el botón derecho', 'or click: set it on the right button')}`, '#a09070']];
+  if (id && !E.tactil) fichaBarra = [...lineasHab(j, habilidadDe(id), false), ['', ''], [`${T('Tecla', 'Key')} ${teclaAtajo(i)} ${T('o clic: ponerlo en el botón derecho', 'or click: set it on the right button')}`, '#a09070'], [T('Clic derecho: cambiar el poder de este atajo', 'Right click: change this hotkey\'s skill'), '#a09070']];
   else if (id) texto(TT(habilidadDe(id).nombre), x + w / 2, y - 6, { alin: 'center', tam: 12, color: '#fff' });
-  if (E.clicIzq) { E.clicIzq = false; if (id) { hh.d.der = id; recalc(j); Sonido.efecto('click'); } else { ui.izq = null; ui.der = 'elegirHab'; ui.elegirLado = 'der'; } }
+  else if (!E.tactil && !ui.mano) fichaBarra = [[`${T('Atajo', 'Hotkey')} ${teclaAtajo(i)}`, '#f0d078'], [T('Clic: elegir el poder de este atajo', 'Click: choose this hotkey\'s skill'), '#a09070']];
+  const abrir = () => { ui.izq = null; ui.der = 'elegirHab'; ui.elegirLado = 'der'; ui.elegirAtajo = i; Sonido.efecto('click'); };
+  if (E.clicDer && !ui.mano) { E.clicDer = false; abrir(); }
+  else if (E.clicIzq) { E.clicIzq = false; if (id) { hh.d.der = id; recalc(j); Sonido.efecto('click'); } else abrir(); }
 }
 /** Una casilla del cinturón bajo el puntero: su pista, levantar o soltar la pila, beberla, a la bolsa o cambiar el tipo. */
 export function casillaCinturon(j: Juego, i: number, x0: number, y0: number, w: number, hgt: number) {
@@ -1178,8 +1183,9 @@ let habFija: string | null = null;
 function panelElegir(j: Juego, x: number, y: number) {
   const h = j.heroe;
   const lista: Habilidad[] = [ATAQUE, ...habilidadesDe(h.d.clase).filter((hb) => (h.d.habs[hb.id] ?? 0) > 0 && hb.tipo !== 'pasiva' && (ui.elegirLado === 'der' || hb.tipo !== 'aura'))];
-  marco(x, y, PANEL_W, PANEL_H); titulo(ui.elegirLado === 'izq' ? T('Botón izquierdo', 'Left button') : T('Botón derecho', 'Right button'), x, y, PANEL_W);
-  texto(E.tactil ? T('Toca un poder para leer qué hace; tócalo otra vez para ponerlo', 'Tap a skill to read it; tap again to equip it') : T('Pasa el ratón para leerlo; F1-F10 le pone un atajo', 'Hover to read it; F1-F10 sets a hotkey'), x + 160, y + 52, { alin: 'center', tam: 11, color: '#a09070' });
+  const at = ui.elegirAtajo;
+  marco(x, y, PANEL_W, PANEL_H); titulo(at >= 0 ? `${T('Atajo', 'Hotkey')} ${teclaAtajo(at)}` : ui.elegirLado === 'izq' ? T('Botón izquierdo', 'Left button') : T('Botón derecho', 'Right button'), x, y, PANEL_W);
+  texto(E.tactil ? T('Toca un poder para leer qué hace; tócalo otra vez para ponerlo', 'Tap a skill to read it; tap again to equip it') : at >= 0 ? T('Clic en un poder para ponerlo en este atajo', 'Click a skill to put it on this hotkey') : T('Clic lo pone en el botón; su tecla (5-9, 0, F7-F10) lo pone en ese atajo', 'Click sets the button; a hotkey (5-9, 0, F7-F10) sets that hotkey'), x + 160, y + 52, { alin: 'center', tam: 11, color: '#a09070' });
   let encima: Habilidad | null = null, ey = 0;
   lista.forEach((hb, i) => {
     const xx = x + 16 + (i % 6) * 48, yy = y + 64 + Math.floor(i / 6) * 50, s = 42;
@@ -1187,13 +1193,13 @@ function panelElegir(j: Juego, x: number, y: number) {
     else iconoHab(hb, xx, yy, s);
     if (hb.definitiva) { ctx.strokeStyle = '#ffb040'; ctx.lineWidth = 1; ctx.strokeRect(xx - 1.5, yy - 1.5, s + 3, s + 3); }
     if (hb.id === h.d[ui.elegirLado]) { ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1; ctx.strokeRect(xx - 0.5, yy - 0.5, s + 1, s + 1); }
-    const fk = h.d.atajos.indexOf(hb.id); if (fk >= 0 && !hudForja()) texto(`F${fk + 1}`, xx + 2, yy + s - 2, { tam: 10, color: '#ffd060' });
+    const fk = h.d.atajos.indexOf(hb.id); if (fk >= 0 && !hudForja()) texto(teclaAtajo(fk), xx + 2, yy + s - 2, { tam: 10, color: '#ffd060' });
     if (E.tactil && habFija === hb.id) { ctx.strokeStyle = '#ffe070'; ctx.lineWidth = 2; ctx.strokeRect(xx - 2, yy - 2, s + 4, s + 4); if (!encima) { encima = hb; ey = yy + s / 2; } }
     if (dentro(xx, yy, s, s)) {
       encima = hb; ey = yy + s / 2;
       if (E.clicIzq && E.tactil && habFija !== hb.id) { habFija = hb.id; E.clicIzq = false; Sonido.efecto('click'); }
-      else if (E.clicIzq) { h.d[ui.elegirLado] = hb.id; ui.der = null; E.clicIzq = false; habFija = null; Sonido.efecto('click'); recalc(j); }
-      for (let k = 1; k <= 10; k++) if (pulso('F' + k)) { h.d.atajos = h.d.atajos.map((a) => (a === hb.id ? null : a)); h.d.atajos[k - 1] = hb.id; }
+      else if (E.clicIzq) { if (at >= 0) ponerAtajo(h.d, at, hb.id); else h.d[ui.elegirLado] = hb.id; ui.der = null; ui.elegirAtajo = -1; E.clicIzq = false; habFija = null; Sonido.efecto('click'); recalc(j); }
+      for (let k = 0; k < 10; k++) if (pulso(teclaAtajo(k))) { ponerAtajo(h.d, k, hb.id); Sonido.efecto('click'); }
     }
   });
   if (encima) tooltipAl(lineasHab(j, encima, false), x - 6, ey);
@@ -1212,8 +1218,8 @@ function casillaElegir(hb: Habilidad, x: number, y: number, s: number, enc: bool
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false; ctx.drawImage(iconoPixel(hb, ds), px, py);
   if (enc) { ctx.fillStyle = E.izq ? 'rgba(0,0,0,0.25)' : 'rgba(255,236,190,0.14)'; ctx.fillRect(px, py, ds, ds); }
   ctx.restore();
-  if (fk >= 0) { const tw = fk >= 9 ? 20 : 15; ctx.fillStyle = '#b58a3e'; ctx.fillRect(x + s - tw + 2, y + s - 9, tw, 11); ctx.fillStyle = '#e6c88a'; ctx.fillRect(x + s - tw + 2, y + s - 9, tw, 1); ctx.fillStyle = '#33220b'; ctx.fillRect(x + s - tw + 2, y + s + 1, tw, 1);
-    texto(`F${fk + 1}`, x + s - tw / 2 + 2, y + s, { tam: 9, alin: 'center', color: '#1a1004', sombra: false }); }
+  if (fk >= 0) { const tw = fk >= 6 ? 20 : 12; ctx.fillStyle = '#b58a3e'; ctx.fillRect(x + s - tw + 2, y + s - 9, tw, 11); ctx.fillStyle = '#e6c88a'; ctx.fillRect(x + s - tw + 2, y + s - 9, tw, 1); ctx.fillStyle = '#33220b'; ctx.fillRect(x + s - tw + 2, y + s + 1, tw, 1);
+    texto(teclaAtajo(fk), x + s - tw / 2 + 2, y + s, { tam: 9, alin: 'center', color: '#1a1004', sombra: false }); }
 }
 
 // ---------------- cofre compartido

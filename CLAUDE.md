@@ -2012,6 +2012,14 @@ la historia ordenada por **hilos**, no por dónde se leyó.
   detrás del cuerpo y no se veía ese brazo. Ahora agarra el mango (`agarreI`, `pegaI`) y lo suelta solo para el gesto de invocar.
   Toca `src/engine/gotico/`: cambia `__PINTOR__` y los héroes con equipo se repintan solos una vez.
 
+- **Atajos de poderes** (Rick no sabía cómo asignarlos): antes, clic en una casilla de atajo llena ponía ese poder en el botón
+  derecho y la única forma de cambiarla era abrir la elección del botón derecho, pasar el ratón por un poder y apretar F1 a F10,
+  pero F1 llenaba la casilla que dice 5 (las casillas dicen 5 a 9, 0 y F7 a F10) y en la elección las plaquitas decían F1, F2...
+  Ahora: **clic derecho en cualquier casilla de atajo** (o clic en una vacía) abre la elección para esa casilla («Atajo 8») y el clic
+  en un poder lo pone ahí; en la elección del botón derecho, la tecla que dice la casilla (5 a 9, 0, F7 a F10) pone el poder en esa
+  casilla; jugando, esas mismas teclas cambian el poder del botón derecho (F1 a F6 ya no hacen nada: F5 recargaba la página). Las
+  plaquitas de la elección dicen la tecla de verdad. Cada poder vive en una sola casilla (`ponerAtajo`). Nada del guardado cambia.
+
 ## Publicar
 
 - **Sitio**: cada push a `main` arma el juego y lo deja en `gh-pages` (`.github/workflows/publicar.yml`).

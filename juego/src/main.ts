@@ -22,7 +22,7 @@ import { fijarAvisoLuz } from './render/luz_gpu';
 import { medir, empezarCuadro, terminarCuadro, dibujarRendimiento } from './nucleo/rendimiento';
 import { cargarOpciones, opciones, guardarOpciones, dibujarIntro, menuPrincipal, dibujarSeleccion, dibujarCrear, dibujarOpciones, pantallaCarga } from './ui/menus';
 import { hud, etiquetasMundo } from './ui/hud_rects';
-import { abrirTienda, cerrarPaneles, cambiarAgresivo, rectPanel, compacto } from './ui/juego_ui';
+import { abrirTienda, cerrarPaneles, cambiarAgresivo, rectPanel, compacto, teclaAtajo } from './ui/juego_ui';
 import { ui, alzadoMano, dibujarBarra, dibujarPaneles, dibujarArriba, dibujarCursor, dibujarTooltipObjeto, entradaFicha, dibujarFicha, dibujarMapa, dibujarMuerte, hablarCon, alternar, prepararHud, lugarEn, COFRE_W, COFRE_H } from './ui/juego_ui';
 import { dibujarMundo, picks, aMundo, aPantUI, foco, opciones as opcionesRender, type Pick } from './render/escena';
 import { vinetaSangre, dibujarPresentacion, dibujarCaida, DUR_PRESENTA } from './ui/horror';
@@ -311,8 +311,8 @@ function controlar(jj: Juego, dt: number) {
   if (pulso('z')) cambiarAgresivo(jj);
   if (pulso('b')) abrirPortal(jj);
   for (let i = 1; i <= 4; i++) if (pulso(String(i))) usarPocion(jj, i - 1);
-  for (let k = 1; k <= 10; k++) if (pulso('F' + k) && ui.der !== 'elegirHab') { const id = h.d.atajos[k - 1]; if (id) { h.d.der = id; recalc(jj); } }
-  for (const [tecla, k] of [['5', 0], ['6', 1], ['7', 2], ['8', 3], ['9', 4], ['0', 5]] as [string, number][]) if (pulso(tecla)) { const id = h.d.atajos[k]; if (id) { h.d.der = id; recalc(jj); Sonido.efecto('click'); } }
+  // cada atajo con la tecla que lleva escrita en el panel (5 a 9, 0 y F7 a F10); con la elección abierta la tecla pone el poder ahí
+  if (ui.der !== 'elegirHab') for (let k = 0; k < 10; k++) if (pulso(teclaAtajo(k))) { const id = h.d.atajos[k]; if (id) { h.d.der = id; recalc(jj); Sonido.efecto('click'); } }
   if (pulso('Escape')) {
     if (h.muerto) { revivir(jj); return; }
     if (ui.izq || ui.der || ui.mapa || ui.confirmar) { cerrarPaneles(); ui.confirmar = null; } else ui.izq = 'menu';

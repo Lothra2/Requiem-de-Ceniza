@@ -19,7 +19,7 @@ const etiqueta = process.argv[2] || 'ahora';
 const todas = Object.values<any>(AC.ZONAS).filter((d) => d.tipo !== 'pueblo').map((d) => d.id);
 const ZONAS = !process.argv[3] || process.argv[3] === 'todas' ? todas : process.argv[3].split(',');
 const SEM = +(process.argv[4] || 2), NIVEL = +(process.env.NIVEL || 30);
-const DIR = `/tmp/requiem-pruebas/enemigos/${etiqueta}`; mkdirSync(DIR, { recursive: true });
+const DIR = `${process.env.DIR || '/tmp/requiem-pruebas/enemigos'}/${etiqueta}`; mkdirSync(DIR, { recursive: true });
 const PANT = 20, VISTA = 14, VISTO = 12, AREA = 900; // (AREA: celdas caminables que se descubren en una pantalla, a 720 se ven unas 900 a 1500)
 const tot = { zonas: 0, cuerpos: 0, grupos: 0, camino: 0, pant: 0, pantVacias: 0, gaps: [] as number[], tam: [] as number[], aLaVista: 0, primero: [] as number[], primeroTam: [] as number[], area: 0, areaVacias: 0, gapsA: [] as number[] };
 const porTipo: Record<string, typeof tot> = {};

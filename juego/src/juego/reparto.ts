@@ -12,11 +12,22 @@ import { despejeZona, lineaLibre, lineaPasable, libreCerca, pasable, type Zona, 
 import { R, entre, dist } from '../nucleo/azar';
 
 /** Lo que `poblar` tiró en cada sitio de la generación: los cuerpos de cada tirada (un grupo de los de antes) por separado. */
-export interface SitioTirado { s: Spawn; elite: Mon[]; escolta: Mon[]; tiradas: Mon[][] }
+export interface SitioTirado { s: Spawn; elite: Mon[]; escolta: Mon[]; tiradas: Mon[][]; suelto?: boolean }
 /** Lo justo del monstruo que hace falta acá (para no importar mundo.ts). */
 export interface Mon { x: number; y: number; ox: number; oy: number; camp?: number; calidad: number; def: { ia: string; id: string } }
 /** Una ronda (los merodeadores): la manada se mueve despacio alrededor de su sitio. La lleva cada cuerpo en `ronda`. */
 export interface Ronda { hx: number; hy: number; cx: number; cy: number; ver: number; prox: number }
+
+/**
+ * La densidad (Rick, 22 nov 2026: "sube la densidad de enemigos [...] quiero que se vaya sintiendo más Diablo 2"). `poblar` tira
+ * `mas` tiradas comunes de más por cada una de siempre (más grupos, no grupos más grandes: cada tirada es un grupo de los de
+ * antes y el reparto las parte y las junta como a las demás), y un `elites` de los sitios de élite trae otro trío de campeones
+ * que va a lo denso, lejos de todo. Lo que da cada baja común (`xp`, y `botin`: la chance de que tire su botín) baja para que
+ * por hora de juego quede cerca de lo de antes. La separación entre grupos se aprieta (`sep`). `__densidadVieja` vuelve a todo
+ * lo de antes. `__densidad = { ... }` cambia los números (las pruebas).
+ */
+export const DENSIDAD = { mas: 0.6, elites: 0.1, xp: 0.92, botin: 0.9, sep: 0.85, bienvenida: 0.25 };
+export const densidad = (): typeof DENSIDAD | null => ((globalThis as any).__densidadVieja ? null : { ...DENSIDAD, ...((globalThis as any).__densidad ?? {}) });
 
 const deTiro = (m: Mon) => m.def.ia === 'mago' || m.def.ia === 'distancia' || m.def.ia === 'invocador';
 
@@ -109,7 +120,7 @@ const usadas = new Set<number>();
  * Reparte lo tirado. `llegada`: la entrada por la que llega el héroe. `bienvenida`: héroe de nivel bajo en una zona de inicio
  * (a 40 celdas de su puerta solo hay grupos de 3 o menos, y ningún élite: eso ya lo dejan los `mansos` de `poblar`).
  */
-export function repartir(z: Zona, sitios: SitioTirado[], llegada: [number, number] | undefined, bienvenida: boolean): void {
+export function repartir(z: Zona, sitios: SitioTirado[], llegada: [number, number] | undefined, bienvenida: boolean, kSep = 1): void {
   const t0 = performance.now(), { W, H } = z, alc = alcanzaDesde(z), desp = despejeZona(z), dens = campoDensidad(z, alc, desp, llegada); ULTIMO.msCampo = performance.now() - t0;
   const ents = Object.values(z.entradas);
   const frenteDe = (x: number, y: number): [number, number] => { let bd = 1e9, f: [number, number] = [0, 1]; for (const [ex, ey] of ents) { const d = Math.hypot(ex - x, ey - y); if (d < bd && d > 0.5) { bd = d; f = [(ex - x) / d, (ey - y) / d]; } } return f; };
@@ -136,7 +147,7 @@ export function repartir(z: Zona, sitios: SitioTirado[], llegada: [number, numbe
   };
   for (const st of sitios) {
     const visto = aLaVista(st.s.cx, st.s.cy);
-    if (st.elite.length) { if (visto) elitesSueltos.push(st); else { ponerElite(st, st.s.cx, st.s.cy); ULTIMO.anclados++; } }
+    if (st.elite.length) { if (visto || st.suelto) elitesSueltos.push(st); else { ponerElite(st, st.s.cx, st.s.cy); ULTIMO.anclados++; } }
     const tir = st.tiradas.slice();
     if (!st.elite.length && tir.length && !visto) {
       // la guardia del sitio: una tirada, a veces dos juntas (la manada grande de la fogata), a veces solo un par
@@ -165,7 +176,7 @@ export function repartir(z: Zona, sitios: SitioTirado[], llegada: [number, numbe
   // las celdas donde puede haber algo, para tirar candidatos
   const celdas: number[] = []; let dmax = 0;
   for (let i = 0; i < W * H; i++) if (dens[i] > 0) { celdas.push(i); if (dens[i] > dmax) dmax = dens[i]; }
-  const sep = (n: number, m: number) => 4 + 1.25 * Math.sqrt(n + m);
+  const sep = (n: number, m: number) => (4 + 1.25 * Math.sqrt(n + m)) * kSep;
   // los élites que no se pudieron anclar van a lo más denso que quede lejos de todo
   for (const st of elitesSueltos) {
     let mejor = -1, ms = -1, n = st.elite.length + st.escolta.length;
@@ -175,6 +186,8 @@ export function repartir(z: Zona, sitios: SitioTirado[], llegada: [number, numbe
       if (puestos.some((p) => Math.hypot(p.x - x, p.y - y) < sep(n, p.n) * 1.3)) continue;
       const v = dens[i] * (0.7 + R() * 0.6); if (v > ms) { ms = v; mejor = i; }
     }
+    // (el trío de más de la densidad no se apila sobre el élite de su sitio: si no hay lugar lejos de todo, a cualquier lado)
+    if (mejor < 0 && st.suelto && celdas.length) mejor = celdas[Math.floor(R() * celdas.length)];
     if (mejor >= 0) ponerElite(st, mejor % W, Math.floor(mejor / W)); else ponerElite(st, st.s.cx, st.s.cy);
   }
   for (const g of grupos) {

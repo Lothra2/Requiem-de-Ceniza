@@ -20,7 +20,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
-- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2 y 6 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 7, 3, 4, 5 y 1.
+- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2, 6 y 7 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 3, 4, 5 y 1.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
@@ -1041,6 +1041,38 @@ El coordinador (por Rick, "revisar todos los actos"): cuatro mundos abiertos con
 - Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 9 zonas (flotando 23 a 18,
   salida 1 a 0), t370 (288, 0 malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados,
   objetiva 0), t995 (0), t440, t450, t500, t1001 y t961.
+
+## Cada zona con lo suyo: el acto 7 (22 nov 2026)
+
+Dos mundos abiertos con `celestial`, las dos partes de las Islas de Oro con `celestial_islas` y cuatro interiores con
+`celestial_interior` salían con la misma arenisca, la misma muralla de runas y el mismo riego de oro y mármol.
+
+- **Ojo con `fortaleza` y `arcano`**: al final de `generarZona` esos dos pisos se cambian por `baldosa_catedral` (en las
+  mazmorras) y `arenisca` (se veían de prueba). Por eso las Islas no cambiaban con solo elegir otro de esos dos: van con pisos
+  propios.
+- **Pisos nuevos** (`catalogo/acto7_pisos.ts`): los astros (lapislázuli con estrellas de oro, constelaciones y el aro de una
+  esfera armilar), el relicario (alfombras de terciopelo carmesí con filete de oro sobre mármol), los peldaños de mármol, el
+  oro reseco agrietado con la sangre seca en las grietas, la ceniza sobre mármol, el musgo de oro con piedras de paso y las losas
+  de oro y mármol de las Islas.
+- **Muros nuevos** (`catalogo/acto7.ts`, tema `acto7`, con su fila en `ESQUINAS_MURO`): `a7_muro_astros` (lapislázuli con
+  estrellas que brillan, constelaciones y la esfera armilar), `a7_muro_relicario` (mármol con tres nichos de arco, el relicario
+  de oro con su halo sobre terciopelo y las velas) y `a7_muro_sed` (placas de oro resecas que se despegan, la sangre que baja y
+  las bocas).
+- **Cada zona**: el **Cielo Roto** de ceniza sobre mármol con lo que se cayó del cielo (ángeles, la cabeza del coloso, alas,
+  lanzas, torres), gris ceniza; el **Jardín** de musgo de oro con suplicantes, árboles de oro muertos y fuentes secas; las **Islas
+  del Puente Quebrado** de mármol blanco con oro, azul de cielo y motas de oro; las **Islas Altas** de ceniza con el oro que se
+  seca, gris violeta; la **Bóveda** de lapislázuli con estrellas en piso y muros, esferas y atriles, motas de oro; el
+  **Relicario** carmesí y oro con nichos y relicarios; las **Escaleras** de peldaños blancos, sillería del cielo con pilastras,
+  ángeles y mucha luz blanca que baja; el **Trono** de oro reseco con la sangre en las grietas, muros que sangran y brasas que
+  suben. Las Islas siguen siendo islas (`celestial_islas` no cambia de trazado).
+- Fotos: `DIR=/tmp/requiem-pruebas/acto7` (antes con `BANDERAS=__acto7Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
+  `lamina_<zona>.png` y `ext_lamina.png` (cielo y jardín, antes arriba).
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014, t1015 (0), t1033 en las 8 zonas (antes y ahora: montados 100 a 72,
+  repetidos 34 a 32; lo flotando es lo del vacío, a propósito), t370 (288, 0 malas), conectividad 20 (1920), t855 (0), t1011
+  (`SEMILLA=5000`, 0 atascados), t995, t440, t450, t500, t1001 y t961.
+- Ojo al limpiar atlas huérfanos de los horneados con `SOLO`: los pisos (`p`) del manifiesto son listas, no objetos con `f`. Un
+  limpiador que solo mire `f` borra los atlas de pisos en uso (pasó una vez y se recuperaron de git).
+  `juego/herramientas/_m_huerfanos.py` (no se sube) recorre todo.
 
 ## Armas vivas, cofres, poderes y siluetas
 

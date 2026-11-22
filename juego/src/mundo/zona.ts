@@ -2506,19 +2506,33 @@ function rocaMina(z: Zona) {
 function rocaCueva(z: Zona, fam: 'c' | 'h' | 'm') {
   const W = z.W, H = z.H, rc = rng(z.semilla * 6029 + 37), campo = ruido2(rc, W, H, 7);
   const id = fam === 'c' ? 'cue_penasco' : 'bor_risco', pre = fam === 'h' ? 'nieve_' : fam === 'm' ? 'paramo_' : '';
-  const puestos: { x: number; y: number; v: string }[] = [];
+  // (segunda vuelta: la primera dejaba un bosque de columnas. Ahora macizos anchos que se funden: de los peñascos del contorno queda
+  //  uno cada 2,4 celdas o más (lo bajo cada 2), el resto sale (no bloquean: la roca la pone `hueco` o `bloq`). Cada uno mira al piso
+  //  que tiene cerca (ocho rumbos) y solo es alto si la roca le queda atrás (norte u oeste, contra lo negro); adelante y a los
+  //  costados va bajo)
   const contorno = z.objetos.filter((o) => o.id === id && o.hw === 2 && o.hh === 2 && o.v.startsWith(pre) && /^(alta|media|baja)/.test(o.v.slice(pre.length)));
   contorno.sort((a, b) => a.cy - b.cy || a.cx - b.cx);
+  const piso = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && (z.bloq[y * W + x] === 0 || z.bloq[y * W + x] === 3) && !(z.hueco && z.hueco[y * W + x]);
+  const puestos: { x: number; y: number; v: string; bajo: boolean }[] = [], fuera = new Set<ObjZ>();
   for (const o of contorno) {
-    const talla = o.v.slice(pre.length);
-    let clase: string;
-    if (talla.startsWith('baja')) clase = 'b';
-    else { const q = campo[Math.min(H - 1, Math.max(0, Math.round(o.cy))) * W + Math.min(W - 1, Math.max(0, Math.round(o.cx)))] + (rc() - 0.5) * 0.22 + (talla.startsWith('media') ? -0.12 : 0) - (fam === 'm' ? 0.16 : 0) - (o.capa === 'relleno' ? 0.2 : 0); /* (el relleno, la roca de las bolsas de adentro, va más bajo: una masa, no un bosque de agujas) */ clase = q > 0.64 ? 'a1' : q > 0.48 ? 'a2' : q > 0.34 ? 'm1' : q > 0.22 ? 'm2' : 'm3'; }
-    const n = clase === 'b' ? 4 : 3, cerca = puestos.filter((p) => Math.hypot(p.x - o.cx, p.y - o.cy) < 4).map((p) => p.v);
-    const ops = Array.from({ length: n }, (_, i) => `${fam}_${clase}_${i + 1}`).filter((v) => !cerca.includes(v));
-    const v = ops.length ? ops[Math.floor(rc() * ops.length)] : `${fam}_${clase}_${1 + Math.floor(rc() * n)}`;
-    o.id = 'roca_penasco'; o.v = v; puestos.push({ x: o.cx, y: o.cy, v });
+    const X = Math.round(o.cx), Y = Math.round(o.cy);
+    let nx = 0, ny = 0, hay = 0;
+    for (let dy = -4; dy <= 4; dy++) for (let dx = -4; dx <= 4; dx++) { if (!dx && !dy) continue; if (piso(X + dx, Y + dy)) { const d = Math.hypot(dx, dy); nx += dx / d / d; ny += dy / d / d; hay++; } }
+    const nl = Math.hypot(nx, ny) || 1; nx /= nl; ny /= nl;
+    const atras = hay ? (nx + ny) / Math.SQRT2 : 0.5, talla = o.v.slice(pre.length);
+    const q = campo[Math.min(H - 1, Math.max(0, Y)) * W + Math.min(W - 1, Math.max(0, X))] + (rc() - 0.5) * 0.2 - (fam === 'm' ? 0.15 : 0) - (o.capa === 'relleno' ? 0.2 : 0);
+    const clase = talla.startsWith('baja') || atras < -0.15 ? 'b' : atras < 0.35 ? (q > 0.5 ? 'm' : 'b') : q > 0.42 ? 'a' : 'm';
+    const bajo = clase === 'b', lejos = bajo ? 2 : 2.4;
+    // (lo que está sobre una celda de piso, como las piedras de la orilla de los túneles que bloquean su celda, no sale: se queda)
+    const sobrePiso = !!z.pisos[Math.floor(Y / 5) * z.tw + Math.floor(X / 5)] && !(z.hueco && z.hueco[Y * W + X]);
+    if (!sobrePiso && puestos.some((p) => Math.hypot(p.x - o.cx, p.y - o.cy) < lejos * (p.bajo && !bajo ? 0.8 : 1))) { fuera.add(o); continue; }
+    const dir = hay ? (Math.round(Math.atan2(ny, nx) / (Math.PI / 4)) + 8) % 8 : 1;
+    const cerca = puestos.filter((p) => Math.hypot(p.x - o.cx, p.y - o.cy) < 5).map((p) => p.v.slice(0, 2));
+    const ops = ['1', '2', '3'].map((n) => clase + n).filter((v) => !cerca.includes(v));
+    const cv = ops.length ? ops[Math.floor(rc() * ops.length)] : clase + (1 + Math.floor(rc() * 3));
+    o.id = 'roca_penasco'; o.v = `${fam}_${cv}_${dir}`; puestos.push({ x: o.cx, y: o.cy, v: cv, bajo });
   }
+  if (fuera.size) z.objetos = z.objetos.filter((o) => !fuera.has(o));
   // el talud: al pie de la roca de atrás (la que se ve de frente), cada 2 a 4 celdas
   if (!z.hueco) return;
   const hueco = z.hueco, pies: ObjZ[] = [], vs = fam === 'h' ? ['h1', 'h2', 'h3'] : ['c1', 'c2', 'c3', 'c4'];

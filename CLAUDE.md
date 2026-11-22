@@ -836,29 +836,34 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   - `roca_muro` (5 x 2, bloquea): roca cortada a pico. El tramo se parte a lo alto por estratos en diagonal (la misma línea
     inclinada en todo el tramo) y a lo largo en losas desparejas, con las juntas corridas de un estrato al otro (si se alinean es
     un muro de bloques). Cada losa es un poliedro con la cara plana y los cantos vivos, apenas girada, y cada estrato se retira un
-    poco más que el de abajo (la cara sube en talud). La sección es una cuña: la cara de arriba es angosta (un techo plano agarraba
-    la luz y cada repisa se leía como tejado). Cresta en 8 perfiles (pico, hombro, caída, dos picos, meseta con diente, que sube,
-    que baja, valle) más dos espejos, con lascas paradas en el canto. Grietas cavadas (`resta`), cascajo al pie y las marcas del
-    pico en el material (`rv_mina`: golpes cortos en diagonal de a filas en las caras paradas). Lo que mira arriba va oscuro y lo
-    alto se pierde en la oscuridad del techo (pasados 58 de alto el material baja). Vetas `ov`, `hv`, `sv` (oro, hierro, la
+    poco más que el de abajo (la cara sube en talud). La cara de arriba es angosta y la de atrás casi a plomo (un techo plano o una
+    cuña con espalda en rampa se leían como tejado o carpa). La cresta va en escalones y hombros rotos: cada losa lleva su cresta
+    casi pareja y el perfil (8 perfiles más dos espejos) sube y baja en tramos planos con el escalón corto en el medio; arriba,
+    lascas echadas, no paradas. Grietas cavadas (`resta`), cascajo al pie y las marcas del pico en el material (`rv_mina`: golpes
+    cortos en diagonal de a filas en las caras paradas). La roca es parda y cálida como la de antes, la que mira arriba baja un
+    poco y lo alto se pierde a medias en lo oscuro del techo (pasados 58 de alto). Vetas `ov`, `hv`, `sv` (oro, hierro, la
     sangre con su luz): un bolsón de mineral sobre una grieta en diagonal. `m1`..`m10`, `ov1`.., con `_y` el espejo por la
     diagonal (adelante es +x), así la esquina a inglete sale sola (`roca_muro` en `ESQUINAS_MURO`).
   - `roca_muro_espolon` (`e<largo><fondo>_<n>`, de 2 x 1 a 3 x 2, bloquea): el saliente. La misma roca, más baja, que se mete en
     la de atrás y cae hacia las puntas (con estratos más gruesos y poco retiro: con los del muro se leía como una pagoda).
-  - `roca_penasco` (2 x 2, no bloquea, como el `cue_penasco` que reemplaza): pedazos grandes y desparejos de roca, chatos como
-    estratos, corridos hacia atrás al subir, con su inclinación propia y la grieta oscura entre uno y otro, sobre un núcleo que
-    tapa los huecos; la línea del peñasco corre de lado en pantalla (a lo largo de x = y se veía de punta, como una aguja). Cinco
-    alturas (`a1` 132 a 152, `a2`, `m1`, `m2`, `m3` 52 a 64) y la baja de adelante (`b`), tres caras por altura y cuatro bajas.
-    Familias: `c_` cueva (caliza con estratos que ondulan y chorreones de humedad, musgo en las repisas, raíces, la gotera con su
-    estalactita y su charco, una estalagmita al pie), `h_` hielo (roca gris azulada, escarcha en lo que mira arriba, carámbanos y
-    poca nieve) y `m_` mina (la roca de la galería, pelada).
-  - `roca_pie` (plano, no bloquea): el talud. Polvo que se derrama y piedra más grande y tupida contra la roca, cada vez más chica
-    y rala hacia el piso. `m1`..`m4` (5 x 2, con `_y`) al pie de cada tramo de la mina; `c1`..`c4` y `h1`..`h3` (2 x 2) en la cueva.
-  - Primero salieron malas y se rehicieron mirando las láminas: las lajas en bandas de colores parecían ladrillo, las crestas
-    eran tejados y casitas, el saliente un sombrero o una pagoda (la losa de arriba quedaba flotando a la altura del estrato donde
-    la cresta baja: ahora el pedazo se cierra en cuña), los peñascos de masa lisa eran conos de cera o termiteros y las bajas,
-    bolitas de perla. Lab: `t1020_pieza_lab.mts "roca_muro,roca_muro_espolon,roca_penasco,roca_pie"` (láminas en
-    `/tmp/requiem-pruebas/e10/lab_*.png`).
+  - `roca_penasco` (2 x 2 de huella, no bloquea, como el `cue_penasco` que reemplaza; de dibujo mide 4 a 5 celdas de largo): el
+    **macizo** de la cueva. Una masa que se abomba y se derrama: lo alto en hombros redondos de alturas dispares contra la roca,
+    bultos que se hinchan en la cara, un banco bajo que se derrama hacia el piso, lascas a medio hundir en la cáscara (sin ellas
+    la masa es cera) y bloques caídos al pie. Mira hacia `dir` (ocho rumbos de 45°, el lado del piso). `<fam>_<clase><n>_<dir>`:
+    clases `a` alto (76 a 104), `m` medio (50 a 66) y `b` bajo (20 a 34: hombros, bancos de roca), tres caras por clase. Familias
+    `c` cueva (caliza con estratos que se cortan y cambian de paso, chorreones de humedad, musgo en las repisas, la gotera con su
+    charco, alguna estalagmita chica), `h` hielo (gris azulada con escarcha en lo que mira arriba, carámbanos y poca nieve) y `m`
+    mina (la roca parda de la galería, pelada).
+  - `roca_pie` (plano, no bloquea): el talud. Polvo claro que se derrama y piedra más grande y tupida contra la roca, cada vez más
+    chica y rala hacia el piso, hasta 1,5 celdas sobre el piso. `m1`..`m4` (5 x 2, con `_y`) al pie de cada tramo de la mina;
+    `c1`..`c4` y `h1`..`h3` (2 x 2) en la cueva.
+  - **La primera vuelta salió mal** y la revisión del coordinador la rebotó: en la cueva quedaba un bosque de columnas y conos
+    oscuros, todos altos y verticales, que tapaban el piso (piso legible de la cueva 10 a 9); en la mina la roca era gris, plana y
+    muy oscura, y las crestas en punta se leían como carpas o pirámides oscuras; el talud no se veía. Antes de eso ya se habían
+    rehecho las lajas en bandas de colores (parecían ladrillo), las crestas como tejados, el saliente como sombrero o pagoda (la
+    losa de arriba quedaba flotando a la altura del estrato donde la cresta baja: ahora el pedazo se cierra en cuña), los
+    peñascos de masa lisa (termiteros) y las bajas como bolitas de perla. Lab: `t1020_pieza_lab.mts
+    "roca_muro,roca_muro_espolon,roca_penasco,roca_pie"` (láminas en `/tmp/requiem-pruebas/e10/lab_*.png`).
 - **Romper la línea en la mina** (`lineaMina` en `zona.ts`, en `mazmorra` apenas se tiende la roca, antes de vestir nada: lo que
   se apoya contra la roca después se apoya contra la línea nueva; azar `rl`). Un tramo de cada tres más o menos se mete una celda
   en la roca (el **entrante**: la celda de piso que tapaba queda libre; no en la punta de una línea, donde dobla la esquina, ni
@@ -869,35 +874,39 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
 - **Al final** (`rocaViva`, después de `desmontarFinal` y antes de las esquinas): `rocaMina` le pone a cada tramo su cara (la veta
   guarda su mineral, ninguna cara igual a la del tramo de al lado), su talud, y revisa los salientes: el que quedó a menos de 7 de
   una salida, 6 de una entrada, 6,5 de un campamento o 13 del jefe se va, y si algo que se alcanza sin salientes deja de
-  alcanzarse se va el de al lado. `rocaCueva` pasa los peñascos del contorno de las cuevas (`cue_penasco`), del hielo (`bor_risco`
-  `nieve_`) y de la orilla y el relleno de la mina (`bor_risco` `paramo_`) a `roca_penasco`: la altura de los de atrás sale de un
-  campo suave (`ruido2` de escala 7: la cresta sube y baja en picos, hombros y caídas), más baja en la mina y en el relleno de
-  adentro (era un bosque de agujas), sin la misma cara a menos de 4 celdas; los bajos de adelante siguen bajos. Y el talud al pie
-  de la roca de atrás de la cueva cada 2 a 4 celdas, lejos de salidas y entradas.
+  alcanzarse se va el de al lado. `rocaCueva` junta en macizos los peñascos del contorno de las cuevas (`cue_penasco`), del hielo
+  (`bor_risco` `nieve_`) y de la orilla y el relleno de la mina (`bor_risco` `paramo_`): queda uno cada 2,4 celdas (los bajos cada
+  2) y los demás salen (no bloquean; la roca la ponen `hueco` y `bloq`; lo que está sobre una celda de piso, como las piedras de la
+  orilla de los túneles, se queda). Cada uno mira al piso que tiene cerca (la suma de las celdas de piso a 4 celdas) y **solo es
+  alto si la roca le queda atrás** (norte u oeste, contra lo negro); de costado va medio o bajo, adelante siempre bajo. La altura
+  sale de un campo suave (`ruido2` de escala 7), más baja en la mina y en el relleno de adentro, sin la misma cara a menos de 5
+  celdas. Y el talud al pie de la roca de atrás de la cueva cada 2 a 4 celdas, lejos de salidas y entradas.
 - **Lo que hubo que tocar fuera**: `roca_muro` y el saliente entran por el nombre en todo lo que mira `muro` (franjas del orden de
   pintado, `MURO_TAPA`, `despegarDeMuros`, las medidas) y `roca_penasco` en lo que mira `penasco`. `cajas_muro.json` y
   `cajas_sprite.json` al día (`t1013_cajas.mjs`). Los atlas que quedan sueltos de un horneado con `SOLO` (el prefijo cambia cada
-  vez) se borraron con su entrada del manifiesto.
+  vez) y las variantes que ya no existen se borraron del manifiesto con sus archivos.
 - **Medidas** (4 minas y 8 cuevas x 3 semillas, `_m_roca.mjs`, no se sube): en las minas 794 tramos, unos 50 entrantes y 188
-  salientes, 796 taludes, unos 1300 peñascos de mina; celdas libres de las minas 40.257 a 40.424. En las cuevas unos 11.700
-  peñascos nuevos y 2.700 taludes. t1000 (3 semillas, con `BANDERAS=__rocaVieja` el antes): arena exterior 56, cueva 40, obra 55
-  igual; arena de las cuatro minas, media de las 12, 53,6 a 52,5 % (a4_minas2 4242 es la que más baja, 44,7 a 41) (la primera versión, con más salientes de 2 de fondo, bajaba a
-  51); adornos por pantalla de la familia igual, pero en las minas (semilla 12345, a1_mina1, a1_mina2, a4_minas1, a4_minas2) 69, 48,
-  66 y 48 a 54, 49, 52 y 54: lo que se apoya contra la roca encuentra menos tramos rectos (las de 66 a 69 eran las más cargadas); piso legible de la cueva 10 a 9 (los peñascos de atrás tapan un poco más; con la primera
-  versión, más ancha y alta, daba 6 y fallaba). t1033 en las 12 zonas: flotando 0 y 0, montados 93 a 91, repetidos 9 a 10.
-- Pruebas: tsc, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033, t1011 `todas 2` con `SEMILLA` 5000, 6000 y
-  7000 (0 atascados las tres, objetiva 0), t855 (0 distintas en 192), t370 (288, 0 malas), conectividad 20 (1920), t995 (0 atascados), t440, t450, t500, t961 y
-  t1001, todo bien.
+  salientes, 796 taludes y unos 1100 peñascos de mina; celdas libres de las minas 40.257 a 40.440. En las cuevas unos 6.100
+  macizos (antes 11.700 peñascos) y 2.700 taludes. t1000 (3 semillas, con `BANDERAS=__rocaVieja` el antes): arena exterior 56,
+  cueva 40, obra 55 igual; **piso legible de la cueva 10 a 16** y objetos dibujados por pantalla 240 a 193; arena de las cuatro
+  minas, media de las 12, 53,6 a 52,5 % (a4_minas2 con la semilla 4242 es la que más baja, 44,7 a 41); adornos por pantalla de la
+  familia igual, pero en las minas (semilla 12345, a1_mina1, a1_mina2, a4_minas1, a4_minas2) 69, 48, 66 y 48 a 54, 49, 52 y 54:
+  lo que se apoya contra la roca encuentra menos tramos rectos.
+- Pruebas (segunda vuelta, con el servidor fresco): tsc, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en
+  las 12 zonas (flotando 0, montados 93 a 91, repetidos 9 a 10), t1011 `todas 2` con `SEMILLA` 5000, 6000 y 7000 (0 atascados las
+  tres, objetiva 0), t855 (0 distintas en 192), t370 (288, 0 malas), conectividad 20 (1920), t995 (0 atascados; `pegados`, el que
+  al final queda a menos de 0,25 de un muro, dio 1 y 3 en dos corridas, antes 0), t440, t450, t500, t961 y t1001.
   Fotos: `DIR=/tmp/requiem-pruebas/e10 t1021_vistas.cjs antes|ahora <zonas>` (el antes con
   `BANDERAS=__topeOscuro=0.45,__rocaVieja`) y `COLS=2 DIR=/tmp/requiem-pruebas/e10 python3 juego/herramientas/t1021_lamina.py
-  antes ahora` (`/tmp/requiem-pruebas/e10/lamina_antes_<zona>.png`, el antes a la izquierda).
+  antes ahora` (`/tmp/requiem-pruebas/e10/lamina_antes_<zona>.png`, el antes a la izquierda); los recortes de cerca en
+  `/tmp/requiem-pruebas/e10/cerca_*.png` y `zoom_pie_*.png`.
 - `MAPA_V` sigue en 4: las baldosas no cambian, solo qué celdas de adentro de las de la mina son roca (como en la entrega 8), y la
   partida guarda la niebla por baldosa.
 - Flojo: el frente de las galerías de la mina (los bordes de adelante, hacia la cámara) sigue cortado a regla contra lo negro: eso
-  no es roca, es el piso que se acaba, y no se tocó. Los salientes y entrantes salen menos de lo pensado en las minas chicas (las
-  líneas son de uno o dos tramos y las puntas no se mueven). La roca de la cueva se ve más oscura y más quebrada que antes, a
-  propósito, pero en las bolsas de relleno todavía puede leerse como un bosque de picos. No hubo forma de que el piso legible de la
-  cueva no bajara un punto. Nada se jugó a mano: solo las vistas de t1021.
+  no es roca, es el piso que se acaba, y no se tocó. Los entrantes salen pocos en las minas chicas (las líneas son de uno o dos
+  tramos y las puntas no se mueven). Los macizos de la cueva son redondos y con estratos: de cerca todavía tienen algo de
+  almohada o de barro, y el hielo es gris azulado con poca escarcha (antes era nieve blanca encima de todo). El talud se ve al pie
+  de la roca pero sigue discreto con la luz de la mina. Nada se jugó a mano: solo las vistas de t1021 y los recortes.
 
 ## Armas vivas, cofres, poderes y siluetas
 

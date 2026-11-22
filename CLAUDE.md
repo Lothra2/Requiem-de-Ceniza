@@ -22,6 +22,8 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
+- **Botín en evolución** (rama `botin`, 22 nov 2026): bases y grados de afijo por nivel, parte del botín para la clase, varas con
+  daño de hechizos, la ficha y el piso dicen qué es mejora. Ver "Botín en evolución". El daño del arma que se lleva sube un 17 %.
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
 - **Ya decidido por Rick, no volver a preguntar**: perder el mapa explorado está bien (héroe, objetos, misiones, viajes y
   casas no se tocan); se pueden modelar piezas nuevas (casas, torres, muertos, lava, lo que haga falta); la vara es mejor
@@ -951,6 +953,66 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   con `SEMILLA` 5000, 6000 y 7000 (0 atascados, objetiva 0), t855 (0 de 192), t370 (288, 0 malas), conectividad 20 (1920), t995
   dos tandas (0 atascados, 0 pegados), t440, t450, t500, t961 y t1001. Fotos `t1021` en las 7 zonas (antes con `__rocaVieja`) y los recortes de
   cerca de cueva, hielo y mina en `/tmp/requiem-pruebas/e10/cerca5_*.png`. Lab: `lab_r3b.png` (tramos bajos y hielo).
+
+## Botín en evolución (22 nov 2026, rama `botin`)
+
+Rick: "aparecen armas a medida que avanzo pero difícil encontrar una mejor que una que encontré en el nivel 3, esperaba armas en
+evolución". Todo cambia solo lo que cae de ahora en adelante: lo guardado no se toca. `__botinViejo` vuelve a todo lo de antes
+(sin una tirada de más: el azar sale igual que antes). Los números viven en `BOTIN` de `juego/objetos.ts` y las pruebas los
+cambian con `__botin = { ... }`.
+
+- **Simulador** `npx tsx juego/herramientas/t1300_botin.mts [--semillas 24] [--clases] [--hasta 60] [--hallazgo 30]
+  [--banderas __botinViejo] [--detalle] [--md x.md] [--salida x.json]` (`BOTIN='{"clase":0}'` cambia los números, `RAIZ=` otra
+  copia). Un héroe recorre la campaña Normal en orden (las zonas de combate de verdad, `entrarZona`), mata todo con la
+  experiencia del juego y tira el botín del juego con la clase (`botin`, lo extra del jefe, su talismán y su legendaria). Cada
+  clase lleva siempre la mejor arma y la mejor armadura que puede usar (atributos del héroe típico de balance.mts) y guarda lo
+  que todavía no puede llevar. Mide mejoras reales (15 % o más sobre la anterior), niveles entre mejoras, tramos de más de 8
+  niveles sin mejora, de qué rareza viene cada una, cuánto dura un arma de nivel bajo y la defensa. El arma vale por el daño
+  por segundo del héroe (`calcular`) y en arcanista, nigromante y druida por lo que suma a los hechizos. `python3
+  juego/herramientas/t1300_comparar.py antes.json ahora.json` compara el arma que lleva cada clase nivel a nivel. Ojo: con
+  menos de 20 semillas el máximo de unas pocas legendarias mete un ruido de unos 7 %.
+- **Diagnóstico (24 semillas, antes)**: cae un equipo por cada 3 bajas (945 piezas hasta el 64, 553 armas) pero la clase ve
+  poco de lo suyo: el monje 40 garras en toda la campaña, la cazadora 63 arcos y ballestas, el arcanista 73 varas. El 35 % de
+  las armas que caen tienen la base 15 niveles o más por debajo del objeto (basura en el piso). Mejoras reales del arma en 60
+  niveles: berserker 13,7, templario 10,4, cazadora 8,8, monje 8,5, alquimista 7,1 (cada 4,2 a 7,3 niveles, tramos secos de
+  hasta 22 a 31) y los lanzadores 1,8 a 2,1 (cada 24 a 26 niveles: una vara de nivel 2 les duraba la mitad del juego). Un
+  arma de nivel bajo (la reliquia de arranque, el raro del 8) dura hasta el 13 a 15 en los que pegan.
+- **Lo que cambió** (`juego/objetos.ts`):
+  - **Bases**: ya no salen parejas en la ventana de 30 niveles: cada base pierde la mitad de su chance cada 9 niveles que
+    queda por debajo del objeto (`elegirBase`, `mediaBase`). Armas con la base 15 o más niveles abajo: 35 a 17 %.
+  - **Grados de afijo**: Feroz, Cruel, Brutal... se reparten el peso que el grupo tenía y el grado lejos por debajo del nivel
+    del objeto pierde la mitad cada 18 niveles (`pesosAfijo`, `mediaAfijo`): el tipo de afijo sale igual de seguido, el grado
+    sube con el nivel. `sesgo` (la tirada de un grado viejo tira más alto) y `piso` (el piso de daño contra la curva de la
+    familia, `curvaFamilia`) existen pero quedan en 0: subían el daño típico sin dar más mejoras.
+  - **Únicos**: el de tu nivel sale más que el de 30 atrás (la mitad cada 10 niveles, `mediaUnico`).
+  - **Para la clase** (`sirveA`, `clase`: 0,25): una de cada cuatro piezas comunes, mágicas o raras se tira entre lo que sirve
+    a la clase del héroe (arma de familia afín, pieza de su clase o cualquier armadura y joya). Los únicos, legendarios y
+    conjuntos siguen siendo suerte pura. `botin` recibe la clase (mundo.ts al morir un monstruo, main.ts en cofres y urnas).
+  - **Varas de los lanzadores**: varitas, báculos y cetros traen daño de hechizos propio por el nivel de la base (`2 + nivel x
+    0,5`, `hechizo`), fijo, sin tirada.
+- **Después (24 semillas)**: mejoras reales berserker 14,3, templario 12,1, cazadora 10,8, monje 11,3, alquimista 9,5 (cada
+  4 a 5,6 niveles; tramos secos de más de 8 niveles por campaña 1,6 a 2,3, antes 1,8 a 2,7) y lanzadores 2,9 a 3,5 (cada 16 a
+  20). Lo de su tipo que cae por clase: monje 88, cazadora 104, arcanista 131 (antes 40, 63 y 73). Las mejoras vienen más del
+  raro (berserker 21 a 32 %, templario 18 a 22, cazadora 23 a 36, monje 26 a 35) y menos del legendario. **El daño del arma
+  que lleva sube**: media de las clases nivel a nivel +17 % (templario +3, berserker +15, nigromante +6, arcanista +9, druida
+  +13, cazadora +17, alquimista +23 y monje +50: antes casi no veía garras). t1010 (niveles 10, 20, 35 y 50, 3 semillas, contra
+  main, el héroe típico con el botín nuevo): bajas por minuto 22,8 a 22,6, 21,2 a 22,2, 21,9 a 22,9 y 21,1 a 23,1; pociones por
+  100 bajas 6,4 a 6,2, 11,1 a 7,9, 18,5 a 15,7 y 9,8 a 6,7; muertes por hora 0,5 a 1, 0,8 a 0,9, 8 a 5,6 y 0 a 0. Algo más fácil,
+  dentro de lo que ya movían otras entregas.
+- **Lo que no quedó**: después de un único o legendario fuerte (+100 a +250 % de golpe) el que sigue tarda 15 a 25 niveles: es
+  el salto del único (como en Diablo 2) y bajarlo era quitarle la emoción. Los lanzadores mejoran de vara cada 16 a 20 niveles:
+  su poder está en las habilidades, la vara suma poco.
+- **Que se note en la interfaz** (`juego/mejora.ts`, `cuantoMejora` y `mejoraCacheada`): prueba el objeto puesto con `calcular`
+  y da la diferencia de daño por segundo (o de hechizos), defensa, vida y resistencias con un veredicto. La ficha (tooltip y
+  ficha táctil) abre la comparación con "▲ Daño por segundo +147 %" en verde o "▼ ... −52 %" en rojo, defensa y vida, y avisa
+  si todavía no se puede llevar (`titularMejora` en `ui/juego_ui.ts`). La flechita de cada casilla de la bolsa sale de ese
+  veredicto (antes sumaba los números del objeto) y solo si se puede llevar. En el piso, la etiqueta de lo que es mejora y se
+  puede llevar ya lleva una flecha verde de pixel de 9 x 9 que late (`flechaMejora` en main.ts): nada más, no guía.
+  `__comparaVieja` vuelve a la comparación de antes, `__sinMarcaMejora` quita la flecha del piso, `__mejora(o)` y
+  `__marcasMejora` para las pruebas. Prueba: `t1301_botin_ficha.cjs [pc|pc1080|movil] [clase]` (ficha de un arma mejor y una
+  peor y el piso con la que mejora, la que empeora, una de nivel 60 que no puede llevar y oro; falla si la marca no sale
+  exactamente una vez), capturas en `/tmp/requiem-pruebas/botin/ficha_*.png`.
+- Pruebas: tsc, t1300 antes y después, t1010 contra main, t1301 pc y movil, t810, t740, t500, t1001, t440, t450, t830.
 
 ## Armas vivas, cofres, poderes y siluetas
 

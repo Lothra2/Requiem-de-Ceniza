@@ -1087,7 +1087,7 @@ function morirMonstruo(j: Juego, m: Monstruo, g?: Golpe) {
   if (h.c.mana_por_muerte) h.mana = Math.min(h.c.manaMax, h.mana + h.c.mana_por_muerte);
   // botín
   const cal = m.def.jefe ? 4 : m.calidad;
-  const caidas = botin(m.nivel, cal, h.c.hallazgo, h.c.oro_extra);
+  const caidas = botin(m.nivel, cal, h.c.hallazgo, h.c.oro_extra, h.d.clase);
   if (m.def.jefe) caidas.push({ obj: crearObjeto(m.nivel, R() < 0.5 ? 'unico' : 'raro') }, { obj: crearObjeto(m.nivel, 'raro') });
   const tj = TALISMAN_JEFE[m.def.id]; if (tj) { const o = crearUnicoId(tj, m.nivel); if (o) caidas.push({ obj: o }); }
   const lj = legendariaJefe(m.def.id, m.nivel, cal); if (lj) caidas.push({ obj: lj });

@@ -20,6 +20,7 @@ import { panelCodice } from './codice';
 import { alternarLibro } from './libro';
 import { miniTactil, rectJefeTactil, disposicion } from './hud_tactil';
 import { EPILOGOS } from '../mundo/decisiones';
+import { cuantoMejora, mejoraCacheada, type Mejora } from '../juego/mejora';
 import { colorObj, crearObjeto, crearPocion, crearPergamino, engarzar, baseDe, textoStat, crearUnicoId, type Objeto } from '../juego/objetos';
 import { BASES } from '../datos/objetos_datos';
 import type { DatosHeroe } from '../juego/heroe';
@@ -597,7 +598,7 @@ let cacheInv: { k: string; c: HTMLCanvasElement } | null = null;
 function panelInv(j: Juego, x: number, y: number, t: number) {
   const h = j.heroe, d = h.d;
   const act = (ui as any).bolsaActiva ?? 0;
-  const firma = JSON.stringify([IDI, act, d.oro, Object.entries(d.equipo).map(([k, o]) => [k, o!.uid, Math.ceil(o!.durab), o!.engarces.length]), d.bolsa.map((e) => [e.o.uid, e.x, e.y, e.b ?? 0, e.o.engarces.length, Math.ceil(e.o.durab)]), h.c.dano, h.c.def]);
+  const firma = JSON.stringify([IDI, act, d.oro, d.nivel, d.fue, d.des, Object.entries(d.equipo).map(([k, o]) => [k, o!.uid, Math.ceil(o!.durab), o!.engarces.length]), d.bolsa.map((e) => [e.o.uid, e.x, e.y, e.b ?? 0, e.o.engarces.length, Math.ceil(e.o.durab)]), h.c.dano, h.c.def]);
   if (!cacheInv || cacheInv.k !== firma) {
     const equipo: Record<string, { it: any; arma3d?: any }> = {};
     for (const [hid, cas] of Object.entries(CAS_HUD)) { const o = cas ? d.equipo[cas] : undefined; if (o) equipo[hid] = { it: aLoot(o), arma3d: arma3dDe(o) }; }
@@ -605,7 +606,9 @@ function panelInv(j: Juego, x: number, y: number, t: number) {
       const r = baseDe(e.o)?.ranura; const cas = r === 'anillo' ? 'anillo1' : (r as Casilla);
       const puesto = cas ? d.equipo[cas] : undefined;
       let compara: 1 | -1 | 0 = 0;
-      if (puesto && e.o.tipo === 'equipo') { const a = (e.o.dano ? (e.o.dano[0] + e.o.dano[1]) : 0) + (e.o.def ?? 0) + e.o.stats.length * 3, b = (puesto.dano ? puesto.dano[0] + puesto.dano[1] : 0) + (puesto.def ?? 0) + puesto.stats.length * 3; compara = a > b ? 1 : a < b ? -1 : 0; }
+      if (puesto && e.o.tipo === 'equipo' && (window as any).__comparaVieja) { const a = (e.o.dano ? (e.o.dano[0] + e.o.dano[1]) : 0) + (e.o.def ?? 0) + e.o.stats.length * 3, b = (puesto.dano ? puesto.dano[0] + puesto.dano[1] : 0) + (puesto.def ?? 0) + puesto.stats.length * 3; compara = a > b ? 1 : a < b ? -1 : 0; }
+      // la flecha de la casilla: lo que de verdad le cambia al héroe (calcular del juego), no la suma de números del objeto
+      else if (e.o.tipo === 'equipo') { const m = mejoraCacheada(d, e.o); if (m && m.puede && (m.actual || m.veredicto > 0)) compara = m.veredicto; }
       return { it: aLoot(e.o), arma3d: arma3dDe(e.o), x: e.x, y: e.y, w: e.o.w, h: e.o.h, durabilidad: e.o.durabMax ? e.o.durab / e.o.durabMax : undefined, engastes: e.o.huecos ? Array.from({ length: e.o.huecos }, (_, i) => gemaDe(e.o.engarces[i])) : undefined, compara } as ObjetoInv;
     });
     const ocup = d.bolsa.reduce((s2, e) => s2 + e.o.w * e.o.h, 0);
@@ -876,6 +879,20 @@ export function dibujarTooltipObjeto(j: Juego) {
   else if (e.bolsa && e.o.tipo === 'pocion' && ui.izq !== 'cofre') l.push([T('Shift + clic: al cinturón', 'Shift + click: to belt'), '#a09070']);
   tooltip(l, e.x, e.y, e.comparar ? comparacion(j, e.o) : undefined);
 }
+/** Los renglones grandes de la comparación: daño por segundo (o de hechizos), defensa y vida, con ▲ o ▼. */
+function titularMejora(clase: string, m: Mejora): [string, string][] {
+  const out: [string, string][] = [];
+  const pct = (x: number) => `${x >= 0 ? '+' : ''}${Math.round(x * 100)} %`;
+  const fl = (x: number) => (x > 0.005 ? '▲ ' : x < -0.005 ? '▼ ' : '= ');
+  const col = (x: number) => (x > 0.005 ? '#60ff60' : x < -0.005 ? '#ff6060' : '#a09070');
+  const lanza = clase === 'arcanista' || clase === 'nigromante' || clase === 'druida';
+  if (m.cas === 'arma' || Math.abs(m.dps) > 0.005) { const v = lanza ? m.hech : m.dps; out.push([`${fl(v)}${lanza ? T('Daño de hechizos', 'Spell damage') : T('Daño por segundo', 'Damage per second')} ${pct(v)}`, col(v)]); }
+  if (lanza && Math.abs(m.dps) > 0.005 && m.cas === 'arma') out.push([`${fl(m.dps)}${T('Golpe por segundo', 'Attack per second')} ${pct(m.dps)}`, col(m.dps)]);
+  if (m.def) out.push([`${fl(m.def)}${T('Defensa', 'Defense')} ${m.def > 0 ? '+' : ''}${m.def}`, col(m.def)]);
+  if (m.vida) out.push([`${fl(m.vida)}${T('Vida', 'Life')} ${m.vida > 0 ? '+' : ''}${m.vida}`, col(m.vida)]);
+  if (!m.puede) out.push([T('Todavía no lo puedes llevar', 'You cannot wear it yet'), '#ff6060']);
+  return out;
+}
 /** Contra lo que llevas puesto en esa casilla: daño, defensa y cada propiedad, en verde si mejora y en rojo si empeora. */
 function comparacion(j: Juego, o: Objeto): [string, string][] | undefined {
   const h = j.heroe;
@@ -884,6 +901,8 @@ function comparacion(j: Juego, o: Objeto): [string, string][] | undefined {
   if (!actual && cas && !Object.values(h.d.equipo).includes(o)) return [[T('Casilla vacía: todo suma', 'Empty slot: all gain'), '#60ff60']];
   if (!actual || actual === o) return undefined;
   const extra: [string, string][] = [[T('Contra lo equipado:', 'Against equipped:'), '#808080'], [TT(actual.nombre), colorObj(actual)]];
+  // de un vistazo: lo que cambia en el héroe con esto puesto (calcular del juego), con su flecha
+  if (!(window as any).__comparaVieja) { const m = cuantoMejora(h.d, o); if (m) extra.splice(2, 0, ...titularMejora(h.d.clase, m)); }
   if (actual.dano && o.dano) { const d = (o.dano[0] + o.dano[1]) / 2 - (actual.dano[0] + actual.dano[1]) / 2; extra.push([`${T('Daño', 'Damage')} ${d >= 0 ? '+' : ''}${d.toFixed(1)}`, d >= 0 ? '#60ff60' : '#ff6060']); }
   { const va = (baseDe(actual) as any)?.vel ?? 0, vo = (baseDe(o) as any)?.vel ?? 0; if (actual.dano && o.dano && va !== vo) extra.push([vo < va ? T('Más rápida', 'Faster') : T('Más lenta', 'Slower'), vo < va ? '#60ff60' : '#ff6060']); }
   if (actual.def !== undefined && o.def !== undefined) { const d = o.def - actual.def; extra.push([`${T('Defensa', 'Defense')} ${d >= 0 ? '+' : ''}${d}`, d >= 0 ? '#60ff60' : '#ff6060']); }

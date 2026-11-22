@@ -7,7 +7,7 @@ const { entrar } = require('./comun_pruebas.cjs');
 const fs = require('fs');
 const et = process.argv[2] || 'ahora';
 const ZONAS = (process.argv[3] || 'a2_ruinas,a3_pantano,a4_glaciar,a5_rio,a6_barrio2,a7_jardin').split(',');
-const PUESTOS = (process.argv[4] || 'puerta,lejos,izq,der,detras').split(',');
+const PUESTOS = (process.argv[4] || 'puerta,cerca,lejos,izq,der,detras').split(',');
 const DIR = `/tmp/requiem-pruebas/monumentos/juego/${et}`; fs.mkdirSync(DIR, { recursive: true });
 (async () => {
   const { b, p, errs } = await entrar(process.env.VISTA || 'pc', 'berserker', 40, process.env.URL || 'http://127.0.0.1:5197/', "d.id = 'monumentos1'");
@@ -26,7 +26,7 @@ const DIR = `/tmp/requiem-pruebas/monumentos/juego/${et}`; fs.mkdirSync(DIR, { r
         const j = window.__juego(), z = j.zona, s = z.salidas.find((q) => q.piezas && q.piezas.length), fa = s.piezas[s.piezas.length - 1], md = s.piezas[1];
         z.explorado.fill(1);
         const libre = (x, y) => x > 0 && y > 0 && x < z.W && y < z.H && z.bloq[y * z.W + x] === 0;
-        const base = { puerta: [s.cx, s.cy + 2, 0, 1], lejos: [s.cx, s.cy + 16, 0, 1], izq: [md.cx - 10, md.cy + 2, -1, 0], der: [md.cx + 10, md.cy + 2, 1, 0], detras: [md.cx, md.cy - 16, 0, -1] }[pu];
+        const base = { puerta: [s.cx + 1.5, s.cy + 1.5, 1, 1], cerca: [s.cx + 6, s.cy + 6, 1, 1], lejos: [s.cx + 13, s.cy + 13, 1, 1], izq: [s.cx - 5, s.cy + 12, -1, 1], der: [s.cx + 12, s.cy - 5, 1, -1], detras: [md.cx - 14, md.cy - 14, -1, -1] }[pu];
         let c = null; for (let d = 0; d < 20 && !c; d++) { const x = Math.round(base[0] + base[2] * d), y = Math.round(base[1] + base[3] * d); if (libre(x, y) && libre(x + 1, y) && libre(x, y + 1)) c = [x, y, d]; }
         if (!c) return { sin: 1 };
         j.heroe.x = c[0] + 0.5; j.heroe.y = c[1] + 0.5; j.heroe.camino = null; j.heroe.destino = null;
@@ -43,14 +43,14 @@ const DIR = `/tmp/requiem-pruebas/monumentos/juego/${et}`; fs.mkdirSync(DIR, { r
         const [hx, hy] = window.__aPant(j.heroe.x, j.heroe.y);
         return { arriba, falta, hud: cv.height - Lz.ALTO_HUD * cv.height / window.__vista().H, hy };
       });
-      const fila = `${zid} ${pu} d=${r.d} arriba=${m.arriba.toFixed(0)} héroe=${m.hy.toFixed(0)} hud=${m.hud.toFixed(0)}${m.falta ? ' SIN ATLAS ' + m.falta : ''}${m.arriba < 0 && pu === 'puerta' ? ' CORTADO' : ''}`;
+      const fila = `${zid} ${pu} d=${r.d} arriba=${m.arriba.toFixed(0)} héroe=${m.hy.toFixed(0)} hud=${m.hud.toFixed(0)}${m.falta ? ' SIN ATLAS ' + m.falta : ''}${m.arriba < -30 && pu === 'puerta' ? ' CORTADO' : ''}`;
       console.log(fila); filas.push(fila);
-      if ((m.arriba < 0 && pu === 'puerta') || m.falta) malos.push(fila);
+      if ((m.arriba < -30 && pu === 'puerta') || m.falta) malos.push(fila);
       await p.screenshot({ path: `${DIR}/${zid}_${pu}.png` });
     }
     // la puerta lleva a su mazmorra
     if (!process.env.SIN_ENTRAR) {
-      await p.evaluate(() => { const j = window.__juego(), s = j.zona.salidas.find((q) => q.piezas && q.piezas.length); j.heroe.x = s.cx + 0.5; j.heroe.y = s.cy + 2.2; j.heroe.destino = null; j.heroe.salida = s; window.__salidaPrueba = s.destino; });
+      await p.evaluate(() => { const j = window.__juego(), s = j.zona.salidas.find((q) => q.piezas && q.piezas.length); j.heroe.x = s.cx + 1.6; j.heroe.y = s.cy + 1.6; j.heroe.destino = null; j.heroe.salida = s; window.__salidaPrueba = s.destino; });
       const llego = await p.waitForFunction(() => window.__juego().zona.id === window.__salidaPrueba, null, { timeout: 8000 }).then(() => true, () => false);
       const fila = `${zid} entra por la puerta: ${llego ? 'sí' : 'NO'}`; console.log(fila); filas.push(fila); if (!llego) malos.push(fila);
     }

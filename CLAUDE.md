@@ -20,7 +20,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
-- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2, 6 y 7 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 3, 4, 5 y 1.
+- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2, 6, 7 y 3 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 4, 5 y 1.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Botín en evolución** (rama `botin`, 22 nov 2026): bases y grados de afijo por nivel, parte del botín para la clase, varas con
@@ -1137,6 +1137,39 @@ hay zonas con más pero no como en grupitos de x". Lo de la oleada 1 juntaba tod
 - Flojo: el explorador de t1041 tarda unos 30 s en el primer encuentro antes y ahora (recorre a fondo lo que rodea a la puerta, donde
   a propósito no hay nadie); un jugador que sale derecho lo encuentra antes. La bajas por minuto de t1010 bajan un 10 a 18 % porque
   entre grupo y grupo se camina más (la experiencia de la zona es la misma).
+
+## Cada zona con lo suyo: el acto 3 (22 nov 2026)
+
+La Selva y el Manglar tenían `selva`, las Cavernas Inundadas y el Nido `cueva`, y las Calles, el Palacio, los Escalones y el
+Vientre `templo` (el mismo muro de glifos con musgo, la misma arenisca y la misma luz de brasas): las cuatro de obra eran una sola.
+
+- **Pisos nuevos** (`catalogo/acto3_pisos.ts`): la hojarasca de la selva (hojas de dos verdes y alguna roja, raíces y tierra
+  negra), el lodo negro del manglar con charcos y raíces, la cueva inundada (roca mojada y media cueva de agua quieta), el piso de
+  seda del nido (mantos de seda, hilos sueltos y huesos), el mosaico de jade y oro del palacio con agua encima, los escalones del
+  templo con musgo en el canto y la carne de la Madre con venas y raíces.
+- **Muros nuevos** (`catalogo/acto3.ts`, tema `acto3`, con su fila en `ESQUINAS_MURO`, igual que `tem_muro_musgo`):
+  `a3_muro_casas` (las fachadas que se tragó el agua: revoque claro, la piel verde hasta la marea, puertas con arco abiertas o
+  tapiadas, ventanas con la contraventana colgando, el alero de vigas y las lianas) y `a3_muro_jade` (obsidiana con tres paneles
+  de jade en marco de oro, la greca escalonada, la serpiente emplumada, los discos con su ojo verde y las cabezas que escupen agua).
+- **Cada zona**: la **Selva** de hojarasca verde oliva; el **Manglar** de lodo negro con charcos, chozas en pilotes, barcas y
+  canoas; las **Cavernas Inundadas** azul negro con agua, gours y hongos que alumbran, haces fríos; el **Nido** de seda gris con
+  capullos, nidos de huesos y árboles de telaraña, violeta negro y sin haces; las **Calles** con fachadas ahogadas sobre el adoquín
+  con musgo, canoas, columnas de serpiente y ruinas, verde agua; el **Palacio** de jade, obsidiana y oro con ídolos y pedestales con
+  orbes, motas de oro; los **Escalones** ocres con el muro de musgo y raíces, ídolos y altares; el **Vientre** de carne roja con la
+  pared de carne, huevos y capullos. Cada una con su castigo de campamento.
+- **El Manglar, segunda pasada** (el coordinador: en la lámina la Selva y el Manglar eran el mismo verde negro): agua de verdad
+  (`a3_agua_negra`: agua negra verdosa con el cielo gris reflejado en manchas anchas y las ondas a lo ancho de la pantalla, anillos,
+  lenteja de agua y alguna hoja; caminable como todo piso) en canales que serpentean y charcas (`pisoExt`, con su orilla de
+  `pantano`), los manglares de raíces zancudas en el riego, lo grande y el borde, oscuridad 0,42 y la tinta verde gris fría
+  ([9, 14, 15], la Selva va cálida), y la neblina baja propia (`bruma` en `VarianteZona`: más jirones, más tupida y verde gris;
+  `ambienteAire` en ambiente.ts la lee). Brillo 39 (selva 37).
+- Brillo medio sin el HUD (antes y ahora): selva 36 y 36, manglar 38 y 39, inundadas 42 y 43, nido 36 y 35, calles 33 y 39,
+  palacio 38 y 34, escalones 43 y 40, vientre 45 y 34.
+- Fotos: `DIR=/tmp/requiem-pruebas/acto3` (antes con `BANDERAS=__acto3Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
+  `lamina_<zona>.png` y `ext_lamina.png` (selva y manglar, antes arriba).
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 8 zonas, t370 (288, 0
+  malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0 atascados,
+  0 pegados), t440, t450, t500, t1001 y t961.
 
 ## Cada zona con lo suyo: el acto 6 (22 nov 2026)
 

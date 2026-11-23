@@ -84,6 +84,8 @@ export interface Toma {
   omitir?: (e: EstadoToma) => boolean;
   /** Efectos de clima que esta toma no lleva (p. ej. 'fx_luciernagas'). Las criaturas de ambiente (fuegos fatuos, murciélagos) nunca van: salen al azar. */
   sinClima?: string[];
+  /** Sin la neblina baja de la zona (los jirones del aire): en un plano cerrado lavaba la figura. */
+  sinBruma?: boolean;
   /** Lo que no cabe en claves: se llama cada cuadro con el estado de la toma. */
   paso?: (e: EstadoToma, tl: number, dt: number) => void;
   /** Lo que se dibuja dentro del pase del mundo, después de él (en puntos del dibujo: `aPant` vale). */
@@ -396,7 +398,7 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
     //  alto, en cualquier pantalla; siempre a puntos enteros del aparato)
     const Tz = Math.max(1, Math.round((zk * H * RES) / 640));
     const w0 = (window as any).__sinBarras, a0 = (window as any).__sinAmbientePfx, c0 = (window as any).__climaFuera;
-    (window as any).__sinBarras = true; (window as any).__sinAmbientePfx = true; (window as any).__climaFuera = tm.sinClima;
+    (window as any).__sinBarras = true; (window as any).__sinAmbientePfx = true; (window as any).__climaFuera = tm.sinClima; (window as any).__sinBruma = !!tm.sinBruma;
     try {
       enMundoA(Tz, () => {
         dibujarMundo(e.j!, dt, t);
@@ -407,7 +409,7 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
         if (tm.focos?.length) hundirMenos(e, tl);
         (window as any).__cineMundo = { MW, MH, cam: { ...cam } };
       });
-    } finally { (window as any).__sinBarras = w0; (window as any).__sinAmbientePfx = a0; (window as any).__climaFuera = c0; camCine.on = false; }
+    } finally { (window as any).__sinBarras = w0; (window as any).__sinAmbientePfx = a0; (window as any).__climaFuera = c0; (window as any).__sinBruma = false; camCine.on = false; }
     if (tm.primer?.length) primerTermino(e, tl, Tz);
     vineta();
   } else tm.paso?.(e, tl, dt);

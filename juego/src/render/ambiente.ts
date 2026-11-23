@@ -351,7 +351,7 @@ export function ambienteAire(j: Juego, dt: number, t: number, aP: AP) {
   ((window as any).__amb ??= {}).jirones = jirones.length; (window as any).__amb.motas = motas.length;
   // (acto 3: el Manglar Negro lleva la suya, tupida, baja y verde gris sobre el agua: `bruma` en zonas_propias)
   const vb = varianteDe(z.id)?.bruma, nJ = vb ? Math.round(vb.n * (E.tactil ? 0.55 : 1)) : E.tactil ? 5 : 9, cJ = vb?.c ?? '170,182,196', aJ = vb?.a ?? 1;
-  if (z.tipo !== 'mazmorra' && (BRUMA.test(tema) || vb) && !poco) {
+  if (z.tipo !== 'mazmorra' && (BRUMA.test(tema) || vb) && !poco && !(window as any).__sinBruma) {
     while (jirones.length < nJ) jirones.push({ x: h.x + (Math.random() - 0.5) * 44, y: h.y + (Math.random() - 0.5) * 44, r: 90 + Math.random() * 110, v: 0.5 + Math.random() * 0.9, f: Math.random() * 6 });
     if (jirones.length > nJ) jirones.length = nJ;
     for (const q of jirones) {

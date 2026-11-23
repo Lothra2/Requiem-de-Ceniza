@@ -568,7 +568,8 @@ function exterior(def: DefZona, semilla: number): Zona {
       for (let i = 0; i < 260; i++) {
         const x = 8 + Math.floor(rl() * (z.W - 16)), y = 8 + Math.floor(rl() * (z.H - 16));
         if (!cabe(x, y, rad) || (extra && !extra(x, y))) continue;
-        if (def.rio && Math.abs(x - z.W / 2) < z.W * 0.19 + rad) continue;
+        if (def.rio && !monumentoDe(def.id) && Math.abs(x - z.W / 2) < z.W * 0.19 + rad) continue;
+        if (def.rio && monumentoDe(def.id) && [Math.floor(tw / 2) - 9, Math.ceil(tw / 2) + 8].some((c) => Math.abs(x - (c * 5 + 2.5)) < rad + 9)) continue;
         let d = 1e9;
         for (const [a, b] of puntos) d = Math.min(d, Math.hypot(a - x, b - y) - lejosSalida);
         for (const l of lugares) d = Math.min(d, Math.hypot(l.cx - x, l.cy - y) - l.r - rad - lejosLugar);
@@ -960,6 +961,10 @@ function rioDeLava(k: Constructor, r: () => number, arroyo = false) {
   const rio = REGISTRO.find((d) => d.id === (arroyo ? 'par_arroyo' : 'inf2_rio_lava')), puente = REGISTRO.find((d) => d.id === (arroyo ? 'par_puente' : 'inf2_puente'));
   if (!rio) return;
   let bx = Math.floor(tw * (0.35 + r() * 0.3));
+  // (con un monumento en el centro, la Fragua de Ozmaren en el Río de Lava, el cauce corre por un costado y no se le acerca:
+  //  antes cruzaba justo por el medio del mapa)
+  const mon = !!monumentoDe(z.id), lejosMon = (x: number) => !mon || Math.abs(x + 0.5 - tw / 2) >= 7;
+  if (mon) bx = bx < tw / 2 ? Math.max(2, Math.floor(tw / 2) - 9) : Math.min(tw - 3, Math.ceil(tw / 2) + 8);
   const cruzaCamino = (tx: number, ty: number) => { for (let y = ty * 5; y < ty * 5 + 5; y++) for (let x = tx * 5; x < tx * 5 + 5; x++) if (k.reserva[y * z.W + x]) return true; return false; };
   const bloquear = (tx: number, ty: number, v: number) => { for (let y = ty * 5; y < ty * 5 + 5; y++) for (let x = tx * 5; x < tx * 5 + 5; x++) if (z.bloq[y * z.W + x] !== 2) z.bloq[y * z.W + x] = v; };
   /** Un tramo: recto de norte a sur, o un codo (`codo`) que une dos lados de la baldosa. */
@@ -993,7 +998,7 @@ function rioDeLava(k: Constructor, r: () => number, arroyo = false) {
   for (let by = 0; by < th; by++) {
     const lado = by > 1 && by < th - 2 && r() < 0.3 ? (r() < 0.5 ? -1 : 1) : 0;
     const nx = bx + lado;
-    if (lado && nx >= 2 && nx <= tw - 3 && !cruzaCamino(bx, by) && !cruzaCamino(nx, by)) {
+    if (lado && nx >= 2 && nx <= tw - 3 && lejosMon(nx) && !cruzaCamino(bx, by) && !cruzaCamino(nx, by)) {
       tramo(bx, by, lado > 0 ? 'codo_e' : 'codo_n');
       tramo(nx, by, lado > 0 ? 'codo_o' : 'codo_s');
       bx = nx;

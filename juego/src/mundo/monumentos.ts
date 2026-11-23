@@ -8,7 +8,7 @@ import { piezasMonumento, puertaMonumento, fondoMonumento } from '../../../src/e
 
 type Ancla = NonNullable<DefZona['ancla']>;
 /** Las piezas de los monumentos (sus prefijos): no se riegan con el tema (van solo en su atrio) ni llevan la bruma de altura. */
-export const PIEZA_MONUMENTO = /^mon_(sol|yh|yhuantl|hr|hrim)_/;
+export const PIEZA_MONUMENTO = /^mon_(sol|yh|yhuantl|hr|hrim|fr|fragua)_/;
 type Mon = Ancla & { color: string; motas?: [string, string, string]; eje?: 'y' | 'diag' };
 /** El atrio de cada uno: el piso que va bajo la obra y la plaza de adelante, reservada para que el riego no caiga encima. */
 const atrio = (piso: string, marco: [string, string, number, number][] = [], atras = -14) => ({ piso, marco, reservar: [4, 4, 24, 24] as [number, number, number, number], tierra: [atras, atras, 18, 18] as [number, number, number, number] });
@@ -23,6 +23,8 @@ export const MONUMENTOS: Record<string, Mon> = {
   a3_pantano: mon('mon_yhuantl', 'a3_templo1', 'lajas_musgo', [['mon_yh_antorcha', 'izq', 8, 17], ['mon_yh_antorcha', 'der', 17, 8], ['mon_yh_tambores', 'circulo', 4, 21], ['mon_yh_altar', 'sangre', 21, 4]], '64,255,144', ['#40ff90', '#b0ffd0', '#6a7a60']),
   // acto 4: la Boca del Aliento, el glaciar con el frente de los jarls y el barco preso en el hielo (baja a a4_hielo1)
   a4_glaciar: mon('mon_hrim', 'a4_hielo1', 'hielo', [['mon_hr_jarl', 'izq', 2, 18], ['mon_hr_jarl', 'der_viejo', 18, 2], ['mon_hr_brasero', 'encendido', 13, 11], ['mon_hr_brasero', 'encendido', 11, 13], ['mon_hr_escudos', 'helado', -5, 23], ['mon_hr_trineo', 'vacio', 23, -5]], '106,208,255', ['#8ad8ff', '#e0f6ff', '#9aa8b4']),
+  // acto 5: la Fragua de Ozmaren, el volcán de columnas con la brasa en el cráter (baja a a5_fragua; el río de lava va por un costado)
+  a5_rio: mon('mon_fragua', 'a5_fragua', 'lava_grietas', [['mon_fr_brazo', 'martillo', 2, 18], ['mon_fr_brazo', 'tenazas', 18, 2], ['mon_fr_brasero', 'encendido', 13, 11], ['mon_fr_brasero', 'encendido', 11, 13], ['mon_fr_cadena', 'tirando', -5, 23], ['mon_fr_moldes', 'enfriando', 23, -5]], '255,122,36', ['#ff7a24', '#ffd080', '#5a4a40']),
 };
 
 /** El monumento de una zona (o nada con `__sinMonumentos`). */

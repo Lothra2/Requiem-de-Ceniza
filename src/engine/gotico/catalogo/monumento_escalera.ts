@@ -4,6 +4,7 @@ import { ruido } from '../render';
 import { G, raiz, bajoTierra, bloque, llama, figuraVelada, letras, cascotes } from '../kit_muerte';
 import { registrarMonumento, deAvenida } from './monumentos_kit';
 import { aro, tronco } from './monumentos_kit2';
+void figuraVelada;
 
 /**
  * La Escalera al Trono (acto 7, el Jardín de los que Intentaron; baja a `a7_escaleras`). Canon: arriba está Aun-Saar, el Dios
@@ -14,7 +15,7 @@ import { aro, tronco } from './monumentos_kit2';
  * gradas como cera, y la puerta: un aro de oro parado, del alto de cinco hombres, con la luz blanca adentro y la escalinata que
  * baja. A los lados del aro, dos alas de mármol que se abren como las de un ángel al que le sacaron el cuerpo.
  *
- * Sueltos en el atrio (monumentos.ts): los suplicantes bebidos, de rodillas, secos como cáscaras doradas (`mon_es_bebido`), los
+ * Sueltos en el atrio (monumentos.ts): las estelas de los siete con sus nombres y su estrella (`mon_es_estela`), los
  * braseros de fuego blanco (`mon_es_brasero`), el bastón y el manto del séptimo al pie (`mon_es_septimo`) y las losas que se
  * cayeron de la escalera con su nombre (`mon_es_losas`).
  */
@@ -40,17 +41,26 @@ function armar(F: G, _v: string, f: number) {
   for (let i = 0; i < 3; i++) {
     const R = 182 - i * 30, z = i * 14;
     F.cil(0, UC, z, R, 14, { mat: MA, tono: -i * 0.03 });
-    F.cil(0, UC, z + 12, R + 1.5, 2.6, { mat: OR, tono: -0.1 });
+    F.cil(0, UC, z + 11.6, R + 1.5, 2.4, { mat: OR, tono: -0.1 }); F.cil(0, UC, z + 12, R - 4, 2.6, { mat: MA, tono: 0.04 });
     // el oro seco que se derramó por la grada como cera
     for (let k = 0; k < 10; k++) { const t = (k / 10) * TAU + i * 0.4 + a.r() * 0.3, L = 8 + a.r() * 10; if (Math.sin(t) > 0.62 && Math.abs(Math.cos(t)) < 0.3) continue; F.palo([Math.cos(t) * (R - 2), UC + Math.sin(t) * (R - 2), z + 14], [Math.cos(t) * (R + 2), UC + Math.sin(t) * (R + 2), z + 14 - L], 2.4 + a.r() * 2, { mat: OS, r1: 1.2 }); }
+  }
+  // el corro de los siete: siete columnas altas de mármol en el borde del estrado, con su capitel de oro y la llama blanca arriba;
+  // la del que no volvió está partida y su tambor caído
+  for (let k = 0; k < 7; k++) {
+    const t = Math.PI * 0.5 + 0.45 + (k / 7) * (TAU - 0.9), x = Math.cos(t) * 158, y = UC + Math.sin(t) * 158, rota = k === 4, h = rota ? 120 + a.r() * 40 : 230;
+    bloque(F, x, y, 28, 30, 30, 10, { mat: MA, b: 1, j: 0.6 });
+    F.cil(x, y, 38, 10, h, { mat: MA, r1: 8.6 }); for (let j = 0; j < 8; j++) { const tt = (j / 8) * TAU; F.palo([x + Math.cos(tt) * 10, y + Math.sin(tt) * 10, 40], [x + Math.cos(tt) * 8.6, y + Math.sin(tt) * 8.6, 36 + h], 0.8, { mat: MA, resta: true }); }
+    if (!rota) { F.cil(x, y, 38 + h, 9, 14, { mat: OR, r1: 15 }); F.caja(x, y, 52 + h, 32, 32, 6, { mat: OR, tono: -0.05 }); F.cil(x, y, 58 + h, 8, 8, { mat: OR, r1: 12 }); for (let j = 0; j < 3; j++) llama(F, x + (a.r() - 0.5) * 6, y + (a.r() - 0.5) * 6, 66 + h, 4, 18 + a.r() * 6, f, 4, k * 3 + j, 'mon_es_blanco'); }
+    else { F.poli([[x - 10, y - 10, 38 + h], [x + 10, y - 10, 38 + h - 20], [x - 10, y + 10, 38 + h - 10], [x + 10, y + 10, 38 + h], [x, y, 38 + h + 16]], { mat: MA }); F.sub(x + 34, y + 20, 8, 30, 90, 'y').cil(0, 0, -40, 9, 80, { mat: MA }); }
   }
   // el pozo del haz: un anillo de oro en el centro del estrado, con letras alrededor
   F.cil(0, UC, 42, 40, 6, { mat: OR }); F.cil(0, UC, 44, 32, 6, { mat: BL, tono: 0.1 });
   // ------------------------------------------------------------ el haz de luz seca: la columna que sube al cielo rajado
-  for (let k = 0; k < 7; k++) { const z = 48 + k * 80, r0 = 22 - k * 1.4; F.cil(0, UC, z, r0, 80, { mat: LU, r1: r0 - 1.4, tono: 0.1 - k * 0.02 + p * 0.06 }); }
-  for (let k = 0; k < 18; k++) { const t = a.r() * TAU, rr = 26 + a.r() * 16, z = 60 + a.r() * 500; F.esf(Math.cos(t) * rr, UC + Math.sin(t) * rr, z, 1.4 + a.r() * 1.6, { mat: BL }); }
+  for (let k = 0; k < 6; k++) { const z = 48 + k * 66, r0 = 22 - k * 1.6; F.cil(0, UC, z, r0, 80, { mat: LU, r1: r0 - 1.4, tono: 0.1 - k * 0.02 + p * 0.06 }); }
+  for (let k = 0; k < 18; k++) { const t = a.r() * TAU, rr = 26 + a.r() * 16, z = 60 + a.r() * 380; F.esf(Math.cos(t) * rr, UC + Math.sin(t) * rr, z, 1.4 + a.r() * 1.6, { mat: BL }); }
   // ------------------------------------------------------------ la escalera de caracol: losas sueltas que flotan sin muro ni baranda
-  const NS = 46, R0 = 104, VUELTAS = 2.3, ZT = 520, T0 = Math.PI * 0.55;
+  const NS = 38, R0 = 112, VUELTAS = 1.8, ZT = 360, T0 = Math.PI * 0.55;
   for (let i = 0; i < NS; i++) {
     const t = T0 + (i / NS) * VUELTAS * TAU, z = 56 + (i / NS) * ZT, R = R0 - (i / NS) * 26, x = Math.cos(t) * R, y = UC + Math.sin(t) * R;
     const g = F.sub(x, y, z, (t * 180) / Math.PI + 90);
@@ -102,7 +112,7 @@ function armar(F: G, _v: string, f: number) {
   return {
     der: { c: [0, UF - 20, 60] as V3, r: 100 + p * 14, color: '#fff2c8' },
     medio: { c: [0, UC, 300] as V3, r: 150 + p * 20, color: '#ffe8a0' },
-    atras: { c: [0, UC, 640] as V3, r: 140 + p * 20, color: '#fff0c0' },
+    atras: { c: [0, UC, 480] as V3, r: 140 + p * 20, color: '#fff0c0' },
   };
 }
 registrarMonumento({
@@ -112,18 +122,32 @@ registrarMonumento({
   armar: (F, v, f) => { const r = armar(F, v, f); const o: Record<string, { c: V3; r: number; color: string }> = {}; for (const [k, l] of Object.entries(r)) { const [x, y] = deAvenida(l.c[0], l.c[1]); o[k] = { ...l, c: [x, y, l.c[2]] }; } return o; },
 });
 
-// ================================================================== los suplicantes bebidos
+// ================================================================== las estelas de los siete
+/** La estela de los que subieron: un pilar de mármol en talud del alto de cinco hombres, con los nombres grabados en columnas, la
+ *  estrella de siete puntas de oro arriba con su corona de rayos y, al pie, el oro seco que le chorreó encima como cera, las velas
+ *  y los cuencos vacíos. Una lleva el nombre raspado. */
+function estela(g: G, raspada: boolean) {
+  const a = g.a;
+  bloque(g, 0, 0, 0, 70, 70, 10, { mat: MA, b: 1.6, j: 1 }); bloque(g, 0, 0, 10, 52, 52, 10, { mat: MA, b: 1.2, j: 0.8, tono: 0.04 });
+  tronco(g, 0, 0, 20, 300, 36, 36, 24, 24, { mat: MA });
+  g.caja(0, 0, 300, 30, 30, 6, { mat: OR, tono: -0.05 }); g.caja(0, 0, 306, 26, 26, 4, { mat: MA, tono: 0.06 });
+  // los nombres en las cuatro caras (en la de adelante, raspados en una)
+  for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU, c = g.sub(Math.cos(t) * 17.4, Math.sin(t) * 17.4, 0, (t * 180) / Math.PI + 90); if (raspada && k === 1) c.caja(0, 0, 110, 22, 2, 140, { mat: MA, resta: true }); else letras(c, -10, 10, 0, 60, 18, OS, 4.2, 1.4); }
+  // la estrella de siete puntas, de canto a la avenida, y su corona de rayos
+  const E = g.sub(0, 0, 340, 45, 90, 'x');
+  for (let k = 0; k < 7; k++) { const t = (k / 7) * TAU - Math.PI / 2; E.poli([[0, -2, 0], [0, 2, 0], [Math.cos(t - 0.45) * 12, -1.4, Math.sin(t - 0.45) * 12], [Math.cos(t + 0.45) * 12, 1.4, Math.sin(t + 0.45) * 12], [Math.cos(t) * 30, 0, Math.sin(t) * 30]], { mat: OR, tono: 0.06 }); }
+  E.sub(0, 0, 0, 0, 90, 'x').cil(0, 0, -3, 9, 6, { mat: 'mon_es_blanco', tono: 0.1 });
+  for (let k = 0; k < 14; k++) { const t = (k / 14) * TAU; E.palo([Math.cos(t) * 32, 0, Math.sin(t) * 32], [Math.cos(t) * (44 + (k % 2) * 12), 0, Math.sin(t) * (44 + (k % 2) * 12)], 1.4, { mat: OR, r1: 0.3 }); }
+  g.palo([0, 0, 310], [0, 0, 340], 3, { mat: OR });
+  // el oro seco que chorreó, las velas y los cuencos
+  for (let k = 0; k < 12; k++) { const t = (k / 12) * TAU + a.r() * 0.3, z0 = 280 - a.r() * 60; g.palo([Math.cos(t) * 13, Math.sin(t) * 13, z0], [Math.cos(t) * 17, Math.sin(t) * 17, z0 - 30 - a.r() * 60], 1.8, { mat: OS, r1: 0.8 }); }
+  g.elip(0, 0, 20.4, 26, 26, 1.4, { mat: OS, tono: -0.05 });
+  for (let k = 0; k < 6; k++) { const t = (k / 6) * TAU + 0.3, x = Math.cos(t) * 30, y = Math.sin(t) * 30; g.cil(x, y, 10, 1.4, 6 + (k % 3) * 3, { mat: 'cera', tono: -0.3 }); llama(g, x, y, 16 + (k % 3) * 3, 1, 3, 0, 4, k, 'mon_es_luz'); }
+  for (let k = 0; k < 3; k++) { const t = (k / 3) * TAU + 1; g.cil(Math.cos(t) * 40, Math.sin(t) * 40, 0, 4, 3, { mat: OR, r1: 5.4, tono: -0.1 }); }
+}
 registrar({
-  id: 'mon_es_bebido', nombre: ['Los que intentaron', 'Those who tried'], tema: 'celestial', variantes: ['izq', 'der'], huella: [6, 6], bloquea: true,
-  armar: (v, _f, a) => {
-    const { ps, g } = raiz(a, -45);
-    bloque(g, 0, 0, 0, 110, 100, 12, { mat: MA, b: 2, j: 1 });
-    // el grande: de rodillas con los brazos arriba (pidiendo), seco como una cáscara de oro; alrededor tres chicos de rodillas
-    figuraVelada(g.sub(0, -6, 12, v === 'der' ? 15 : -15), 200, { mat: 'mon_es_cascara', pose: 'reza', tono: 0.05 });
-    for (let k = 0; k < 3; k++) { const t = (k / 3) * TAU + 0.6; figuraVelada(g.sub(Math.cos(t) * 40, Math.sin(t) * 34, 12, (t * 180) / Math.PI + 90), 34, { mat: 'mon_es_cascara', pose: k === 1 ? 'cubre_cara' : 'rodillas', tono: -0.05 }); }
-    for (let k = 0; k < 10; k++) g.elip(-40 + a.r() * 80, -40 + a.r() * 80, 12.4, 4 + a.r() * 4, 3, 0.6, { mat: OS, giro: a.r() * 180 });
-    bajoTierra(ps); return ps;
-  },
+  id: 'mon_es_estela', nombre: ['Estela de los siete', 'Stele of the seven'], tema: 'celestial', variantes: ['entera', 'raspada'], huella: [5, 5], bloquea: true,
+  armar: (v, _f, a) => { const { ps, g } = raiz(a, -45); estela(g, v === 'raspada'); bajoTierra(ps); return { piezas: ps, resplandor: { c: [0, 0, 340] as V3, r: 50, color: '#ffe8a0' } }; },
 });
 
 // ================================================================== los braseros de fuego blanco

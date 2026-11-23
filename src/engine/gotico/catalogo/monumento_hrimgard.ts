@@ -59,6 +59,8 @@ M.mon_hr_granito = {
     return (ruido(Math.floor(u / L) * 2.3, fila * 1.3, 4) - 0.5) * 0.36 + (borde < 3.4 ? -0.1 : 0) + (ruido(p[0] * 0.03, p[1] * 0.03, p[2] * 0.012) > 0.64 ? -0.16 : 0);
   },
 };
+M.mon_hr_claro = { rampa: ['#24272b', '#383c41', '#4e5359', '#666b72', '#7f848b', '#999ea4', '#b3b7bc', '#cbced2', '#e0e2e4'], ruido: 0.22, escala: 0.26, patron: (p, n) => (n[2] > 0.6 ? 0.2 : 0) + (ruido(p[0] * 0.06, p[1] * 0.06, p[2] * 0.06) - 0.5) * 0.24 };
+M.mon_hr_oscuro = { rampa: ['#060708', '#0d0f11', '#15181b', '#1e2226', '#282d32', '#33393f', '#40474e'], ruido: 0.26, escala: 0.26, patron: (p, n) => (n[2] > 0.6 ? 0.3 : 0) + (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.05) - 0.5) * 0.24 };
 M.mon_hr_talla = { rampa: ['#0d0e10', '#1a1c1f', '#292c30', '#3a3e43', '#4d5157', '#61666c', '#767b81', '#8c9197', '#a3a8ad'], ruido: 0.24, escala: 0.26, patron: (p, n) => (n[2] > 0.6 ? 0.28 : 0) + (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.05) - 0.5) * 0.2 };
 /** Las runas que todavía brillan frío y la boca del aliento (lo hondo azul, con su luz). */
 M.mon_hr_runa = { rampa: ['#0a2a3a', '#145070', '#2382a6', '#46b4d6', '#8ae0f4', '#d0f8ff'], ruido: 0.3, escala: 0.3, emite: true };
@@ -93,38 +95,42 @@ function nieveSobre(g: G, x0: number, x1: number, u0: number, u1: number, z: num
 // ================================================================== la obra
 function armar(F: G, _v: string, f: number) {
   const a = F.a, p = 0.5 + 0.5 * Math.sin((f / 4) * TAU);
-  // ------------------------------------------------------------ el glaciar: la lengua de hielo que baja de atrás (más alta a la
-  // izquierda) como un campo de alturas liso que se curva, con las grietas que la cruzan, y adelante la pared rota a plomo
-  const alto = (v: number, u: number) => 228 + (20 - u) * 0.56 - v * 0.42 + Math.sin(v * 0.028 + u * 0.012) * 16 + Math.sin(u * 0.045 + 1) * 8 - Math.max(0, Math.abs(v) - 110) ** 1.5 * 0.09;
-  const V0g = -210, V1g = 210, UF0 = 18, UB0 = -284;
-  {
-    const NV = 24, NU = 18, du = (UF0 - UB0) / NU, dv = (V1g - V0g) / NV, frente: number[] = [];
-    for (let i = 0; i <= NV; i++) frente.push(UF0 + (a.r() - 0.5) * 16 + (i % 5 === 1 ? 10 : 0));
-    for (let j = 0; j < NU; j++) for (let i = 0; i < NV; i++) {
-      const v0 = V0g + i * dv, v1 = v0 + dv, u0 = UB0 + j * du, ult = j === NU - 1, u1a = ult ? frente[i] : u0 + du, u1b = ult ? frente[i + 1] : u0 + du;
-      const h = (v: number, u: number) => alto(v, u) + (ult && u > UF0 - 6 ? (a.r() - 0.5) * 10 : 0);
-      F.poli([[v0, u0, 0], [v1, u0, 0], [v0, u1a, 0], [v1, u1b, 0], [v0, u0, h(v0, u0)], [v1, u0, h(v1, u0)], [v0, u1a, h(v0, u1a)], [v1, u1b, h(v1, u1b)]], { mat: ult ? 'mon_hr_pared' : HI, tono: (a.r() - 0.5) * 0.04 });
-    }
-    // la pared de adelante: columnas que se adelantan, grietas negras azules entre ellas y la cornisa de nieve que cuelga
-    for (let i = 1; i < NV; i++) {
-      const v = V0g + i * dv, u = Math.min(frente[i], frente[i - 1] ?? frente[i]), hf = alto(v, u) - 6;
-      F.poli([[v - 2.5, u - 40, 4], [v + 2.5, u - 40, 4], [v - 2.5, u + 3, 4], [v + 2.5, u + 3, 4], [v - 4, u - 40, hf], [v + 4, u - 40, hf], [v - 4, u + 3, hf - 4], [v + 4, u + 3, hf - 4]], { mat: 'mon_hr_grieta' });
-    }
-    for (let i = 0; i < NV; i++) { const vm = V0g + (i + 0.5) * dv, u = (frente[i] + frente[i + 1]) / 2, hf = alto(vm, u); F.elip(vm, u - 4, hf + 1, dv * 0.7, 12, 6, { mat: NI, tono: 0.02 }); carambanos(F, vm - dv / 2 + 3, vm + dv / 2 - 3, u + 6, hf - 4, 3, 36); }
-    // las grietas que cruzan la lengua: tajos de azul casi negro con su labio de nieve, al ras de la superficie
-    for (let k = 0; k < 14; k++) { const u = -260 + (k % 7) * 38 + (a.r() - 0.5) * 10, v = (k < 7 ? -110 : 90) + (a.r() - 0.5) * 120, L = 50 + a.r() * 60, gi = 8 + (a.r() - 0.5) * 16; F.caja(v, u, alto(v, u) - 16, L, 5, 17.5, { mat: 'mon_hr_grieta', giro: gi }); F.elip(v, u + 4, alto(v, u + 4) + 0.6, L * 0.5, 3, 1.6, { mat: NI, giro: gi }); }
-    // los seracs del borde, a la izquierda (lo alto de un lado): torres de hielo ladeadas de cantos rotos
-    for (let k = 0; k < 6; k++) { const v = -230 + k * 34 + (a.r() - 0.5) * 16, u = -40 + a.r() * 40, z0 = alto(v, u) - 10, s2 = 14 + a.r() * 8; F.poli([[v - s2, u - s2, z0], [v + s2, u - s2, z0], [v - s2, u + s2, z0], [v + s2, u + s2, z0], [v - s2 * 0.4, u - s2 * 0.5, z0 + 40 + a.r() * 40], [v + s2 * 0.7, u - s2 * 0.2, z0 + 30 + a.r() * 26], [v - s2 * 0.6, u + s2 * 0.5, z0 + 24], [v + s2 * 0.3, u + s2 * 0.4, z0 + 50 + a.r() * 30]], { mat: SE, tono: (a.r() - 0.5) * 0.12 }); F.elip(v, u, z0 + 50, 10, 10, 3, { mat: NI }); }
-    // los trozos que se desplomaron al pie de la pared
-    for (let k = 0; k < 9; k++) { const v = -230 + k * 58 + (a.r() - 0.5) * 30, u = 36 + a.r() * 26, s2 = 12 + a.r() * 16; if (Math.abs(v) < 150) continue; F.poli([[v - s2, u - s2 * 0.7, 0], [v + s2 * 0.8, u - s2, 0], [v - s2 * 0.9, u + s2 * 0.8, 0], [v + s2, u + s2 * 0.6, 0], [v - s2 * 0.5, u - s2 * 0.3, s2 * 1.6 + a.r() * 10], [v + s2 * 0.6, u - s2 * 0.6, s2 * 1.2], [v - s2 * 0.7, u + s2 * 0.5, s2 * 1.4], [v + s2 * 0.4, u + s2 * 0.2, s2 * 1.9 + a.r() * 12]], { mat: SE, tono: (a.r() - 0.5) * 0.1 }); }
+  // ------------------------------------------------------------ el glaciar: una masa que sube en gradas de hielo hacia atrás
+  // (la cascada de hielo: cada grada con su lomo nevado casi llano y su escalón roto a plomo, que es lo que da el volumen), más
+  // alto a la izquierda, con la lengua que llega adelante hasta la puerta y la rodea
+  const ESC = [176, 104, 34, -36, -106, -176, -240], ALT = [196, 246, 294, 338, 382, 420, 452], UB0 = -284, V0g = -212, V1g = 212;
+  // el frente de cada grada en `v`: sale y entra por columnas, y a los costados se recoge (no se sale de las piezas)
+  const NV = 16, dv = (V1g - V0g) / NV, cols: number[][] = ESC.map(() => { const out: number[] = []; let c0 = 0; for (let i = 0; i < NV; i++) { if (i === 0 || a.r() < 0.55) c0 = (a.r() - 0.5) * 44 + (a.r() < 0.25 ? 22 : 0); out.push(c0); } return out; });
+  const frenteDe = (j: number, i: number) => { const v = V0g + (i + 0.5) * dv, lado = v < 0 ? 212 - j * 8 : 200 - j * 18; return Math.abs(v) > lado ? -1e4 : Math.min(ESC[j] + cols[j][i], 300 - Math.abs(v) - 8); };
+  const altoDe = (j: number, v: number, u: number) => ALT[j] - v * 0.22 + Math.sin(v * 0.03 + j) * 8 + (ESC[j] - u) * 0.1 - Math.max(0, Math.abs(v) - 150) * 0.7;
+  for (let j = 0; j < ESC.length; j++) for (let i = 0; i < NV; i++) {
+    const v0 = V0g + i * dv, v1 = v0 + dv, uf = frenteDe(j, i), ub = j === ESC.length - 1 || frenteDe(j + 1, i) < -1000 ? UB0 : Math.min(frenteDe(j + 1, i), uf - 30);
+    if (uf < -1000 || uf <= ub + 6) continue;
+    const h0 = altoDe(j, v0, uf), h1 = altoDe(j, v1, uf), hb0 = altoDe(j, v0, ub), hb1 = altoDe(j, v1, ub);
+    // el bloque de la grada: la cara de adelante a plomo con estrías (su material) y el lomo de encima, claro
+    F.poli([[v0, ub, 0], [v1, ub, 0], [v0, uf, 0], [v1, uf, 0], [v0, ub, hb0], [v1, ub, hb1], [v0, uf, h0], [v1, uf, h1]], { mat: j === 0 ? 'mon_hr_pared' : HI, tono: (a.r() - 0.5) * 0.05 });
+    F.poli([[v0, uf - 3, 0], [v1, uf - 3, 0], [v0, uf, 0], [v1, uf, 0], [v0, uf - 3, h0 - 3], [v1, uf - 3, h1 - 3], [v0, uf + 0.5, h0 - 8], [v1, uf + 0.5, h1 - 8]], { mat: 'mon_hr_pared', tono: (a.r() - 0.5) * 0.08 });
+    // el lomo de nieve que redondea el canto y cuelga un poco, con los carámbanos
+    if (a.r() < 0.22) F.elip((v0 + v1) / 2, uf - 2, (h0 + h1) / 2, dv * 0.6, 9, 4, { mat: NI, tono: (a.r() - 0.5) * 0.05 });
+    if (a.r() < 0.5) carambanos(F, v0 + 3, v1 - 3, uf + 3, (h0 + h1) / 2 - 6, 3, 18 + a.r() * 26);
+    // la grieta del escalón: una hendidura en V, honda y negra azul, con el labio de nieve de los dos lados
+    if (i > 0 && Math.abs(cols[j][i] - cols[j][i - 1]) > 9) { const h = Math.min(h0, altoDe(j, v0, frenteDe(j, i - 1))); F.poli([[v0 - 5, uf - 40, h + 0.5], [v0 + 5, uf - 40, h + 0.5], [v0 - 5, uf + 1, h - 4], [v0 + 5, uf + 1, h - 4], [v0, uf - 40, h - 26], [v0, uf + 1, h - 30]], { mat: 'mon_hr_grieta' }); }
   }
-  // el pie de basalto, con la escarcha, a los costados del frente
-  for (let k = -6; k <= 6; k++) { if (Math.abs(k) < 4) continue; const x = k * 38 + (a.r() - 0.5) * 12; bloque(F, x, 40 + (a.r() - 0.5) * 16, 0, 36 + a.r() * 20, 30 + a.r() * 16, 18 + a.r() * 26, { mat: RO, giro: (a.r() - 0.5) * 30, b: 3, j: 2 }); }
-  derrumbe(F, 14, -170, 70, 40, 16, 16, RO); derrumbe(F, 10, 180, 66, 30, 12, 14, RO);
+  // las grietas en V que cruzan el lomo de cada grada a lo largo (siguen la forma), con su labio
+  for (let j = 1; j < ESC.length; j++) for (let k = 0; k < 2; k++) {
+    const vc = (k ? 60 : -90) + (a.r() - 0.5) * 60, L = 50 + a.r() * 40, uc = ESC[j] - 24 - a.r() * 16, gi = (a.r() - 0.5) * 18, h = altoDe(j, vc, uc), c = F.sub(vc, uc, h, gi);
+    c.poli([[-L / 2, -5, 0.6], [L / 2, -5, 0.6], [-L / 2, 5, 0.6], [L / 2, 5, 0.6], [-L / 2 + 6, 0, -22], [L / 2 - 6, 0, -22]], { mat: 'mon_hr_grieta' });
+    c.elip(0, -7, 0.4, L * 0.52, 3.4, 2.2, { mat: NI, tono: 0.05 }); c.elip(0, 7, 0.4, L * 0.52, 3.4, 2.2, { mat: NI, tono: -0.02 });
+  }
+  // las cuevas de hielo de la pared de adelante, lejos de la puerta: hondas, oscuras, con su azul al fondo
+  for (const [vc, zc] of [[-128, 60], [112, 44], [160, 120]] as number[][]) { const uf = 168; F.elip(vc, uf + 6, zc, 22, 24, 30, { mat: HI, resta: true }); F.elip(vc, uf - 16, zc, 16, 4, 22, { mat: 'mon_hr_aliento', tono: -0.2 }); carambanos(F, vc - 18, vc + 18, uf + 10, zc + 26, 6, 20); }
+  // unos seracs de cantos rotos en lo alto a la izquierda y trozos caídos al pie
+  for (let k = 0; k < 5; k++) { const v = -200 + k * 36 + (a.r() - 0.5) * 16, u = -200 + a.r() * 50, z0 = altoDe(5, v, u) - 12, s2 = 13 + a.r() * 8; F.poli([[v - s2, u - s2, z0], [v + s2, u - s2, z0], [v - s2, u + s2, z0], [v + s2, u + s2, z0], [v - s2 * 0.4, u - s2 * 0.5, z0 + 40 + a.r() * 34], [v + s2 * 0.7, u - s2 * 0.2, z0 + 28 + a.r() * 22], [v - s2 * 0.6, u + s2 * 0.5, z0 + 22], [v + s2 * 0.3, u + s2 * 0.4, z0 + 46 + a.r() * 26]], { mat: SE, tono: (a.r() - 0.5) * 0.1 }); F.elip(v, u, z0 + 40, 9, 9, 3, { mat: NI }); }
+  for (let k = 0; k < 7; k++) { const v = (k % 2 ? 1 : -1) * (110 + k * 12), u = 170 + a.r() * 20 - Math.max(0, Math.abs(v) - 130), s2 = 9 + a.r() * 9; F.poli([[v - s2, u - s2 * 0.7, 0], [v + s2 * 0.8, u - s2, 0], [v - s2 * 0.9, u + s2 * 0.8, 0], [v + s2, u + s2 * 0.6, 0], [v - s2 * 0.5, u - s2 * 0.3, s2 * 1.6], [v + s2 * 0.6, u - s2 * 0.6, s2 * 1.2], [v - s2 * 0.7, u + s2 * 0.5, s2 * 1.4], [v + s2 * 0.4, u + s2 * 0.2, s2 * 1.9]], { mat: SE, tono: (a.r() - 0.5) * 0.1 }); }
   // ------------------------------------------------------------ el barco del último jarl, preso adentro del hielo: la popa hundida
   // en la masa, el casco ladeado que atraviesa la pared y la proa de dragón que sale a la izquierda con su faro
   {
-    const Lb = F.sub(-80, -56, 226, -40, -10, 'y'), U = 0, Z = 0, V0 = -180, V1 = 160;
+    const Lb = F.sub(10, 108, 204, -6, -6, 'y'), U = 0, Z = 0, V0 = -150, V1 = 150;
     const sec = (v: number) => { const t = (v - V0) / (V1 - V0); return Math.sin(Math.min(1, Math.max(0, t)) * Math.PI) ** 0.55; };
     for (let i = 0; i < 16; i++) {
       const va = V0 + ((V1 - V0) * i) / 16, vb = V0 + ((V1 - V0) * (i + 1)) / 16, wa = 4 + sec(va) * 26, wb = 4 + sec(vb) * 26, la = Z + 6 + (1 - sec(va)) * 26, lb = Z + 6 + (1 - sec(vb)) * 26;
@@ -146,65 +152,44 @@ function armar(F: G, _v: string, f: number) {
     // el hielo que lo traga donde entra en la pared: lenguas de hielo sobre el casco
     for (let k = 0; k < 4; k++) { const x = -10 + k * 22; Lb.elip(x, U + 8, Z + 14 + (a.r() - 0.5) * 8, 20 + a.r() * 8, 22, 18 + a.r() * 6, { mat: 'mon_hr_pared', tono: 0.06 }); }
   }
-  // ------------------------------------------------------------ el frente tallado en la roca: jambas, dintel, hachas y la boca
+  // ------------------------------------------------------------ la portada de los jarls, metida en la base del hielo
   const UF = 214;
   {
-    // el macizo de granito que sale del hielo hasta la avenida, en talud, con su cara de sillares
-    tronco(F, 0, 120, 0, 214, 280, 188, 220, 140, { mat: GR }, -14);
-    F.caja(0, 120 - 14, 214, 226, 146, 6, { mat: TA, tono: 0.08 });
-    nieveSobre(F, -100, 100, 60, 180, 220, 14);
-    for (const s of [-1, 1]) { F.poli([[s * 140, UF - 8, 0], [s * 160, UF - 8, 0], [s * 140, 40, 0], [s * 160, 40, 0], [s * 114, UF - 30, 200], [s * 124, UF - 30, 200], [s * 114, 60, 200], [s * 124, 60, 200]], { mat: GR, tono: -0.04 }); carambanos(F, s * 150 - 14, s * 150 + 14, UF - 8, 150, 6, 30); }
-    // el hueco de la boca y lo hondo que sale azul, los escalones de hielo que bajan
-    F.caja(0, UF - 30, 0, 74, 70, 128, { mat: GR, resta: true }); F.poli([[-37, UF + 4, 128], [37, UF + 4, 128], [-37, UF - 66, 128], [37, UF - 66, 128], [-16, UF + 4, 150], [16, UF + 4, 150], [-16, UF - 66, 150], [16, UF - 66, 150]], { mat: GR, resta: true });
-    F.caja(0, UF - 66, 0, 74, 2, 150, { mat: 'mon_hr_aliento', tono: 0.05 + p * 0.08 });
-    for (let i = 0; i < 7; i++) F.caja(0, UF - 8 - i * 8, 8 - i * 1.6, 70, 8, 2, { mat: SE, tono: -0.1 - i * 0.04 });
-    for (let k = 0; k < 6; k++) F.elip((a.r() - 0.5) * 50, UF - 40 + a.r() * 30, 10 + a.r() * 30, 14 + a.r() * 8, 10, 8, { mat: 'mon_hr_aliento', tono: 0.2 + a.r() * 0.15 });
-    // las dos jambas monolíticas con la sierpe de runas que sube y brilla frío
-    for (const s of [-1, 1]) {
-      const x = s * 52;
-      F.caja(x, UF - 6, 0, 30, 20, 170, { mat: TA, tono: 0.04 }); F.caja(x, UF - 6, 170, 36, 24, 10, { mat: TA, tono: 0.08 });
-      // la talla: dos sierpes entrelazadas que suben por la jamba (bandas en relieve que se cruzan), con las runas que brillan
-      // frío en los ojos del lazo, y la cabeza de cada sierpe arriba mordiendo el capitel
-      for (const fase of [0, Math.PI]) { let q: V3 | null = null; for (let k = 0; k <= 30; k++) { const z = 10 + k * 5.2, n: V3 = [x + Math.sin(k * 0.42 + fase) * 10, UF + 4.6 + Math.cos(k * 0.42 + fase) * 0.8, z]; if (q) F.palo(q, n, 2.2, { mat: TA, tono: 0.14 }); q = n; }
-        F.elip(x + Math.sin(30 * 0.42 + fase) * 10, UF + 6, 166, 4, 3.4, 3, { mat: TA, tono: 0.16 }); F.elip(x + Math.sin(30 * 0.42 + fase) * 10 + 1.6, UF + 8.6, 167, 0.8, 0.4, 0.8, { mat: RU, tono: 0.2 }); }
-      for (let k = 0; k < 8; k++) { const z = 10 + (k * 2 + 1) * 3.74 * 2.0; F.elip(x, UF + 3.4, z + 6, 2.6, 0.8, 2.6, { mat: RU, tono: -0.05 + p * 0.12 }); }
-      F.caja(x, UF + 3.8, 0, 32, 1.6, 6, { mat: TA, tono: 0.12 }); nieveSobre(F, x - 16, x + 16, UF - 14, UF + 4, 180, 3);
-      F.elip(x, UF + 4.2, 156, 5, 1.4, 4, { mat: RU, tono: 0.1 }); F.caja(x, UF + 4.6, 150, 8, 1, 2, { mat: 'negro' });
-      carambanos(F, x - 16, x + 16, UF + 6, 178, 5, 20);
-    }
-    // el dintel con la inscripción, y encima las dos hachas cruzadas del jarl con el escudo en la cruz
-    F.caja(0, UF - 6, 180, 150, 26, 30, { mat: TA, tono: 0.06 }); letras(F.sub(0, UF + 7.2, 0), -40, 40, 0, 190, 1, RU, 4.6, 2);
-    // la sierpe del dintel: corre de punta a punta en lazos, con su cabeza a la izquierda y la cola anudada a la derecha
-    { let q: V3 | null = null; for (let k = 0; k <= 40; k++) { const t = k / 40, x = -70 + t * 140, z = 186 + Math.sin(t * TAU * 3) * 6 + (Math.abs(x) < 44 ? 0 : 6), n: V3 = [x, UF + 7.4 + Math.cos(t * TAU * 3) * 1, Math.abs(x) < 44 ? (z > 190 ? 204 : z) : z]; if (q) F.palo(q, n, 2, { mat: TA, tono: 0.15 }); q = n; }
-      F.elip(-72, UF + 9, 194, 6, 4, 4, { mat: TA, tono: 0.16 }); F.elip(-76, UF + 12, 196, 1, 0.5, 1, { mat: RU, tono: 0.2 }); for (let k = 0; k < 3; k++) F.palo([-78, UF + 11, 191], [-78 - k * 2, UF + 12, 187], 0.5, { mat: 'mu_hueso', r1: 0.1 }); }
-    nieveSobre(F, -72, 72, UF - 18, UF + 6, 210, 8); carambanos(F, -74, 74, UF + 8, 180, 16, 26);
-    // el portón: las dos hojas de roble y hierro abiertas hacia adentro, con las runas encendidas de azul
-    for (const s of [-1, 1]) { const c = F.sub(s * 34, UF - 6, 0, s * 62); c.caja(-s * 18, 0, 0, 36, 7, 124, { mat: MA, tono: -0.04 }); for (const z of [20, 62, 104]) c.caja(-s * 18, 4, z, 38, 1.4, 5, { mat: FE }); for (let k = 0; k < 5; k++) c.elip(-s * 18, 4.4, 30 + k * 18, 3, 0.6, 4, { mat: RU, tono: -0.1 + p * 0.15 }); c.elip(-s * 18, 4, 128, 18, 5, 4, { mat: NI }); }
-    // las cabezas de dragón talladas que salen de las esquinas de arriba del frente
-    for (const s of [-1, 1]) { const c = F.sub(s * 112, 196, 214, s * -20); c.palo([0, 0, -6], [0, 16, 10], 9, { mat: TA, r1: 6, tono: 0.06 }); c.poli([[-7, 14, 4], [7, 14, 4], [-7, 14, 18], [7, 14, 18], [-4, 40, 6], [4, 40, 6], [-4, 38, 14], [4, 38, 14]], { mat: TA, tono: 0.1 }); c.poli([[-6, 16, 2], [6, 16, 2], [-6, 16, -4], [6, 16, -4], [-3, 36, 2], [3, 36, 2], [-3, 34, -2], [3, 34, -2]], { mat: TA }); for (const e of [-1, 1]) { c.elip(e * 5.4, 24, 14, 1.6, 2, 1.4, { mat: RU, tono: 0.15 }); c.palo([e * 4, 18, 16], [e * 9, 6, 30], 1.8, { mat: TA, r1: 0.4 }); } c.elip(0, 14, 20, 12, 10, 4, { mat: NI }); carambanos(c, -4, 4, 30, 2, 3, 14); }
-    // la cornisa del frente y las pilastras de los cantos
-    F.caja(0, 120 - 14, 120, 262, 172, 6, { mat: TA, tono: 0.1 }); nieveSobre(F, -120, 120, 190, 200, 126, 6);
-    for (const s of [-1, 1]) {
-      const p0: V3 = [s * 86, UF + 4, 200], p1: V3 = [-s * 30, UF + 6, 330];
-      F.palo(p0, p1, 4.6, { mat: MA, r1: 4 }); F.palo([p0[0] - s * 4, p0[1], p0[2] - 8], p0, 5.4, { mat: FE });
-      const c = F.sub(p1[0], p1[1], p1[2]); c.poli([[s * 2, -3, 6], [s * 2, 3, 6], [s * 2, -3, -14], [s * 2, 3, -14], [-s * 30, -1.4, 18], [-s * 30, 1.4, 18], [-s * 30, -1.4, -26], [-s * 30, 1.4, -26]], { mat: FE, tono: 0.06 }); c.palo([-s * 29, 2, 18], [-s * 29, 2, -26], 1.2, { mat: 'acero', tono: 0.2 });
-    }
-    F.sub(0, UF + 8, 266, 0, 90, 'x').cil(0, 0, 0, 30, 5, { mat: MA, tono: 0.04 }); aro(F.sub(0, UF + 13, 0), 0, 266, 29, 2.2, FE, 0, TAU, 28); F.sub(0, UF + 13, 266, 0, 90, 'x').cil(0, 0, 0, 8, 6, { mat: BR, r1: 4 });
-    for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU + 0.4; F.palo([Math.cos(t) * 9, UF + 13, 266 + Math.sin(t) * 9], [Math.cos(t) * 26, UF + 13, 266 + Math.sin(t) * 26], 1.2, { mat: FE }); }
-    // los escudos tallados del friso, la grieta y la escarcha de la cara
-    for (let k = -4; k <= 4; k++) { if (Math.abs(k) < 2) continue; F.sub(k * 26, UF - 14, 206, 0, 90, 'x').cil(0, 0, 0, 10, 3, { mat: TA, tono: 0.05 }); F.sub(k * 26, UF - 10.6, 206, 0, 90, 'x').cil(0, 0, 0, 3, 1.4, { mat: TA, tono: 0.12 }); }
-    grieta(F.sub(-96, UF - 34, 0), 0, 0, 20, 150, GR); grieta(F.sub(102, UF - 34, 0), 0, 0, 30, 170, GR);
-    // las antorchas de la cara, en sus jaulas de hierro
-    for (const s of [-1, 1]) { const x = s * 92; F.palo([x, UF - 26, 120], [x, UF - 10, 128], 1.6, { mat: FE }); F.cil(x, UF - 8, 124, 3, 6, { mat: FE, r1: 5 }); for (let k = 0; k < 3; k++) llama(F, x + (a.r() - 0.5) * 3, UF - 8 + (a.r() - 0.5) * 3, 130, 3, 12 + a.r() * 4, f, 4, k + 10); }
-    // el piso de la boca: la escarcha que sale, huesos, un yelmo y velas
+    // el macizo de granito oscuro que la sostiene, hundido en la pared de hielo, con el arco de medio punto tallado en tres roscas
+    tronco(F, 0, 186, 0, 214, 176, 60, 160, 50, { mat: GR });
+    nieveSobre(F, -76, 76, 168, 206, 214, 8); carambanos(F, -80, 80, 212, 206, 14, 30);
+    // el vano: jambas rectas hasta 112 y el arco de medio punto encima; lo hondo azul que sale de adentro
+    const AR = 38, ZA = 112;
+    F.caja(0, UF - 34, 0, AR * 2, 80, ZA, { mat: GR, resta: true }); F.sub(0, UF - 34, ZA, 0, 90, 'x').cil(0, 0, -40, AR, 80, { mat: GR, resta: true });
+    F.caja(0, UF - 72, 0, AR * 2, 2, ZA + AR, { mat: 'mon_hr_aliento', tono: 0.05 + p * 0.08 });
+    for (let i = 0; i < 7; i++) F.caja(0, UF - 10 - i * 8, 8 - i * 1.6, AR * 2 - 4, 8, 2, { mat: SE, tono: -0.1 - i * 0.04 });
+    for (let k = 0; k < 6; k++) F.elip((a.r() - 0.5) * 50, UF - 46 + a.r() * 30, 10 + a.r() * 30, 14 + a.r() * 8, 10, 8, { mat: 'mon_hr_aliento', tono: 0.2 + a.r() * 0.15 });
+    // las tres roscas del arco, claras sobre lo oscuro, y las jambas escalonadas
+    for (let r = 0; r < 3; r++) { const R0 = AR + 4 + r * 9, uu = UF - 2 + r * 0.01 - r * 5; aro(F.sub(0, uu, 0), 0, ZA, R0, 3.6, 'mon_hr_claro', 0, Math.PI, 24, 0, -r * 0.05); for (const s of [-1, 1]) F.caja(s * R0, uu, 0, 7, 7, ZA, { mat: 'mon_hr_claro', tono: -r * 0.05 }); }
+    // la sierpe grande que da la vuelta al arco: gruesa, clara, con la cabeza abajo a la izquierda y la cola anudada a la derecha
+    { let q: V3 | null = null; const R = AR + 34; for (let k = 0; k <= 46; k++) { const t = k / 46, ang = Math.PI * (1 - t), r2 = R + Math.sin(t * TAU * 4) * 5, n: V3 = [Math.cos(ang) * r2 * (t < 0.04 || t > 0.96 ? 1 : 1), UF + 4, ZA + Math.sin(ang) * r2 - (t < 0.12 ? (0.12 - t) * 500 : t > 0.88 ? (t - 0.88) * 500 : 0)]; if (q) { F.palo(q, n, 5.4, { mat: 'mon_hr_claro', tono: k % 3 === 0 ? -0.12 : 0.08 }); if (k % 2) F.palo([q[0], q[1] + 4, q[2]], [n[0], n[1] + 4, n[2]], 1.4, { mat: 'mon_hr_oscuro' }); } q = n; }
+      const hz = ZA + Math.sin(Math.PI) * R - 60; const c = F.sub(-R, UF + 6, Math.max(20, hz)); c.poli([[-7, -4, -2], [7, -4, -2], [-7, -4, 12], [7, -4, 12], [-4, 14, 0], [4, 14, 0], [-4, 12, 8], [4, 12, 8]], { mat: 'mon_hr_claro', tono: 0.1 }); for (const e of [-1, 1]) c.elip(e * 4.6, 6, 9, 1.4, 1.8, 1.2, { mat: RU, tono: 0.2 }); for (let k = 0; k < 3; k++) c.palo([-3 + k * 3, 13, 1], [-3 + k * 3, 14, -3], 0.6, { mat: 'mu_hueso', r1: 0.1 });
+      for (let k = 0; k < 3; k++) aro(F.sub(R + 2, UF + 6, 0), 0, 34 + k * 9, 6 - k, 2.2, 'mon_hr_claro', 0, TAU, 12); }
+    // las runas que brillan en el intradós y las jambas
+    for (let k = 0; k < 9; k++) { const ang = (k / 8) * Math.PI; F.elip(Math.cos(ang) * (AR + 13), UF + 4.6, ZA + Math.sin(ang) * (AR + 13), 2.6, 0.8, 2.6, { mat: RU, tono: -0.05 + p * 0.12 }); }
+    for (const s of [-1, 1]) for (let k = 0; k < 6; k++) F.elip(s * (AR + 13), UF + 4.6, 14 + k * 16, 2.4, 0.8, 3, { mat: RU, tono: -0.05 + p * 0.12 });
+    // el portón abierto hacia adentro, con las runas encendidas
+    for (const s of [-1, 1]) { const c = F.sub(s * AR, UF - 10, 0, s * 66); c.caja(-s * 18, 0, 0, 36, 7, 112, { mat: MA, tono: -0.04 }); for (const z of [18, 56, 94]) c.caja(-s * 18, 4, z, 38, 1.4, 5, { mat: FE }); for (let k = 0; k < 5; k++) c.elip(-s * 18, 4.4, 26 + k * 17, 3, 0.6, 4, { mat: RU, tono: -0.1 + p * 0.15 }); }
+    // el arco de hielo que el glaciar echó encima de la portada, con sus carámbanos
+    { const R = 96; for (let k = 0; k < 18; k++) { const t0 = (k / 18) * Math.PI, t1 = ((k + 1) / 18) * Math.PI; F.palo([Math.cos(t0) * R, 196, 150 + Math.sin(t0) * R * 0.6], [Math.cos(t1) * R, 196, 150 + Math.sin(t1) * R * 0.6], 13, { mat: SE, tono: 0.04 }); }
+      F.elip(0, 194, 150 + R * 0.6 + 8, 60, 14, 8, { mat: NI }); carambanos(F, -90, 90, 208, 150 + R * 0.4, 16, 40); }
+    // las hachas cruzadas del jarl con el escudo, sobre la clave, y las antorchas de la cara
+    for (const s of [-1, 1]) { const p0: V3 = [s * 64, UF + 4, 176], p1: V3 = [-s * 22, UF + 6, 260]; F.palo(p0, p1, 3.6, { mat: MA, r1: 3 }); const c = F.sub(p1[0], p1[1], p1[2]); c.poli([[s * 2, -2.6, 5], [s * 2, 2.6, 5], [s * 2, -2.6, -11], [s * 2, 2.6, -11], [-s * 24, -1.2, 14], [-s * 24, 1.2, 14], [-s * 24, -1.2, -20], [-s * 24, 1.2, -20]], { mat: FE, tono: 0.06 }); c.palo([-s * 23, 2, 14], [-s * 23, 2, -20], 1, { mat: 'acero', tono: 0.2 }); }
+    F.sub(0, UF + 8, 214, 0, 90, 'x').cil(0, 0, 0, 22, 4, { mat: MA, tono: 0.04 }); aro(F.sub(0, UF + 12, 0), 0, 214, 21, 1.8, FE, 0, TAU, 24); F.sub(0, UF + 12, 214, 0, 90, 'x').cil(0, 0, 0, 6, 5, { mat: BR, r1: 3 });
+    for (const s of [-1, 1]) { const x = s * 80; F.palo([x, UF - 26, 110], [x, UF - 8, 118], 1.6, { mat: FE }); F.cil(x, UF - 6, 114, 3, 6, { mat: FE, r1: 5 }); for (let k = 0; k < 3; k++) llama(F, x + (a.r() - 0.5) * 3, UF - 6 + (a.r() - 0.5) * 3, 120, 3, 12 + a.r() * 4, f, 4, k + 10); }
     for (let k = 0; k < 5; k++) F.elip((a.r() - 0.5) * 70, UF + 6 + a.r() * 10, 0.3, 10 + a.r() * 8, 5, 0.6, { mat: NI, giro: a.r() * 180 });
     calavera(F.sub(-24, UF + 10, 2, 120), 3.4, 'mu_hueso', true, 0.05); calavera(F.sub(30, UF + 8, 2, 60), 3.4, 'mu_hueso', false, 0);
   }
-  void cadena;
+  void cadena; void letras; void grieta; void derrumbe; void RO;
   return {
     der: { c: [0, UF - 30, 50] as V3, r: 90 + p * 14, color: '#6ad0ff' },
-    izq: { c: [-250, 46, 330] as V3, r: 110 + p * 18, color: '#ffa040' },
-    medio: { c: [0, UF - 4, 130] as V3, r: 80 + p * 10, color: '#ff9a40' },
+    izq: { c: [-180, 130, 300] as V3, r: 110 + p * 18, color: '#ffa040' },
+    medio: { c: [0, UF - 4, 120] as V3, r: 80 + p * 10, color: '#ff9a40' },
   };
 }
 registrarMonumento({
@@ -218,7 +203,7 @@ registrarMonumento({
 /** El jarl de pie con la espada clavada y las dos manos en el pomo, la cabeza baja: el yelmo con nasal, la barba en trenzas,
  *  la cota hasta las rodillas y la capa con la piel sobre los hombros. La escarcha en lo que mira arriba y carámbanos. */
 function jarl(g: G, viejo: boolean) {
-  const k = 4.3, m = TA, cs: Comp[] = [], cl: Comp[] = [], ca: Comp[] = [], cb: Comp[] = [];
+  const k = 4.3, m = TA, LC = 'mon_hr_claro', OS = 'mon_hr_oscuro', cs: Comp[] = [], cl: Comp[] = [], ca: Comp[] = [], cb: Comp[] = [];
   bloque(g, 0, 0, 0, 130, 130, 16, { mat: GR, b: 2, j: 1 }); letras(g.sub(0, 65.4, 0), -52, 52, 0, 4, 2, RU, 4.6, 2);
   const S = g.esc(k).sub(0, 0, 16 / k);
   // las piernas con las botas y las vendas de cuero (casi todo bajo la cota y la capa)
@@ -238,8 +223,9 @@ function jarl(g: G, viejo: boolean) {
   for (let i = 0; i < 9; i++) { const z = 18 + i * 2.4; S.caja(0, 0, z, 30, 20, 0.18, { mat: m, resta: true }); }
   S.caja(0, 0, 38.6, 20.4, 13.2, 2.6, { mat: 'mon_hr_piel', tono: 0.12 }); S.caja(0, 6.8, 38.6, 3.4, 1, 2.6, { mat: BR });
   // la capa que cae detrás hasta el pedestal, con sus pliegues, y el manto de pieles sobre los hombros que baja por la espalda
-  S.poli([[-11, -5, 58], [11, -5, 58], [-11, -8, 58], [11, -8, 58], [-15, -8, 0.4], [15, -8, 0.4], [-15, -12, 0.4], [15, -12, 0.4]], { mat: m, tono: -0.06 });
-  for (let i = 0; i < 7; i++) S.palo([-12.6 + i * 4.2, -12.2, 2], [-9.6 + i * 3.2, -8.8, 56], 1, { mat: m, resta: true });
+  S.poli([[-15, -4, 59], [15, -4, 59], [-15, -8, 58], [15, -8, 58], [-17, -8, 0.4], [17, -8, 0.4], [-17, -13, 0.4], [17, -13, 0.4]], { mat: OS });
+  for (const sx of [-1, 1]) S.poli([[sx * 9, -4, 59], [sx * 15.4, -4, 58], [sx * 9, 4, 58], [sx * 15.4, 3, 56], [sx * 12, -6, 30], [sx * 17, -8, 20], [sx * 12.6, 1, 34], [sx * 16.6, -2, 24]], { mat: OS, tono: 0.04 });
+  for (let i = 0; i < 8; i++) S.palo([-15 + i * 4.3, -13.4, 2], [-12 + i * 3.4, -8.8, 56], 1.1, { mat: OS, resta: true });
   for (let i = 0; i < 16; i++) { const t = (i / 15) * Math.PI * 1.1 - 0.05, r0 = 9.6 + (i % 3) * 0.6; S.elip(Math.cos(t) * r0, -Math.sin(t) * 3.4 + 1, 57.4 + (i % 2) * 1.2, 3.4, 3.2, 2.8, { mat: 'mon_hr_piel', tono: (i % 3) * 0.04 }); }
   for (let i = 0; i < 8; i++) S.elip(-8 + (i % 4) * 5.4, -6.8, 52 - Math.floor(i / 4) * 5, 3.2, 2, 3, { mat: 'mon_hr_piel', tono: 0.02 });
   // la espada clavada: la hoja hundida en el pedestal, la cruz, el puño y el pomo bajo las manos
@@ -247,22 +233,22 @@ function jarl(g: G, viejo: boolean) {
   S.palo([-7, 10.4, 36.6], [7, 10.4, 36.6], 1, { mat: FE, r1: 0.7 }); S.palo([0, 10.4, 37], [0, 10.4, 41.6], 0.9, { mat: 'mon_hr_piel' }); S.esf(0, 10.4, viejo ? 42.6 : 45.6, 1.6, { mat: BR });
   // la cabeza, apenas baja: la cara de hombre gastada por el viento
   const C = S.sub(0, 1.2, 64.4, 0, 8);
-  C.elip(0, -0.4, 0, 3.8, 4.2, 4.8, { mat: m });
-  C.poli([[-3.4, 3.2, 2.6], [3.4, 3.2, 2.6], [-3.2, 4, 1.4], [3.2, 4, 1.4], [-3, 2.6, 3.6], [3, 2.6, 3.6], [-2.8, 3.4, 2.2], [2.8, 3.4, 2.2]], { mat: m, tono: 0.04 });
-  for (const sx of [-1, 1]) { C.elip(sx * 1.6, 3.4, 0.9, 1, 0.5, 0.55, { mat: m, tono: -0.28 }); C.elip(sx * 3.7, 0.4, 0, 0.7, 1.2, 1.4, { mat: m }); }
-  C.poli([[-0.7, 3.8, 1.6], [0.7, 3.8, 1.6], [-0.7, 3.4, 1.6], [0.7, 3.4, 1.6], [-1.2, 5.6, -1.8], [1.2, 5.6, -1.8], [-1.1, 4.2, -2.2], [1.1, 4.2, -2.2]], { mat: m, tono: 0.05 });
+  C.elip(0, -0.4, 0, 3.8, 4.2, 4.8, { mat: LC });
+  C.poli([[-3.4, 3.2, 2.6], [3.4, 3.2, 2.6], [-3.2, 4, 1.4], [3.2, 4, 1.4], [-3, 2.6, 3.6], [3, 2.6, 3.6], [-2.8, 3.4, 2.2], [2.8, 3.4, 2.2]], { mat: LC, tono: 0.04 });
+  for (const sx of [-1, 1]) { C.elip(sx * 1.6, 3.4, 0.9, 1, 0.5, 0.55, { mat: LC, tono: -0.28 }); C.elip(sx * 3.7, 0.4, 0, 0.7, 1.2, 1.4, { mat: LC }); }
+  C.poli([[-0.7, 3.8, 1.6], [0.7, 3.8, 1.6], [-0.7, 3.4, 1.6], [0.7, 3.4, 1.6], [-1.2, 5.6, -1.8], [1.2, 5.6, -1.8], [-1.1, 4.2, -2.2], [1.1, 4.2, -2.2]], { mat: LC, tono: 0.05 });
   // el bigote que cae y la barba larga que baja por el pecho en dos trenzas con sus anillos
-  for (const sx of [-1, 1]) C.palo([sx * 0.4, 4.8, -2.6], [sx * 3.2, 4.2, -5.6], 0.9, { mat: m, r1: 0.4, tono: 0.02 });
+  for (const sx of [-1, 1]) C.palo([sx * 0.4, 4.8, -2.6], [sx * 3.2, 4.2, -5.6], 0.9, { mat: LC, r1: 0.4, tono: 0.02 });
   cb.push(C.bu([0, 3.4, -4.6], [3.4, 2, 3]), C.hu([0, 3.8, -5], [0, 4.8, -11.6], 3.2, 2.4));
-  C.masa(cb, { mat: m, suave: 0.6 });
-  for (let i = 0; i < 5; i++) for (const sx of [-1, 1]) C.palo([sx * (1.6 - i * 0.05), 4.8 + i * 0.05, -11.6 - i * 1.9], [sx * (1.5 - i * 0.05), 4.9 + i * 0.05, -13.1 - i * 1.9], 1 - i * 0.07, { mat: m, tono: (i % 2) * 0.05 });
-  for (let i = 0; i < 6; i++) C.palo([-2 + i * 0.8, 4.6, -6], [-2.4 + i * 0.96, 5, -10], 0.3, { mat: m, resta: true });
+  C.masa(cb, { mat: LC, suave: 0.6 });
+  for (let i = 0; i < 5; i++) for (const sx of [-1, 1]) C.palo([sx * (1.8 - i * 0.05), 5.4 + i * 0.4, -11.6 - i * 1.9], [sx * (1.7 - i * 0.05), 5.8 + i * 0.4, -13.1 - i * 1.9], 1.2 - i * 0.07, { mat: LC, tono: (i % 2) * 0.05 });
+  for (let i = 0; i < 6; i++) C.palo([-2 + i * 0.8, 4.6, -6], [-2.4 + i * 0.96, 5, -10], 0.3, { mat: LC, resta: true });
   for (const sx of [-1, 1]) C.cil(sx * 1.5, 4.9, -21.8, 1.1, 1, { mat: BR });
   // el yelmo cónico con su banda, el nasal y las carrilleras
-  C.cil(0, -0.4, 1.6, 4.4, 5.6, { mat: m, r1: 0.8, tono: 0.1 }); C.cil(0, -0.4, 1.4, 4.6, 1.2, { mat: m, tono: 0.14 }); for (let i = 0; i < 4; i++) { const t = (i / 4) * TAU + 0.4; C.palo([Math.cos(t) * 4.4, -0.4 + Math.sin(t) * 4.4, 1.6], [Math.cos(t) * 0.9, -0.4 + Math.sin(t) * 0.9, 7], 0.4, { mat: m, tono: 0.16 }); }
-  C.caja(0, 4.1, -0.8, 1, 0.9, 3.6, { mat: m, tono: 0.12 }); for (const sx of [-1, 1]) C.caja(sx * 3.7, 0.6, -1.8, 0.8, 3.4, 4, { mat: m, tono: 0.08 });
+  C.cil(0, -0.4, 1.6, 4.4, 8.4, { mat: LC, r1: 0.5, tono: 0.02 }); C.cil(0, -0.4, 1.4, 4.6, 1.2, { mat: LC, tono: 0.14 }); for (let i = 0; i < 4; i++) { const t = (i / 4) * TAU + 0.4; C.palo([Math.cos(t) * 4.4, -0.4 + Math.sin(t) * 4.4, 1.6], [Math.cos(t) * 0.6, -0.4 + Math.sin(t) * 0.6, 9.6], 0.4, { mat: LC, tono: 0.16 }); }
+  C.caja(0, 4.1, -0.8, 1, 0.9, 3.6, { mat: LC, tono: 0.12 }); for (const sx of [-1, 1]) C.caja(sx * 3.7, 0.6, -1.8, 0.8, 3.4, 4, { mat: LC, tono: 0.08 });
   // la nieve en el yelmo, el manto y los antebrazos; los carámbanos de la barba y de los brazos
-  C.elip(0, -0.4, 6.2, 2.6, 2.6, 1.2, { mat: NI }); for (const sx of [-1, 1]) S.elip(sx * 9.6, -1, 60, 4.4, 4, 1.4, { mat: NI }); S.elip(0, 10.2, 44.6, 2.4, 2.4, 0.8, { mat: NI });
+  C.elip(0, -0.4, 4.6, 3, 3, 1.2, { mat: NI }); for (const sx of [-1, 1]) S.elip(sx * 9.6, -1, 60, 4.4, 4, 1.4, { mat: NI }); S.elip(0, 10.2, 44.6, 2.4, 2.4, 0.8, { mat: NI });
   for (let i = 0; i < 7; i++) S.palo([-5 + i * 1.7, 5.6 + (i % 2), 42], [-5 + i * 1.7, 5.8 + (i % 2), 38.6 - (i % 3)], 0.35, { mat: SE, r1: 0.05 });
   if (viejo) {
     // el que se partió: le falta el antebrazo izquierdo (caído al pie, con la mano todavía cerrada), una raja le cruza el pecho

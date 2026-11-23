@@ -28,9 +28,10 @@ export function dibujarBrasa(c: CanvasRenderingContext2D, e: EstadoBrasa, b: { s
     e.rastro.unshift([b.sx, b.sy, e.t]); while (e.rastro.length > 60) e.rastro.pop();
     // el latido: dos golpes cerca (lub-dub) cada 1,1 s
     const fase = (t % 1.1) / 1.1, lat = Math.exp(-(((fase - 0.05) / 0.05) ** 2)) + 0.7 * Math.exp(-(((fase - 0.22) / 0.05) ** 2));
-    const k = b.k, tam = b.tam;
+    // (en los planos abiertos la brasa no puede ser un punto: crece hasta pesar en la pantalla, con la estela de cometa larga)
+    const big = Math.max(1, 2.6 / Tz), k = b.k, tam = b.tam * big;
     // el resplandor (blando: es la luz en el aire)
-    const R = (26 + 26 * k) * tam * (1 + 0.18 * lat), X = ox + b.sx, Y = oy + b.sy;
+    const R = (26 + 26 * k) * tam * (1 + 0.18 * lat) * (big > 1 ? 1.6 : 1), X = ox + b.sx, Y = oy + b.sy;
     c.save(); c.globalCompositeOperation = 'lighter';
     const g = c.createRadialGradient(X, Y, 0, X, Y, R);
     g.addColorStop(0, `rgba(255,120,50,${0.55 * k})`); g.addColorStop(0.3, `rgba(220,50,20,${0.28 * k})`); g.addColorStop(1, 'rgba(120,10,0,0)');
@@ -39,7 +40,7 @@ export function dibujarBrasa(c: CanvasRenderingContext2D, e: EstadoBrasa, b: { s
     // la estela: de la cola fría (rojo hondo) a la cabeza (naranja), una celda por punto, más ancha cerca
     if (e.vel > 40 && e.rastro.length > 2) {
       c.save(); c.globalCompositeOperation = 'lighter';
-      const L = Math.min(e.rastro.length - 1, Math.round(8 + e.vel / 14));
+      const L = Math.min(e.rastro.length - 1, Math.round((8 + e.vel / 14) * big));
       for (let i = L; i >= 1; i--) {
         const [ax, ay] = e.rastro[i], [bx, by] = e.rastro[i - 1], u = i / L;
         const n = Math.max(2, Math.ceil(Math.hypot(bx - ax, by - ay)));
@@ -55,7 +56,10 @@ export function dibujarBrasa(c: CanvasRenderingContext2D, e: EstadoBrasa, b: { s
     D.encender(e.f, k > 0.2 ? 1 : 0); D.paso(e.f, dt);
     pintarCalor(e.f, e.cp, { brillo: 1.25, umbral: 0.1, alfa: 1, pasadas: 1 });
     const fx = Math.round(ox + b.sx - FW / 2), fy = Math.round(oy + b.sy - FH + 4);
-    if (tam >= 0.6) pegarPixel(e.cp.c, fx, fy, Tz, Math.min(1, k * 1.1), 'lighter');
+    if (tam >= 0.6) {
+      const gr2 = Math.max(1, Math.round(big)), fx2 = Math.round(ox + b.sx - (FW * gr2) / 2), fy2 = Math.round(oy + b.sy - FH * gr2 + 4 * gr2);
+      pegarPixel(e.cp.c, gr2 > 1 ? fx2 : fx, gr2 > 1 ? fy2 : fy, Tz * gr2, Math.min(1, k * 1.1), 'lighter');
+    }
     // el núcleo: un disco de pixel que late (blanco, amarillo, naranja y el canto de sangre)
     const r = Math.max(1, Math.round((1.6 + 2.2 * tam) * (0.85 + 0.25 * lat) * Math.min(1, 0.5 + k)));
     const cx = Math.round(ox + b.sx), cy = Math.round(oy + b.sy);

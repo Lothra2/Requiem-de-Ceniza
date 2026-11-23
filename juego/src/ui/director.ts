@@ -25,6 +25,8 @@ import { textoGotico, medirGotico } from './texto_gotico';
 import type { TonoGotico } from './letra_gotica';
 import { dibujarBrasa, reiniciarBrasa, type EstadoBrasa } from '../render/brasa_cine';
 import { acc } from '../nucleo/accesible';
+import * as Pintor from '../motor/pintor';
+import { objetoMeta, dibujarTenido } from '../motor/assets';
 
 // ------------------------------------------------------------------ el guion
 export type Curva = 'suave' | 'lineal' | 'entra' | 'sale' | 'corte';
@@ -33,7 +35,19 @@ export interface CamClave { t: number; x: number; y: number; alt?: number; zoom?
 export type AccActor = 'quieto' | 'caminar' | 'correr' | 'atacar' | 'lanzar' | 'herido' | 'morir' | 'especial';
 /** Una clave de un actor: dónde está a ese segundo (si se da), qué hace desde ahí (`acc`) y a qué ritmo corre su animación (`ritmo`, 1 el del juego), hacia dónde mira (`dir`, o `mira` un punto) y su alfa. */
 export interface ActorClave { t: number; x?: number; y?: number; acc?: AccActor; dur?: number; ritmo?: number; bucle?: boolean; dir?: Dir; mira?: [number, number]; alfa?: number; c?: Curva }
-export interface Actor { id: string; tipo: 'heroe' | 'thor' | 'mon'; mon?: string; claves: ActorClave[] }
+export interface Actor { id: string; tipo: 'heroe' | 'thor' | 'mon'; mon?: string; claves: ActorClave[]; /** Sin el tinte de su ficha (Vesperio pálido): lo pinta la luz de la toma. */ sinTinte?: boolean }
+/**
+ * La luz de cine: todo se hunde (`hundir`, 0 a 1) menos un pozo de luz sobre lo que importa (un actor por su id, la brasa o
+ * un punto relativo al ancla), a `z` puntos del dibujo sobre el piso y de radio `r` puntos del dibujo.
+ */
+export interface Foco { de: string | [number, number]; z?: number; r: number; k?: number }
+/**
+ * El primer término: algo cerca de la cámara que pasa por delante (una columna, una lápida, ramas), en silueta casi negra,
+ * más grande que el mundo (a puntos más gruesos: está más cerca) y que corre más que la cámara (`par`). `fx`, `fy` es dónde
+ * caen sus pies en la pantalla al empezar la toma (fracción del ancho y el alto). `id` es una pieza del catálogo
+ * ('id|variante') o una función que la elige entre lo que hay en la zona.
+ */
+export interface PrimerTermino { id: string | ((z: Zona) => string | null); fx: number; fy: number; par?: number; mas?: number; alfa?: number; espejo?: boolean; canto?: string }
 /** La brasa: dónde va (relativo al ancla), su altura sobre el piso en puntos del dibujo, su fuerza (0 a 1) y su tamaño. */
 export interface BrasaClave { t: number; x?: number; y?: number; z?: number; k?: number; tam?: number; c?: Curva }
 export interface LuzClave { t: number; x?: number; y?: number; z?: number; r?: number; k?: number; c?: Curva }
@@ -59,6 +73,13 @@ export interface Toma {
   oscuridad?: number;
   /** Sacudidas de cámara: [t, dur, fuerza en puntos]. */
   temblores?: [number, number, number][];
+  /** La luz de cine de la toma (ver Foco) y cuánto se hunde lo demás. */
+  focos?: Foco[]; hundir?: number;
+  primer?: PrimerTermino[];
+  /** Se llama una vez al montar la toma (sacar lo que tapa, preparar lo que se va a pintar). */
+  preparar?: (e: EstadoToma) => void;
+  /** Si devuelve true al llegar, la toma no se ve (lo que necesita no está pintado): la película sigue con la siguiente. */
+  omitir?: (e: EstadoToma) => boolean;
   /** Lo que no cabe en claves: se llama cada cuadro con el estado de la toma. */
   paso?: (e: EstadoToma, tl: number, dt: number) => void;
   /** Lo que se dibuja dentro del pase del mundo, después de él (en puntos del dibujo: `aPant` vale). */
@@ -80,6 +101,7 @@ export interface EstadoToma {
 interface Escena { z: Zona; j: Juego }
 let guionVivo: Guion | null = null, heroeVivo: DatosHeroe | null = null;
 const escenas = new Map<string, Escena>();
+const omitidas = new Set<number>();
 let listo = false, cargando = false, tomaViva = -1, estado: EstadoToma | null = null, tAnt = -1;
 const sonados = new Set<string>();
 
@@ -110,7 +132,7 @@ const spriteDe = (a: Actor, d: DatosHeroe) => a.tipo === 'thor' ? spriteThor(asp
  */
 export function prepararPelicula(g: Guion, d: DatosHeroe) {
   if (guionVivo === g && heroeVivo?.id === d.id && (listo || cargando)) return;
-  guionVivo = g; heroeVivo = d; listo = false; cargando = true; escenas.clear(); tomaViva = -1; estado = null;
+  guionVivo = g; heroeVivo = d; listo = false; cargando = true; tPide = performance.now(); omitidas.clear(); escenas.clear(); tomaViva = -1; estado = null;
   const zonas = [...new Set(g.tomas.map((t) => t.zona).filter(Boolean) as string[])];
   const sprites = new Map<string, Set<string>>();
   for (const t of g.tomas) if (t.zona) for (const a of t.actores ?? []) { const sp = spriteDe(a, d); if (sp) (sprites.get(t.zona) ?? sprites.set(t.zona, new Set()).get(t.zona)!).add(sp); }
@@ -134,7 +156,12 @@ export function prepararPelicula(g: Guion, d: DatosHeroe) {
     if (guionVivo === yo) { listo = true; cargando = false; }
   })().catch(() => { cargando = false; listo = true; });
 }
-export const peliculaLista = () => listo;
+let tPide = 0;
+/**
+ * ¿Puede correr? Las zonas generadas, lo que pinta bajado y el héroe de la partida pintado con su equipo (si el pintor está
+ * en medio, se espera: nunca la silueta de mientras se pinta). Con 30 s de espera sigue igual (algo se trabó).
+ */
+export const peliculaLista = () => listo && (Pintor.progresoPintura >= 1 || performance.now() - tPide > 60000);
 export const duracionPelicula = (g: Guion) => g.tomas.reduce((a, t) => a + t.dur, 0);
 
 // ------------------------------------------------------------------ curvas e interpolación
@@ -172,10 +199,13 @@ function montar(i: number): EstadoToma | null {
       const m = crearMonstruo(def0 as any, 10, ax, ay, 0, 0);
       m.estado = 'dormido'; (m as any).cine = true;
       if (a.tipo === 'thor') { m.tipo = 'invocado'; m.dueno = true; m.invocaId = 'thor'; const sp = spriteThor(aspectoThor(d)); m.tinte = sp.tinte; m.escala = sp.escala; }
+      if (a.sinTinte) m.tinte = undefined;
       j.monstruos.push(m); actores.set(a.id, m);
     }
   }
-  return { toma: tm, j, z, ax, ay, actores, brasa: reiniciarBrasa(), mem: {}, heroe: d };
+  const e: EstadoToma = { toma: tm, j, z, ax, ay, actores, brasa: reiniciarBrasa(), mem: {}, heroe: d };
+  tm.preparar?.(e);
+  return e;
 }
 function moverActores(e: EstadoToma, tl: number) {
   for (const a of e.toma.actores ?? []) {
@@ -235,6 +265,49 @@ function moverSuelto(j: Juego, dt: number) {
 }
 
 // ------------------------------------------------------------------ dibujar
+/** Dónde está un foco en el mundo (casillas) y su altura. */
+function puntoFoco(e: EstadoToma, f: Foco, tl: number): [number, number, number] | null {
+  if (Array.isArray(f.de)) return [f.de[0] + e.ax, f.de[1] + e.ay, f.z ?? 40];
+  if (f.de === 'brasa') { const b = brasaEn(e, tl); return b ? [b.x, b.y, b.z] : null; }
+  const m = e.actores.get(f.de) as any; return m ? [m.x, m.y, f.z ?? 40] : null;
+}
+/** La luz de cine: un velo oscuro sobre todo con un pozo blando en cada foco (en el pase del mundo, antes de la viñeta). */
+let velo: { c: HTMLCanvasElement; g: CanvasRenderingContext2D } | null = null;
+function hundirMenos(e: EstadoToma, tl: number) {
+  const k = e.toma.hundir ?? 0.62, q = 4, w = Math.ceil(W / q), h = Math.ceil(H / q);
+  if (!velo) { const c = document.createElement('canvas'); velo = { c, g: c.getContext('2d')! }; }
+  const { c, g } = velo; if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+  g.globalCompositeOperation = 'source-over'; g.clearRect(0, 0, w, h); g.fillStyle = `rgba(2,1,3,${k})`; g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = 'destination-out';
+  for (const f of e.toma.focos ?? []) {
+    const p = puntoFoco(e, f, tl); if (!p) continue;
+    const [sx, sy] = aPant(p[0], p[1]), x = sx / q, y = (sy - p[2]) / q, r = f.r / q;
+    const gr = g.createRadialGradient(x, y, r * 0.15, x, y, r); gr.addColorStop(0, `rgba(0,0,0,${f.k ?? 1})`); gr.addColorStop(0.55, `rgba(0,0,0,${(f.k ?? 1) * 0.6})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.save(); g.translate(x, y); g.scale(1, 0.85); g.translate(-x, -y); g.fillStyle = gr; g.fillRect(x - r, y - r * 1.3, r * 2, r * 2.6); g.restore();
+  }
+  ctx.save(); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, 0, 0, w * q, h * q); ctx.restore();
+}
+/** El primer término: piezas en silueta, más grandes y corriendo más que la cámara, delante de todo. */
+function primerTermino(e: EstadoToma, tl: number, Tz: number) {
+  const z = e.z; if (!z) return;
+  // cuánto se movió la cámara desde el principio de la toma (en puntos lógicos de la pantalla)
+  const cx = (camCine.x - camCine.y) * 16 * Tz / RES, cy = ((camCine.x + camCine.y) * 8 - camCine.alt) * Tz / RES;
+  e.mem.cam0 ??= [cx, cy];
+  const dx = cx - e.mem.cam0[0], dy = cy - e.mem.cam0[1];
+  for (const [n, p] of (e.toma.primer ?? []).entries()) {
+    const id = (e.mem['pt' + n] ??= typeof p.id === 'function' ? p.id(z) ?? '' : p.id) as string; if (!id) continue;
+    const [oid, v] = id.split('|'), q = objetoMeta(oid, v ?? '')?.f[0]; if (!q) continue;
+    const T2 = Tz + (p.mas ?? 1), esc = T2 / RES, par = p.par ?? 1.6;
+    const x = Math.round((W * p.fx - dx * par) * RES) / RES, y = Math.round((H * p.fy - dy * par) * RES) / RES;
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    if (p.espejo) { ctx.translate(x, 0); ctx.scale(-1, 1); ctx.translate(-x, 0); }
+    // el canto que mira a la luz de la toma (hacia el medio de la pantalla) se enciende un punto: sin eso, negro sobre negro
+    const lado = (p.fx < 0.5 ? 1 : -1) * (p.espejo ? -1 : 1), u = T2 / RES;
+    dibujarTenido(ctx, q, x + lado * u, y - u, p.canto ?? '#5a4a58', 0.85, esc);
+    dibujarTenido(ctx, q, x, y, '#040306', p.alfa ?? 0.92, esc);
+    ctx.restore();
+  }
+}
 const franja = () => Math.round(H * 0.105);
 /** La viñeta de cine: los bordes se hunden (el ojo va al medio). */
 let vin: { c: HTMLCanvasElement; w: number; h: number } | null = null;
@@ -282,7 +355,10 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
   const dt = tAnt < 0 || t < tAnt ? 1 / 30 : Math.min(0.1, t - tAnt); tAnt = t;
   ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
   let t0 = 0, i = 0;
-  while (i < g.tomas.length && t >= t0 + g.tomas[i].dur) { t0 += g.tomas[i].dur; i++; }
+  const durDe = (k: number) => (omitidas.has(k) ? 0 : g.tomas[k].dur);
+  while (i < g.tomas.length && t >= t0 + durDe(i)) { t0 += durDe(i); i++; }
+  // (la toma que no tiene lo que necesita se salta sin aviso: la que sigue empieza en su lugar)
+  if (listo && i < g.tomas.length && i !== tomaViva && g.tomas[i].omitir?.({ toma: g.tomas[i], j: null, z: null, ax: 0, ay: 0, actores: new Map(), brasa: reiniciarBrasa(), mem: {}, heroe: d })) { omitidas.add(i); return dibujarPeli(g, d, t); }
   if (i >= g.tomas.length) { terminar(2.5); return true; }
   const tm = g.tomas[i], tl = t - t0;
   if (!listo) { franjas(); return false; }
@@ -308,6 +384,8 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
     let sx = 0, sy = 0;
     for (const [ts, td, f] of tm.temblores ?? []) if (tl >= ts && tl < ts + td) { const q = f * (1 - (tl - ts) / td) * acc.temblor; sx += Math.round((Math.random() - 0.5) * 2 * q); sy += Math.round((Math.random() - 0.5) * 2 * q); }
     camCine.x += (sx + sy * 2) / 32; camCine.y += (sy * 2 - sx) / 32;
+    // la cámara nunca está quieta del todo: respira (como una cámara en mano muy leve)
+    if (!(window as any).__camaraQuieta) { camCine.x += Math.sin(tl * 0.41 + i) * 0.1 + Math.sin(tl * 0.17) * 0.06; camCine.y += Math.cos(tl * 0.33 + i * 2) * 0.08; camCine.alt += Math.sin(tl * 0.27 + i) * 2; }
     // (el acercamiento es respecto de la pantalla, no de la vista del jugador: zoom 1 deja unos 640 puntos del dibujo de
     //  alto, en cualquier pantalla; siempre a puntos enteros del aparato)
     const Tz = Math.max(1, Math.round((zk * H * RES) / 640));
@@ -319,9 +397,11 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
         const b = brasaEn(e, tl);
         tm.mundo?.(e, tl, dt);
         dibujarBrasa(ctx, e.brasa, b ? { ...b, sx: (b.x - b.y) * 16, sy: (b.x + b.y) * 8 - b.z } : null, aPant(0, 0), Tz, dt, tl);
+        if (tm.focos?.length) hundirMenos(e, tl);
         (window as any).__cineMundo = { MW, MH, cam: { ...cam } };
       });
     } finally { (window as any).__sinBarras = w0; camCine.on = false; }
+    if (tm.primer?.length) primerTermino(e, tl, Tz);
     vineta();
   } else tm.paso?.(e, tl, dt);
   tm.pantalla?.(e, tl, dt);
@@ -355,3 +435,4 @@ export function soltarPelicula() { terminar(); escenas.clear(); guionVivo = null
 (window as any).__peliJ = () => estado?.j;
 (window as any).__peliEstado = () => ({ listo, cargando, toma: tomaViva, escenas: [...escenas.keys()] });
 export { soltarParticulas };
+(window as any).__peliLista = () => peliculaLista();

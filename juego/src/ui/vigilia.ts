@@ -105,6 +105,14 @@ export function medidasVigilia() {
  * Mientras se está en la portada, el héroe que va a salir primero en la vigilia se va pintando (con menos prioridad):
  * al entrar ya está o le falta poco. Lo llama main.ts en cada cuadro del menú.
  */
+/**
+ * El pedido del grande de un héroe, el mismo que pinta la vigilia (misma K, mismo equipo: sale de IndexedDB si ya se
+ * pintó al elegirlo). Lo usa el primer plano de las cinemáticas (ui/cine_rostro.ts). `prio` 0 en segundo plano.
+ */
+export function pedidoGrande(hr: DatosHeroe, prio = 0) {
+  const v = vestido(hr), { K } = escalaGrande(medidasVigilia().alto, ctx.getTransform().a);
+  return pedirVigilia('grande', hr.clase, v.cuerpo, v.eq, v.firma, K, prio);
+}
 export function precalentarVigilia(hr: DatosHeroe | undefined) {
   if (!hr || vigiliaVieja()) return;
   const v = vestido(hr), { K } = escalaGrande(medidasVigilia().alto, ctx.getTransform().a);

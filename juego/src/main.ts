@@ -14,7 +14,7 @@ import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from 
 import { dibujarCine, precargarCine, claveCine, claveFinal, marcasCine, hayCine, soltarCine } from './ui/cine';
 import { dibujarPelicula, prepararPelicula, peliculaLista, heroeMuestra, terminar as terminarPelicula, soltarPelicula, type Guion } from './ui/director';
 import { CINE_ACTO1 } from './ui/cine_acto1';
-import { cartelActo } from './ui/cine_acto1';
+import { pedirRostro } from './ui/cine_rostro';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { dibujarHudForja } from './ui/hud_forja';
 import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe, vozMarca, leerRestos, ecosFinal } from './juego/historia';
@@ -48,7 +48,7 @@ let heroePeli: DatosHeroe | null = null;
 const peliDe = (clave: string) => { const m = /^peli_(\d)$/.exec(clave); return m ? PELICULAS[+m[1]] ?? null : null; };
 function empezarCine(acto: number, despues: () => void, clave = claveCine(acto)) {
   if (clave === claveCine(acto) && PELICULAS[acto] && conPelicula(acto)) {
-    heroePeli = j ? j.heroe.d : heroeMuestra(); prepararPelicula(PELICULAS[acto], heroePeli);
+    heroePeli = j ? j.heroe.d : heroeMuestra(); prepararPelicula(PELICULAS[acto], heroePeli); pedirRostro(heroePeli);
     cine = { clave: 'peli_' + acto, acto, t: 0, despues }; estado = 'cine'; ui.izq = ui.der = null; E.clicIzq = false;
     Sonido.musica(null as any); return;
   }
@@ -199,6 +199,8 @@ async function irAZona(id: string, entrada: string) {
       msg(j, [`Tu camino sigue en el Acto ${a}. La piedra de viaje del campamento te lleva${pu ? ' a ' + pu.nombre[0] : ''}: tócala y elige la pestaña del Acto ${a}.`, `Your road goes on in Act ${a}. The camp's travel stone takes you there${pu ? ' to ' + pu.nombre[1] : ''}: touch it and pick the Act ${a} tab.`], '#80c0ff');
     } }
   historiaEntrar(j);
+  // (la película del acto 1 cierra con el héroe grande de la vigilia: si no está pintado, se empieza a pintar en segundo plano en la guarida del jefe)
+  if (id === 'a1_pozo' && conPelicula(1)) pedirRostro(j.heroe.d);
   // el presagio: al bajar a una mazmorra o meterse en una casa abandonada (no al volver a un lugar ya limpio de sustos)
   if (ZONAS[id].tipo === 'mazmorra' && !ZONAS[id].jefe) setTimeout(() => Sonido.efecto('presagio' as any, { vol: (ZONAS[id] as any).casa ? 0.7 : 0.9 }), 900);
   const atl = atlasZona(id);
@@ -604,7 +606,7 @@ function usarObjeto(jj: Juego, o: ObjZ) {
 const REV_LARGO = 28;
 /** Se está volviendo a ver una cinemática desde el Códice: al terminar se vuelve al juego, sin viajar ni pasar a la rueda. */
 let repeticion = false;
-function empezarEntreacto(acto: number) { guardar(); estado = 'entreacto'; entreActo = acto; entreT = 0; ui.izq = ui.der = null; E.clicIzq = false; if (acto > 0 && PELICULAS[acto] && conPelicula(acto)) { Sonido.musica(null as any); Sonido.cine('titulo'); } else Sonido.musica('intro'); }
+function empezarEntreacto(acto: number) { guardar(); estado = 'entreacto'; entreActo = acto; entreT = 0; ui.izq = ui.der = null; E.clicIzq = false; if (!(acto > 0 && PELICULAS[acto] && conPelicula(acto))) Sonido.musica('intro'); }
 function empezarRevelacion(luegoFinal: boolean) { estado = 'revelacion'; revT = 0; revEleccion = null; revLuegoFinal = luegoFinal; ui.izq = ui.der = null; E.clicIzq = false; Sonido.musica('intro'); }
 
 // ------------------------------------------------------------------ eventos del mundo
@@ -628,7 +630,7 @@ function procesarEventos(jj: Juego) {
         }
         Sonido.musica(MUSICA_ACTO(jj.zona.acto, jj.zona.tipo) as any); msg(jj, ['El sello se rompe. Algo escapa hacia lo alto.', 'The seal breaks. Something escapes upward.'], '#ffb060');
       };
-      if (PELICULAS[acto] && conPelicula(acto)) prepararPelicula(PELICULAS[acto], jj.heroe.d); else precargarCine(claveCine(acto), acto);
+      if (PELICULAS[acto] && conPelicula(acto)) { prepararPelicula(PELICULAS[acto], jj.heroe.d); pedirRostro(jj.heroe.d); } else precargarCine(claveCine(acto), acto);
       caida = { m: jj.monstruos.find((q) => q.def.id === e.dato) ?? null, t: 0, acto, despues };
       presenta = null; Sonido.musica(null as any);
     }
@@ -731,7 +733,7 @@ function paso(dt: number) {
     case 'zona': pantallaCarga(cargaK, cargaMsg, tiempo); break;
     case 'entreacto': {
       entreT += dt;
-      if ((entreActo > 0 && PELICULAS[entreActo] && conPelicula(entreActo) ? cartelActo(entreActo + 1, entreT) : dibujarEntreacto(entreActo, entreT, j ? finalDe(j.heroe.d) : undefined)) || (entreT > 0.5 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
+      if (((entreActo > 0 && PELICULAS[entreActo] && conPelicula(entreActo)) || dibujarEntreacto(entreActo, entreT, j ? finalDe(j.heroe.d) : undefined)) || (entreT > 0.5 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
         E.clicIzq = false; estado = 'juego'; tEstado = 0;
         const sig = PUEBLO_DE[entreActo + 1]; if (!repeticion && entreActo > 0 && sig && ZONAS[sig]) zonaPendiente = { id: sig, entrada: 'centro' };
         if (repeticion && j) Sonido.musica(MUSICA_ACTO(j.zona.acto, j.zona.tipo) as any);

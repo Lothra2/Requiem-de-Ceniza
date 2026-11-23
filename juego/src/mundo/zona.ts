@@ -438,6 +438,9 @@ class Constructor {
  */
 export function tamZona(def: DefZona): [number, number] {
   const t = tematica(def.tema);
+  // (un mundo abierto con monumento de los actos 2 a 7 crece 4 baldosas por lado: el centro es del monumento y su atrio, y sin
+  //  eso en los mapas angostos, como el Manglar Negro, el claro del jefe no tenía dónde caber con su ruedo)
+  if (def.tipo === 'exterior' && !def.ancla && monumentoDe(def.id) && !(globalThis as any).__sinMonumentos) return [def.tam[0] + 4, def.tam[1] + 4];
   if (def.tipo !== 'mazmorra' || def.casa || t.islas || (globalThis as any).__salasViejas) return def.tam;
   const mas = def.jefe ? 4 : 2;
   return [def.tam[0] + mas, def.tam[1] + mas];
@@ -538,6 +541,8 @@ function exterior(def: DefZona, semilla: number): Zona {
       if (puntos.some(([x, y]) => Math.hypot(x - p[0], y - p[1]) < 28)) continue;
       // (lejos del monumento de la zona y de lo que lleva alrededor: monumentos.ts)
       if (conMonumento && Math.hypot(p[0] + 2 - z.W / 2, p[1] + 2 - z.H / 2) < 32) continue;
+      // (ni en la cuña de la vista desde la avenida: una casa delante del pórtico de Ysmeral tapaba el monumento)
+      if (conMonumento) { const ux = p[0] + 2 - (Math.floor(z.W / 2) + 10), uy = p[1] + 2 - (Math.floor(z.H / 2) + 12), du = (ux + uy) / 2, dv = Math.abs(ux - uy) / 2; if (du > -6 && du < 40 && dv < 8 + du * 0.6) continue; }
       return p;
     }
     return [Math.floor(z.W / 2) + Math.floor((r() - 0.5) * 20), Math.floor(z.H / 2) + Math.floor((r() - 0.5) * 20)];
@@ -563,10 +568,12 @@ function exterior(def: DefZona, semilla: number): Zona {
       for (let a = 0; a < 12; a++) for (const f of [1.15, 0.6]) { const X = Math.floor((x + Math.cos(a * 0.5236) * rad * f) / 5), Y = Math.floor((y + Math.sin(a * 0.5236) * rad * f) / 5); if (X < 0 || Y < 0 || X >= tw || Y >= th || !z.pisos[Y * tw + X]) return false; }
       return true;
     };
-    const elegir = (rad: number, lejosSalida: number, lejosLugar: number, extra?: (x: number, y: number) => boolean): [number, number] | null => {
+    const elegir = (rad: number, lejosSalida: number, lejosLugar: number, extra?: (x: number, y: number) => boolean, n = 260): [number, number] | null => {
       let mejor: [number, number] | null = null, bd = -1;
-      for (let i = 0; i < 260; i++) {
-        const x = 8 + Math.floor(rl() * (z.W - 16)), y = 8 + Math.floor(rl() * (z.H - 16));
+      // (n = 0: recorre todas las celdas sin tirar el azar, para el último intento del hito)
+      const nn = n || (z.W - 16) * (z.H - 16);
+      for (let i = 0; i < nn; i++) {
+        const x = n ? 8 + Math.floor(rl() * (z.W - 16)) : 8 + (i % (z.W - 16)), y = n ? 8 + Math.floor(rl() * (z.H - 16)) : 8 + Math.floor(i / (z.W - 16));
         if (!cabe(x, y, rad) || (extra && !extra(x, y))) continue;
         if (def.rio && !monumentoDe(def.id) && Math.abs(x - z.W / 2) < z.W * 0.19 + rad) continue;
         if (def.rio && monumentoDe(def.id) && [Math.floor(tw / 2) - 9, Math.ceil(tw / 2) + 8].some((c) => Math.abs(x - (c * 5 + 2.5)) < rad + 9)) continue;
@@ -575,17 +582,17 @@ function exterior(def: DefZona, semilla: number): Zona {
         for (const l of lugares) d = Math.min(d, Math.hypot(l.cx - x, l.cy - y) - l.r - rad - lejosLugar);
         // (un monumento de los actos 2 a 7 se mide por su huella de verdad, la obra y su avenida: con un radio de 36 alrededor
         //  del centro el claro del jefe no cabía en ningún lado y el jefe caía al lado de la avenida, sin ruedo)
-        if (!def.ancla && monumentoDe(def.id)) { const ax = centro[0], ay = centro[1] + 2, qx = Math.max(ax - 24, Math.min(ax + 16, x)), qy = Math.max(ay - 24, Math.min(ay + 16, y)), t = Math.max(0, Math.min(1, ((x - ax - 10) + (y - ay - 10)) / 36)), sx = ax + 10 + t * 18, sy = ay + 10 + t * 18; d = Math.min(d, Math.hypot(qx - x, qy - y) - rad - 4, Math.hypot(sx - x, sy - y) - rad - 7); }
+        if (!def.ancla && monumentoDe(def.id)) { const ax = centro[0], ay = centro[1] + 2, qx = Math.max(ax - 24, Math.min(ax + 16, x)), qy = Math.max(ay - 24, Math.min(ay + 16, y)), t = Math.max(0, Math.min(1, ((x - ax - 10) + (y - ay - 10)) / 36)), sx = ax + 10 + t * 18, sy = ay + 10 + t * 18; d = Math.min(d, Math.hypot(qx - x, qy - y) - rad * 0.8, Math.hypot(sx - x, sy - y) - rad - 4); const mk = monumentoDe(def.id)!.marco; if (mk && mk !== true) for (const [, , dx, dy] of mk.marco) d = Math.min(d, Math.max(Math.abs(ax + dx - x), Math.abs(ay + dy - y)) - 15); }
         else d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ?? monumentoDe(def.id) ? 36 : 12) - rad);
         if (d > bd) { bd = d; mejor = [x, y]; }
       }
       return bd >= 0 ? mejor : null;
     };
     // el jefe de un mundo abierto pelea en su propio claro, el más grande y sin escena (antes salía en cualquier rincón, con despeje 2)
-    if (def.jefe) { for (const rad of [14, 13, 12]) { const q = elegir(rad, 16, 12); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } } }
+    if (def.jefe && !(!def.ancla && monumentoDe(def.id))) { for (const rad of [14, 13, 12]) { const q = elegir(rad, 16, 12); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } } }
     // (con un monumento el mapa queda más apretado: si no cupo, un claro un poco más chico y más cerca de las salidas, nunca
     //  sin claro: sin él el jefe caía junto a la avenida y su ruedo bajaba a 2)
-    if (def.jefe && !def.ancla && monumentoDe(def.id) && !lugares.some((l) => l.escena === 'jefe')) for (const [rad, ls] of [[12, 10], [11, 8], [10, 6]]) { const q = elegir(rad, ls, 6); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } }
+    if (def.jefe && !def.ancla && monumentoDe(def.id) && !lugares.some((l) => l.escena === 'jefe')) for (const [rad, ls] of [[14, 21], [14, 21], [13, 20], [13, 20], [12, 19], [12, 19], [11, 18], [11, 18], [10, 17], [10, 17], [9, 16], [12, 10], [10, 6]]) { const q = elegir(rad, ls, 6); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } }
     const nClaros = z.W * z.H > 12000 ? 4 : 3;
     for (let i = 0; i < nClaros; i++) { for (const rad of [10 + Math.floor(rl() * 4), 10, 9]) { const q = elegir(rad, 14, 12) ?? elegir(rad, 12, 7); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro' }); break; } } }
     // (entrega 6) el hito mira a +x +y (lo que ve la cámara: el relato va adelante y lo alto atrás), así que delante necesita su
@@ -593,9 +600,16 @@ function exterior(def: DefZona, semilla: number): Zona {
     // de cara al borde, el tambor de Yhuantl detrás de 17 celdas de árboles) y el héroe no tenía desde dónde mirarlo entero.
     // La explanada queda reservada como un claro más (nada alto cae ahí). `__hitoViejo` vuelve a lo de antes. Después de los
     // claros no se tira más `rl`, así que esto no mueve ningún otro lugar
-    const viejoH = !!(globalThis as any).__hitoViejo, frente = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6) && puntos.every(([a, b]) => Math.hypot(a - x - 8, b - y - 8) > 16);
-    const frente2 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4) && puntos.every(([a, b]) => Math.hypot(a - x - 7, b - y - 7) > 12);
-    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 12, 6, frente2) ?? elegir(5, 8, 4, frente2)) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5) ?? elegir(5, 6, 2)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
+    // (23 nov) con un monumento la explanada tampoco cae en su obra: el hito del glaciar salía pegado a la Boca del Aliento con la
+    // explanada debajo de la pieza de atrás y el héroe no tenía desde dónde mirarlo (t1030); y el hito no cae en la cuña de la avenida
+    // (taparía el monumento; en el último intento sí, antes que quedarse sin explanada). `__hitoContraMon` lo deja
+    const lejosMon = (px: number, py: number, m: number, cuna = true) => { if (def.ancla || !monumentoDe(def.id) || (globalThis as any).__hitoContraMon) return true; const ax = centro[0], ay = centro[1] + 2, qx = Math.max(ax - 24, Math.min(ax + 16, px)), qy = Math.max(ay - 24, Math.min(ay + 16, py)); if (Math.hypot(qx - px, qy - py) <= m || !cabe(px - 8, py - 8, 8)) return false; if (!cuna) return true; const du = (px - 8 - ax - 10 + py - 8 - ay - 10) / 2, dv = Math.abs(px - 8 - ax - 10 - (py - 8 - ay - 10)) / 2; return !(du > -2 && du < 21 && dv < 6 + du * 0.4); };
+    const viejoH = !!(globalThis as any).__hitoViejo, frente = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6) && puntos.every(([a, b]) => Math.hypot(a - x - 8, b - y - 8) > 16) && lejosMon(x + 8, y + 8, 8);
+    const frente2 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4) && puntos.every(([a, b]) => Math.hypot(a - x - 7, b - y - 7) > 12) && lejosMon(x + 7, y + 7, 6);
+    const frente5 = viejoH ? undefined : (x: number, y: number) => cabe(x + 8, y + 8, 6) && puntos.every(([a, b]) => Math.hypot(a - x - 8, b - y - 8) > 16);
+    const frente4 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4) && puntos.every(([a, b]) => Math.hypot(a - x - 7, b - y - 7) > 12);
+    const frente3 = viejoH ? undefined : (x: number, y: number) => cabe(x + 7, y + 7, 4) && puntos.every(([a, b]) => Math.hypot(a - x - 7, b - y - 7) > 12) && lejosMon(x + 7, y + 7, 1.5, false);
+    { const q = elegir(6, 14, 8, frente) ?? elegir(5, 10, 5, frente) ?? (viejoH ? null : elegir(6, 12, 6, frente2) ?? elegir(5, 8, 4, frente2) ?? elegir(6, 14, 8, frente3) ?? elegir(5, 10, 5, frente3) ?? elegir(5, 8, 4, frente3) ?? elegir(6, 14, 8, frente3) ?? elegir(6, 14, 8, frente3) ?? elegir(5, 10, 5, frente3) ?? elegir(5, 10, 5, frente3) ?? elegir(5, 8, 4, frente3) ?? elegir(6, 14, 8, frente3, 0) ?? elegir(5, 8, 4, frente3, 0) ?? elegir(6, 14, 8, frente5, 0) ?? elegir(5, 8, 4, frente4, 0)) ?? (viejoH ? null : elegir(6, 14, 8) ?? elegir(5, 10, 5) ?? elegir(5, 6, 2)); if (q) lugares.push({ cx: q[0], cy: q[1], r: 6, papel: 'hito' }); }
     for (const l of lugares) { const rr = l.r + 0.5; for (let y = Math.floor(l.cy - rr); y <= l.cy + rr; y++) for (let x = Math.floor(l.cx - rr); x <= l.cx + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - l.cx, y - l.cy) <= rr) z.claros[y * z.W + x] = 1; }
     { const lh = lugares.find((l) => l.papel === 'hito'); if (lh && !viejoH) { const ex = lh.cx + 8, ey = lh.cy + 8, rr = 5.5; for (let y = Math.floor(ey - rr); y <= ey + rr; y++) for (let x = Math.floor(ex - rr); x <= ex + rr; x++) if (x >= 0 && y >= 0 && x < z.W && y < z.H && Math.hypot(x - ex, y - ey) <= rr) z.claros[y * z.W + x] = 1; } }
   }
@@ -769,7 +783,8 @@ function exterior(def: DefZona, semilla: number): Zona {
   // cofres, santuarios y pozos
   colocarInteractivos(k, 2 + Math.floor(area / 6000), 1 + Math.floor(area / 9000), def.tema, vz?.santuarios);
   // dónde salen los monstruos: lejos de las entradas
-  acampar(k, Math.floor((area / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro' && l.escena !== 'jefe').map((l): [number, number] => [l.cx, l.cy]), (x, y) => lugares.some((l) => (l.escena === 'jefe' && Math.hypot(x - l.cx, y - l.cy) < l.r + 8) || (l.papel === 'desvio' && Math.hypot(x - l.cx, y - l.cy) < 16)));
+  // (los monstruos van por el tamaño de siempre: el mundo con monumento crece para el monumento, no para tener más pelea)
+  acampar(k, Math.floor(((monumentoDe(def.id) && !def.ancla ? def.tam[0] * def.tam[1] * 25 : area) / 700) * dens), puntos, lugares.filter((l) => l.papel === 'claro' && l.escena !== 'jefe').map((l): [number, number] => [l.cx, l.cy]), (x, y) => lugares.some((l) => (l.escena === 'jefe' && Math.hypot(x - l.cx, y - l.cy) < l.r + 8) || (l.papel === 'desvio' && Math.hypot(x - l.cx, y - l.cy) < 16)));
   if (def.jefe) { const lj = lugares.find((l) => l.escena === 'jefe'), p = lj ? [lj.cx, lj.cy] : lejos(k, puntos); z.spawns.push({ cx: p[0], cy: p[1], tipo: 'jefe', fuerza: 1 }); }
   if (def.tema === 'paramo') sueloParamo(k);
   // la pieza única del acto: una o dos por mundo abierto, lejos de las salidas
@@ -964,8 +979,10 @@ function rioDeLava(k: Constructor, r: () => number, arroyo = false) {
   // (con un monumento en el centro, la Fragua de Ozmaren en el Río de Lava, el cauce corre por un costado y no se le acerca:
   //  antes cruzaba justo por el medio del mapa)
   const mon = !!monumentoDe(z.id), lejosMon = (x: number) => !mon || Math.abs(x + 0.5 - tw / 2) >= 7;
-  if (mon) bx = bx < tw / 2 ? Math.max(2, Math.floor(tw / 2) - 9) : Math.min(tw - 3, Math.ceil(tw / 2) + 8);
+
   const cruzaCamino = (tx: number, ty: number) => { for (let y = ty * 5; y < ty * 5 + 5; y++) for (let x = tx * 5; x < tx * 5 + 5; x++) if (k.reserva[y * z.W + x]) return true; return false; };
+  // (y del lado por donde cruza un camino: si no, nadie le ponía puente y lo de más allá quedaba aislado)
+  if (mon) { const cand = [Math.max(2, Math.floor(tw / 2) - 9), Math.min(tw - 3, Math.ceil(tw / 2) + 8)], cruces = cand.map((c) => { let n = 0; for (let by = 0; by < th; by++) if (cruzaCamino(c, by)) n++; return n; }); const pref = bx < tw / 2 ? 0 : 1; bx = cruces[pref] ? cand[pref] : cruces[1 - pref] ? cand[1 - pref] : cand[pref]; }
   const bloquear = (tx: number, ty: number, v: number) => { for (let y = ty * 5; y < ty * 5 + 5; y++) for (let x = tx * 5; x < tx * 5 + 5; x++) if (z.bloq[y * z.W + x] !== 2) z.bloq[y * z.W + x] = v; };
   /** Un tramo: recto de norte a sur, o un codo (`codo`) que une dos lados de la baldosa. */
   const tramo = (tx: number, ty: number, codo?: string) => {
@@ -1192,14 +1209,17 @@ function asentarJefe(z: Zona) {
     }
     return b;
   };
-  let desp = despejeZona(z), m = mejorCerca(desp, 3);
+  // (en las zonas con monumento el despeje cuenta como cerrado lo que no se alcanza, el vacío del borde incluido: si no, el ruedo
+  //  medía 10 contra la orilla y quedaba en 8 de verdad)
+  const despJ = (): Int16Array => { if (!monumentoDe(z.id)) return despejeZona(z); const al = alcanzable(z), b0 = z.bloq; z.bloq = b0.map((v, i) => (v || !al[i] ? 1 : 0)) as typeof b0; const d = despejeZona(z); z.bloq = b0; return d; };
+  let desp = despJ(), m = mejorCerca(desp, 3);
   if (m[2] >= RUEDO) { if (z.bloq[Math.floor(sp.cy) * W + Math.floor(sp.cx)]) { sp.cx = m[0]; sp.cy = m[1]; } return; }
   // 1) quitar el adorno suelto del ruedo
   const SUELTO = new Set(['riego', 'vida', 'macabro', 'relleno', 'vineta', 'horror', 'matanza']);
   const cx0 = Math.floor(sp.cx), cy0 = Math.floor(sp.cy);
   const abiertas = new Set<number>();
   for (let i = z.objetos.length - 1; i >= 0; i--) {
-    const o = z.objetos[i]; if (!o.bloquea || o.tag || !o.capa || !SUELTO.has(o.capa)) continue;
+    const o = z.objetos[i]; if (!o.bloquea || o.tag || !o.capa || !SUELTO.has(o.capa) || o.id === 'acto_hito') continue;
     if (Math.max(Math.abs(o.cx - cx0) - o.hw / 2, Math.abs(o.cy - cy0) - o.hh / 2) > RUEDO + 3) continue;
     const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2);
     for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 1) { z.bloq[y * W + x] = 0; abiertas.add(y * W + x); }
@@ -1209,7 +1229,7 @@ function asentarJefe(z: Zona) {
   // (solo las celdas recién abiertas: volver a bloquear la huella de todo cerraba pasos que otros arreglos habían abierto a
   //  propósito, y en una semilla de 1920 dejaba al jefe del Relicario aislado)
   if (abiertas.size) for (const o of z.objetos) if (o.bloquea) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (abiertas.has(y * W + x)) z.bloq[y * W + x] = 1; }
-  desp = despejeZona(z); m = mejorCerca(desp, 4);
+  desp = despJ(); m = mejorCerca(desp, 4);
   if (m[2] >= RUEDO) { sp.cx = m[0]; sp.cy = m[1]; return; }
   // 2) el terreno no da: al punto con ruedo más cercano que se alcance (si no hay ninguno con 10, el más abierto)
   const alc2 = alcanzable(z); let bi = -1, bs = -1e9;
@@ -1218,6 +1238,23 @@ function asentarJefe(z: Zona) {
     const s2 = Math.min(desp[i], RUEDO) * 1000 - Math.hypot(x - sp.cx, y - sp.cy); if (s2 > bs) { bs = s2; bi = i; }
   }
   if (bi >= 0 && Math.min(desp[bi], RUEDO) > Math.max(m[2], 0)) { sp.cx = bi % W; sp.cy = (bi - (bi % W)) / W; } else if (m[2] >= 0) { sp.cx = m[0]; sp.cy = m[1]; }
+  // 3) (zonas con monumento: el centro del mapa es del monumento y lo de alrededor queda apretado) si todavía no hay ruedo, el
+  //    punto más cercano que lo tendría quitando lo que se puede quitar (adornos, escenas, relatos; nunca salidas, tags,
+  //    estructura ni el monumento), y eso se quita
+  if (!monumentoDe(z.id) || (globalThis as any).__ruedoViejo) return;
+  desp = despJ(); if (desp[Math.floor(sp.cy) * W + Math.floor(sp.cx)] >= RUEDO) return;
+  const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); }
+  const quitable = (o: ObjZ) => o.bloquea && !fijos.has(o) && !o.tag && o.capa !== 'monumento' && o.capa !== 'relleno' && !/muro|macizo|risco|hueco|garganta|casa|acto_hito/.test(o.id); // (23 nov: el hito tampoco, se iba en 1 de 60 de a3_pantano)
+  const al = alcanzable(z), b0 = z.bloq, b1 = b0.slice();
+  for (const o of z.objetos) if (quitable(o)) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && b1[y * W + x] === 1) b1[y * W + x] = 0; }
+  const al2 = (() => { z.bloq = b1; const r2 = alcanzable(z); z.bloq = b0; return r2; })();
+  z.bloq = b1.map((v, i) => (v || !al2[i] ? 1 : 0)) as typeof b0; const d2 = despejeZona(z); z.bloq = b0; void al;
+  let bj = -1, bsj = 1e9; for (let i = 0; i < W * H; i++) if (d2[i] >= RUEDO && !b0[i]) { const x = i % W, y = (i - x) / W, dd = Math.hypot(x - sp.cx, y - sp.cy); if (dd < bsj) { bsj = dd; bj = i; } }
+  if (bj < 0) return;
+  const jx = bj % W, jy = (bj - jx) / W;
+  for (let i = z.objetos.length - 1; i >= 0; i--) { const o = z.objetos[i]; if (!quitable(o) || Math.max(Math.abs(o.cx - jx) - o.hw / 2, Math.abs(o.cy - jy) - o.hh / 2) > RUEDO + 1) continue; const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && z.bloq[y * W + x] === 1) z.bloq[y * W + x] = 0; z.objetos.splice(i, 1); }
+  for (const o of z.objetos) if (o.bloquea) { const x0 = Math.round(o.cx - (o.hw - 1) / 2), y0 = Math.round(o.cy - (o.hh - 1) / 2); for (let y = y0; y < y0 + o.hh; y++) for (let x = x0; x < x0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < H && Math.max(Math.abs(x - jx), Math.abs(y - jy)) <= RUEDO + 1) z.bloq[y * W + x] = 1; }
+  sp.cx = jx; sp.cy = jy;
 }
 
 // ------------------------------------------------------------------ cavernas orgánicas
@@ -2417,6 +2454,8 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   esquinasMuro(z);
   despegarDeMuros(z);
   asentarAtrio(z);
+  // (con un monumento, lo suelto de su atrio y su avenida se pone al final: el ruedo del jefe se vuelve a asegurar)
+  if (!def.ancla && monumentoDe(def.id)) asentarJefe(z);
   return z;
 }
 /**
@@ -2451,7 +2490,12 @@ function asentarAtrio(z: Zona) {
   const k = new Constructor(z); k.reserva = new Uint8Array(z.W * z.H); k.capa = 'monumento';
   for (const [id, v, cx, cy] of pend) {
     if (id === '__avenida') {
-      const sacar = z.objetos.filter((o) => { if (fijos.has(o) || !o.bloquea) return false; const du = (o.cx - cx + o.cy - cy) / 2, dv = Math.abs(o.cx - cx - (o.cy - cy)) / 2; return du > 0.5 && du < 18 && dv < 4.5 + Math.max(o.hw, o.hh) / 2; });
+      const sacar = z.objetos.filter((o) => { if (fijos.has(o) || o.tag || o.id === 'acto_hito') return false; const du = (o.cx - cx + o.cy - cy) / 2, dv = Math.abs(o.cx - cx - (o.cy - cy)) / 2; if (o.bloquea && du > 0.5 && du < 18 && dv < 4.5 + Math.max(o.hw, o.hh) / 2) return true;
+        // (y lo alto que tapa la vista del monumento desde la avenida, en una cuña que se abre: una ruina del borde delante del pórtico
+        //  de Ysmeral tapaba a las plañideras. `__vistaTapada` lo deja. El hito del acto nunca: es el otro ancla del mundo y en 1 de
+        //  cada 10 semillas caía en la cuña y se iba)
+        const cj = (CAJAS_SPRITE as Record<string, number[]>)[`${o.id}|${o.v}`];
+        return !(globalThis as any).__vistaTapada && !!cj && cj[3] > 70 && du > 2 && du < 26 && dv < 3 + du * 0.5; });
       for (const o of sacar) { z.objetos.splice(z.objetos.indexOf(o), 1); const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && (z.bloq[y * W + x] === 1 || z.bloq[y * W + x] === 3)) z.bloq[y * W + x] = 0; }
       continue;
     }
@@ -2463,6 +2507,43 @@ function asentarAtrio(z: Zona) {
     // lo que queda alrededor vuelve a marcar sus celdas (la limpieza de arriba no distingue de quién era cada una)
     if (fuera.length) for (const o of z.objetos) { if (/puente|rio_|arroyo/.test(o.id) || REGISTRO.find((q) => q.id === o.id)?.plano) continue; const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); if (!fuera.some((q) => { const [c, e] = caja(q.cx, q.cy, q.hw, q.hh); return a < c + q.hw && a + o.hw > c && b < e + q.hh && b + o.hh > e; })) continue; for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && z.bloq[y * W + x] === 0) z.bloq[y * W + x] = o.bloquea ? 1 : 3; }
     k.poner(d, cx, cy, v, true);
+  }
+  // (23 nov) nada montado sobre la obra: lo suelto cuyo dibujo queda 60 % dentro del de una pieza del monumento o de su marco (un
+  // muerto encima de una estela, una mata sobre un pilar, una columna del tema metida en el coloso) sale. `desmontarFinal` va
+  // antes que el atrio y no lo veía. Lo que tiene tag (salvo urnas y barriles), cofres, jefe, umbral y lo del muro se quedan.
+  // `__montadosAtrio` lo deja como antes
+  if ((globalThis as any).__montadosAtrio) return;
+  const kj = (o: ObjZ) => { const c = CAJAS[o.id + '|' + o.v]; if (!c) return null; const sx = (o.cx - o.cy) * 16, sy = (o.cx + o.cy) * 8; return { x0: sx - c[2], y0: sy - c[3], x1: sx - c[2] + c[0], y1: sy - c[3] + c[1], a: c[0] * c[1] }; };
+  const mon = z.objetos.filter((o) => PIEZA_MONUMENTO.test(o.id)).map(kj).filter((c): c is NonNullable<typeof c> => !!c);
+  if (!mon.length) return;
+  const suelto = (o: ObjZ) => !fijos.has(o) && !PIEZA_MONUMENTO.test(o.id) && !(o.tag && o.tag !== 'romper' && o.tag !== 'restos') && !['jefe', 'umbral', 'escondido', 'relleno', 'macizo', 'garganta'].includes(o.capa ?? '') && !MURO_TAPA.test(o.id) && !/^(acto_hito|puente|rio_|arroyo|sendero)/.test(o.id);
+  const sale = z.objetos.filter((o) => { if (!suelto(o)) return false; const b = kj(o); if (!b) return false;
+    return mon.some((a) => { const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); return ix > 0 && iy > 0 && (ix * iy) / Math.min(a.a, b.a) >= 0.6; }); });
+  for (const o of sale) { z.objetos.splice(z.objetos.indexOf(o), 1); if (!o.bloquea) continue; const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && z.bloq[y * W + x] === 1 && !(z.hueco && z.hueco[y * W + x])) z.bloq[y * W + x] = 0; }
+  // los cofres y los pozos que quedaron dibujados detrás de la obra (no se veían) se mudan al punto más cercano donde se ven, sobre
+  // piso que se alcanza y con todo el anillo libre; si no hay, se quedan
+  const tapa = (b: NonNullable<ReturnType<typeof kj>>) => mon.some((a) => { const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); return ix > 0 && iy > 0 && (ix * iy) / Math.min(a.a, b.a) >= 0.6; });
+  const mudar = z.objetos.filter((o) => !fijos.has(o) && !PIEZA_MONUMENTO.test(o.id) && /^(cofre|com_pozo)/.test(o.id) && !!kj(o) && tapa(kj(o)!));
+  if (!mudar.length) return;
+  const libre = (i: number) => z.bloq[i] === 0 && !(z.hueco && z.hueco[i]) && !!z.pisos[Math.floor(Math.floor(i / W) / 5) * z.tw + Math.floor((i % W) / 5)];
+  const vis = new Uint8Array(W * z.H); { const e0 = z.entradas.arriba ?? Object.values(z.entradas)[0]; if (e0) { const i0 = Math.floor(e0[1]) * W + Math.floor(e0[0]); const pila = [i0]; vis[i0] = 1; while (pila.length) { const i = pila.pop()!, x = i % W, y = (i - x) / W; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= W || Y >= z.H) continue; const j = Y * W + X; if (!vis[j] && z.bloq[j] !== 1 && z.bloq[j] !== 2) { vis[j] = 1; pila.push(j); } } } } }
+  for (const o of mudar) {
+    const [a0, b0] = caja(o.cx, o.cy, o.hw, o.hh);
+    if (o.bloquea) for (let y = b0; y < b0 + o.hh; y++) for (let x = a0; x < a0 + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && z.bloq[y * W + x] === 1) z.bloq[y * W + x] = 0;
+    let mejor: [number, number] | null = null, md = 1e9;
+    for (let dy = -26; dy <= 26; dy++) for (let dx = -26; dx <= 26; dx++) {
+      const d2 = dx * dx + dy * dy; if (d2 >= md || d2 > 676) continue;
+      const cx = o.cx + dx, cy = o.cy + dy, [a, b] = caja(cx, cy, o.hw, o.hh); let ok = true;
+      for (let y = b - 1; y <= b + o.hh && ok; y++) for (let x = a - 1; x <= a + o.hw && ok; x++) { if (x < 0 || y < 0 || x >= W || y >= z.H) { ok = false; break; } const i = y * W + x; if (!libre(i) || !vis[i]) ok = false; }
+      if (!ok) continue;
+      const sx = (cx - cy) * 16, sy = (cx + cy) * 8, c = CAJAS[o.id + '|' + o.v]; if (tapa({ x0: sx - c[2], y0: sy - c[3], x1: sx - c[2] + c[0], y1: sy - c[3] + c[1], a: c[0] * c[1] })) continue;
+      if (z.objetos.some((q) => q !== o && Math.abs(q.cx - cx) < (q.hw + o.hw) / 2 + 1 && Math.abs(q.cy - cy) < (q.hh + o.hh) / 2 + 1)) continue;
+      const yo = { x0: sx - c[2], y0: sy - c[3], x1: sx - c[2] + c[0], y1: sy - c[3] + c[1], a: c[0] * c[1] };
+      if (z.objetos.some((q) => { if (q === o || MURO_TAPA.test(q.id) || REGISTRO.find((d) => d.id === q.id)?.plano) return false; const b = kj(q); if (!b) return false; const ix = Math.min(yo.x1, b.x1) - Math.max(yo.x0, b.x0), iy = Math.min(yo.y1, b.y1) - Math.max(yo.y0, b.y0); return ix > 0 && iy > 0 && (ix * iy) / Math.min(yo.a, b.a) >= 0.5; })) continue;
+      mejor = [cx, cy]; md = d2;
+    }
+    if (mejor) { o.cx = mejor[0]; o.cy = mejor[1]; }
+    if (o.bloquea) { const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && z.bloq[y * W + x] === 0) z.bloq[y * W + x] = 1; }
   }
 }
 function rocaViva(z: Zona, def: DefZona) {

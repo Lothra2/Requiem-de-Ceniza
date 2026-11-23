@@ -113,7 +113,8 @@ export function registrarMonumento(m: Monumento) {
         const { ps, g } = raiz(a), gg = g.sub(-ox, -oy, 0);
         const luces = m.armar(gg.sub(0, 0, 0, -45), v, f, gg) || {};
         const mias = partir(ps, -pz.w * 8, pz.w * 8, -pz.h * 8, pz.h * 8);
-        bajoTierra(mias);
+        // (lo hundido de un monumento llega más abajo que los 80 del corte de siempre: se corta todo lo que queda bajo el piso)
+        bajoTierra(mias); mias.push(a.caja(0, 0, -600, 4000, 4000, 600, { mat: 'negro', resta: true }));
         const l = luces[pz.fr];
         return { piezas: mias, resplandor: l ? { ...l, c: [l.c[0] - ox, l.c[1] - oy, l.c[2]] as V3 } : undefined };
       },

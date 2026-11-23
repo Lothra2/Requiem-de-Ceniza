@@ -18,7 +18,9 @@ const DIR = `/tmp/requiem-pruebas/monumentos/panoramica/${et}`; fs.mkdirSync(DIR
   // a 14 celdas: arranca
   await p.evaluate(() => { const j = window.__juego(), s = j.zona.salidas.find((q) => q.piezas && q.piezas.length); j.heroe.x = s.cx + 14; j.heroe.y = s.cy + 14; });
   const filas = []; let t0 = Date.now();
-  for (let i = 0; i < 40; i++) { const r = await p.evaluate(() => ({ t: window.__panoT, reloj: window.__juego().t })); filas.push(r); await p.screenshot({ path: `${DIR}/c${String(i).padStart(2, '0')}.png` }); if (r.t === undefined && i > 4) break; await p.waitForTimeout(80); }
+  // CLIC=1: un clic a los 0,5 s la corta (salta a la bajada)
+  let corto = null;
+  for (let i = 0; i < 40; i++) { const r = await p.evaluate(() => ({ t: window.__panoT, reloj: window.__juego().t })); filas.push(r); if (process.env.CLIC && i === 1 && r.t !== undefined) { const t0c = r.t; await p.mouse.click(400, 300); corto = await p.evaluate(() => window.__panoT); console.log('clic en', t0c.toFixed(2), 'queda en', corto); } await p.screenshot({ path: `${DIR}/c${String(i).padStart(2, '0')}.png` }); if (r.t === undefined && i > 4) break; await p.waitForTimeout(80); }
   const dur = (Date.now() - t0) / 1000;
   const vio = filas.filter((f) => f.t !== undefined), relojQuieto = vio.length > 1 && vio[vio.length - 1].reloj === vio[0].reloj;
   // un clic la corta (otra zona, primera vez)

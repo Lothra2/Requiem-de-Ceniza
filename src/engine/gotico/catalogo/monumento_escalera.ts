@@ -60,7 +60,7 @@ function armar(F: G, _v: string, f: number) {
   F.cil(0, UC, 42, 62, 8, { mat: OR }); F.cil(0, UC, 44, 54, 8, { mat: BL, tono: 0.1 });
   // ------------------------------------------------------------ el haz de luz: el alma blanca angosta, hebras de luz y el polvo que sube
   const ZT = 600;
-  F.cil(0, UC, 48, 9, ZT + 40, { mat: BL, r1: 5, tono: 0.15 }); for (let k = 0; k < 9; k++) { const t = (k / 9) * TAU, rr = 18 + (k % 3) * 9; F.palo([Math.cos(t) * rr, UC + Math.sin(t) * rr, 50], [Math.cos(t + 0.4) * rr * 0.6, UC + Math.sin(t + 0.4) * rr * 0.6, 60 + ZT], 1.1 - (k % 3) * 0.2, { mat: LU, r1: 0.4, tono: 0.05 }); }
+  F.cil(0, UC, 48, 9, ZT - 30, { mat: BL, r1: 5, tono: 0.15 }); for (let k = 0; k < 9; k++) { const t = (k / 9) * TAU, rr = 18 + (k % 3) * 9; F.palo([Math.cos(t) * rr, UC + Math.sin(t) * rr, 50], [Math.cos(t + 0.4) * rr * 0.6, UC + Math.sin(t + 0.4) * rr * 0.6, ZT], 1.1 - (k % 3) * 0.2, { mat: LU, r1: 0.4, tono: 0.05 }); }
   for (let k = 0; k < 60; k++) { const t = a.r() * TAU, rr = 10 + a.r() * 46, z = 60 + a.r() * ZT; F.esf(Math.cos(t) * rr, UC + Math.sin(t) * rr, z, 1.2 + a.r() * 1.8, { mat: k % 3 ? BL : OR, tono: 0.1 }); }
   // ------------------------------------------------------------ la escalera de caracol: losas grandes de mármol que flotan sueltas
   const NS = 40, VUELTAS = 1.9, T0 = Math.PI * 0.55;
@@ -93,20 +93,15 @@ function armar(F: G, _v: string, f: number) {
     for (let k = 0; k < 7; k++) { const x = RH * Math.cos(0.1) + (a.r() - 0.5) * 30, z = ZH - 50 - k * 70, s = 12 - k; F.poli([[x - s, UC - s, z], [x + s, UC - s, z + 4], [x - s, UC + s, z + 2], [x + s, UC + s, z], [x, UC, z + s * 1.6], [x + 2, UC + 2, z - s]], { mat: OR, tono: -0.05 }); }
     // la raja: la luz que sale. Detrás, la gloria (capas que se abren y se apagan hacia afuera); encima la herida en zigzag con el
     // alma blanca encendida, y los rayos que salen de ella hasta romper el borde del anillo
-    for (let k = 0; k < 4; k++) F.sub(0, UC - 30 - k * 10, ZH - 10, 0, 90, 'x').cil(0, 0, 0, 40 + k * 32, 3, { mat: k < 2 ? BL : LU, tono: 0.1 - k * 0.14 });
+    for (let k = 0; k < 4; k++) F.sub(0, UC - 150 - k * 10, ZH - 10, 0, 90, 'x').cil(0, 0, 0, 40 + k * 32, 3, { mat: k < 2 ? BL : LU, tono: 0.1 - k * 0.14 });
     { const pts: [number, number][] = [[-8, -120], [14, -80], [-12, -40], [10, 0], [-14, 40], [8, 80], [-6, 110]];
-      for (let k = 0; k < pts.length - 1; k++) { const [x0, z0] = pts[k], [x1, z1] = pts[k + 1], w0 = 3 + 14 * Math.sin((k / (pts.length - 1)) * Math.PI), w1 = 3 + 14 * Math.sin(((k + 1) / (pts.length - 1)) * Math.PI); F.palo([x0, UC + 4, ZH + z0], [x1, UC + 4, ZH + z1], w0 * 1.5, { mat: LU, r1: w1 * 1.5, tono: 0.05 }); F.palo([x0, UC + 6, ZH + z0], [x1, UC + 6, ZH + z1], w0 * 0.7, { mat: BL, r1: w1 * 0.7, tono: 0.25 }); }
-      for (let k = 0; k < 16; k++) { const t = (k / 16) * TAU + 0.1, L = RH + 30 + (k % 3) * 26; F.palo([Math.cos(t) * 20, UC + 2, ZH + Math.sin(t) * 30], [Math.cos(t) * L, UC + 2 - (k % 2) * 20, ZH + Math.sin(t) * L * 0.8], 3 - (k % 3) * 0.7, { mat: k % 2 ? BL : LU, r1: 0.3, tono: 0.1 }); } }
-    // las nubes: jirones largos y planos que se abren desde la raja hacia afuera, deshilachados en la punta, oscuros por arriba y
-    // encendidos de oro por la panza del lado de la luz
-    for (let k = 0; k < 11; k++) {
-      const t = (k / 11) * TAU + 0.2, gi = (t * 180) / Math.PI;
-      for (let j = 0; j < 4; j++) { const r0 = RH - 20 + j * 34 + (a.r() - 0.5) * 12, L = 46 - j * 8, cx = Math.cos(t) * r0, cz = ZH + Math.sin(t) * r0 * 0.75, y = UC - 60 + (a.r() - 0.5) * 20 - j * 6;
-        const G2 = F.sub(cx, y, cz, 0, -gi, 'y'); G2.elip(0, 0, 3, L * 1.3, 20 - j * 3, 7 - j, { mat: 'mon_es_nube', tono: -0.05 - j * 0.06 }); G2.elip(-L * 0.12, 4, -4, L * 1.1, 16 - j * 3, 4, { mat: LU, tono: -0.15 - j * 0.08 });
-        if (j === 3) for (let q = 0; q < 3; q++) G2.elip(L + 8 + q * 7, (q - 1) * 4, 0, 6 - q, 2, 1.2, { mat: 'mon_es_nube', tono: -0.2 }); } }
+      for (let k = 0; k < pts.length - 1; k++) { const [x0, z0] = pts[k], [x1, z1] = pts[k + 1], w0 = 3 + 14 * Math.sin((k / (pts.length - 1)) * Math.PI), w1 = 3 + 14 * Math.sin(((k + 1) / (pts.length - 1)) * Math.PI); F.palo([x0, UC - 130, ZH + z0], [x1, UC - 130, ZH + z1], w0 * 1.5, { mat: LU, r1: w1 * 1.5, tono: 0.05 }); F.palo([x0, UC - 100, ZH + z0], [x1, UC - 100, ZH + z1], w0 * 0.7, { mat: BL, r1: w1 * 0.7, tono: 0.25 }); }
+      for (let k = 0; k < 16; k++) { const t = (k / 16) * TAU + 0.1, L = RH + 30 + (k % 3) * 26; F.palo([Math.cos(t) * 20, UC - 140, ZH + Math.sin(t) * 30], [Math.cos(t) * L, UC - 140 - (k % 2) * 20, ZH + Math.sin(t) * L * 0.8], 3 - (k % 3) * 0.7, { mat: k % 2 ? BL : LU, r1: 0.3, tono: 0.1 }); } }
+    // una sola banda de bruma baja detrás del anillo
+    F.elip(0, UC - 140, ZH - 120, RH * 1.3, 30, 14, { mat: 'mon_es_nube', tono: -0.1 });
     // el trono, en contraluz detrás de la raja: el asiento, el respaldo alto con siete púas, los brazos con sus garras y la tarima;
     // el canto de cada pieza encendido de la luz de la raja
-    const T = F.sub(-4, UC - 26, ZH - 100).esc(1), SO = 'mon_es_sombra';
+    const T = F.sub(-4, UC - 26, ZH - 60).esc(1.2), SO = 'mon_es_sombra';
     T.caja(0, 6, -16, 90, 70, 16, { mat: SO }); T.caja(0, 0, 0, 62, 46, 30, { mat: SO }); T.caja(0, -20, 30, 62, 10, 150, { mat: SO });
     for (let k = 0; k < 7; k++) T.poli([[-28 + k * 9.4, -24, 180], [-22 + k * 9.4, -24, 180], [-28 + k * 9.4, -16, 180], [-22 + k * 9.4, -16, 180], [-25 + k * 9.4, -20, 206 + (3 - Math.abs(k - 3)) * 16]], { mat: SO });
     for (const s of [-1, 1]) { T.caja(s * 34, 0, 30, 10, 44, 32, { mat: SO }); T.palo([s * 34, 22, 60], [s * 34, 30, 54], 3, { mat: SO, r1: 0.6 }); T.caja(s * 31, -14, 30, 1.4, 1.4, 150, { mat: LU, tono: 0.1 }); }

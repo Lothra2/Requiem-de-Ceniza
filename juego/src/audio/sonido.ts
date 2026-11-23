@@ -2452,6 +2452,72 @@ const CINE: Record<string, (o: AudioNode, t: number, p: number) => number> = {
       x += dt; dt = Math.max(0.28, dt * 0.95); }
     return fin + 1;
   },
+  // el Vientre: un dron de carne (grave, sucio) con el latido de la Madre que se apura cuando la hieren y se para cuando cae
+  vientre(o, t) {
+    organoCine(o, t, [29, 36, 41], 10, 0.08, 380); coroCine(o, t + 1.5, [41, 42], 5, 0.035, 'u');
+    const lat = [0, 1.0, 1.9, 2.7, 3.35, 3.9, 4.75, 5.9]; lat.forEach((x, i) => latidoCine(o, t + x, (i < 6 ? 0.42 : 0.3) * (i === 7 ? 0.6 : 1)));
+    return 12;
+  },
+  // el cordón que se corta: un tirón húmedo (ruido grave que se estira) y el chasquido de la carne
+  cordon(o, t) {
+    const g = gan(0, o); g.gain.setValueAtTime(0.0001, t - 0.5); g.gain.exponentialRampToValueAtTime(0.22, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.5);
+    const b = filt('bandpass', 300, 3, g); b.frequency.setValueAtTime(200, t - 0.5); b.frequency.exponentialRampToValueAtTime(900, t); ruido(t - 0.5, t + 0.6, b, MARRON);
+    golpeSordo(o, t, 140, 60, 0.35, 0.25); for (let i = 0; i < 8; i++) chasquido(o, t + i * al(0.01, 0.04), al(900, 2400), 3, al(0.06, 0.14), 0.02);
+    return 2;
+  },
+  // los tambores de Yhuantl en su apuro, y el corte: silencio de golpe (solo el viento entre las hojas)
+  tambores_corte(o, t) {
+    let x = 0, dt = 0.42; const corte = 3.45;
+    while (x < corte) { golpeSordo(o, t + x, 110, 48, 0.5, 0.5); const g = gan(0, o); env(g.gain, t + x, 0.002, 0.18, 0.1); ruido(t + x, t + x + 0.14, filt('bandpass', 260, 2, g), ROSA); golpeSordo(o, t + x + dt / 2, 210, 120, 0.2, 0.16); x += dt; dt = Math.max(0.24, dt * 0.93); }
+    const g = gan(0, o); envSost(g.gain, t + corte + 0.4, 1.5, 0.08, 3, 1.5); const b = filt('bandpass', 700, 0.7, g); ruido(t + corte, t + 8, b, ROSA);
+    return 9;
+  },
+  // el viento de la nieve: un silbido alto que sube y baja sobre un soplo grave
+  viento_nieve(o, t) {
+    const g = gan(0, o); envSost(g.gain, t, 1.5, 0.12, 6, 2.5); const b = filt('bandpass', 600, 1.2, g);
+    b.frequency.setValueAtTime(500, t); b.frequency.linearRampToValueAtTime(1300, t + 3); b.frequency.linearRampToValueAtTime(700, t + 6.5); b.frequency.linearRampToValueAtTime(1100, t + 9); ruido(t, t + 10, b, ROSA);
+    const g2 = gan(0, o); envSost(g2.gain, t, 2, 0.1, 6, 2); ruido(t, t + 10, filt('lowpass', 220, 0.8, g2), MARRON);
+    return 11;
+  },
+  // el frío: un dron en la eólico, órgano oscuro y un coro en u muy bajo
+  dron_frio(o, t) { organoCine(o, t, [33, 40, 45], 16, 0.07, 420); coroCine(o, t + 2, [57, 60, 64], 13, 0.035, 'u'); coroCine(o, t + 9, [55, 60, 62], 8, 0.03, 'u'); return 19; },
+  // las runas que se encienden: un vidrio que suena (parciales altos) y un zumbido frío
+  runas(o, t) { for (let i = 0; i < 5; i++) campanaFM(o, t + i * 0.09, mtof([81, 84, 88, 91, 93][i]), 2.6, 0.03); const g = gan(0, o); envSost(g.gain, t, 0.5, 0.05, 2, 2); osc('sine', mtof(57), t, t + 5, g); osc('sine', mtof(64) * 1.003, t, t + 5, g); return 5.5; },
+  // el cuerno de los jarls, lejos: una sierra por la boca del cuerno que sube un semitono al soplar
+  cuerno(o, t) {
+    const g = gan(0, o); envSost(g.gain, t, 0.5, 0.12, 2.6, 1.6); const lp = filt('lowpass', 500, 1.5, g); lp.frequency.setValueAtTime(400, t); lp.frequency.linearRampToValueAtTime(900, t + 1); lp.frequency.linearRampToValueAtTime(600, t + 3.5);
+    const f = filt('bandpass', 520, 2, gan(0.5, g));
+    for (const det of [-6, 5]) { const s = osc('sawtooth', mtof(45) * 0.944, t, t + 4.8, lp, det); s.frequency.linearRampToValueAtTime(mtof(45), t + 0.4); s.connect(f); }
+    return 6;
+  },
+  // ---- acto 4: el hielo
+  // el hielo que se raja: un crujido largo de chasquidos que corre y un golpe grave
+  hielo_cruje(o, t) {
+    golpeSordo(o, t, 90, 40, 0.4, 0.8);
+    for (let i = 0; i < 40; i++) { const tt = t + Math.pow(i / 40, 1.6) * 1.4; chasquido(o, tt, al(1800, 6000), 5, al(0.04, 0.12), 0.015); }
+    const g = gan(0, o); envSost(g.gain, t, 0.05, 0.08, 0.8, 0.8); ruido(t, t + 1.8, filt('highpass', 3000, 0.7, g), BLANCO);
+    return 3;
+  },
+  // la nana del norte (Vigdis): una flauta sola, en la menor, lenta, con su vibrato y el aire de la boca
+  nana(o, t) {
+    const fr: [number, number][] = [[69, 1.2], [72, 0.6], [71, 0.6], [69, 1.2], [67, 0.8], [64, 1.6], [65, 0.6], [67, 0.6], [69, 2.2]];
+    let x = 0.2;
+    for (const [n, d] of fr) {
+      const g = gan(0, o); envSost(g.gain, t + x, 0.12, 0.05, d * 0.8, 0.35);
+      const s = osc('sine', mtof(n), t + x, t + x + d + 0.5, g); const v = osc('sine', 5.2, t + x, t + x + d + 0.5, null); const vg = gan(0); vg.gain.setValueAtTime(0, t + x); vg.gain.linearRampToValueAtTime(mtof(n) * 0.008, t + x + 0.4); v.connect(vg); vg.connect(s.frequency);
+      osc('sine', mtof(n) * 2.003, t + x, t + x + d + 0.5, gan(0.12, g));
+      const ga = gan(0, o); envSost(ga.gain, t + x, 0.05, 0.012, d * 0.6, 0.3); ruido(t + x, t + x + d + 0.4, filt('bandpass', mtof(n) * 2, 4, ga), ROSA);
+      x += d;
+    }
+    organoCine(o, t, [45, 52], x + 1, 0.03, 300);
+    return x + 3;
+  },
+  // la Herida: el órgano medio tono abajo, el sub, y el latido que se apura
+  herida(o, t) {
+    organoCine(o, t, [37, 44, 49, 52], 9, 0.09, 600); coroCine(o, t + 1, [61, 64], 7, 0.04, 'a');
+    let x = 0.8, d = 1.1; while (x < 8.5) { latidoCine(o, t + x, 0.35 + x * 0.03); x += d; d = Math.max(0.5, d * 0.88); }
+    return 11;
+  },
   titulo(o, t) { timbalCine(o, t, 0.85); organoCine(o, t, [40, 47, 52, 56, 59], 6.5, 0.1, 1600); coroCine(o, t + 0.2, [64, 68, 71], 6, 0.06, 'a'); return 9; },
 };
 

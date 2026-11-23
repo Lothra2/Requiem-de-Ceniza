@@ -747,7 +747,7 @@ export interface TomaEntreacto { escena: string; seed: number; texto: [string, s
  * las lee como lo que pasó al terminar el acto (`{ t: 'entreacto', a }`). `voz` es quien habla (va en su color y entre
  * comillas). Un acto sin película sigue con ENTREACTO.
  */
-export interface LineaPelicula { es: string; en: string; voz?: boolean }
+export interface LineaPelicula { es: string; en: string; voz?: boolean; /** Solo con esa decisión ([clave, valor] de `decisiones`; Vigdis sin elección cuenta como salvada). */ si?: [string, string] }
 export const PELICULA: Record<number, LineaPelicula[]> = {
   1: [
     { es: 'Ilvara cayó en el fondo del pozo.', en: 'Ilvara fell at the bottom of the well.' },
@@ -764,6 +764,25 @@ export const PELICULA: Record<number, LineaPelicula[]> = {
     { es: 'Oyá soltó las amarras. Nadie habló en todo el viaje.', en: 'Oya cast off. No one spoke the whole way.' },
     { es: 'Detrás de la barca, algo pálido caminaba sobre el agua, cantando.', en: 'Behind the boat, something pale walked on the water, singing.' },
     { es: 'En Yhuantl, los tambores empezaron a sonar solos.', en: 'In Yhuantl, the drums began to beat on their own.' },
+  ],
+  3: [
+    { es: 'La Madre calló.', en: 'The Mother fell silent.' },
+    { es: 'El río se aclaró, aunque todavía sabe a hierro.', en: 'The river cleared, though it still tastes of iron.' },
+    { es: 'Gracias.', en: 'Thank you.', voz: true },
+    { es: 'Y los tambores callaron.', en: 'And the drums fell silent.' },
+    { es: 'Al norte, en Hrimgard, un rey que juró no levantarse ya caminaba sobre la nieve.', en: 'In the north, in Hrimgard, a king who swore never to rise was already walking on the snow.' },
+    { es: 'Dicen que el frío conserva todo. Hasta las promesas rotas.', en: 'They say the cold preserves everything. Even broken promises.' },
+  ],
+  4: [
+    { es: 'Hjaldur se sentó otra vez. Esta vez no se levantó.', en: 'Hjaldur sat down once more. This time he did not rise.' },
+    { es: 'El calor que le robó a Vigdis volvió a casa.', en: 'The warmth he stole from Vigdis went home.', si: ['vigdis', 'sacrificar'] },
+    { es: 'Cuatro sellos rotos. Queda uno.', en: 'Four seals broken. One remains.' },
+    { es: 'Gracias. La casa está casi lista.', en: 'Thank you. The house is almost ready.', voz: true },
+    { es: 'Vigdis dejó la lámpara encendida.', en: 'Vigdis left the lamp burning.', si: ['vigdis', 'salvar'] },
+    { es: 'En el Fortín, su tumba sigue tibia.', en: 'At the Fort, her grave is still warm.', si: ['vigdis', 'sacrificar'] },
+    { es: 'Sobre la Herida, el cielo se abrió como una boca que no termina de gritar.', en: 'Above the Wound, the sky opened like a mouth that never finishes screaming.' },
+    { es: 'Tu Marca ya no duele. Late.', en: 'Your Mark no longer hurts. It beats.' },
+    { es: 'Y algo, del otro lado, te llama sangre de su sangre.', en: 'And something, on the other side, calls you blood of its blood.' },
   ],
 };
 /** ¿Ese acto cierra con su película del motor? (`__cineViejo` vuelve a la cinemática y al entreacto de antes) */

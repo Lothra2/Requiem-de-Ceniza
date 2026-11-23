@@ -59,7 +59,7 @@ M.mon_hr_granito = {
     return (ruido(Math.floor(u / L) * 2.3, fila * 1.3, 4) - 0.5) * 0.36 + (borde < 3.4 ? -0.1 : 0) + (ruido(p[0] * 0.03, p[1] * 0.03, p[2] * 0.012) > 0.64 ? -0.16 : 0);
   },
 };
-M.mon_hr_claro = { rampa: ['#24272b', '#383c41', '#4e5359', '#666b72', '#7f848b', '#999ea4', '#b3b7bc', '#cbced2', '#e0e2e4'], ruido: 0.22, escala: 0.26, patron: (p, n) => (n[2] > 0.6 ? 0.2 : 0) + (ruido(p[0] * 0.06, p[1] * 0.06, p[2] * 0.06) - 0.5) * 0.24 };
+M.mon_hr_claro = { rampa: ['#1c1e21', '#2c2f33', '#3e4247', '#53585e', '#6a6f76', '#82878e', '#9a9fa5', '#b1b5ba', '#c6c9cc'], ruido: 0.22, escala: 0.26, patron: (p, n) => (n[2] > 0.6 ? 0.2 : 0) + (ruido(p[0] * 0.06, p[1] * 0.06, p[2] * 0.06) - 0.5) * 0.24 };
 M.mon_hr_oscuro = { rampa: ['#060708', '#0d0f11', '#15181b', '#1e2226', '#282d32', '#33393f', '#40474e'], ruido: 0.26, escala: 0.26, patron: (p, n) => (n[2] > 0.6 ? 0.3 : 0) + (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.05) - 0.5) * 0.24 };
 M.mon_hr_talla = { rampa: ['#0d0e10', '#1a1c1f', '#292c30', '#3a3e43', '#4d5157', '#61666c', '#767b81', '#8c9197', '#a3a8ad'], ruido: 0.24, escala: 0.26, patron: (p, n) => (n[2] > 0.6 ? 0.28 : 0) + (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.05) - 0.5) * 0.2 };
 /** Las runas que todavía brillan frío y la boca del aliento (lo hondo azul, con su luz). */
@@ -223,7 +223,7 @@ function jarl(g: G, viejo: boolean) {
   for (let i = 0; i < 9; i++) { const z = 18 + i * 2.4; S.caja(0, 0, z, 30, 20, 0.18, { mat: m, resta: true }); }
   S.caja(0, 0, 38.6, 20.4, 13.2, 2.6, { mat: 'mon_hr_piel', tono: 0.12 }); S.caja(0, 6.8, 38.6, 3.4, 1, 2.6, { mat: BR });
   // la capa que cae detrás hasta el pedestal, con sus pliegues, y el manto de pieles sobre los hombros que baja por la espalda
-  S.poli([[-15, -4, 59], [15, -4, 59], [-15, -8, 58], [15, -8, 58], [-17, -8, 0.4], [17, -8, 0.4], [-17, -13, 0.4], [17, -13, 0.4]], { mat: OS });
+  S.poli([[-14, -4, 59], [14, -4, 59], [-14, -8, 58], [14, -8, 58], [-13, -7, 0.4], [13, -7, 0.4], [-14, -12, 0.4], [14, -12, 0.4]], { mat: OS });
   for (const sx of [-1, 1]) S.poli([[sx * 9, -4, 59], [sx * 15.4, -4, 58], [sx * 9, 4, 58], [sx * 15.4, 3, 56], [sx * 12, -6, 30], [sx * 17, -8, 20], [sx * 12.6, 1, 34], [sx * 16.6, -2, 24]], { mat: OS, tono: 0.04 });
   for (let i = 0; i < 8; i++) S.palo([-15 + i * 4.3, -13.4, 2], [-12 + i * 3.4, -8.8, 56], 1.1, { mat: OS, resta: true });
   for (let i = 0; i < 16; i++) { const t = (i / 15) * Math.PI * 1.1 - 0.05, r0 = 9.6 + (i % 3) * 0.6; S.elip(Math.cos(t) * r0, -Math.sin(t) * 3.4 + 1, 57.4 + (i % 2) * 1.2, 3.4, 3.2, 2.8, { mat: 'mon_hr_piel', tono: (i % 3) * 0.04 }); }

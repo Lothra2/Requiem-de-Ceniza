@@ -20,7 +20,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
-- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2, 6, 7, 3 y 4 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 5 y 1.
+- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): los siete actos hechos (ver sus secciones).
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Botín en evolución** (rama `botin`, 22 nov 2026): bases y grados de afijo por nivel, parte del botín para la clase, varas con
@@ -958,6 +958,32 @@ y el pie de la roca. Todo nuevo va con su propio azar y `__rocaVieja` apaga todo
   dos tandas (0 atascados, 0 pegados), t440, t450, t500, t961 y t1001. Fotos `t1021` en las 7 zonas (antes con `__rocaVieja`) y los recortes de
   cerca de cueva, hielo y mina en `/tmp/requiem-pruebas/e10/cerca5_*.png`. Lab: `lab_r3b.png` (tramos bajos y hielo).
 
+## Cada zona con lo suyo: el acto 1 (22 nov 2026)
+
+El Páramo, el Camposanto y la Cripta de los Olvidados ya tenían lo suyo (la Forja, el camposanto de Santa Oria, la cripta) y no
+se tocan. Lo que se confundía: el Bosque de los Ahorcados pisaba el pasto del Páramo, la Guarida del Hambre y la Cueva del Pastor
+eran la misma cueva, las dos partes de la Mina de Velmora la misma mina, la Nave del Silencio y el Claustro Profanado el mismo
+damero con la misma pared, y los Osarios y el Pozo de la Brasa las mismas lajas.
+
+- **Pisos nuevos** (`catalogo/acto1_pisos.ts`): hojarasca podrida con raíces y musgo, la paja del redil con lana, la tierra de la
+  guarida con huesos roídos, sangre arrastrada y surcos de uñas, la roca honda del pozo de la mina con el agua que rezuma, el patio
+  del claustro (losas con pasto en las juntas y sangre) y la piedra chamuscada donde cayó la brasa, con las grietas que brillan.
+- **Muro nuevo** (`catalogo/acto1.ts`, tema `acto1`, con su fila en `ESQUINAS_MURO`): `a1_muro_claustro`, la arcada del claustro
+  (antepecho, columnas pareadas, arcos hondos, hiedra, sangre en el antepecho, una columna rota).
+- **Cada zona**: el **Bosque** de hojarasca y musgo verde negro con la neblina baja (`bruma`), los árboles de los ahorcados, horcas
+  y jaulas; la **Guarida** de tierra roída y sangre, nidos de huesos y capullos, rojo de carne vieja; la **Cueva del Pastor** con
+  la paja, el campamento del pastor y luz ámbar; el **Pozo Profundo** de roca azulada mojada con la bomba de agua y el pozo, frío;
+  el **Claustro** con el patio de pasto y la arcada, verde de patio; el **Pozo de la Brasa** con la piedra chamuscada, motas de
+  brasa y haces naranjas.
+- Fotos: `DIR=/tmp/requiem-pruebas/acto1` (antes con `BANDERAS=__acto1Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`
+  (las nueve de bajo tierra), `par_cuevas.png`, `par_minas.png`, `par_abadia.png`, `par_cata.png` y `par_paramo_bosque.png` (cada
+  par lado a lado, el antes arriba) y `ext_lamina.png`.
+- Brillo medio sin el HUD (antes y ahora): bosque 36 y 33, guarida 32 y 30, pastor 35 y 36, pozo profundo 45 y 41, claustro 43
+  y 39, pozo de la brasa 43 y 37.
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033, t370 (288, 0 malas), conectividad
+  20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0 atascados, 0 pegados), t440,
+  t450, t500, t1001 y t961.
+
 ## Cada zona con lo suyo: el acto 2 (22 nov 2026)
 
 Rick: "Bajé por unas escaleras y por el portal y el mundo se parece mucho." Confirmado con fotos (`t1040`): las cinco tumbas del
@@ -1200,6 +1226,34 @@ Bárbaro era la cripta del acto 1 (`cripta`: lajas, nichos de calaveras, Santa O
 - Fotos: `DIR=/tmp/requiem-pruebas/acto4` (antes con `BANDERAS=__acto4Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
   `lamina_<zona>.png` y `ext_lamina.png` (picos y glaciar, antes arriba).
 - Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 8 zonas, t370 (288, 0
+  malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0 atascados,
+  0 pegados), t440, t450, t500, t1001 y t961.
+
+## Cada zona con lo suyo: el acto 5 (22 nov 2026)
+
+Las Llanuras de Ceniza y el Río de Lava tenían `infierno` (la misma tierra roja), el Abismo de los Susurros y las Islas sobre la
+Nada `abismo`, y la Fragua de Ozmaren, la Garganta y el Corazón de la Brasa `santuario` (la tierra roja, la pared de carne y los
+mismos braseros).
+
+- **Pisos nuevos** (`catalogo/acto5_pisos.ts`): ceniza gris en dunas con carbón y ascuas, basalto negro en losas con la lava en las
+  juntas, la piedra del vacío violeta con estrellas y runas, las planchas remachadas de la fragua con canaletas al rojo, la Herida
+  (piedra abierta como carne con la sangre viva en las costuras) y la obsidiana con las venas de la brasa al blanco.
+- **Muros nuevos** (`catalogo/acto5.ts`, tema `acto5`, con su fila en `ESQUINAS_MURO`): `a5_muro_fragua` (planchas de hierro
+  remachadas, hollín, la boca del horno al rojo, herramientas colgadas) y `a5_muro_obsidiana` (lajas de obsidiana; `herida` con la
+  sangre que corre por las grietas, `brasa` con las venas al blanco, `runas` con las runas violetas, `liso` para las esquinas).
+- **Cada zona**: las **Llanuras** de ceniza gris sin viñetas (su tierra roja tapaba la ceniza), con árboles muertos, colosos,
+  ruinas y piras; el **Río** de basalto negro con la lava, sin viñetas, obsidiana, fumarolas, géiseres y columnas de fuego; el
+  **Abismo de los Susurros** violeta con el muro de runas, círculos de runas, jaulas y almas; las **Islas** de piedra del vacío
+  con tinta azul de noche; la **Fragua** de hierro y hollín con hornos, forjas y calderos, naranja; la **Garganta** carmesí,
+  mojada, con la obsidiana que sangra, espinas y ganchos; el **Corazón** de obsidiana y oro blanco con columnas de fuego y
+  pentáculos.
+- Ojo: las viñetas de un tema estampan su propio piso (`m.pisos`): en una zona con piso propio pueden tapar buena parte. En las
+  Llanuras y el Río eran unas 90 baldosas de tierra roja.
+- Fotos: `DIR=/tmp/requiem-pruebas/acto5` (antes con `BANDERAS=__acto5Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
+  `lamina_<zona>.png` y `ext_lamina.png` (llanuras y río, antes arriba).
+- Brillo medio sin el HUD (antes y ahora): llanuras 37 y 43, río 49 y 47, abismo 15 y 14, islas 22 y 19, fragua 42 y 38, garganta
+  37 y 30, corazón 46 y 43.
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 7 zonas, t370 (288, 0
   malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0 atascados,
   0 pegados), t440, t450, t500, t1001 y t961.
 

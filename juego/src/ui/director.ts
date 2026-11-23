@@ -35,7 +35,7 @@ export interface CamClave { t: number; x: number; y: number; alt?: number; zoom?
 export type AccActor = 'quieto' | 'caminar' | 'correr' | 'atacar' | 'lanzar' | 'herido' | 'morir' | 'especial';
 /** Una clave de un actor: dónde está a ese segundo (si se da), qué hace desde ahí (`acc`) y a qué ritmo corre su animación (`ritmo`, 1 el del juego), hacia dónde mira (`dir`, o `mira` un punto) y su alfa. */
 export interface ActorClave { t: number; x?: number; y?: number; acc?: AccActor; dur?: number; ritmo?: number; bucle?: boolean; dir?: Dir; mira?: [number, number]; alfa?: number; c?: Curva }
-export interface Actor { id: string; tipo: 'heroe' | 'thor' | 'mon'; mon?: string; claves: ActorClave[]; /** Sin el tinte de su ficha (Vesperio pálido): lo pinta la luz de la toma. */ sinTinte?: boolean }
+export interface Actor { id: string; tipo: 'heroe' | 'thor' | 'mon'; mon?: string; claves: ActorClave[]; /** Sin el tinte de su ficha (Vesperio pálido): lo pinta la luz de la toma. */ sinTinte?: boolean; /** Un tinte propio (la sombra que le baja lo pálido), con su fuerza. */ sombra?: [string, number] }
 /**
  * La luz de cine: todo se hunde (`hundir`, 0 a 1) menos un pozo de luz sobre lo que importa (un actor por su id, la brasa o
  * un punto relativo al ancla), a `z` puntos del dibujo sobre el piso y de radio `r` puntos del dibujo.
@@ -80,6 +80,8 @@ export interface Toma {
   preparar?: (e: EstadoToma) => void;
   /** Si devuelve true al llegar, la toma no se ve (lo que necesita no está pintado): la película sigue con la siguiente. */
   omitir?: (e: EstadoToma) => boolean;
+  /** Efectos de clima que esta toma no lleva (p. ej. 'fx_luciernagas'). Las criaturas de ambiente (fuegos fatuos, murciélagos) nunca van: salen al azar. */
+  sinClima?: string[];
   /** Lo que no cabe en claves: se llama cada cuadro con el estado de la toma. */
   paso?: (e: EstadoToma, tl: number, dt: number) => void;
   /** Lo que se dibuja dentro del pase del mundo, después de él (en puntos del dibujo: `aPant` vale). */
@@ -200,6 +202,7 @@ function montar(i: number): EstadoToma | null {
       m.estado = 'dormido'; (m as any).cine = true;
       if (a.tipo === 'thor') { m.tipo = 'invocado'; m.dueno = true; m.invocaId = 'thor'; const sp = spriteThor(aspectoThor(d)); m.tinte = sp.tinte; m.escala = sp.escala; }
       if (a.sinTinte) m.tinte = undefined;
+      if (a.sombra) { m.tinte = a.sombra[0]; (m as any).tinteK = a.sombra[1]; }
       j.monstruos.push(m); actores.set(a.id, m);
     }
   }
@@ -326,14 +329,14 @@ function franjas() { ctx.save(); ctx.fillStyle = '#000'; const b = franja(); ctx
 function dibujarTexto(tx: Texto, tl: number) {
   const k = Math.min(1, Math.max(0, (tl - tx.t0) / 0.7), Math.max(0, (tx.t1 - tl) / 0.6)); if (k <= 0) return;
   let s = IDI ? tx.en : tx.es; if (tx.voz) s = `«${s}»`;
-  const b = franja(), tam = Math.max(E.tactil ? 17 : 15, Math.round(H / 34)), max = W * 0.84;
+  const b = franja(), tam = Math.max(E.tactil ? 18 : 17, Math.round(H / 29)), max = W * 0.86;
   // en uno o dos renglones, partido por palabras
   const ren: string[] = [];
   if (medirGotico(s, tam).w <= max) ren.push(s);
   else { const ps = s.split(' '); let a = ''; for (const p of ps) { const n = a ? a + ' ' + p : p; if (medirGotico(n, tam).w > max && a) { ren.push(a); a = p; } else a = n; } if (a) ren.push(a); }
   const lh = Math.round(tam * 1.25), y0 = tx.arriba ? Math.round(b * 0.5 - ((ren.length - 1) * lh) / 2 + tam * 0.36) : Math.round(H - b * 0.5 - ((ren.length - 1) * lh) / 2 + tam * 0.36);
   ctx.save(); ctx.globalAlpha = k;
-  ren.forEach((r, i) => textoGotico(r, W / 2, y0 + i * lh, tam, { alin: 'center', tono: tx.tono ?? 'hueso', max, brillo: tx.voz ? 0 : 0.15 }));
+  ren.forEach((r, i) => textoGotico(r, W / 2, y0 + i * lh, tam, { alin: 'center', tono: tx.tono ?? [242, 230, 204], max, brillo: tx.voz ? 0.1 : 0.2 }));
   ctx.restore();
 }
 
@@ -389,7 +392,8 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
     // (el acercamiento es respecto de la pantalla, no de la vista del jugador: zoom 1 deja unos 640 puntos del dibujo de
     //  alto, en cualquier pantalla; siempre a puntos enteros del aparato)
     const Tz = Math.max(1, Math.round((zk * H * RES) / 640));
-    const w0 = (window as any).__sinBarras; (window as any).__sinBarras = true;
+    const w0 = (window as any).__sinBarras, a0 = (window as any).__sinAmbientePfx, c0 = (window as any).__climaFuera;
+    (window as any).__sinBarras = true; (window as any).__sinAmbientePfx = true; (window as any).__climaFuera = tm.sinClima;
     try {
       enMundoA(Tz, () => {
         dibujarMundo(e.j!, dt, t);
@@ -400,7 +404,7 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
         if (tm.focos?.length) hundirMenos(e, tl);
         (window as any).__cineMundo = { MW, MH, cam: { ...cam } };
       });
-    } finally { (window as any).__sinBarras = w0; camCine.on = false; }
+    } finally { (window as any).__sinBarras = w0; (window as any).__sinAmbientePfx = a0; (window as any).__climaFuera = c0; camCine.on = false; }
     if (tm.primer?.length) primerTermino(e, tl, Tz);
     vineta();
   } else tm.paso?.(e, tl, dt);

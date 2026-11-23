@@ -125,6 +125,8 @@ export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: numb
     if ((id === 'fx_lluvia' || id === 'fx_tormenta') && j.zona.lluvia && j.zona.tipo !== 'mazmorra') continue;
     // las hojas que caen las pinta el juego: sueltas, del tamaño del pixel del mundo y ancladas al suelo que se ve
     if (id === 'fx_hojas_caen') { hojasQueCaen(ctx, j, W, H, t); continue; }
+    // (las cinemáticas pueden pedir un clima sin algunos efectos: las luciérnagas sobre un primer plano se leen como escarcha)
+    if (((window as any).__climaFuera as string[] | undefined)?.includes(id)) continue;
     const e = efectoPfx(id); if (!e) continue;
     // en mosaico a escala 2, cada tesela con su propio tiempo para que no se note la repetición. Las teselas se enciman
     // FUNDE puntos y se funden en ese margen (cada una se apaga hacia su borde): antes iban a tope, cada una en otro

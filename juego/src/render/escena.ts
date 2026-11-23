@@ -1263,7 +1263,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
 
   if (!e.muerto) sombras(ctx, e, q, px, py, esc);
   // los aliados llevan un aro en los pies (Thor dorado, invocados verdes): de noche un lobo enemigo se confundía con Thor
-  if (!e.muerto && (e as any).dueno) {
+  // (en las cinemáticas no va nada de la interfaz: ni el aro de los invocados ni el de Thor, ni las auras)
+  if (!e.muerto && (e as any).dueno && !camCine.on) {
     // (el collar de Thor se ve: el aro toma el color de su rareza y una gema le brilla al cuello)
     const thor = (e as any).invocaId === 'thor', col = thor ? (j.heroe.d as any).thor?.collar : null, cCol = !col ? null : col.rareza === 'legendario' ? '255,140,40' : col.rareza === 'unico' ? '230,190,90' : col.rareza === 'raro' ? '255,240,110' : '110,170,255';
     const c = thor ? cCol ?? '255,205,120' : aroInvocado(e) ?? '120,225,150', rr = 13 * Math.max(0.8, esc), kk = 0.5 + 0.2 * Math.sin(tiempo * 3 + e.x);
@@ -1275,7 +1276,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     ctx.restore();
   }
   // la mitad de atrás del aura va antes del cuerpo
-  if (e.tipo === 'heroe' && !e.muerto) { auraHeroe(j, px, py, tiempo, true); torbellinoAro(ctx, j, px, py, tiempo, true); }
+  if (e.tipo === 'heroe' && !e.muerto && !camCine.on) { auraHeroe(j, px, py, tiempo, true); torbellinoAro(ctx, j, px, py, tiempo, true); }
   // la llama del arma viva va detrás del cuerpo (el filo encendido va encima, después)
   if (e.tipo === 'heroe' && !e.muerto && q.hoja && j.heroe.c.vivo && !(window as any).__sinDerrame) { const [ox, oy] = aPant(0, 0); llamaArmaAtras(ctx, e, q, px, py, esc, j.heroe.c.vivo as ElemArma, j.heroe.c.tipoArma, tiempo, dtCuadro, ox, oy); }
   let ok: boolean;
@@ -1353,7 +1354,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     if (brM && brM[1] > 0.01) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = brM[1]; dibujarTenido(ctx, q, px, py, brM[0], 1, esc); ctx.restore(); } }
   else if (tinEl) ok = dibujarTenido(ctx, q, px, py, tinEl[0], tinEl[1], esc);
   else if (tinteEst) ok = dibujarTenido(ctx, q, px, py, tinteEst.color, Math.min(tinteEst.fuerza >= 0.8 ? tinteEst.fuerza : 0.4, tinteEst.fuerza) * (e.frio > 0 && !(e.congelado > 0) ? 0.6 : 1), esc);
-  else if (e.tinte) ok = dibujarTenido(ctx, q, px, py, e.tinte, e.tipo === 'invocado' ? 0.35 : e.tipo === 'heroe' ? 0.22 : 0.3, esc);
+  else if (e.tinte) ok = dibujarTenido(ctx, q, px, py, e.tinte, (e as any).tinteK ?? (e.tipo === 'invocado' ? 0.35 : e.tipo === 'heroe' ? 0.22 : 0.3), esc);
   else if (e.muerto && e.tMuerto > 60) { ctx.globalAlpha = Math.max(0.25, 1 - (e.tMuerto - 60) / 400); ok = dibujar(ctx, q, px, py, esc); ctx.globalAlpha = 1; }
   else ok = dibujar(ctx, q, px, py, esc);
   if (escY !== 1) ctx.restore();
@@ -1422,7 +1423,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
     if (el) { vivasMonstruo++; const [ox, oy] = aPant(0, 0); armaViva(ctx, e as any, q, px, py, esc, el, '', tiempo, dtCuadro, ox, oy, 0.6, false, mascaraMonstruo(q, px, py, esc, e.dir)); }
   }
   // aura del héroe: la mitad de adelante, encima del cuerpo
-  if (e.tipo === 'heroe' && !e.muerto) { auraHeroe(j, px, py, tiempo, false); if (!tajoPend) torbellinoAro(ctx, j, px, py, tiempo, false); }
+  if (e.tipo === 'heroe' && !e.muerto && !camCine.on) { auraHeroe(j, px, py, tiempo, false); if (!tajoPend) torbellinoAro(ctx, j, px, py, tiempo, false); }
   // zona de clic
   // los aliados (Thor, invocados, escoltas) no se eligen con el clic: el clic los atraviesa
   if (!e.muerto && e.tipo !== 'heroe' && !(e as any).dueno) picks.push({ tipo: e.tipo === 'npc' ? 'npc' : 'monstruo', ref: e, x0: px - q.ax * esc + q.w * esc * 0.2, y0: py - q.ay * esc, x1: px - q.ax * esc + q.w * esc * 0.8, y1: py + 6, prof: e.x + e.y });

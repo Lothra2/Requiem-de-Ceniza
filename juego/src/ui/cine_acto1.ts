@@ -57,7 +57,13 @@ function dibujarCuervos(e: EstadoToma, dt: number) {
 }
 /** Ceniza pálida que sube de alguien (Vesperio). */
 function ceniza(j: Juego, x: number, y: number, n: number, color: string) {
-  for (let i = 0; i < n; i++) j.particulas.push({ x: x + (Math.random() - 0.5) * 0.8, y: y + (Math.random() - 0.5) * 0.8, z: 6 + Math.random() * 50, vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3 - 0.15, vz: 14 + Math.random() * 22, t: 0, dur: 1.6 + Math.random() * 1.4, color, tam: 1 + Math.random() * 1.2, grav: -4, tipo: 'ceniza' } as any);
+  // (alrededor del cuerpo, no encima: a 0,8 a 1,5 casillas, y sube)
+  for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, r = 0.8 + Math.random() * 0.7; j.particulas.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, z: 4 + Math.random() * 20, vx: (Math.random() - 0.5) * 0.3, vy: (Math.random() - 0.5) * 0.3 - 0.15, vz: 18 + Math.random() * 22, t: 0, dur: 1.8 + Math.random() * 1.4, color, tam: 1 + Math.random() * 0.8, grav: -4, tipo: 'ceniza' } as any); }
+}
+/** Saca lo suelto y chico que quedó a los pies de alguien (la copia de la zona de la película). */
+function despejarPies(e: EstadoToma, x: number, y: number, r: number) {
+  const z = e.z; if (!z) return; const X = e.ax + x, Y = e.ay + y;
+  z.objetos = z.objetos.filter((o) => /hito|catedral|muro|verja|cerca|arb_|macizo/.test(o.id) || Math.hypot(o.cx + 0.5 - X, o.cy + 0.5 - Y) > r);
 }
 /** El latido (lub-dub cada 1,1 s, el mismo de la brasa): 0 a 1. */
 const latido = (t: number) => { const f = (t % 1.1) / 1.1; return Math.exp(-(((f - 0.05) / 0.06) ** 2)) + 0.7 * Math.exp(-(((f - 0.22) / 0.06) ** 2)); };
@@ -215,7 +221,7 @@ const tomas: Toma[] = [
     cam: [{ t: 0, x: 9, y: 11, alt: 90, zoom: 2, fy: 0.55 }, { t: 5.5, x: 4.0, y: 4.8, alt: 100, c: 'suave' }, { t: 10, x: 3.6, y: 4.4, alt: 100, c: 'suave' }],
     brasa: [{ t: 0, x: 16, y: 20, z: 200, k: 1, tam: 0.9 }, { t: 5.2, x: 1.6, y: 2.0, z: 120, k: 1, c: 'suave' }, { t: 8.2, x: -9, y: -9, z: 260, k: 1, c: 'entra' }],
     actores: [
-      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sinTinte: true, claves: [{ t: 0, x: 5.4, y: 6.6, dir: 'se', acc: 'quieto' }, { t: 3.6, mira: [1.6, 2.0] }, { t: 4.7, acc: 'lanzar', dur: 1.0, ritmo: 0.32, mira: [0, 0] }] },
+      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.42], claves: [{ t: 0, x: 5.4, y: 6.6, dir: 'se', acc: 'quieto' }, { t: 3.6, mira: [1.6, 2.0] }, { t: 4.7, acc: 'lanzar', dur: 1.0, ritmo: 0.32, mira: [0, 0] }] },
     ],
     focos: [{ de: 'brasa', r: 230 }, { de: 'vesperio', z: 50, r: 150, k: 0.85 }],
     primer: [{ id: 'cem2_lapida_angel|musgo', fx: 0.1, fy: 1.1, par: 1.9 }, { id: 'cem_lapida_celta|con_musgo', fx: 0.86, fy: 1.08, par: 2.2, mas: 2 }],
@@ -225,22 +231,23 @@ const tomas: Toma[] = [
       { id: 'ves', color: VIOLETA, sombra: true, claves: [{ t: 0, x: 6.8, y: 5.6, z: 46, r: 140, k: 0.75 }] },
     ],
     sonidos: [{ t: 0, id: 'coro_vesperio', cine: true }, { t: 4.4, id: 'zumbido', cine: true }],
-    paso: (e, _tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * 14) ceniza(e.j, m.x, m.y, 1, '#c8c0d8'); },
+    preparar: (e) => despejarPies(e, 5.4, 6.6, 3.2),
+    paso: (e, _tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * 6) ceniza(e.j, m.x, m.y, 1, '#9e96ae'); },
   },
   {
     // Vesperio de cerca: baja los brazos, nos mira y da las gracias; retrocede a la niebla y se apaga en ceniza
     id: 'vesperio', dur: 7, zona: 'a1_cementerio', ancla: anclaCampanario, entra: 0.3, sale: 0.9, oscuridad: 0.86, hundir: 0.72,
     cam: [{ t: 0, x: 5.3, y: 6.5, alt: 52, zoom: 3, fy: 0.58 }, { t: 7, x: 5.0, y: 6.2, alt: 56 }],
     actores: [
-      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sinTinte: true, claves: [{ t: 0, x: 5.4, y: 6.6, acc: 'lanzar', dur: 1.0, ritmo: 0.1, dir: 'n' }, { t: 2.0, acc: 'quieto', dir: 's' }, { t: 4.6, x: 5.4, y: 6.6, dir: 's', alfa: 1 }, { t: 4.6, dir: 's' }, { t: 6.8, x: 4.2, y: 5.4, alfa: 0, c: 'lineal' }] },
+      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.42], claves: [{ t: 0, x: 5.4, y: 6.6, acc: 'lanzar', dur: 1.0, ritmo: 0.1, dir: 'n' }, { t: 2.0, acc: 'quieto', dir: 's' }, { t: 4.6, x: 5.4, y: 6.6, dir: 's', alfa: 1 }, { t: 4.6, dir: 's' }, { t: 6.8, x: 4.2, y: 5.4, alfa: 0, c: 'lineal' }] },
     ],
-    focos: [{ de: 'vesperio', z: 56, r: 170 }],
+    focos: [{ de: 'vesperio', z: 56, r: 170, k: 0.75 }], sinClima: ['fx_luciernagas'],
     primer: [{ id: 'cem2_cruz_hierro|inclinada', fx: 0.88, fy: 1.14, par: 2.4, mas: 2 }],
     luces: [
       { id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: 6.9, y: 5.4, z: 44, r: 150, k: 0.95 }, { t: 5.4, k: 0.9 }, { t: 6.8, k: 0 }] },
-      { id: 'relleno', color: [110, 120, 160], claves: [{ t: 0, x: 6.2, y: 7.6, z: 60, r: 120, k: 0.3 }] },
     ],
-    paso: (e, tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * (tl > 4.6 ? 40 : 12)) ceniza(e.j, m.x, m.y, tl > 4.6 ? 2 : 1, '#d8d0e8'); },
+    preparar: (e) => despejarPies(e, 5.4, 6.6, 3.2),
+    paso: (e, tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * (tl > 4.6 ? 30 : 6)) ceniza(e.j, m.x, m.y, tl > 4.6 ? 2 : 1, '#9e96ae'); },
     textos: [L(3, 2.2, 6.4, { tono: VIOLETA })],
   },
   {
@@ -257,7 +264,7 @@ const tomas: Toma[] = [
   {
     // de vuelta en el pozo: el héroe solo junto al cuerpo, Thor se le arrima, y la Marca empieza a latir en su brazo
     id: 'marca', dur: 6, zona: 'a1_pozo', ancla: anclaJefe, entra: 0.8, sale: 0.25, oscuridad: 0.92, hundir: 0.7,
-    cam: [{ t: 0, x: 2.2, y: -0.9, alt: 30, zoom: 3, fy: 0.5 }, { t: 6, x: 2.3, y: -0.8, alt: 36 }],
+    cam: [{ t: 0, x: 2.2, y: -0.9, alt: 30, zoom: 3, fy: 0.5 }, { t: 3.4, x: 2.3, y: -0.85, alt: 33 }, { t: 3.41, x: 2.35, y: -0.8, alt: 30, zoom: 4, fy: 0.5 }, { t: 6, x: 2.4, y: -0.75, alt: 28 }],
     actores: [
       { id: 'ilvara', tipo: 'mon', mon: 'abadesa', claves: [{ t: 0, x: 0, y: 0, dir: 's', acc: 'morir', ritmo: 60 }] },
       { id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 2.3, y: -0.9, mira: [0, 0] }, { t: 3.4, dir: 's' }] },

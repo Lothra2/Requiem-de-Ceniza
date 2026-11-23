@@ -41,10 +41,14 @@ function luzMarca(q: CuadroV): { c: HTMLCanvasElement; base: HTMLCanvasElement }
     // desde abajo: lo que queda por encima de la Marca recibe menos (la luz sube y se pierde), lo de abajo casi nada
     const sube = y < my ? 1 : Math.max(0, 1 - (y - my) / (q.ay * 0.16));
     const lum = (0.3 * d[i] + 0.59 * d[i + 1] + 0.11 * d[i + 2]) / 255;
-    const v = Math.min(1, dif * cae * sube * 1.6) * (0.4 + lum) * 255;
-    o[i] = Math.min(255, v * 1.15); o[i + 1] = Math.min(255, v * 0.32); o[i + 2] = Math.min(255, v * 0.12); o[i + 3] = d[i + 3];
-    // el cuerpo a oscuras: el color apagado y frío (la noche), sin la fogata de la vigilia
-    b[i] = d[i] * 0.22; b[i + 1] = d[i + 1] * 0.21; b[i + 2] = d[i + 2] * 0.27; b[i + 3] = d[i + 3];
+    // el filo del arma: lo que está a dos puntos de la hoja devuelve la luz entera
+    let filo = 0;
+    if (q.hoja && q.hoja.length >= 4) { const x0 = q.ax + q.hoja[0], y0 = q.ay + q.hoja[1], x1 = q.ax + q.hoja[2], y1 = q.ay + q.hoja[3], vx = x1 - x0, vy = y1 - y0, l2 = vx * vx + vy * vy || 1, u = Math.max(0, Math.min(1, ((x - x0) * vx + (y - y0) * vy) / l2)), dh = Math.hypot(x0 + vx * u - x, y0 + vy * u - y); if (dh < 2.5) filo = (1 - dh / 2.5) * (1 - u * 0.6); }
+    // la luz se SUMA sobre el color de verdad (no lo reemplaza): rojo de brasa por la difusa y, en el metal claro, un brillo
+    const kd = Math.min(1.4, dif * cae * sube * 1.7) + filo * 0.9, esp = lum > 0.5 ? Math.pow(dif, 5) * cae * sube * 1.4 : 0;
+    o[i] = Math.min(255, (d[i] * 0.95 + 70) * kd + 255 * esp); o[i + 1] = Math.min(255, (d[i + 1] * 0.38 + 12) * kd + 120 * esp); o[i + 2] = Math.min(255, (d[i + 2] * 0.22 + 4) * kd + 60 * esp); o[i + 3] = d[i + 3];
+    // el cuerpo en penumbra con sus colores (la noche, fría): se lee el equipo aunque no le dé la luz
+    b[i] = d[i] * 0.3; b[i + 1] = d[i + 1] * 0.3; b[i + 2] = d[i + 2] * 0.38; b[i + 3] = d[i + 3];
   }
   const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d')!.putImageData(out, 0, 0);
   const bc = document.createElement('canvas'); bc.width = w; bc.height = h; bc.getContext('2d')!.putImageData(base, 0, 0);
@@ -68,10 +72,9 @@ export function dibujarRostro(d: DatosHeroe, tl: number, lat: number, k: number)
   const y = Math.round((H * 0.12 - acerca) * RES) / RES;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   ctx.globalAlpha = k; ctx.drawImage(base, 0, 0, q.w, q.h, x, y, q.w * esc, q.h * esc);
-  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = k * (0.55 + 0.6 * lat);
+  ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = k * (0.45 + 0.55 * lat);
   ctx.drawImage(c, 0, 0, q.w, q.h, x, y, q.w * esc, q.h * esc);
   // un poco más encendido cerca de la Marca en el golpe del latido (el brazo arde un instante)
-  if (lat > 0.5) { ctx.globalAlpha = k * (lat - 0.5) * 0.7; ctx.drawImage(c, 0, 0, q.w, q.h, x, y, q.w * esc, q.h * esc); }
   ctx.restore();
   // el resplandor de la Marca en el aire (blando: es luz), donde está en la pantalla
   const hx = q.hoja ? q.ax + q.hoja[0] : q.w * 0.5;

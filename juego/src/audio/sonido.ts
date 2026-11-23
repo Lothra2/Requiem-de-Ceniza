@@ -2342,6 +2342,85 @@ if (typeof document !== 'undefined') document.addEventListener('visibilitychange
   if (document.visibilityState === 'visible' && listo && ac.state !== 'running') { try { ac.resume().then(() => tick()).catch(() => { /* nada */ }); } catch { /* nada */ } }
 });
 
+
+// ============================================================================
+// La música de las cinemáticas (ui/director.ts): no es la generativa del juego, va escrita a la toma. Cada pedido es una
+// frase con su duración (un acorde de órgano que entra lento, el coro, una campana honda, el golpe del timbal, el latido,
+// la brasa que nace y la que vuela). Todo pasa por su propio bus (el volumen de la música), que se corta al saltar.
+// ============================================================================
+let busCine: GainNode | null = null;
+function bc(): GainNode {
+  if (!busCine) { busCine = gan(0.9, busMusica); const e = gan(0.35, revEntrada); busCine.connect(e); }
+  return busCine;
+}
+/** Un acorde de órgano: dos sierras desafinadas y una cuadrada a la octava por un paso bajo que se abre, entrada lenta. */
+function organoCine(o: AudioNode, t: number, notas: number[], dur: number, v: number, brillo = 900) {
+  const g = gan(0, o); envSost(g.gain, t, Math.min(2.2, dur * 0.3), v, dur, 2.4);
+  const lp = filt('lowpass', brillo * 0.5, 0.7, g);
+  lp.frequency.setValueAtTime(brillo * 0.5, t); lp.frequency.linearRampToValueAtTime(brillo, t + dur * 0.6);
+  const trem = osc('sine', 4.6, t, t + dur + 2.6, null); const tg = gan(v * 0.12); trem.connect(tg); tg.connect(g.gain);
+  for (const n of notas) { const f = mtof(n), fin = t + dur + 2.6; osc('sawtooth', f, t, fin, lp, -7); osc('sawtooth', f, t, fin, lp, 6); const q = gan(0.35, lp); osc('square', f * 2, t, fin, q); }
+}
+/** El coro: sierras por tres formantes de la vocal (a u o), con vibrato que entra tarde. */
+function coroCine(o: AudioNode, t: number, notas: number[], dur: number, v: number, vocal: 'a' | 'o' | 'u' = 'a') {
+  const F = vocal === 'a' ? [730, 1090, 2440] : vocal === 'o' ? [570, 840, 2410] : [300, 870, 2240];
+  const g = gan(0, o); envSost(g.gain, t, Math.min(2.5, dur * 0.35), v, dur, 2.2);
+  const fs = F.map((f, i) => filt('bandpass', f, 9 - i * 2, gan([1, 0.5, 0.25][i], g)));
+  for (const n of notas) for (const det of [-9, 0, 8]) {
+    const s = osc('sawtooth', mtof(n), t, t + dur + 2.4, null, det);
+    const vib = osc('sine', 4.8 + Math.random(), t, t + dur + 2.4, null); const vg = gan(0); vg.gain.setValueAtTime(0, t); vg.gain.linearRampToValueAtTime(mtof(n) * 0.012, t + 1.5); vib.connect(vg); vg.connect(s.frequency);
+    for (const f of fs) s.connect(f);
+  }
+}
+function latidoCine(o: AudioNode, t: number, v: number) { golpeSordo(o, t, 68, 38, v, 0.22); golpeSordo(o, t + 0.17, 58, 34, v * 0.7, 0.26); }
+function timbalCine(o: AudioNode, t: number, v: number) {
+  golpeSordo(o, t, 92, 40, v, 1.6);
+  const g = gan(0, o); env(g.gain, t, 0.002, v * 0.5, 0.5); ruido(t, t + 0.6, filt('lowpass', 420, 0.8, g), ROSA);
+}
+const CINE: Record<string, (o: AudioNode, t: number, p: number) => number> = {
+  // el fondo del pozo: re menor grave, órgano y coro bajos
+  organo_pozo(o, t, p) { organoCine(o, t, [38, 45, 50].map((n) => n + 12 * Math.log2(p)), 9, 0.11, 700); coroCine(o, t + 1, [50, 53], 8, 0.05, 'u'); return 12; },
+  // la muerte: el coro sube a un acorde roto y se corta con el golpe
+  coro_muerte(o, t, p) { coroCine(o, t, [62, 63, 69].map((n) => n + 12 * Math.log2(p)), 2.6, 0.08, 'a'); return 5; },
+  golpe(o, t) { timbalCine(o, t, 0.75); return 2; },
+  // un golpe hondo de sub (los cortes)
+  sub(o, t) { const g = gan(0, o); env(g.gain, t, 0.01, 0.55, 2.6); const s = osc('sine', 62, t, t + 2.8, g); s.frequency.exponentialRampToValueAtTime(28, t + 2.4); return 3; },
+  latido(o, t, p) { latidoCine(o, t, 0.55 * p); return 0.6; },
+  // la brasa que nace: crepita y un tono que sube con distorsión
+  brasa_nace(o, t) {
+    for (let i = 0; i < 26; i++) chasquido(o, t + i * al(0.04, 0.11), al(2000, 5200), 3, al(0.05, 0.16), 0.03);
+    const g = gan(0, o); envSost(g.gain, t, 0.6, 0.09, 2.2, 0.6);
+    const ds = ac.createWaveShaper(); ds.curve = curva(4); ds.connect(g);
+    const s = osc('sawtooth', 110, t, t + 3.2, filt('lowpass', 1400, 2, ds)); s.frequency.exponentialRampToValueAtTime(330, t + 2.4);
+    const s2 = osc('sine', 220, t, t + 3.2, g); s2.frequency.exponentialRampToValueAtTime(880, t + 2.6);
+    return 3.4;
+  },
+  // la brasa que se va: un soplo que barre de grave a agudo y un rugido corto
+  brasa_vuela(o, t) {
+    const g = gan(0, o); envSost(g.gain, t, 0.15, 0.32, 0.7, 0.9);
+    const b = filt('bandpass', 300, 1.4, g); b.frequency.setValueAtTime(300, t); b.frequency.exponentialRampToValueAtTime(3200, t + 1.2);
+    ruido(t, t + 2, b, ROSA);
+    const g2 = gan(0, o); env(g2.gain, t, 0.03, 0.3, 1.1); ruido(t, t + 1.3, filt('lowpass', 260, 1, g2), MARRON);
+    return 2.2;
+  },
+  // la campana honda (las de Santa Oria): casi un la grave, larga
+  campana(o, t, p) { campanaFM(o, t, 98 * p, 7, 0.32); campanaFM(o, t + 0.004, 98 * p * 2.005, 3.5, 0.07); golpeSordo(o, t, 120 * p, 60 * p, 0.2, 0.4); return 7.5; },
+  // la campana tumbada que zumba cuando pasa la brasa: parciales que baten despacio
+  zumbido(o, t, p) {
+    const g = gan(0, o); envSost(g.gain, t, 1.2, 0.07, 3.5, 2.5);
+    for (const [f, d] of [[98, 0], [98.6, 0], [196.9, 0], [267, 0], [392.5, 0]] as [number, number][]) osc('sine', f * p, t, t + 7.5, g, d);
+    return 7.5;
+  },
+  // Vesperio: un coro alto y quieto, en o
+  coro_vesperio(o, t, p) { coroCine(o, t, [69, 74, 77].map((n) => n + 12 * Math.log2(p)), 9, 0.05, 'o'); organoCine(o, t, [38, 50], 9, 0.05, 500); return 12; },
+  // el camino del sur: el órgano camina re, si bemol, sol, la
+  organo_sur(o, t) { const cs = [[38, 50, 53, 57], [34, 46, 50, 53], [31, 43, 50, 55], [33, 45, 49, 52]]; cs.forEach((c, i) => organoCine(o, t + i * 2.6, c, 2.6, 0.085, 1100)); coroCine(o, t + 2, [62, 65], 8, 0.04, 'a'); return 14; },
+  // la Marca: un dron grave que late
+  dron_marca(o, t) { organoCine(o, t, [26, 38], 10, 0.09, 380); return 13; },
+  // el cartel del acto que empieza: timbal, órgano entero y el coro arriba
+  titulo(o, t) { timbalCine(o, t, 0.85); organoCine(o, t, [40, 47, 52, 56, 59], 6.5, 0.1, 1600); coroCine(o, t + 0.2, [64, 68, 71], 6, 0.06, 'a'); return 9; },
+};
+
 export const Sonido = {
   iniciar,
   /** El audio todavía no suena: no hubo gesto o el navegador lo tiene suspendido. */
@@ -2378,6 +2457,25 @@ export const Sonido = {
     } catch { /* nada */ }
   },
 
+  /** Una frase de la música de las cinemáticas (`CINE`), a su hora. */
+  cine(id: string, o?: { vol?: number; tono?: number }): void {
+    try {
+      if (!listo || ac.state !== 'running') return;
+      const fx = CINE[id]; if (!fx) return;
+      const v = gan(lim(o?.vol ?? 1, 0, 2), bc());
+      const dur = fx(v, ac.currentTime + 0.01, o?.tono && o.tono > 0 ? o.tono : 1);
+      liberar(v, dur + 0.5);
+    } catch { /* nada */ }
+  },
+  /** Corta la música de la cinemática (al saltarla o al terminar), con un fundido corto. */
+  cineCortar(seg = 0.5): void {
+    try {
+      if (!busCine) return;
+      const b = busCine; busCine = null; const t = ac.currentTime;
+      b.gain.cancelScheduledValues(t); b.gain.setValueAtTime(b.gain.value, t); b.gain.linearRampToValueAtTime(0, t + seg);
+      setTimeout(() => { try { b.disconnect(); } catch { /* nada */ } }, seg * 1000 + 300);
+    } catch { /* nada */ }
+  },
   efecto(id: string, o?: { pan?: number; vol?: number; tono?: number; dist?: number }): void {
     try {
       if (!listo || ac.state !== 'running') return;

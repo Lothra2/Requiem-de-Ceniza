@@ -119,6 +119,18 @@ export function enMundo(f: () => void) {
   try { f(); } finally { ctx.restore(); W = w0; H = h0; }
 }
 
+/**
+ * Dibuja el mundo a `T` puntos del aparato por punto del mundo (las cinemáticas: un acercamiento entero, nítido). Fuera
+ * de `f` todo vuelve a la vista de siempre.
+ */
+export function enMundoA(T: number, f: () => void) {
+  const zm0 = ZM, mw0 = MW, mh0 = MH;
+  ZM = Math.max(1, Math.round(T)) / RES; MW = Math.ceil(W / ZM); MH = Math.ceil(H / ZM);
+  try { enMundo(f); } finally { ZM = zm0; MW = mw0; MH = mh0; }
+}
+/** Puntos del aparato por punto del mundo en la vista de siempre. */
+export const puntosMundo = () => ZM * RES;
+
 export interface Entrada {
   x: number; y: number;
   izq: boolean; der: boolean;

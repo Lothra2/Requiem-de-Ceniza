@@ -85,7 +85,10 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
   // la antorcha alumbra el camino, no el pecho: el centro va unos 20 px hacia donde mira el héroe
   const DIR_PANT: Record<string, [number, number]> = { s: [0, 1], so: [-0.71, 0.71], o: [-1, 0], no: [-0.71, -0.71], n: [0, -1], ne: [0.71, -0.71], e: [1, 0], se: [0.71, 0.71] };
   const [dvx, dvy] = DIR_PANT[h.dir] ?? [0, 0];
-  L.push({ x: hx + dvx * 20, y: hy + dvy * 14, h: 55, r: rLuz, c: [255, 210, 150], k: 1, de: h, blanca: true, sinSombra: true });
+  // (las cinemáticas, ui/director.ts: sin la antorcha del héroe y con sus propias luces, en casillas del mundo)
+  const cine = (j as any).lucesCine as { x: number; y: number; z: number; r: number; c: [number, number, number]; k: number; id?: string; sinSombra?: boolean }[] | undefined;
+  if (cine) for (const l of cine) { const [lx, ly] = aPant(l.x, l.y); if (l.k > 0.01 && dentro(lx, ly, l.r)) L.push({ x: lx, y: ly, h: l.z, r: l.r, c: l.c, k: l.k, id: l.id, sinSombra: l.sinSombra, prio: 0 }); }
+  if (!(j as any).sinAntorcha) L.push({ x: hx + dvx * 20, y: hy + dvy * 14, h: 55, r: rLuz, c: [255, 210, 150], k: 1, de: h, blanca: true, sinSombra: true });
   if (h.c.vivo) {
     // arma elemental: la luz de su elemento en la mano (más grande cuanto mejor el arma), con sombra si alcanza
     const ENC: Record<string, string> = { fuego: 'fuego', frio: 'hielo', rayo: 'rayo', veneno: 'veneno', sombra: 'sombra', luz: 'sagrado', sangre: 'sangre' };

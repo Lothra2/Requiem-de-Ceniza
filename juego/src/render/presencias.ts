@@ -717,9 +717,9 @@ const PAL_AVE: Record<'cuervo' | 'halcon', PalAve> = {
 };
 const avesHechas = new Map<string, HTMLCanvasElement>();
 (window as any).__spriteAve = (esp: 'cuervo' | 'halcon', ang: number, fase: number, pl: number) => spriteAve(esp, ang, fase, pl); // (pruebas: t996_aves.cjs)
-const LADO_AVE = 36;
+export const LADO_AVE = 36;
 /** El cuadro del pájaro: especie, rumbo en la pantalla (rad, a 16), fase del aleteo (0..7) y plegado (0 abierto, 1 plegado). */
-function spriteAve(esp: 'cuervo' | 'halcon', ang: number, fase: number, plegado: number): HTMLCanvasElement {
+export function spriteAve(esp: 'cuervo' | 'halcon', ang: number, fase: number, plegado: number): HTMLCanvasElement {
   const ai = ((Math.round(ang / (Math.PI / 8)) % 16) + 16) % 16, pl = Math.round(plegado * 4) / 4, k = `${esp}|${ai}|${fase}|${pl}`;
   let c = avesHechas.get(k); if (c) return c;
   const P = PAL_AVE[esp], hal = esp === 'halcon', N = LADO_AVE, C = N / 2;

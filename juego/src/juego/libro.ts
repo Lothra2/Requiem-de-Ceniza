@@ -5,7 +5,7 @@
 // Los textos de cada pieza son los que el jugador ya leyó (mundo/libro_hilos.ts dice de dónde salen).
 import { HILOS, type Hilo, type Pieza, type Fuente } from '../mundo/libro_hilos';
 import { HILO_TXT, CIERRES, ROJOS, MARGEN, PISTA_PIEZA, PISTA_TIPO, TIERRA, EPITETO, PORTADA } from '../mundo/libro_cierres';
-import { MISIONES, DIARIOS, PAGINAS, RESTOS_ACTO, FANTASMAS, HERALDO, ENTREACTO, REVELACION, TRAS_ELEGIR, VOZ_MARCA, ENTRADA_ZONA, FRASE_JEFE, FRASE_JEFE_ZONA, ZONAS, INTRO, PUEBLO_DE, daMision, type Mision } from '../mundo/actos';
+import { MISIONES, DIARIOS, PAGINAS, RESTOS_ACTO, FANTASMAS, HERALDO, ENTREACTO, PELICULA, conPelicula, REVELACION, TRAS_ELEGIR, VOZ_MARCA, ENTRADA_ZONA, FRASE_JEFE, FRASE_JEFE_ZONA, ZONAS, INTRO, PUEBLO_DE, daMision, type Mision } from '../mundo/actos';
 import { DESVIO } from '../mundo/zona';
 import { DIALOGOS, NPCS, GENTE, type Linea } from '../datos/npcs';
 import { MONSTRUOS } from '../datos/monstruos';
@@ -135,7 +135,7 @@ function textoFuente(d: DatosHeroe, f: Fuente, pid: string): { ru: T2; tx: T2 } 
     case 'heraldo': { const z = z2(HERALDO.zonas[f.a]); const enc = (HERALDO.encuentro as any)[f.a] as T2, hu = (HERALDO.huida as any)[f.a] as T2 | undefined;
       return { ru: [`El que canta, en ${z[0]}`, `The singer, in ${z[1]}`], tx: une([enc, ...(hu ? [hu] : [])].map(q)) }; }
     case 'muerte': { const z = z2(HERALDO.zonas[HERALDO.final]); return { ru: [`Lo último que cantó, en ${z[0]}`, `The last thing he sang, in ${z[1]}`], tx: une([(HERALDO.encuentro as any)[HERALDO.final] as T2, HERALDO.muerte].map(q)) }; }
-    case 'entreacto': { const fi = finalDe(d); return { ru: [`Cuando terminó el acto ${f.a}`, `When act ${f.a} ended`], tx: une((ENTREACTO[f.a] ?? []).map((t) => (fi && t.textoSegun?.[fi]) || t.texto)) }; }
+    case 'entreacto': { const fi = finalDe(d); return { ru: [`Cuando terminó el acto ${f.a}`, `When act ${f.a} ended`], tx: conPelicula(f.a) ? une(PELICULA[f.a].map((l) => (l.voz ? [`«${l.es}»`, `"${l.en}"`] : [l.es, l.en]) as T2)) : une((ENTREACTO[f.a] ?? []).map((t) => (fi && t.textoSegun?.[fi]) || t.texto)) }; }
     case 'revelacion': return { ru: ['En el Corazón de la Brasa', 'In the Heart of the Ember'], tx: une(REVELACION) };
     case 'brasa': { const fi = finalDe(d) ?? (leer(d).el?.[pid] === 1 ? 'absorber' : 'destruir'); return { ru: ['Lo que hiciste con la Brasa', 'What you did with the Ember'], tx: TRAS_ELEGIR[fi] }; }
     case 'voz': { const z = z2(f.z); return { ru: [`Tu brazo, en ${z[0]}`, `Your arm, in ${z[1]}`], tx: VOZ_MARCA[f.z] }; }

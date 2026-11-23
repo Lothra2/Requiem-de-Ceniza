@@ -12,6 +12,9 @@ import { Sonido } from './audio/sonido';
 import { T, TT, texto, IDI, fijarIdioma, tooltip, TITULO } from './ui/comun';
 import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from './ui/menus';
 import { dibujarCine, precargarCine, claveCine, claveFinal, marcasCine, hayCine, soltarCine } from './ui/cine';
+import { dibujarPelicula, prepararPelicula, peliculaLista, heroeMuestra, terminar as terminarPelicula, soltarPelicula, type Guion } from './ui/director';
+import { CINE_ACTO1 } from './ui/cine_acto1';
+import { cartelActo } from './ui/cine_acto1';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { dibujarHudForja } from './ui/hud_forja';
 import { historiaEntrar, historiaPaso, leerLibro, hist, finalDe, reiniciarHistoria, estadoMision, usarObjetoMision, finalCompleto, decisionDe, decisionesDe, vozMarca, leerRestos, ecosFinal } from './juego/historia';
@@ -38,7 +41,17 @@ const DUR_CAIDA = 2.8;
 /** Qué jefe cierra cada acto (el de la misión que cierra el acto). */
 const JEFE_CIERRA: Record<string, number> = {};
 for (const m of MISIONES) if (m.cierraActo && m.objetivo.tipo === 'matar') JEFE_CIERRA[m.objetivo.monstruo] = m.acto;
+/** Las películas de cierre hechas en el motor (ui/director.ts), por acto. Las demás siguen con ui/cine.ts. */
+const PELICULAS: Record<number, Guion> = { 1: CINE_ACTO1 };
+/** El héroe de la película: el de la partida o uno de muestra (desde el menú). */
+let heroePeli: DatosHeroe | null = null;
+const peliDe = (clave: string) => { const m = /^peli_(\d)$/.exec(clave); return m ? PELICULAS[+m[1]] ?? null : null; };
 function empezarCine(acto: number, despues: () => void, clave = claveCine(acto)) {
+  if (clave === claveCine(acto) && PELICULAS[acto] && conPelicula(acto)) {
+    heroePeli = j ? j.heroe.d : heroeMuestra(); prepararPelicula(PELICULAS[acto], heroePeli);
+    cine = { clave: 'peli_' + acto, acto, t: 0, despues }; estado = 'cine'; ui.izq = ui.der = null; E.clicIzq = false;
+    Sonido.musica(null as any); return;
+  }
   precargarCine(clave, acto);
   if (j) { const dec = decisionesDe(j.heroe.d) as Record<string, string>; marcasCine(Object.entries(dec).map(([k, v]) => k === 'vigdis' ? (v === 'salvar' ? 'vigdis_viva' : 'vigdis_muerta') : `${k}_${v}`)); }
   cine = { clave, acto, t: 0, despues }; estado = 'cine'; ui.izq = ui.der = null; E.clicIzq = false;
@@ -49,7 +62,7 @@ import { nuevoHeroe, nivelHab, firmaVisual, equipoVisual, cuerpoDe, type DatosHe
 import { botin, colorObj, crearObjeto } from './juego/objetos';
 import { mejoraCacheada } from './juego/mejora';
 import { libreCerca } from './mundo/zona';
-import { ZONAS, PUEBLO_DE, MUSICA_ACTO, ENTRADA_ZONA, MISIONES, POBL_ZONA, VOZ_MARCA } from './mundo/actos';
+import { ZONAS, PUEBLO_DE, MUSICA_ACTO, ENTRADA_ZONA, MISIONES, POBL_ZONA, VOZ_MARCA, conPelicula } from './mundo/actos';
 import { POBLACION, MONSTRUOS } from './datos/monstruos';
 import { GENTE } from './datos/npcs';
 import { CLASES } from './datos/clases';
@@ -591,7 +604,7 @@ function usarObjeto(jj: Juego, o: ObjZ) {
 const REV_LARGO = 28;
 /** Se está volviendo a ver una cinemática desde el Códice: al terminar se vuelve al juego, sin viajar ni pasar a la rueda. */
 let repeticion = false;
-function empezarEntreacto(acto: number) { guardar(); estado = 'entreacto'; entreActo = acto; entreT = 0; ui.izq = ui.der = null; E.clicIzq = false; Sonido.musica('intro'); }
+function empezarEntreacto(acto: number) { guardar(); estado = 'entreacto'; entreActo = acto; entreT = 0; ui.izq = ui.der = null; E.clicIzq = false; if (acto > 0 && PELICULAS[acto] && conPelicula(acto)) { Sonido.musica(null as any); Sonido.cine('titulo'); } else Sonido.musica('intro'); }
 function empezarRevelacion(luegoFinal: boolean) { estado = 'revelacion'; revT = 0; revEleccion = null; revLuegoFinal = luegoFinal; ui.izq = ui.der = null; E.clicIzq = false; Sonido.musica('intro'); }
 
 // ------------------------------------------------------------------ eventos del mundo
@@ -615,7 +628,7 @@ function procesarEventos(jj: Juego) {
         }
         Sonido.musica(MUSICA_ACTO(jj.zona.acto, jj.zona.tipo) as any); msg(jj, ['El sello se rompe. Algo escapa hacia lo alto.', 'The seal breaks. Something escapes upward.'], '#ffb060');
       };
-      precargarCine(claveCine(acto), acto);
+      if (PELICULAS[acto] && conPelicula(acto)) prepararPelicula(PELICULAS[acto], jj.heroe.d); else precargarCine(claveCine(acto), acto);
       caida = { m: jj.monstruos.find((q) => q.def.id === e.dato) ?? null, t: 0, acto, despues };
       presenta = null; Sonido.musica(null as any);
     }
@@ -655,6 +668,7 @@ function cartelComenzar(t: number) {
 (window as any).__aFinal = () => { estado = 'final'; finalT = 999; };
 (window as any).__finalT = (s: number) => { estado = 'final'; finalT = s; };
 (window as any).__ecosFinal = () => (j ? ecosFinal(j.heroe.d) : []);
+(window as any).__peli = (acto = 1) => { const antes = estado; empezarCine(acto, () => { estado = antes; }); };
 (window as any).__cine = (clave: string, acto = 1, marcas: string[] = []) => { marcasCine(marcas); const antes = estado; cine = { clave, acto, t: 0, despues: () => { estado = antes; } }; precargarCine(clave, acto); estado = 'cine'; };
 (window as any).__cineT = (s: number) => { if (cine) cine.t = s; };
 (window as any).__carga = (k: number, m: string) => { estado = 'carga'; cargaK = k; cargaMsg = m; };
@@ -717,7 +731,7 @@ function paso(dt: number) {
     case 'zona': pantallaCarga(cargaK, cargaMsg, tiempo); break;
     case 'entreacto': {
       entreT += dt;
-      if (dibujarEntreacto(entreActo, entreT, j ? finalDe(j.heroe.d) : undefined) || (entreT > 0.5 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
+      if ((entreActo > 0 && PELICULAS[entreActo] && conPelicula(entreActo) ? cartelActo(entreActo + 1, entreT) : dibujarEntreacto(entreActo, entreT, j ? finalDe(j.heroe.d) : undefined)) || (entreT > 0.5 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
         E.clicIzq = false; estado = 'juego'; tEstado = 0;
         const sig = PUEBLO_DE[entreActo + 1]; if (!repeticion && entreActo > 0 && sig && ZONAS[sig]) zonaPendiente = { id: sig, entrada: 'centro' };
         if (repeticion && j) Sonido.musica(MUSICA_ACTO(j.zona.acto, j.zona.tipo) as any);
@@ -739,9 +753,13 @@ function paso(dt: number) {
     }
     case 'cine': {
       if (!cine) { estado = 'juego'; break; }
-      cine.t += dt;
-      if (dibujarCine(cine.clave, cine.acto, cine.t) || (cine.t > 0.6 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
-        E.clicIzq = false; const c = cine; cine = null; estado = j ? 'juego' : 'menu'; tEstado = 0; soltarCine(); c.despues();
+      const peli = peliDe(cine.clave);
+      // (la película no corre mientras baja lo que pinta: la toma espera en negro)
+      if (!peli || peliculaLista()) cine.t += dt;
+      const fin = peli ? dibujarPelicula(peli, heroePeli ?? heroeMuestra(), cine.t) : dibujarCine(cine.clave, cine.acto, cine.t);
+      if (fin || (cine.t > 0.6 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
+        E.clicIzq = false; const c = cine; cine = null; estado = j ? 'juego' : 'menu'; tEstado = 0;
+        if (peli) { terminarPelicula(fin ? 2.5 : 0.5); soltarPelicula(); } else soltarCine(); c.despues();
       }
       break;
     }

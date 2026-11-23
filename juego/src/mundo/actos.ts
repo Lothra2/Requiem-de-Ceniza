@@ -742,6 +742,24 @@ export const HERALDO = {
 // ------------------------------------------------------------------ cinemáticas entre actos
 /** Tomas que se ven al cerrar un acto (clave: el acto que se cierra). Escena del motor, semilla y la voz. */
 export interface TomaEntreacto { escena: string; seed: number; texto: [string, string]; textoSegun?: Partial<Record<FinalElegido, [string, string]>>; figura?: string }
+/**
+ * Las líneas de las películas de cierre hechas en el motor (ui/director.ts, ui/cine_acto1.ts), en orden. El Libro de Odrán
+ * las lee como lo que pasó al terminar el acto (`{ t: 'entreacto', a }`). `voz` es quien habla (va en su color y entre
+ * comillas). Un acto sin película sigue con ENTREACTO.
+ */
+export interface LineaPelicula { es: string; en: string; voz?: boolean }
+export const PELICULA: Record<number, LineaPelicula[]> = {
+  1: [
+    { es: 'Ilvara cayó en el fondo del pozo.', en: 'Ilvara fell at the bottom of the well.' },
+    { es: 'La brasa no.', en: 'The ember did not.' },
+    { es: 'Subió por el pozo y salió por Santa Oria. Las campanas doblaron solas.', en: 'It climbed the well and burst out over Santa Oria. The bells tolled on their own.' },
+    { es: 'Gracias. Una puerta menos.', en: 'Thank you. One door fewer.', voz: true },
+    { es: 'Tomó el camino del sur, hacia Sahrim, donde los reyes no mueren. Solo duermen.', en: 'It took the southern road, toward Sahrim, where kings do not die. They only sleep.' },
+    { es: 'Y en tu brazo, la Marca se calentó un poco más.', en: 'And on your arm, the Mark grew a little warmer.' },
+  ],
+};
+/** ¿Ese acto cierra con su película del motor? (`__cineViejo` vuelve a la cinemática y al entreacto de antes) */
+export const conPelicula = (acto: number) => !!PELICULA[acto] && !(globalThis as any).__cineViejo;
 export const ENTREACTO: Record<number, TomaEntreacto[]> = {
   1: [
     { escena: 'catacumbas', seed: 3, texto: ['La Abadesa cayó. La brasa no.', 'The Abbess fell. The ember did not.'] },

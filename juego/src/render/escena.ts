@@ -75,6 +75,12 @@ import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuert
 export const cam = { x: 0, y: 0 };
 /** Hacia dónde mira la cámara además del héroe (presentación de un jefe): k de 0 a 1. */
 export const foco = { x: 0, y: 0, k: 0 };
+/**
+ * La cámara de las cinemáticas (ui/director.ts): con `on`, el punto (x, y) del mundo (en casillas) queda en (fx, fy) de la
+ * pantalla del mundo (fracción del ancho y el alto) y `alt` lo sube en puntos del dibujo. Manda por encima de todo lo demás
+ * (el héroe, el plano de llegada, la cámara del jefe, el alzado frente a los monumentos).
+ */
+export const camCine = { on: false, x: 0, y: 0, alt: 0, fx: 0.5, fy: 0.5 };
 const camS = { x: 0, y: 0, mx: 0, my: 0 }; let camZona = '';
 export const aPant = (x: number, y: number): [number, number] => [(x - y) * 16 - cam.x + MW / 2, (x + y) * 8 - cam.y + (MH - ALTO_HUD / ZM) / 2];
 /** Lo mismo en puntos del HUD (fuera del pase del mundo, que va acercado). */
@@ -319,7 +325,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   }
   // plano de llegada a la catedral: la primera vez que el héroe entra al camposanto o se acerca a la puerta, 3.5 s con la
   // fachada entera (el foco de siempre, sin zoom); se suelta antes si el héroe camina más de 2 casillas
-  planoLlegada(j, dt);
+  if (!camCine.on) planoLlegada(j, dt);
   // cámara de jefe: entre el héroe y el jefe, con el jefe entero debajo de su barra y el héroe arriba del HUD
   const jf = j.jefe, enPelea = !!jf && !jf.muerto && Math.hypot(jf.x - h.x, jf.y - h.y) < 16 && foco.k <= 0;
   camJefe += ((enPelea ? 1 : 0) - camJefe) * Math.min(1, dt * 1.8);
@@ -335,7 +341,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     cam.x += ((hx + bx) / 2 + sx - cam.x) * k; cam.y += (ty + sy - cam.y) * k;
   }
   if (foco.k > 0) { const k = foco.k * foco.k * (3 - 2 * foco.k); cam.x += ((foco.x - foco.y) * 16 - camS.x) * k; cam.y += ((foco.x + foco.y) * 8 - 60 - camS.y + camAlzada) * k; }
-  panoramica(dt);
+  if (camCine.on) { cam.x = (camCine.x - camCine.y) * 16 + sx + MW / 2 - MW * camCine.fx; cam.y = (camCine.x + camCine.y) * 8 + sy - camCine.alt + (MH - ALTO_HUD / ZM) / 2 - MH * camCine.fy; }
+  else panoramica(dt);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   picksAnt = picks; picks = []; vivasMonstruo = 0;
   prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); seguirPoderes(j); seguirPresencias(j); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);
@@ -633,7 +640,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     items.push({ prof: wx + wy, draw: () => dibujarPortal(j, tiempo) });
     const [hx, hy] = aPant(wx, wy); halosUmbral.push([hx, hy, z.tipo === 'pueblo' ? ZONAS[(j as any).portalZona] : { tipo: 'pueblo' }, 0.5 + 0.5 * Math.sin(tiempo * 3)]);
   }
-  for (const sa of z.salidas) {
+  // (en las cinemáticas no van los umbrales de las salidas: son del juego, no del lugar)
+  for (const sa of camCine.on ? [] : z.salidas) {
     const [wx, wy] = puntoSalida(z, sa), [px, py] = aPant(wx, wy);
     if (px < -120 || px > W + 120 || py < -140 || py > H + 80) continue;
     const pulso = 0.5 + 0.5 * Math.sin(tiempo * 2.2 + sa.cx), r = rumboSalida(z.id, sa.destino);
@@ -1284,7 +1292,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   // el rayo sacude su propia silueta (render/electro.ts)
   const fEl = e.muerto || (window as any).__sinElectro ? 0 : fuerzaElectro(e, j.t), tinEl = tinteElectro(e.id, fEl, j.t);
   const pm = (e as any).pfxMuerte as { id: string; t0: number } | undefined;
-  const alfaM = (e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1) * (e.tipo === 'invocado' ? alfaInvocado(e, j.t) : 1);
+  const alfaM = (e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1) * (e.tipo === 'invocado' ? alfaInvocado(e, j.t) : 1) * ((e as any).alfaCine ?? 1);
   if (alfaM <= 0.01) return;
   // el muerto que revienta (Estallido fúnebre, Cosecha del osario, Lamento) se hincha y deja de estar al reventar; el que
   // se come el Festín de tumba se seca y se hunde (solo lo que se ve, `revienta` lo pone mundo.ts)
@@ -1338,7 +1346,7 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   // (el cambio de forma: la silueta se enciende de verde musgo y se apaga en el cuerpo nuevo)
   if (vf && vf.tinte > 0.02) { ok = dibujarTenido(ctx, q, px, py, '#7ac850', vf.tinte, esc);
     if (ok && vf.brillo > 0.02) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = vf.brillo * nocheLuz(); dibujarTenido(ctx, q, px, py, '#a8f070', 1, esc); ctx.restore(); } }
-  else if (cambio < 0.45) ok = dibujarTenido(ctx, q, px, py, '#fff2d0', 0.25 * (1 - cambio / 0.45), esc);
+  else if (cambio >= 0 && cambio < 0.45) ok = dibujarTenido(ctx, q, px, py, '#fff2d0', 0.25 * (1 - cambio / 0.45), esc);
   else if (e.destello > 0.05) ok = dibujarTenido(ctx, q, px, py, '#ffffff', 0.3 * Math.min(1, (e.destello - 0.05) / 0.07), esc);
   // los estados tiñen sin tapar el sprite: como mucho 40 % (salvo petrificado, que es piedra)
   else if (tinM) { if (alM < 1) ctx.globalAlpha = alM; ok = dibujarTenido(ctx, q, px, py, tinM[0], tinM[1], esc); ctx.globalAlpha = 1;

@@ -2281,3 +2281,113 @@ la historia ordenada por **hilos**, no por dónde se leyó.
 - `render/luz_gpu.ts`: el pase de WebGL. Opciones, Luz (Clásica o Avanzada), tecla L para comparar, `__lab` en las pruebas.
 - Prueba: `URL=http://127.0.0.1:5191/ node juego/herramientas/t870_luz.cjs` (fotos en `/tmp/requiem-pruebas/luz`). En la
   nube Chromium pinta WebGL por software: los cuadros por segundo de ahí no dicen nada del PC de Rick.
+
+## Monumentos de los actos 2 a 7 (22 y 23 nov 2026, rama `monumentos`)
+
+Rick: "algo emblemático por acto como la catedral que sale en el acto 1, bien representativo del acto, MUY bien elaborado y de
+tamaño BIEN grande". Y después: "no hagas la misma catedral pero con diferente material, haz algo totalmente nuevo". Cada
+monumento tiene su propia arquitectura y su silueta. No llevan naves con tejado a dos aguas, agujas, rosetones ni
+contrafuertes góticos, salvo Ysmeral, que por canon es catedral pero hundida y escorada. Cada uno va en el centro de un mundo
+abierto, y su puerta es la salida a la mazmorra importante del acto, la que esa zona ya tenía. No cambia ningún id de zona ni
+de salida. **`MAPA_V` pasó a 6**: se pierde solo la niebla.
+
+- **Dónde**: `juego/src/mundo/monumentos.ts` (`MONUMENTOS`: piezas, puerta, salida, atrio con su piso, lo que va suelto
+  alrededor, color de luz y motas). `PIEZA_MONUMENTO` es el regex de las piezas: no se riegan con el tema y no llevan bruma.
+  Las piezas están en `src/engine/gotico/catalogo/monumento_<sol|yhuantl|hrimgard|fragua|ysmeral|escalera>.ts`. El oficio
+  común está en `monumentos_kit.ts`:
+  - el marco F: u hacia la cámara, v a la derecha, y `deAvenida` vuelve a la grilla.
+  - `partir`: corta cada poliedro a la caja de su pieza (`recortarConv`) y entierra todo con una `resta` a −600. Con −80, la
+    obra hundida asomaba como una losa suelta.
+  - las siete piezas `atras`, `atras_i`, `atras_d`, `medio`, `izq`, `der` y `frente`, con la puerta en [10,10].
+  - `fondoMonumento`.
+
+  `monumentos_kit2.ts` tiene `tronco`, `gola`, `aro`, `sentado`, `derrumbe` y `sillares`. Cada monumento sale de su propio azar
+  por el nombre. Nada de `r()` adentro de callbacks del catálogo. `__sinMonumentos` vuelve a la boca de siempre.
+- **Los seis**:
+  - acto 2, `a2_ruinas` → `a2_sol`: el Templo del Sol Caído, con colosos a los lados de la avenida, el sol caído con el andamio
+    de los saqueadores y braseros.
+  - acto 3, `a3_pantano` → `a3_templo1`: la pirámide de Yhuantl, diez gradas con la escalera, una ceiba colosal que la agarra,
+    la puerta en máscara, estelas con cara, tambores y el altar de sangre.
+  - acto 4, `a4_glaciar` → `a4_hielo1`: la Boca del Aliento. Terrazas de glaciar, el arco portal con la sierpe, el arco de
+    hielo, el barco preso y los jarls en tres valores de piedra (`mon_hr_claro`, `mon_hr_oscuro`).
+  - acto 5, `a5_rio` → `a5_fragua`: la Fragua de Ozmaren. Un cono de basalto en columnas con cintas de lava, humo, chimeneas, la
+    boca encendida, yunques, cadena y moldes. El río de lava va por el costado que cruza el camino (`rioDeLava`).
+  - acto 6, `a6_barrio2` → `a6_catedral1`: la Catedral de las Campanas Ahogadas, hundida y escorada. Ventanales con tracería,
+    fajones, una campana en el rosetón, bronce con verdín, el campanario, el derrumbe del frente y los pilares (uno ladeado).
+  - acto 7, `a7_jardin` → `a7_escaleras`: la Escalera al Trono.
+    - Un corro de siete columnas sobre el estrado y el haz de luz del centro.
+    - 40 losas que suben en caracol, nueve a la deriva y seis caídas.
+    - Arriba, el halo partido (aro de radio 176, inclinado 52°) con la gloria y la raja en zigzag.
+    - Dentro de la gloria, el trono a contraluz: un tercio del aro, en tres cuartos, con patas finas, brazos con garras,
+      respaldo en punta y siete púas, y un canto de oro pálido que alumbra (`mon_es_canto`).
+- **En el mundo** (`zona.ts`):
+  - Mapa: los exteriores con monumento crecen 4 por lado en `tamZona`. Los campamentos siguen con el área de `def.tam`.
+  - Claro del jefe: se busca con la huella de verdad y el marco, con radios de 14 bajando a 9.
+  - `asentarJefe` vuelve a correr después de `asentarAtrio`:
+    - las celdas que no se alcanzan cuentan como bloqueadas.
+    - un tercer paso saca lo que se puede quitar cerca del punto con ruedo de 10. `__ruedoViejo` lo apaga.
+  - Vista de la avenida: `enInterior` no deja casas en la cuña que se ve por la avenida. `asentarAtrio` saca de esa cuña lo alto
+    (caja de más de 70). `__vistaTapada` lo apaga.
+- **El dibujo** (`render/escena.ts`):
+  - Cámara: sube frente a lo grande, a 290 como mucho junto a la puerta. Desde unas 12 celdas sube con la distancia hasta
+    `yc − 70`. `__alzarCorto` lo apaga.
+  - Niebla: cerca de un monumento bajan los bancos de niebla, `fx_niebla` y `fx_ventisca` (`cercaMon`, `__nieblaMonViejo`). Las
+    piezas del monumento no llevan bruma de altura (`__brumaMonumento`).
+  - Recorte: una pieza abre su ventana solo si su máscara tapa al héroe de verdad (`opacoSobre`). `__tapaCaja` vuelve a la caja.
+- **La panorámica** (`render/escena.ts`, `panoramicaActiva`): el aro del acto 7 no entra en la pantalla con el héroe a la
+  vista, así que la cámara sube a la cima y vuelve.
+  - Tiempos: sube 0,9 s, se queda 0,7 y baja 0,9.
+  - Solo sale la primera vez por sesión, al acercarse.
+  - El mundo espera mientras dura (`main.ts` pausa con `panoramicaActiva()`).
+  - Una tecla o un clic la cortan.
+  - Va por `acc.temblor`.
+  - `__sinPanoramica` la apaga y `__panoT` da su reloj.
+  - Prueba: `t1313_panoramica.cjs <etiqueta> [zona]` (`CLIC=1` la corta) graba cuadro a cuadro.
+- **Herramientas**:
+  - `npx tsx juego/herramientas/t1310_monumento_lab.mts <id> [variante]` (sin servidor, `SOLO=` las piezas, con una persona
+    en la puerta).
+  - `t1311_monumentos_juego.cjs <etiqueta> [zonas] [puestos]` (puerta, lejos, muy_lejos, costados y detrás; falla si se corta
+    de frente; `CORTE`, `ALTOS=1`).
+  - `python3 juego/herramientas/t1312_lamina.py <acto> <id> <etiqueta> <zona>` arma las láminas `acto<N>_lab`, `_juego` y las
+    de lado a lado con la catedral en `/tmp/requiem-pruebas/monumentos/laminas` (`DIF`, `E1080`).
+  - Hornear una pieza: `RELIEVE=1 GRUPOS=o SOLO=mon_<id> npx tsx juego/hornear/hornear.mts && python3
+    juego/hornear/atlas_webp.py`, y después `node juego/herramientas/t1013_cajas.mjs`.
+- **Pruebas**: Todas pasaron el 23 nov con el servidor fresco:
+  - tsc.
+  - t1000: todo en su piso, los ruedos 9 o más, a3_pantano 10.
+  - t1014: 96 zonas iguales.
+  - t1015: 0 tapados.
+  - t1033 en las seis zonas, en 3 semillas, comparado con `__sinMonumentos`: montados 132 contra 122, flotando 38 contra 41,
+    hito sin explanada 0 contra 1. Las piezas de un mismo monumento no cuentan como montadas entre ellas (`MON_JUNTO=1` las
+    cuenta).
+  - t1030: 72 de 72 enteros.
+  - t855: 0 distintas en 192.
+  - t370: 288, 0 malas.
+  - conectividad 20: 1920 mapas conectados.
+  - t1011 `todas 2` con `SEMILLA` 5000, 6000 y 7000: 0 atascados en las tres. La cuenta objetiva da 1 en la 6000, en
+    a1_abadia2, el caso conocido de "Enemigos repartidos": no es una zona con monumento.
+  - t995: 0 atascados y 0 pegados.
+  - t440, t450, t500, t1001 y t961.
+  - t1313: 5 cuadros de panorámica, t máximo 2,1 s, el mundo quieto, y el clic la corta.
+- **Arreglos de la última vuelta** (`asentarAtrio` y los lugares de `exterior`):
+  - Nada montado sobre la obra: lo suelto que queda 60 % dentro del dibujo de una pieza del monumento o de su marco sale (un
+    muerto encima de una estela, matas sobre un pilar). Los cofres y los pozos que quedaban detrás de la obra se mudan al
+    punto más cercano donde se ven (hasta 26 celdas), siempre sobre piso que se alcanza y con el anillo libre.
+    `__montadosAtrio` lo deja como antes.
+  - El hito ya no cae pegado a la obra ni en la cuña de la avenida (`lejosMon`, `__hitoContraMon`). Antes, el gigante del
+    glaciar salía con la explanada debajo de la Boca del Aliento y t1030 lo daba cortado.
+  - El hito ya no se pierde: la cuña de la avenida lo sacaba en 1 de cada 10 semillas, y `asentarJefe` lo quitaba al abrir el
+    ruedo. Ahora da 0 sin hito en 6 zonas por 60 semillas (`_m_hitomon.mjs`, no se sube).
+- **Flojo**:
+  - Nada se miró en un PC con tarjeta de verdad, solo en la nube (WebGL por software).
+  - El trono del acto 7 es una silueta oscura recortada contra la gloria, con poco detalle de cerca. A propósito, pero puede
+    pedir más.
+  - El acto 3 tuvo su segunda vuelta sin aprobación explícita.
+  - Quedan tres cosas montadas que tienen que ver con la obra:
+    - en a4_glaciar, la boca de otra salida (`cue_entrada`) y alguna cabaña caen detrás del glaciar en alguna semilla.
+    - detrás de la Fragua, rocas del borde.
+    - un cofre que no encontró sitio a 26 celdas se queda donde estaba.
+
+    En todos esos casos la ventana de lo alto se abre al pasar detrás.
+  - La obra sigue sin mirarse con los sonidos ni con oídos humanos.
+  - Los monumentos pesan en atlas: subir en tandas si un push rebota.

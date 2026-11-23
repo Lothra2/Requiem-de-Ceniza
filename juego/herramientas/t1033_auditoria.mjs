@@ -18,6 +18,9 @@ const Z = await s.ssrLoadModule('/src/mundo/zona.ts'), A = await s.ssrLoadModule
 const man = JSON.parse(fs.readFileSync(raiz + 'public/assets/manifiesto.json', 'utf8')).o;
 const solo = process.env.SOLO ? new Set(process.env.SOLO.split(',')) : null;
 const EST = /muro|pared_toba|pared_veta|muralla|almena|penasco|risco|nichos|reja|puerta|escalera|portal|piedra_viaje|borde|puente|riel|^via|isla|rio_|arroyo|dec_escalon|^casa_|esquina|macizo|escombro|sendero|trampa|camino/; // (entrega 8: la pared con veta es muro de la mina)
+// (23 nov) las piezas de un monumento y su marco (braseros, colosos, pilares al pie) son una sola obra: entre ellas no cuentan
+// como montadas (`MON_JUNTO=1` las cuenta)
+const MON = /^mon_(sol|yh|yhuantl|hr|hrim|fr|fragua|ys|ysmeral|es|escalera)_/;
 const tot = { flotando: 0, repetidos: 0, salida: 0, montados: 0, hito: 0 }, porPieza = {}, casos = [];
 const suma = (t, id) => { porPieza[t + ' ' + id] = (porPieza[t + ' ' + id] || 0) + 1; };
 for (const d of Object.values(A.ZONAS)) {
@@ -42,7 +45,7 @@ for (const d of Object.values(A.ZONAS)) {
     // montados (60 %; pueblos y casas no, como en desmontar)
     if (d.tipo !== 'pueblo' && !d.casa) {
     const cajas = props.map((o) => { const f = meta(o).f[0], sx = (o.cx - o.cy) * 16, sy = (o.cx + o.cy) * 8; return { o, x0: sx - f[5], y0: sy - f[6], x1: sx - f[5] + f[3], y1: sy - f[6] + f[4], a: f[3] * f[4] }; }).sort((a, b) => a.x0 - b.x0);
-    for (let i = 0; i < cajas.length; i++) for (let j = i + 1; j < cajas.length && cajas[j].x0 < cajas[i].x1; j++) { const a = cajas[i], b = cajas[j]; const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); if (ix <= 0 || iy <= 0) continue; if (a.o.capa === 'pared' && b.o.capa === 'pared' && /pared/.test(a.o.id) !== /pared/.test(b.o.id)) continue; if (ix * iy / Math.min(a.a, b.a) >= 0.6) { tot.montados++; suma('montados', [a.o.id, b.o.id].sort().join('+')); casos.push({ t: 'montados', z: d.id, sem, x: a.o.cx, y: a.o.cy, id: a.o.id + '+' + b.o.id, k: 1 }); } }
+    for (let i = 0; i < cajas.length; i++) for (let j = i + 1; j < cajas.length && cajas[j].x0 < cajas[i].x1; j++) { const a = cajas[i], b = cajas[j]; const ix = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), iy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0); if (ix <= 0 || iy <= 0) continue; if (a.o.capa === 'pared' && b.o.capa === 'pared' && /pared/.test(a.o.id) !== /pared/.test(b.o.id)) continue; if (!process.env.MON_JUNTO && MON.test(a.o.id) && MON.test(b.o.id)) continue; if (ix * iy / Math.min(a.a, b.a) >= 0.6) { tot.montados++; suma('montados', [a.o.id, b.o.id].sort().join('+')); casos.push({ t: 'montados', z: d.id, sem, x: a.o.cx, y: a.o.cy, id: a.o.id + '+' + b.o.id, k: 1 }); } }
     }
     // hito
     if (d.tipo === 'exterior' && z.objetos.some((o) => o.capa === 'escena')) {

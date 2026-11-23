@@ -23,6 +23,8 @@ const DIR = `/tmp/requiem-pruebas/monumentos/juego/${et}`; fs.mkdirSync(DIR, { r
     const info = await p.evaluate(() => { const z = window.__juego().zona, s = z.salidas.find((q) => q.piezas && q.piezas.length); return s ? { destino: s.destino, cx: s.cx, cy: s.cy, piezas: s.piezas.map((o) => [o.id, o.cx, o.cy]) } : null; });
     if (!info) { console.log(zid, 'SIN MONUMENTO'); malos.push(zid + ' sin monumento'); continue; }
     console.log(zid, 'puerta a', info.destino, 'en', info.cx, info.cy);
+    // ALTOS=1: lo alto que no es del monumento cerca de la puerta (lo que puede tapar la vista)
+    if (process.env.ALTOS) console.log(await p.evaluate(async () => { const A = await import('/src/motor/assets.ts'), z = window.__juego().zona, s = z.salidas.find((q) => q.piezas && q.piezas.length); return z.objetos.filter((o) => !/^mon_/.test(o.id) && Math.hypot(o.cx - s.cx, o.cy - s.cy) < 26).map((o) => [o, A.objetoMeta(o.id, o.v)?.f[0]]).filter(([, q]) => q && q.ay > 110).map(([o, q]) => `${o.id}|${o.v}@${o.cx},${o.cy} ${o.capa ?? ''} alto ${q.ay}`).join('\n'); }));
     for (const pu of PUESTOS) {
       const r = await p.evaluate((pu) => {
         const j = window.__juego(), z = j.zona, s = z.salidas.find((q) => q.piezas && q.piezas.length), fa = s.piezas[s.piezas.length - 1], md = s.piezas[1];

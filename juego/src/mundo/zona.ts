@@ -1,8 +1,12 @@
+/** El atrio de un monumento: lo que se pone alrededor (`marco`, relativo a la pieza del medio), lo que se reserva y el piso bajo la obra. */
+export interface Atrio { marco: [string, string, number, number][]; reservar: [number, number, number, number]; tierra: [number, number, number, number]; piso?: string }
+
 // Zonas del mundo: exteriores grandes armados con paisajes del motor como viñetas, mazmorras de cuartos y pasillos
 // con muros del tema, y campamentos seguros. Todo con semilla. Celdas de juego de 32x16 (5x5 por baldosa).
 import './actos67';
 import { REGISTRO, huellaDe, generarPaisaje, type ObjetoDef, type Tema, type AmbienteId } from '../../../src/engine/gotico/index';
 import { ATRIO_CATEDRAL } from '../../../src/engine/gotico/catalogo/atrio_oria';
+import { monumentoDe } from './monumentos';
 import { ESQUINAS_MURO } from '../../../src/engine/gotico/catalogo/muros';
 import { FAM_SENDERO } from '../../../src/engine/gotico/catalogo/senderos';
 import { juncosDeTramo } from '../../../src/engine/gotico/agua';
@@ -81,7 +85,7 @@ export interface DefZona {
    * Pieza ancla en el centro del mapa (la catedral del camposanto): `id` entera o en `piezas` de adelante hacia atrás.
    * Su puerta es la salida hacia `salida`; con `sello`, la puerta está sellada hasta aceptar esa misión. `cerca` se riega alrededor.
    */
-  ancla?: { piezas: [string, number, number][]; puerta: [number, number]; salida: string; sello?: string; herida?: string; cerca?: Sel[]; /** El atrio de la Forja alrededor (losas, sendero, derrumbes, niebla baja): ATRIO_CATEDRAL. */ marco?: boolean };
+  ancla?: { piezas: [string, number, number][]; puerta: [number, number]; salida: string; sello?: string; herida?: string; cerca?: Sel[]; /** El atrio de la Forja alrededor (losas, sendero, derrumbes, niebla baja): ATRIO_CATEDRAL; o el de un monumento (monumentos.ts). */ marco?: boolean | Atrio };
   /** Casa abandonada de un mundo abierto: interior chico con muebles, un guardián y el cofre escondido bajo las tablas. */
   casa?: boolean;
   /** Pueblo amurallado: murallas de fortaleza en los bordes de atrás y portones en las salidas. */
@@ -525,12 +529,15 @@ function exterior(def: DefZona, semilla: number): Zona {
     return [Math.floor(z.W / 2), Math.floor(z.H / 2)];
   };
   // las bocas de mazmorra van adentro del mapa, separadas entre sí y de los bordes
+  const conMonumento = !def.ancla && !!monumentoDe(def.id);
   const enInterior = (): [number, number] => {
     for (let i = 0; i < 300; i++) {
       const bx = Math.floor((0.18 + r() * 0.64) * tw), by = Math.floor((0.18 + r() * 0.64) * th);
       if (!z.pisos[by * tw + bx]) continue;
       const p: [number, number] = [bx * 5 + 2, by * 5 + 2];
       if (puntos.some(([x, y]) => Math.hypot(x - p[0], y - p[1]) < 28)) continue;
+      // (lejos del monumento de la zona y de lo que lleva alrededor: monumentos.ts)
+      if (conMonumento && Math.hypot(p[0] + 2 - z.W / 2, p[1] + 2 - z.H / 2) < 32) continue;
       return p;
     }
     return [Math.floor(z.W / 2) + Math.floor((r() - 0.5) * 20), Math.floor(z.H / 2) + Math.floor((r() - 0.5) * 20)];
@@ -565,7 +572,7 @@ function exterior(def: DefZona, semilla: number): Zona {
         let d = 1e9;
         for (const [a, b] of puntos) d = Math.min(d, Math.hypot(a - x, b - y) - lejosSalida);
         for (const l of lugares) d = Math.min(d, Math.hypot(l.cx - x, l.cy - y) - l.r - rad - lejosLugar);
-        d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ? 36 : 12) - rad);
+        d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ?? monumentoDe(def.id) ? 36 : 12) - rad);
         if (d > bd) { bd = d; mejor = [x, y]; }
       }
       return bd >= 0 ? mejor : null;
@@ -601,7 +608,7 @@ function exterior(def: DefZona, semilla: number): Zona {
   // la pieza ancla: la catedral en el centro, por piezas con su desplazamiento (la Forja da el ancla de cada una);
   // la puerta es la salida y el pie de la escalinata, el punto de llegada
   let anclaObj: ObjZ | null = null; const anclaPiezas: ObjZ[] = [];
-  const anc = def.ancla, ia = anc ? def.salidas.findIndex((s) => s.destino === anc.salida) : -1;
+  const anc = def.ancla ?? monumentoDe(def.id), ia = anc ? def.salidas.findIndex((s) => s.destino === anc.salida) : -1;
   if (anc) {
     const [ax, ay] = [centro[0], centro[1] + 2];
     for (const [id, dx, dy] of anc.piezas) {
@@ -617,9 +624,12 @@ function exterior(def: DefZona, semilla: number): Zona {
     // el atrio de la Forja: tierra pisada bajo la obra, el marco (plaza, sendero, derrumbes, lápidas, faroles, verja y niebla)
     // y la plaza reservada para que el riego al azar no caiga encima
     if (anclaObj && anc.marco) {
-      const A = ATRIO_CATEDRAL, [t0, t1, t2, t3] = A.tierra;
-      for (let by = Math.floor((ay + t1) / 5); by <= Math.floor((ay + t3) / 5); by++) for (let bx = Math.floor((ax + t0) / 5); bx <= Math.floor((ax + t2) / 5); bx++) if (z.pisos[by * z.tw + bx]) k.piso('tierra', bx, by);
-      for (const [id, v, dx, dy] of A.marco) k.poner(id, ax + dx, ay + dy, v, true);
+      const A: Atrio = anc.marco === true ? ATRIO_CATEDRAL as unknown as Atrio : anc.marco, [t0, t1, t2, t3] = A.tierra;
+      for (let by = Math.floor((ay + t1) / 5); by <= Math.floor((ay + t3) / 5); by++) for (let bx = Math.floor((ax + t0) / 5); bx <= Math.floor((ax + t2) / 5); bx++) if (z.pisos[by * z.tw + bx]) k.piso(A.piso ?? 'tierra', bx, by);
+      // (lo suelto de un monumento, colosos y escenas, se pone al final de la generación, `asentarAtrio`: si va acá, el riego, la
+      // conexión de pasos y el adorno lo quitaban o lo corrían)
+      if (anc.marco === true) for (const [id, v, dx, dy] of A.marco) k.poner(id, ax + dx, ay + dy, v, true);
+      else { (z as any).atrioPend = A.marco.map(([id, v, dx, dy]) => [id, v, ax + dx, ay + dy]); (z as any).avenidaPend = [ax + anc.puerta[0], ay + anc.puerta[1]]; }
       const [r0, r1, r2, r3] = A.reservar;
       for (let yy = Math.floor(ay + r1); yy <= ay + r3; yy++) for (let xx = Math.floor(ax + r0); xx <= ax + r2; xx++) if (xx >= 0 && yy >= 0 && xx < z.W && yy < z.H) k.reserva![yy * z.W + xx] = 1;
     }
@@ -627,7 +637,9 @@ function exterior(def: DefZona, semilla: number): Zona {
     if (anclaObj && z.explorado) for (let by = Math.floor((ay - 34) / 5); by <= Math.floor((ay + 30) / 5); by++) for (let bx = Math.floor((ax - 34) / 5); bx <= Math.floor((ax + 34) / 5); bx++) if (bx >= 0 && by >= 0 && bx < tw && by < th) z.explorado[by * tw + bx] = 1;
     if (anclaObj && anc.cerca) k.regar(anc.cerca, 18, ax - 20, ay - 22, ax + 20, ay + 16, undefined, 5);
   }
-  for (const p of puntos) camino(anclaObj && ia >= 0 && p === puntos[ia] ? [p[0], p[1] + 1] : p, anclaObj && ia >= 0 && p === puntos[ia] ? [p[0], p[1] + 8] : centro);
+  // (la avenida sale de la puerta por su eje: la catedral hacia +y, un monumento de cara a la cámara por la diagonal)
+  const ejeD = (anc as { eje?: string } | undefined)?.eje === 'diag' ? 1 : 0;
+  for (const p of puntos) camino(anclaObj && ia >= 0 && p === puntos[ia] ? [p[0] + ejeD, p[1] + 1] : p, anclaObj && ia >= 0 && p === puntos[ia] ? [p[0] + 8 * ejeD, p[1] + 8] : centro);
   // una senda del camino a cada lugar (hasta la celda de camino más cercana) y, en la más larga, la garganta
   const sendas: { l: Lugar; t: [number, number][] }[] = [];
   for (const l of lugares) {
@@ -904,7 +916,7 @@ export function conectar(z: Zona) {
     }
     if (fin < 0) continue;
     // despejar el camino: quitar lo que estorba (salvo salidas y piezas ancla) y abrir ríos
-    const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); }
+    const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); } for (const o of z.objetos) if (o.capa === 'monumento') fijos.add(o);
     for (let i = fin; i >= 0; i = prev[i]) {
       // último recurso: si el camino cruza el vacío (una isla suelta), esa baldosa se vuelve piso como la de al lado
       if (z.bloq[i] === 2) {
@@ -2393,6 +2405,7 @@ export function generarZona(def: DefZona, semilla: number): Zona {
   rocaViva(z, def);
   esquinasMuro(z);
   despegarDeMuros(z);
+  asentarAtrio(z);
   return z;
 }
 /**
@@ -2414,6 +2427,33 @@ export function generarZona(def: DefZona, semilla: number): Zona {
  * escalones y tres caras por escalón, sin repetir la misma cara a menos de 4 celdas; los de adelante siguen bajos. Y el talud al
  * pie de la roca de atrás cada 2 a 4 celdas.
  */
+/** Lo suelto alrededor de un monumento (monumentos.ts: colosos, el disco caído, campamentos): va al final, cuando ya nada lo
+ *  mueve, y saca lo que tenga debajo (menos las salidas y las piezas del monumento). Capa 'monumento'. */
+function asentarAtrio(z: Zona) {
+  const pend = (z as any).atrioPend as [string, string, number, number][] | undefined; delete (z as any).atrioPend;
+  if (!pend) return;
+  // la avenida de la puerta (por la diagonal, 18 celdas, 9 de ancho) queda limpia de lo que bloquea: es la vista del monumento
+  const av = (z as any).avenidaPend as [number, number] | undefined; delete (z as any).avenidaPend;
+  if (av) pend.unshift(['__avenida', '', av[0], av[1]]);
+  const W = z.W, fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); }
+  const caja = (cx: number, cy: number, hw: number, hh: number) => [Math.round(cx - (hw - 1) / 2), Math.round(cy - (hh - 1) / 2), hw, hh];
+  const k = new Constructor(z); k.reserva = new Uint8Array(z.W * z.H); k.capa = 'monumento';
+  for (const [id, v, cx, cy] of pend) {
+    if (id === '__avenida') {
+      const sacar = z.objetos.filter((o) => { if (fijos.has(o) || !o.bloquea) return false; const du = (o.cx - cx + o.cy - cy) / 2, dv = Math.abs(o.cx - cx - (o.cy - cy)) / 2; return du > 0.5 && du < 18 && dv < 4.5 + Math.max(o.hw, o.hh) / 2; });
+      for (const o of sacar) { z.objetos.splice(z.objetos.indexOf(o), 1); const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && (z.bloq[y * W + x] === 1 || z.bloq[y * W + x] === 3)) z.bloq[y * W + x] = 0; }
+      continue;
+    }
+    const d = REGISTRO.find((q) => q.id === id); if (!d) continue;
+    const [hw, hh] = huellaDe(d, v), [x0, y0] = caja(cx, cy, hw, hh), m = d.plano ? 0 : 1;
+    // lo que estaba debajo sale (lo plano debajo de otro plano, y lo que se para debajo de lo que se para)
+    const fuera = z.objetos.filter((o) => { if (fijos.has(o) || o.capa === 'monumento') return false; const oPlano = !!REGISTRO.find((q) => q.id === o.id)?.plano; if (m && oPlano) return false; const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); return a < x0 + hw + m && a + o.hw > x0 - m && b < y0 + hh + m && b + o.hh > y0 - m; });
+    for (const o of fuera) { z.objetos.splice(z.objetos.indexOf(o), 1); const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && (z.bloq[y * W + x] === 1 || z.bloq[y * W + x] === 3)) z.bloq[y * W + x] = 0; }
+    // lo que queda alrededor vuelve a marcar sus celdas (la limpieza de arriba no distingue de quién era cada una)
+    if (fuera.length) for (const o of z.objetos) { if (/puente|rio_|arroyo/.test(o.id) || REGISTRO.find((q) => q.id === o.id)?.plano) continue; const [a, b] = caja(o.cx, o.cy, o.hw, o.hh); if (!fuera.some((q) => { const [c, e] = caja(q.cx, q.cy, q.hw, q.hh); return a < c + q.hw && a + o.hw > c && b < e + q.hh && b + o.hh > e; })) continue; for (let y = b; y < b + o.hh; y++) for (let x = a; x < a + o.hw; x++) if (x >= 0 && y >= 0 && x < W && y < z.H && z.bloq[y * W + x] === 0) z.bloq[y * W + x] = o.bloquea ? 1 : 3; }
+    k.poner(d, cx, cy, v, true);
+  }
+}
 function rocaViva(z: Zona, def: DefZona) {
   const G = globalThis as any; if (G.__rocaVieja) return;
   const t = tematicaDe(def);
@@ -2766,7 +2806,7 @@ const CAJAS_DECO = CAJAS_DECO_J as unknown as Record<string, [number, number, nu
 function desmontarFinal(z: Zona, def: DefZona) {
   if ((globalThis as any).__montadosFinal || def.tipo === 'pueblo' || def.casa) return;
   const W = z.W, H = z.H;
-  const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); }
+  const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); } for (const o of z.objetos) if (o.capa === 'monumento') fijos.add(o);
   // la explanada del hito (ver `exterior`) es para mirarlo: lo que bloquea y cayó ahí después (una barricada del relato, una pila
   // de la matanza) sale, salvo lo que tiene tag
   if (!(globalThis as any).__hitoViejo) for (const h of z.objetos.filter((o) => o.id === 'acto_hito')) {
@@ -3294,7 +3334,7 @@ function curarAdornos(z: Zona, def: DefZona) {
   const d = (a: { cx: number; cy: number }, b: { cx: number; cy: number }) => Math.hypot(a.cx - b.cx, a.cy - b.cy);
   const piso = (x: number, y: number) => x >= 0 && y >= 0 && x < W && y < H && !!z.pisos[Math.floor(y / 5) * tw + Math.floor(x / 5)] && !(z.hueco && z.hueco[y * W + x]);
   const pasa = (i: number) => z.bloq[i] === 0 || z.bloq[i] === 3;
-  const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); }
+  const fijos = new Set<ObjZ>(); for (const s of z.salidas) { if (s.obj) fijos.add(s.obj); for (const o of s.piezas ?? []) fijos.add(o); } for (const o of z.objetos) if (o.capa === 'monumento') fijos.add(o);
   const quitar = new Set<ObjZ>(), toca: number[] = [];
   const planos = new Map<string, boolean>(), plano = (id: string) => { let v = planos.get(id); if (v === undefined) { v = !!REGISTRO.find((q) => q.id === id)?.plano; planos.set(id, v); } return v; };
   // qué cubren los objetos antes de tocar nada (2 bloquea, 1 ocupa): una celda bloqueada sin objeto que la bloquee (la roca

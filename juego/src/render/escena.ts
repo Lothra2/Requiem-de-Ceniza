@@ -69,6 +69,7 @@ import { tramo, cerrarTramos, rend } from '../nucleo/rendimiento';
 import { fijarGanchoRelieve, relieveDe } from '../motor/assets';
 import { brilloPuas } from './puas';
 import { aperturaRecorte, piezaRecortada, ALTO_PECHO, RX_REC } from './recorte';
+import { luzMonumento } from '../mundo/monumentos';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
 export const cam = { x: 0, y: 0 };
@@ -181,23 +182,32 @@ let formaVista: Forma | null = null;
 let alfaEf = 1;
 /** De día lo sumado se nota menos: la luz del cambio de forma baja a la mitad a pleno sol. */
 const nocheLuz = () => 0.5 + 0.5 * nochePfx();
+/** Dónde está la puerta de la obra ancla y hacia dónde mira: la catedral, hacia +y desde su fachada; los monumentos
+ *  (monumentos.ts), desde su salida y hacia la cámara (la diagonal), con el ancho del cono en pantalla. */
+function puertaAncla(sa: { cx: number; cy: number; piezas?: { id: string; cx: number; cy: number }[] }) {
+  const fa = sa.piezas![sa.piezas!.length - 1], mon = luzMonumento(fa.id);
+  if (mon && mon.eje !== 'y') return { x: sa.cx + 0.5, y: sa.cy + 0.5, dx: 0.7071, dy: 0.7071, ux: 22, uy: 0, mon };
+  return { x: fa.cx + 0.5, y: fa.cy + 1.5, dx: 0, dy: 1, ux: 16, uy: 8, mon };
+}
 /** La puerta abierta de la catedral: un cono de luz roja que sale sobre el piso hacia +y y brasas y ceniza que salen y suben. */
 function puertaCatedral(j: Juego, dt: number, t: number) {
   for (const sa of j.zona.salidas) {
     const fa = sa.piezas?.[sa.piezas.length - 1]; if (!fa || fa.v === 'sellada') continue;
-    const [px, py] = aPant(fa.cx + 0.5, fa.cy + 1.5); if (px < -300 || px > W + 300 || py < -200 || py > H + 300) continue;
+    const pu = puertaAncla(sa), [px, py] = aPant(pu.x, pu.y); if (px < -300 || px > W + 300 || py < -200 || py > H + 300) continue;
     const pulso = 0.5 + 0.5 * Math.sin(t * 1.4);
+    // (los monumentos de los actos 2 a 7 llevan la luz de su puerta y sus motas: monumentos.ts)
+    const mon = pu.mon, C = mon?.color ?? '255,70,24', C2 = mon?.color ?? '255,120,60';
     // el cono: del umbral hacia +y (abajo a la izquierda en pantalla), abriéndose
-    const [ex, ey] = aPant(fa.cx + 0.5, fa.cy + 8), ux = 16, uy = 8; // +x en pantalla, para el ancho
+    const [ex, ey] = aPant(pu.x + pu.dx * 6.5, pu.y + pu.dy * 6.5), ux = pu.ux, uy = pu.uy; // de través en pantalla, para el ancho
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createLinearGradient(px, py, ex, ey);
-    g.addColorStop(0, `rgba(255,70,24,${0.42 + pulso * 0.15})`); g.addColorStop(0.5, `rgba(255,50,16,${0.18 + pulso * 0.07})`); g.addColorStop(1, 'rgba(255,40,10,0)');
+    g.addColorStop(0, `rgba(${C},${0.42 + pulso * 0.15})`); g.addColorStop(0.5, `rgba(${C},${0.18 + pulso * 0.07})`); g.addColorStop(1, `rgba(${C},0)`);
     ctx.fillStyle = g; ctx.beginPath();
     ctx.moveTo(px - ux * 0.9, py - uy * 0.9); ctx.lineTo(px + ux * 0.9, py + uy * 0.9);
     ctx.lineTo(ex + ux * 2.6, ey + uy * 2.6); ctx.lineTo(ex - ux * 2.6, ey - uy * 2.6); ctx.closePath(); ctx.fill();
     // resplandor en el umbral
     const r = ctx.createRadialGradient(px, py - 10, 2, px, py - 10, 60);
-    r.addColorStop(0, `rgba(255,120,60,${0.35 + pulso * 0.2})`); r.addColorStop(1, 'rgba(255,40,10,0)');
+    r.addColorStop(0, `rgba(${C2},${0.35 + pulso * 0.2})`); r.addColorStop(1, `rgba(${C},0)`);
     ctx.fillStyle = r; ctx.fillRect(px - 60, py - 70, 120, 120);
     ctx.restore();
     // brasas y ceniza que salen por la puerta y suben
@@ -205,7 +215,8 @@ function puertaCatedral(j: Juego, dt: number, t: number) {
       const n = (dt * 18) + (Math.random() < (dt * 18) % 1 ? 1 : 0);
       for (let i = 0; i < Math.floor(n); i++) {
         const ceniza = Math.random() < 0.3;
-        j.particulas.push({ x: fa.cx + 0.5 + (Math.random() - 0.5) * 1.6, y: fa.cy + 1.6, z: 6 + Math.random() * 30, vx: (Math.random() - 0.5) * 0.5, vy: 0.6 + Math.random() * 1.1, vz: ceniza ? 8 + Math.random() * 8 : 20 + Math.random() * 30, t: 0, dur: ceniza ? 2.2 + Math.random() : 1.2 + Math.random() * 0.8, color: ceniza ? '#8a8078' : Math.random() < 0.5 ? '#ff5020' : '#ffa040', tam: ceniza ? 2 : 1.5, tipo: ceniza ? 'humo' : 'brasa' } as any);
+        const q = (Math.random() - 0.5) * 1.6, ve = 0.6 + Math.random() * 1.1, ld = (Math.random() - 0.5) * 0.5;
+        j.particulas.push({ x: pu.x + q * pu.dy + pu.dx * 0.1, y: pu.y - q * pu.dx + pu.dy * 0.1, z: 6 + Math.random() * 30, vx: ld * pu.dy + ve * pu.dx, vy: -ld * pu.dx + ve * pu.dy, vz: ceniza ? 8 + Math.random() * 8 : 20 + Math.random() * 30, t: 0, dur: ceniza ? 2.2 + Math.random() : 1.2 + Math.random() * 0.8, color: ceniza ? mon?.motas?.[2] ?? '#8a8078' : Math.random() < 0.5 ? mon?.motas?.[0] ?? '#ff5020' : mon?.motas?.[1] ?? '#ffa040', tam: ceniza ? 2 : 1.5, tipo: ceniza ? 'humo' : 'brasa' } as any);
       }
     }
   }
@@ -220,8 +231,21 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // frente a la pieza ancla (la catedral), la cámara sube suave para que se vean las torres
   let alzar = 0;
   for (const sa of z.salidas) if (sa.piezas?.length) {
-    const fa = sa.piezas[sa.piezas.length - 1], dy = h.y - fa.cy, dx = Math.abs(h.x - fa.cx);
-    if (dy > -2 && dy < 26 && dx < 16) alzar = Math.max(alzar, 240 * Math.min(1, (26 - dy) / 14) * Math.min(1, (16 - dx) / 6));
+    const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
+    // (la distancia de frente y de costado se mide desde la puerta y por su eje: la catedral por y, los monumentos por la diagonal)
+    const rx = h.x - pu.x, ry = h.y - pu.y, dy = pu.mon ? rx * pu.dx + ry * pu.dy : h.y - fa.cy, dx = pu.mon ? Math.abs(rx * pu.dy - ry * pu.dx) : Math.abs(h.x - fa.cx);
+    if (!(dy > -2 && dy < 26 && dx < 16)) continue;
+    const w = Math.min(1, (26 - dy) / 14) * Math.min(1, (16 - dx) / 6);
+    // (los monumentos de los actos 2 a 7, monumentos.ts) sube lo justo para que entre la pieza más alta (con margen por el
+    // adelanto de la cámara al caminar)
+    let tope = 240;
+    if (luzMonumento(fa.id) && !(window as any).__alzarCatedral) {
+      const yc = (MH - ALTO_HUD / ZM) / 2; let cima = 1e9;
+      for (const o of sa.piezas) { const q = objetoMeta(o.id, o.v)?.f[0]; if (q) cima = Math.min(cima, (o.cx + o.cy + 1) * 8 - q.ay - (h.x + h.y) * 8 + yc); }
+      // (hasta 290: el héroe en la puerta queda todavía por encima del HUD, con los pies a 34 puntos de él a 720)
+      if (cima < 1e9) tope = Math.max(0, Math.min(290, 40 - cima));
+    }
+    alzar = Math.max(alzar, tope * w);
   }
   // (entrega 6) frente a un hito del acto la cámara también sube lo justo para que entre entero en la pantalla, a lo sumo
   // 150 puntos (el héroe queda en el tercio de abajo, nunca bajo el HUD). Antes el gigante del glaciar, la escalera de los
@@ -1516,8 +1540,9 @@ function planoLlegada(j: Juego, dt: number) {
     for (const sa of z.salidas) if (sa.piezas?.length) {
       const fa = sa.piezas[sa.piezas.length - 1], clave = z.id + ':' + z.semilla;
       if (llegadasVistas.has(clave)) continue;
-      const puerta = Math.hypot(h.x - (fa.cx + 0.5), h.y - (fa.cy + 1));
-      if (z.id === 'a1_cementerio' || puerta < 20) { llegadasVistas.add(clave); llegada = { t: 0, x: fa.cx + 0.5 - 15, y: fa.cy + 1 - 15, hx: h.x, hy: h.y, zona: clave }; }
+      const pu = puertaAncla(sa), puerta = Math.hypot(h.x - pu.x, h.y - pu.y);
+      // (el plano de llegada mira la obra: la catedral 15 celdas atrás de su fachada; un monumento, 13 por su eje desde la puerta: entra entero)
+      if (z.id === 'a1_cementerio' || puerta < 20) { llegadasVistas.add(clave); llegada = pu.mon ? { t: 0, x: pu.x - pu.dx * 13, y: pu.y - pu.dy * 13, hx: h.x, hy: h.y, zona: clave } : { t: 0, x: fa.cx + 0.5 - 15, y: fa.cy + 1 - 15, hx: h.x, hy: h.y, zona: clave }; }
     }
   }
   if (!llegada) return;
@@ -1540,7 +1565,8 @@ function brumaAncla(j: Juego) {
     ctx.fillStyle = g; ctx.fillRect(-120, -120, 240, 240); ctx.restore();
   };
   for (const sa of z.salidas) if (sa.piezas?.length) {
-    const fa = sa.piezas[sa.piezas.length - 1];
+    const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
+    if (pu.mon) { for (let i = -8; i <= 8; i += 2) mancha(pu.x + pu.dx * 2 + i * pu.dy, pu.y + pu.dy * 2 - i * pu.dx); continue; }
     for (let i = -6; i <= 6; i += 2) mancha(fa.cx + 0.5 + i, fa.cy + 3.3);
     for (const p of sa.piezas.slice(0, -1)) for (let i = -4; i <= 4; i += 2) mancha(p.cx + 7.7, p.cy + 0.5 + i);
   }

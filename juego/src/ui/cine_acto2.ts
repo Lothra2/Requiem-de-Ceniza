@@ -74,8 +74,6 @@ function sombras(e: EstadoToma, tl: number) {
 }
 
 // ------------------------------------------------------------------ la barca
-/** La variante de `cine_barca` (catalogo/cine.ts) cuya proa mira a ese rumbo. */
-const VARIANTE_RUMBO: [number, number, string][] = [[1, -1, 'h'], [-1, 1, 'h2'], [1, 1, 'd'], [-1, -1, 'd2'], [1, 0, 'x'], [-1, 0, 'x2'], [0, 1, 'y'], [0, -1, 'y2']];
 /**
  * La barca de Oyá en el agua del ancla y el rumbo del canal: de los que se alejan de la orilla (+y), el de más agua seguida (lo
  * ancho de la pantalla, x = -y, le sienta mejor). Deja en `mem` el rumbo y pone las claves de los que suben (relativas al rumbo).
@@ -88,12 +86,15 @@ function ponerBarca(e: EstadoToma) {
   // (el canal por donde se va, libre: nada del manglar le cae encima a la barca)
   const [rx, ry] = rumbo;
   z.objetos = z.objetos.filter((o) => { if (o.tag || /muro|hito/.test(o.id)) return true; const dx = o.cx + 0.5 - e.ax, dy = o.cy + 0.5 - e.ay, k = Math.max(-3, Math.min(8, dx * rx + dy * ry)); return Math.hypot(dx - rx * k, dy - ry * k) > 4 + Math.max(o.hw ?? 0, o.hh ?? 0); });
+  // la barca en dos: el casco en su sitio (se pinta detrás de los que van adentro) y la borda de delante corrida hacia la cámara
+  // (se pinta después y les tapa las piernas: la pieza trae su dibujo corrido lo mismo hacia atrás, catalogo/cine.ts)
   const o: any = { id: 'cine_barca', v, cx: e.ax - 0.5, cy: e.ay - 0.5, hw: 1, hh: 1, bloquea: false, capa: 'cine' };
-  z.objetos.push(o); e.mem.barca = o; e.mem.rumbo = rumbo;
+  const ob: any = { id: 'cine_barca', v: v + '_borda', cx: e.ax - 0.5 + BORDA, cy: e.ay - 0.5 + BORDA, hw: 1, hh: 1, bloquea: false, capa: 'cine' };
+  z.objetos.push(o, ob); e.mem.barca = o; e.mem.borda = ob; e.mem.rumbo = rumbo;
   // los asientos: Oyá en la popa, el héroe en el medio y Thor a proa, junto al farol
   const en = (k: number, lado = 0): [number, number] => [rx * k - ry * lado, ry * k + rx * lado];
-  const [ox, oy] = en(-1.9), [hx, hy] = en(-0.35, 0.05), [tx, ty] = en(0.95, -0.05);
-  const proa: [number, number] = [rx * 2.7, ry * 2.7];
+  const [ox, oy] = en(-2.1), [hx, hy] = en(-0.1), [tx, ty] = en(1.9);
+  const proa: [number, number] = [rx * 3.8, ry * 3.8];
   const tm = e.toma as any;
   for (const a of tm.actores) {
     if (a.id === 'oya') a.claves = [{ t: 0, x: ox, y: oy, mira: [0.6, 4.5] }, { t: 3.9, mira: [ox + rx * 4, oy + ry * 4] }];
@@ -101,15 +102,18 @@ function ponerBarca(e: EstadoToma) {
     if (a.id === 'thor') a.claves = [{ t: 0.3, x: tx + 3.8, y: ty + 3.4 }, { t: 2.7, x: tx + 1.2, y: ty + 1.1, c: 'lineal' }, { t: 3.7, x: tx, y: ty, c: 'sale' }, { t: 3.8, mira: [proa[0] * 3, proa[1] * 3] }];
   }
   const d10 = deriva(10);
-  tm.cam = [{ t: 0, x: 1.3, y: 1.3, alt: 30, zoom: 3, fy: 0.52 }, { t: 3.6, x: 0.1, y: 0.4, alt: 28, c: 'suave' }, { t: 5.6, x: 0, y: 0.2, alt: 28, c: 'suave' }, { t: 10, x: rx * d10 * 0.8, y: ry * d10 * 0.8 + 0.2, alt: 30, c: 'entra' }];
+  tm.cam = [{ t: 0, x: 1.4, y: 1.6, alt: 28, zoom: 3, fy: 0.52 }, { t: 3.6, x: 0.5, y: 0.7, alt: 26, c: 'suave' }, { t: 5.6, x: 0.4, y: 0.6, alt: 26, c: 'suave' }, { t: 10, x: rx * d10 * 0.8, y: ry * d10 * 0.8 + 0.2, alt: 30, c: 'entra' }];
   e.mem.proa = proa;
 }
+/** Celdas que va corrida la borda de delante (ADELANTE en catalogo/cine.ts). */
+const BORDA = 1.4;
 /** Lo que se corrió la barca a los tl segundos (arranca despacio cuando Oyá suelta las amarras). */
 const deriva = (tl: number) => (tl < 5.6 ? 0 : tl < 6.6 ? 0.45 * (tl - 5.6) ** 2 : 0.45 + 0.9 * (tl - 6.6));
 /** La barca, los que van en ella y el farol de proa, corridos por el canal (después de que el director los puso en su clave). */
 function moverBarca(e: EstadoToma, tl: number) {
   const o = e.mem.barca; if (!o) return; const [rx, ry] = e.mem.rumbo, d = deriva(tl), mece = Math.sin(tl * 1.7) * 0.03;
   o.cx = e.ax - 0.5 + rx * d; o.cy = e.ay - 0.5 + ry * d + mece;
+  const ob = e.mem.borda; if (ob) { ob.cx = o.cx + BORDA; ob.cy = o.cy + BORDA; }
   const f = ((e.j as any)?.lucesCine as any[] | undefined)?.find((l) => l.id === 'farol');
   if (f) { f.x = e.ax + e.mem.proa[0] + rx * d; f.y = e.ay + e.mem.proa[1] + ry * d; }
   if (tl < 5.6) return;
@@ -122,6 +126,15 @@ function aguaBarca(e: EstadoToma, tl: number) {
   // el reflejo del farol: rayitas tibias que tiemblan bajo la proa
   const [fx, fy] = aPant(e.ax + e.mem.proa[0] + rx * d, e.ay + e.mem.proa[1] + ry * d);
   for (let k = 0; k < 9; k++) { const w = 3 + Math.sin(tl * 5 + k * 1.7) * 2 + (k % 3), yy = fy + 4 + k * 3; ctx.globalAlpha = 0.55 * (1 - k / 9); ctx.fillStyle = k < 3 ? '#ffd9a0' : '#e0904a'; ctx.fillRect(Math.round(fx - w / 2 + Math.sin(tl * 3 + k) * 1.5), Math.round(yy), Math.round(w), 1); }
+  // la pértiga de Oyá: la agarra a la altura del pecho y la clava en el agua detrás de la popa; desde que suelta empuja
+  const oy = e.actores.get('oya') as any;
+  if (oy) {
+    const [qx, qy] = aPant(oy.x, oy.y), emp = tl > 5.6 ? Math.sin((tl - 5.6) * (Math.PI * 2) / 2.2) : 0;
+    const mano: [number, number] = [qx + 3, qy - 22], arriba: [number, number] = [qx + 14 - emp * 4, qy - 52 + emp * 3];
+    const [wx, wy] = aPant(oy.x - rx * (1.1 + 0.3 * emp), oy.y - ry * (1.1 + 0.3 * emp));
+    ctx.globalAlpha = 1; ctx.strokeStyle = '#3a2a1c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(Math.round(arriba[0]), Math.round(arriba[1])); ctx.lineTo(Math.round(mano[0]), Math.round(mano[1])); ctx.lineTo(Math.round(wx), Math.round(wy + 2)); ctx.stroke();
+    ctx.strokeStyle = '#7a5a38'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(Math.round(arriba[0]) - 1, Math.round(arriba[1])); ctx.lineTo(Math.round(mano[0]) - 1, Math.round(mano[1])); ctx.stroke();
+  }
   // los anillos de la pala (Oyá rema desde que suelta: uno por palada, de un lado y del otro)
   ctx.strokeStyle = '#a9b8b4'; ctx.lineWidth = 1;
   if (tl > 5.6) for (let i = 0; i < 6; i++) {
@@ -276,7 +289,7 @@ const tomas: Toma[] = [
   {
     // el muelle (un canal del manglar): Oyá en la popa de su barca; el héroe y Thor suben desde la orilla, ella suelta las
     // amarras y la barca se va por el canal con los tres
-    id: 'muelle', dur: 10, zona: 'a3_pantano', ancla: anclaMuelle, sinBruma: true, objetos: VARIANTE_RUMBO.map((q) => 'cine_barca|' + q[2]), entra: 0.7, sale: 0.6, oscuridad: 0.7, hundir: 0.66, sinClima: ['fx_lluvia', 'fx_tormenta'],
+    id: 'muelle', dur: 10, zona: 'a3_pantano', ancla: anclaMuelle, sinBruma: true, objetos: ['cine_barca|h', 'cine_barca|h_borda'], filo: 0.3, entra: 0.7, sale: 0.6, oscuridad: 0.7, hundir: 0.66, sinClima: ['fx_lluvia', 'fx_tormenta'],
     // (sin lluvia: a ×3 las gotas se leían como rayas rotas; la claves y la cámara las arma ponerBarca según el rumbo del canal)
     preparar: (e) => { sinLluvia(e); despejarPies(e, 0, 0, 6); despejarPies(e, 2, 4, 5); despejarPies(e, 0, 9, 6); if (e.z) e.z.objetos = e.z.objetos.filter((o) => !/cofre/.test(o.id) || Math.hypot(o.cx - e.ax, o.cy - e.ay) > 14); ponerBarca(e); },
     cam: [{ t: 0, x: 0, y: 1.6, alt: 30, zoom: 3, fy: 0.52 }],

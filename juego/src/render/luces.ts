@@ -499,7 +499,7 @@ export function reflejos(ctx: CanvasRenderingContext2D, e: Ent, q: Cuadro, px: n
     // (más fuerte cuando la luz viene de un costado; las figuras flacas, como un esqueleto, son casi todo borde: con la
     // luz encima o detrás el filo las contorneaba enteras como un fantasma, así que ahí baja)
     const flaca = (() => { const a = q.w * q.h; return a > 0 ? Math.min(1, (q.w * 0.5) / Math.max(1, q.h * 0.42)) : 1; })();
-    const filo = Math.min(0.6, i.f * 0.8) * (0.3 + 0.7 * Math.abs(ux)) * (0.55 + 0.45 * flaca);
+    const filo = Math.min(0.6, i.f * 0.8) * (0.3 + 0.7 * Math.abs(ux)) * (0.55 + 0.45 * flaca) * (((window as any).__filoK as number | undefined) ?? 1); // (__filoK: las películas lo bajan en un plano cerrado)
     if ((window as any).__sinFilo || filo < 0.06 || !silueta(q, `rgb(${Math.min(255, i.l.c[0] + 40)},${Math.min(255, i.l.c[1] + 30)},${Math.min(255, i.l.c[2] + 20)})`)) continue;
     // lo que queda de la silueta después de restarle ella misma corrida hacia la luz es el canto que la mira
     const k = Math.max(1, Math.round(1.6 / Math.max(0.5, esc)));

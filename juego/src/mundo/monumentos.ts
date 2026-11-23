@@ -26,7 +26,7 @@ export const MONUMENTOS: Record<string, Mon> = {
   // acto 5: la Fragua de Ozmaren, el volcán de columnas con la brasa en el cráter (baja a a5_fragua; el río de lava va por un costado)
   a5_rio: mon('mon_fragua', 'a5_fragua', 'lava_grietas', [['mon_fr_yunque', 'martillo', 0, 21], ['mon_fr_yunque', 'tenazas', 21, 0], ['mon_fr_brasero', 'encendido', 13, 11], ['mon_fr_brasero', 'encendido', 11, 13], ['mon_fr_cadena', 'tirando', -5, 23], ['mon_fr_moldes', 'enfriando', 23, -5]], '255,122,36', ['#ff7a24', '#ffd080', '#5a4a40']),
   // acto 6: la Catedral de las Campanas Ahogadas, hundida y escorada con el mar adentro (baja a a6_catedral1)
-  a6_barrio2: mon('mon_ysmeral', 'a6_catedral1', 'empedrado', [['mon_ys_planidera', 'izq', 0, 21], ['mon_ys_planidera', 'der', 21, 0], ['mon_ys_brasero', 'encendido', 13, 11], ['mon_ys_brasero', 'encendido', 11, 13], ['mon_ys_ancla', 'clavada', -5, 23], ['mon_ys_campana', 'abrazada', 23, -5]], '74,216,154', ['#4ad89a', '#c8f8de', '#7a8a90']),
+  a6_barrio2: mon('mon_ysmeral', 'a6_catedral1', 'empedrado', [['mon_ys_pilar', 'entero', 0, 21], ['mon_ys_pilar', 'ladeado', 21, 0], ['mon_ys_brasero', 'encendido', 13, 11], ['mon_ys_brasero', 'encendido', 11, 13], ['mon_ys_ancla', 'clavada', -5, 23], ['mon_ys_campana', 'abrazada', 23, -5]], '74,216,154', ['#4ad89a', '#c8f8de', '#7a8a90']),
 };
 
 /** El monumento de una zona (o nada con `__sinMonumentos`). */

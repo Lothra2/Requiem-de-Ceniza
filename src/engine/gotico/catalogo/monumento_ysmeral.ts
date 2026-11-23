@@ -1,10 +1,11 @@
 import { registrar, type V3 } from '../objeto';
 import { MATERIALES } from '../materiales';
-import { ruido, type Comp } from '../render';
+import { ruido } from '../render';
 import { G, raiz, bajoTierra, bloque, ojiva, llama, figuraVelada, calavera, cadena, letras, cascotes } from '../kit_muerte';
 import { campana } from './hitos_mayores';
 import { registrarMonumento, deAvenida } from './monumentos_kit';
-import { tronco } from './monumentos_kit2';
+import { tronco, aro, sillares } from './monumentos_kit2';
+const sillaresYs = sillares(64, 30, { var: 0.28, manchas: 0.8, pie: 20 });
 
 /**
  * La Catedral de las Campanas Ahogadas (acto 6, la Plaza de las Ánimas del Barrio Sumergido; baja a `a6_catedral1`). Canon: es
@@ -23,24 +24,17 @@ import { tronco } from './monumentos_kit2';
 const M = MATERIALES;
 const TAU = Math.PI * 2;
 /** Piedra de sal: blanca gris, en sillares, con la mancha verde negra de la marea abajo y las costras de sal arriba. */
-M.mon_ys_piedra = {
-  rampa: ['#10131a', '#1d222a', '#2d333b', '#40464e', '#555b62', '#6b7176', '#82878b', '#9a9ea0', '#b1b4b4', '#c8cac8'], ruido: 0.22, escala: 0.22,
-  patron: (p, n) => {
-    const marea = p[2] < 90 ? -0.34 * (1 - p[2] / 90) + (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.1) > 0.5 ? -0.12 : 0) : 0;
-    if (n[2] > 0.6) return 0.24 + marea;
-    const hn = Math.hypot(n[0], n[1]) || 1, uu = (-p[0] * n[1] + p[1] * n[0]) / hn, fila = Math.floor(p[2] / 18), u = uu + fila * 17, L = 30 + ruido(fila, 1, 1) * 18, r = u / L - Math.floor(u / L), t = p[2] / 18 - fila;
-    const borde = Math.min(t * 18, (1 - t) * 18, r * L, (1 - r) * L);
-    return (borde < 1.2 ? -0.4 : (ruido(Math.floor(u / L) * 2.3, fila * 1.3, 4) - 0.5) * 0.24) + marea + (ruido(p[0] * 0.03, p[1] * 0.03, p[2] * 0.02) > 0.68 ? 0.16 : 0);
-  },
-};
+M.mon_ys_piedra = { rampa: ['#0c0f12', '#191e22', '#282e33', '#3a4146', '#4f565b', '#666d71', '#7f8588', '#999ea0', '#b3b7b7', '#cbcecc'], ruido: 0.2, escala: 0.2,
+  patron: (p, n) => { const base = sillaresYs(p, n), marea = p[2] < 120 ? -0.42 * (1 - Math.max(0, p[2]) / 120) - (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.1) > 0.5 ? 0.1 : 0) : 0, sal = p[2] > 200 && ruido(p[0] * 0.03, p[1] * 0.03, p[2] * 0.02) > 0.5 ? 0.22 : 0.08; return base + marea + sal; } };
 M.mon_ys_sal = { rampa: ['#141a1e', '#232b30', '#364046', '#4c565c', '#646e73', '#7e878b', '#99a0a3', '#b4b9bb', '#cdd1d2'], ruido: 0.3, escala: 0.25, patron: (p, n) => (n[2] > 0.5 ? 0.24 : 0) + (p[2] < 60 ? -0.2 : 0) + (ruido(p[0] * 0.05, p[1] * 0.05, p[2] * 0.05) - 0.5) * 0.2 };
 M.mon_ys_alga = { rampa: ['#050a06', '#0a140c', '#122014', '#1a2e1c', '#243c24', '#2f4c2c'], ruido: 0.5, escala: 0.3 };
 M.mon_ys_percebe = { rampa: ['#141210', '#24201b', '#363027', '#4a4234', '#5e5442', '#726551', '#867862'], ruido: 0.5, escala: 0.6 };
 M.mon_ys_coral = { rampa: ['#2a0a08', '#48140e', '#661e14', '#842a1a', '#a03a22', '#b84e2e'], ruido: 0.4, escala: 0.4 };
-M.mon_ys_agua = { rampa: ['#020a0c', '#041416', '#072024', '#0b2e33', '#103e44', '#175058', '#21656e'], ruido: 0.4, escala: 0.06, emite: true, patron: (p) => (ruido(p[0] * 0.04, p[1] * 0.04, 2) > 0.66 ? 0.3 : (ruido(p[0] * 0.012, p[1] * 0.012, 5) - 0.5) * 0.3) };
+M.mon_ys_agua = { rampa: ['#010403', '#020806', '#040e0a', '#07160f', '#0b2016', '#122d1f', '#1c3e2b'], ruido: 0.4, escala: 0.06, emite: true, patron: (p) => (ruido(p[0] * 0.04, p[1] * 0.04, 2) > 0.66 ? 0.3 : (ruido(p[0] * 0.012, p[1] * 0.012, 5) - 0.5) * 0.3) };
 M.mon_ys_animas = { rampa: ['#062418', '#0c3e2a', '#16603f', '#2a8a5c', '#4ab884', '#86e0b0', '#c8f8de'], ruido: 0.4, escala: 0.2, emite: true };
 M.mon_ys_espuma = { rampa: ['#56636a', '#73828a', '#93a2a8', '#b3c0c4', '#d2dcde', '#eaf0f0'], ruido: 0.5, escala: 0.4 };
-M.mon_ys_bronce = { rampa: ['#0a1410', '#12241c', '#1c362a', '#284a38', '#365e48', '#4a7458', '#648a68'], ruido: 0.3, escala: 0.3, brillo: 0.4, patron: (p) => (ruido(p[0] * 0.1, p[1] * 0.1, p[2] * 0.1) > 0.6 ? 0.2 : 0) };
+M.mon_ys_bronce = { rampa: ['#140c06', '#26180c', '#3c2814', '#56391c', '#704c26', '#8a6232', '#a67a40', '#c29452'], ruido: 0.25, escala: 0.3, brillo: 0.6, patron: (p) => (ruido(p[0] * 0.15, p[1] * 0.15, p[2] * 0.15) - 0.5) * 0.18 };
+M.mon_ys_verdin = { rampa: ['#0a1814', '#12291f', '#1c3d2e', '#2a5541', '#3a6e55', '#52886b'], ruido: 0.4, escala: 0.3 };
 M.mon_ys_hierro = { rampa: ['#0c0806', '#1a100a', '#2a1a10', '#3c2416', '#50301c', '#643c22'], ruido: 0.4, escala: 0.4 };
 const PI = 'mon_ys_piedra', AL = 'mon_ys_alga', PE = 'mon_ys_percebe', CO = 'mon_ys_coral', AG = 'mon_ys_agua', AN = 'mon_ys_animas', ES = 'mon_ys_espuma', BR = 'mon_ys_bronce', HI = 'mon_ys_hierro';
 
@@ -63,82 +57,105 @@ function arcoOjiva(g: G, w: number, hr: number, y: number, r: number, mat: strin
 // ================================================================== la obra
 function armar(F: G, _v: string, f: number) {
   const a = F.a, p = 0.5 + 0.5 * Math.sin((f / 4) * TAU);
-  // ------------------------------------------------------------ el agua: la plaza inundada alrededor, con la espuma que rompe
-  // (en poliedros chatos: un óvalo de agua de 250 inflaba la caja de cada pieza)
-  const charco = (cv: number, cu: number, rv: number, ru: number, z: number, tono: number) => { const pts: V3[] = []; for (let i = 0; i < 16; i++) { const t = (i / 16) * TAU; let v = cv + Math.cos(t) * rv, u = cu + Math.sin(t) * ru; u = Math.min(u, 296 - Math.abs(v)); u = Math.max(u, -486 + Math.abs(v)); pts.push([v, u, z], [v, u, z + 1.4]); } F.poli(pts, { mat: AG, tono }); };
-  charco(0, -40, 228, 240, 0, 0.05); charco(-40, 40, 160, 130, 0.6, 0.12);
-  for (let k = 0; k < 26; k++) { const t = (k / 26) * TAU, rv = 220 + a.r() * 16, ru = 236 + a.r() * 16, v = Math.cos(t) * rv, u = -40 + Math.sin(t) * ru; if (u > 300 - Math.abs(v) - 20 || u < -480 + Math.abs(v) || u > 150) continue; F.elip(v, u, 1.6, 16 + a.r() * 14, 6, 1.6, { mat: ES, giro: (t * 180) / Math.PI + 90 }); }
-  // ------------------------------------------------------------ la catedral: escorada a la derecha y con la cabecera hundida
-  const N = F.sub(0, 120, -26, 0, 11, 'y').sub(0, 0, 0, 0, -5, 'x').sub(0, -120, 0);
-  const U0 = -250, U1 = 150, WN = 94, HM = 252, NB = 7, BAY = (U1 - U0) / NB;
-  // los muros de la nave, por tramos, con su ventana apuntada (la luz verde de las ánimas adentro) y los pilares entre tramo y tramo
+  // ------------------------------------------------------------ el agua: verde negra, con el reflejo de las ánimas y la espuma
+  const charco = (cv: number, cu: number, rv: number, ru: number, z: number, mat: string, tono: number) => { const pts: V3[] = []; for (let i = 0; i < 18; i++) { const t = (i / 18) * TAU; let v = cv + Math.cos(t) * rv * (0.9 + 0.1 * Math.sin(t * 3)), u = cu + Math.sin(t) * ru; u = Math.min(u, 296 - Math.abs(v)); u = Math.max(u, -486 + Math.abs(v)); pts.push([v, u, z], [v, u, z + 1.4]); } F.poli(pts, { mat, tono }); };
+  charco(0, -60, 236, 250, 0, AG, 0); charco(-20, 30, 150, 120, 0.8, AG, 0.06);
+  for (let k = 0; k < 14; k++) F.elip(-140 + a.r() * 280, -200 + a.r() * 300, 2.4, 12 + a.r() * 26, 3 + a.r() * 4, 0.6, { mat: AN, tono: -0.35 + a.r() * 0.1, giro: (a.r() - 0.5) * 30 });
+  // el escombro que asoma del agua alrededor
+  for (let k = 0; k < 16; k++) { const t = a.r() * TAU, rr = 150 + a.r() * 70, v = Math.cos(t) * rr, u = -60 + Math.sin(t) * rr; if (u > 296 - Math.abs(v) - 30 || u < -486 + Math.abs(v) || (u > 90 && Math.abs(v) < 160)) continue; bloque(F, v, u, -6, 18 + a.r() * 22, 12 + a.r() * 14, 10 + a.r() * 22, { mat: PI, giro: a.r() * 90, incl: (a.r() - 0.5) * 40, b: 1.4, j: 1 }); F.elip(v, u, 1.6, 22, 10, 1.2, { mat: ES, giro: a.r() * 180 }); }
+  // ------------------------------------------------------------ la catedral: hundida hasta media ventana y escorada a la derecha
+  const N = F.sub(0, 140, -70, 0, 14, 'y').sub(0, 0, 0, 0, -6, 'x').sub(0, -140, 0);
+  const U0 = -300, U1 = 150, WN = 104, HM = 340, NB = 6, BAY = (U1 - U0) / NB, ZW = 110, WW = 52, HW = 150;
   for (const s of [-1, 1]) {
     for (let b = 0; b < NB; b++) {
-      const u0 = U0 + b * BAY, um = u0 + BAY / 2, roto = s > 0 && (b === 2 || b === 5), alto = roto ? HM * (0.55 + a.r() * 0.2) : HM - (a.r() < 0.3 ? 20 : 0);
-      N.caja(s * WN, um, 0, 14, BAY + 0.5, alto, { mat: PI, tono: (a.r() - 0.5) * 0.06 });
-      if (!roto) { const W = N.sub(s * (WN + 8), um, 40, s > 0 ? 90 : -90); W.poli([[-12, -2, 0], [12, -2, 0], [-12, 30, 0], [12, 30, 0], [-12, -2, 80], [12, -2, 80], [-12, 30, 80], [12, 30, 80]], { mat: PI, resta: true }); W.caja(0, 6, 0, 22, 1, 104, { mat: AN, tono: -0.2 + p * 0.1 }); arcoOjiva(W.sub(0, -0.5, 0), 26, 80, 0, 2, PI, 0.06); algas(W, -10, 10, 0, 100, 4, 40); }
-      N.caja(s * (WN + 6), u0, 0, 22, 14, HM + 10, { mat: PI, tono: 0.04 });
-      percebes(N.sub(s * (WN + 9), um, 0, s > 0 ? 90 : -90), -BAY / 2, BAY / 2, 2, 70, 0, 18);
+      const u0 = U0 + b * BAY, um = u0 + BAY / 2, roto = s > 0 && b === 2, alto = roto ? HM * 0.62 : HM;
+      // el muro del tramo con su ventanal ojival vacío, la tracería (parteluz, dos lancetas y el óculo) y la luz verde adentro
+      N.caja(s * WN, um, 0, 18, BAY + 0.5, alto, { mat: PI, tono: (a.r() - 0.5) * 0.05 });
+      if (roto) { for (let k = 0; k < 6; k++) bloque(N, s * (WN + 20 + a.r() * 30), um + (a.r() - 0.5) * BAY, alto - 30 + a.r() * 20, 20, 14, 12, { mat: PI, giro: a.r() * 90, incl: 30, b: 1, j: 0.8 }); continue; }
+      const W = N.sub(s * WN, um, ZW, s > 0 ? -90 : 90), pts = ojiva(WW, HW, 0.85, 7);
+      W.poli([...pts.map(([x, z]) => [x, -14, z] as V3), ...pts.map(([x, z]) => [x, 14, z] as V3)], { mat: PI, resta: true });
+      W.caja(0, -6, 0, WW, 1, HW + 40, { mat: AN, tono: -0.3 + p * 0.08 });
+      W.palo([0, 4, 0], [0, 4, HW + 4], 2.2, { mat: PI, tono: 0.08 });
+      for (const sx of [-1, 1]) { const q = ojiva(WW / 2 - 4, HW - 34, 0.85, 5).map(([x, z]) => [x + sx * WW / 4, 4, z] as V3); for (let i = 0; i < q.length - 1; i++) if (i > 1) W.palo(q[i], q[i + 1], 1.4, { mat: PI, tono: 0.08 }); }
+      aro(W.sub(0, 4, 0), 0, HW + 6, 11, 1.6, PI, 0, TAU, 16, 0, 0.08);
+      // el marco de la ventana en tres roscas
+      for (let r = 0; r < 2; r++) { const q = ojiva(WW + 8 + r * 8, HW, 0.85, 7); for (let i = 0; i < q.length - 1; i++) if (i > 1) W.palo([q[i][0], 9 + r * 2, q[i][1]], [q[i + 1][0], 9 + r * 2, q[i + 1][1]], 2.2, { mat: PI, tono: 0.06 - r * 0.04 }); }
+      algas(W.sub(0, 12, 0), -WW / 2, WW / 2, 0, 40, 6, 40);
+      // el agua que entra por el ventanal bajo: una lengua de espuma en el alféizar
+      W.elip(0, 12, 2, WW * 0.5, 8, 2, { mat: ES, tono: 0.05 });
+      percebes(N.sub(s * (WN + 9), um, 0, s > 0 ? 90 : -90), -BAY / 2, BAY / 2, 30, 110, 0, 22);
+    }
+    // los contrafuertes en escalones y los arbotantes (unos rotos) que vuelan al muro
+    for (let b = 0; b <= NB; b++) {
+      const u = U0 + b * BAY, c = N.sub(s * (WN + 34), u, 0);
+      tronco(c, 0, 0, 0, 200, 34, 30, 28, 26, { mat: PI }); tronco(c, 0, 0, 200, 290, 28, 26, 20, 20, { mat: PI, tono: 0.04 });
+      c.poli([[-10, -10, 290], [10, -10, 290], [-10, 10, 290], [10, 10, 290], [0, 0, 330]], { mat: PI, tono: 0.08 });
+      const roto = (b + (s > 0 ? 1 : 0)) % 3 === 0, L = roto ? 0.55 : 1;
+      let q: V3 = [s * (WN + 30), u, 250]; for (let k = 1; k <= 6; k++) { const t = (k / 6) * L, n: V3 = [s * (WN + 30 - 26 * t), u, 250 + Math.sin(t * Math.PI * 0.6) * 46]; N.palo(q, n, 6 - k * 0.3, { mat: PI, tono: 0.04 }); q = n; }
+      if (roto) N.elip(q[0], q[1], q[2] - 4, 6, 6, 5, { mat: PI, tono: -0.05 });
+      percebes(c.sub(0, 16, 0), -14, 14, 30, 120, 0, 10);
     }
   }
-  N.caja(0, U0 - 6, 0, WN * 2 + 14, 14, HM * 0.7, { mat: PI });
-  // el agua adentro de la nave, que alumbra verde, y lo que flota
-  N.caja(0, (U0 + U1) / 2, 0, WN * 2 - 12, U1 - U0 - 10, 84, { mat: AG, tono: 0.2 }); N.caja(0, (U0 + U1) / 2, 84, WN * 2 - 14, U1 - U0 - 12, 1, { mat: AN, tono: -0.25 });
-  // las nervaduras desnudas: los arcos de la bóveda que quedaron, como costillas, con las algas que cuelgan y algún pedazo de techo
+  N.caja(0, U0 - 8, 0, WN * 2 + 18, 18, HM * 0.6, { mat: PI });
+  // el agua de la nave, alta, que alumbra verde
+  N.caja(0, (U0 + U1) / 2, 0, WN * 2 - 14, U1 - U0 - 10, 150, { mat: AG, tono: 0.15 }); N.caja(0, (U0 + U1) / 2, 150, WN * 2 - 16, U1 - U0 - 12, 1.4, { mat: AG, tono: 0.3 + p * 0.06 });
+  // la bóveda: los arcos fajones gruesos que quedaron, con su nervadura y algas, y alguna plementería colgando
   for (let b = 0; b <= NB; b++) {
-    const u = U0 + b * BAY; if (b === 3) continue;
-    const R2 = N.sub(0, u, HM); arcoOjiva(R2, WN * 2, 0, 0, 4.4, PI, 0.08);
-    algas(R2, -WN * 0.6, WN * 0.6, 3, 90 - Math.abs(b - 3) * 6, 5, 70);
+    if (b === 3) continue;
+    const u = U0 + b * BAY, R2 = N.sub(0, u, HM), q = ojiva(WN * 2, 0, 0.85, 9);
+    for (let i = 2; i < q.length - 1; i++) { N.palo([q[i][0], u, HM + q[i][1]], [q[i + 1][0], u, HM + q[i + 1][1]], 9, { mat: PI, tono: 0.06 }); N.palo([q[i][0], u + 6, HM + q[i][1] - 4], [q[i + 1][0], u + 6, HM + q[i + 1][1] - 4], 4, { mat: PI, tono: -0.04 }); }
+    algas(R2, -WN * 0.6, WN * 0.6, 8, 120 - Math.abs(b - 3) * 10, 7, 90);
   }
-  N.palo([0, U0, HM + 128], [0, U1, HM + 128], 3.4, { mat: PI, tono: 0.06 });
-  // ------------------------------------------------------------ la fachada: el muro alto, el hueco del rosetón con la campana trabada
+  // un trozo de plementería que no se cayó, entre los dos primeros arcos
+  N.poli([[-WN, U0 + BAY * 4, HM + 4], [-WN * 0.2, U0 + BAY * 4, HM + 150], [-WN, U1, HM + 4], [-WN * 0.2, U1, HM + 150], [-WN, U0 + BAY * 4, HM + 16], [-WN * 0.2, U0 + BAY * 4, HM + 160], [-WN, U1, HM + 16], [-WN * 0.2, U1, HM + 160]], { mat: PI, tono: -0.08 });
+  // ------------------------------------------------------------ la fachada: el muro alto, el rosetón roto con la campana trabada, el pórtico
   {
-    const UF0 = U1 + 8;
-    N.caja(0, UF0, 0, WN * 2 + 40, 26, 330, { mat: PI });
-    N.poli([[-WN - 20, UF0 - 13, 330], [WN + 20, UF0 - 13, 330], [-WN - 20, UF0 + 13, 330], [WN + 20, UF0 + 13, 330], [-30, UF0 - 13, 380], [-30, UF0 + 13, 380], [-60, UF0, 372], [10, UF0, 360]], { mat: PI, tono: 0.04 });
-    N.caja(40, UF0, 330, 70, 40, 60, { mat: PI, resta: true }); N.caja(-WN - 4, UF0, 250, 30, 40, 90, { mat: PI, resta: true });
-    // el hueco del rosetón: un agujero redondo roto, con la campana grande que se cayó y quedó trabada
-    N.sub(0, UF0, 250, 0, 90, 'x').cil(0, 0, -20, 50, 40, { mat: PI, resta: true });
-    N.sub(0, UF0 + 12, 250, 0, 90, 'x').cil(0, 0, 0, 54, 3, { mat: PI, tono: 0.08, r1: 50 });
-    campana(N.sub(-6, UF0 + 4, 282), [0, 0, 0], [0.34, 0.42, -0.84], 40, BR);
-    algas(N, -40, 40, UF0 + 14, 206, 8, 60);
-    // el pórtico: el arco apuntado hondo con sus roscas, adelante, y la puerta de la marea
-    const UP = 214, AR = 40;
-    N.caja(0, (UF0 + UP) / 2, 0, AR * 2 + 52, UP - UF0, 170, { mat: PI, tono: 0.02 });
-    N.poli([[-AR - 26, UF0, 170], [AR + 26, UF0, 170], [-AR - 26, UP, 170], [AR + 26, UP, 170], [0, UF0, 226], [0, UP, 226], [0, UF0, 224], [0, UP, 224]], { mat: PI, tono: 0.06 });
-    N.caja(0, UP - 30, -40, AR * 2, 80, 156, { mat: PI, resta: true }); const pt = ojiva(AR * 2, 116, 0.85, 6, 0); N.poli([...pt.map(([x, z]) => [x, UP + 5, z] as V3), ...pt.map(([x, z]) => [x, UP - 66, z] as V3)], { mat: PI, resta: true });
-    for (let r = 0; r < 3; r++) arcoOjiva(N.sub(0, UP - 1 - r * 7, 0), AR * 2 + 10 + r * 12, 116, 0, 3.4, PI, 0.08 - r * 0.03);
-    N.caja(0, UP - 64, 0, AR * 2, 2, 150, { mat: AN, tono: -0.05 + p * 0.1 });
-    for (let i = 0; i < 6; i++) N.caja(0, UP - 8 - i * 9, 26 - i * 9, AR * 2 - 4, 9, 2, { mat: PI, tono: -0.1 - i * 0.04 });
-    letras(N.sub(0, UP + 0.4, 0), -AR - 18, AR + 18, 0, 196, 2, PI, 4.6, 2);
-    percebes(N.sub(0, UP + 1, 0), -AR - 24, AR + 24, 2, 60, 0, 40); algas(N, -AR - 20, AR + 20, UP + 2, 170, 10, 46);
-    // los corales que le crecen al pórtico y las estrellas de mar
-    for (let k = 0; k < 8; k++) { const x = (k < 4 ? -1 : 1) * (AR + 14 + a.r() * 10), z = 10 + a.r() * 70; for (let j = 0; j < 4; j++) N.palo([x, UP + 2, z], [x + (a.r() - 0.5) * 12, UP + 6 + a.r() * 6, z + 6 + a.r() * 10], 1.2, { mat: CO, r1: 0.6 }); }
+    const UF0 = U1 + 10;
+    N.caja(0, UF0, 0, WN * 2 + 52, 30, 400, { mat: PI });
+    N.poli([[-WN - 26, UF0 - 15, 400], [WN + 26, UF0 - 15, 400], [-WN - 26, UF0 + 15, 400], [WN + 26, UF0 + 15, 400], [-40, UF0 - 15, 470], [-40, UF0 + 15, 470], [-70, UF0, 460], [0, UF0, 450]], { mat: PI, tono: 0.04 });
+    N.caja(50, UF0, 400, 90, 40, 80, { mat: PI, resta: true });
+    for (const s of [-1, 1]) { const c = N.sub(s * (WN + 30), UF0 + 4, 0); tronco(c, 0, 0, 0, 380, 40, 40, 30, 30, { mat: PI }); c.poli([[-14, -14, 380], [14, -14, 380], [-14, 14, 380], [14, 14, 380], [0, 0, s < 0 ? 450 : 410]], { mat: PI, tono: 0.08 }); percebes(c.sub(0, 21, 0), -18, 18, 30, 140, 0, 14); }
+    // el rosetón: el hueco redondo roto, su marco con la tracería que queda, y la campana grande de bronce trabada en él
+    N.sub(0, UF0, 270, 0, 90, 'x').cil(0, 0, -20, 62, 40, { mat: PI, resta: true });
+    aro(N.sub(0, UF0 + 16, 0), 0, 270, 66, 5, PI, 0, TAU, 40, 0, 0.08); aro(N.sub(0, UF0 + 16, 0), 0, 270, 30, 3, PI, 0.4, 3.6, 20, 0, 0.06);
+    for (let k = 0; k < 8; k++) { const t = (k / 8) * TAU; if (k === 1 || k === 2) continue; N.palo([Math.cos(t) * 30, UF0 + 16, 270 + Math.sin(t) * 30], [Math.cos(t) * 64, UF0 + 16, 270 + Math.sin(t) * 64], 2.4, { mat: PI, tono: 0.06 }); }
+    campana(N.sub(-4, UF0 + 10, 330), [0, 0, 0], [0.32, 0.4, -0.86], 50, BR);
+    algas(N, -50, 50, UF0 + 18, 220, 10, 70);
   }
-  // ------------------------------------------------------------ el campanario: sin aguja, ladeado sobre la plaza, las campanas a la vista
+  // ------------------------------------------------------------ el pórtico: lo único que sigue en alto, a ras del agua, delante de la fachada hundida
   {
-    const T = F.sub(158, -40, -10, 0, 15, 'y').sub(0, 0, 0, 0, 10, 'x');
-    tronco(T, 0, 0, 0, 380, 86, 86, 74, 74, { mat: PI });
-    for (let k = 0; k < 5; k++) T.caja(0, 0, 60 + k * 64, 90 - k * 3, 90 - k * 3, 6, { mat: PI, tono: 0.08 });
-    // el cuerpo de campanas: cuatro vanos abiertos con sus campanas colgando y el agua que chorrea
-    T.caja(0, 0, 380, 80, 80, 80, { mat: PI });
-    for (const [x, y, gi] of [[0, 40, 0], [40, 0, 90]] as number[][]) { T.caja(x, y, 386, gi ? 12 : 44, gi ? 44 : 12, 66, { mat: PI, resta: true }); }
-    T.caja(0, 0, 386, 44, 44, 66, { mat: PI, resta: true });
-    campana(T.sub(0, 2, 410), [0, 0, 40], [0, 0, -1], 18, BR); campana(T.sub(14, -10, 420), [0, 0, 30], [0, 0, -1], 11, BR);
-    T.palo([-30, 0, 452], [30, 0, 452], 2.6, { mat: 'madera' });
-    // la corona rota (sin aguja: se la llevó el mar), las algas, los percebes y la cadena del ancla enrollada
-    for (let k = 0; k < 8; k++) T.caja(-32 + (k % 4) * 21, k < 4 ? -32 : 32, 460, 14, 14, 10 + a.r() * 26, { mat: PI, tono: 0.04 });
-    algas(T, -40, 40, 43, 380, 10, 90); percebes(T.sub(0, 43.5, 0), -38, 38, 2, 120, 0, 40);
-    let q: V3 = [46, 30, 20]; for (let k = 0; k < 26; k++) { const t = k * 0.6, n: V3 = [Math.cos(t) * 48, Math.sin(t) * 48, 20 + k * 10]; cadena(T, q, n, 0.4, HI, 2.6); q = n; }
+    const P = F;
+    // el pórtico: el arco apuntado hondo con sus roscas y la puerta de la marea
+    const UP = 214, AR = 44;
+    P.caja(0, (130 + UP) / 2, 0, AR * 2 + 60, UP - 130, 190, { mat: PI, tono: 0.02 });
+    P.poli([[-AR - 30, 130, 190], [AR + 30, 130, 190], [-AR - 30, UP, 190], [AR + 30, UP, 190], [0, 130, 250], [0, UP, 250], [0, 130, 248], [0, UP, 248]], { mat: PI, tono: 0.06 });
+    const pt = ojiva(AR * 2, 128, 0.85, 7, 0); P.poli([...pt.map(([x, z]) => [x, UP + 5, z] as V3), ...pt.map(([x, z]) => [x, UP - 70, z] as V3)], { mat: PI, resta: true });
+    for (let r = 0; r < 4; r++) arcoOjiva(P.sub(0, UP - 1 - r * 7, 0), AR * 2 + 10 + r * 12, 128, 0, 3.6, PI, 0.08 - r * 0.03);
+    P.caja(0, UP - 68, 0, AR * 2, 2, 170, { mat: AN, tono: -0.05 + p * 0.1 });
+    for (let i = 0; i < 7; i++) P.caja(0, UP - 8 - i * 9, 8 - i * 1.6, AR * 2 - 4, 9, 2, { mat: PI, tono: -0.1 - i * 0.04 });
+    letras(P.sub(0, UP + 0.4, 0), -AR - 20, AR + 20, 0, 214, 2, PI, 4.6, 2);
+    percebes(P.sub(0, UP + 1, 0), -AR - 28, AR + 28, 2, 60, 0, 40); algas(N, -AR - 24, AR + 24, UP + 2, 190, 12, 50);
+    for (let k = 0; k < 8; k++) { const x = (k < 4 ? -1 : 1) * (AR + 16 + a.r() * 12), z = 4 + a.r() * 60; for (let j = 0; j < 4; j++) P.palo([x, UP + 2, z], [x + (a.r() - 0.5) * 12, UP + 6 + a.r() * 6, z + 6 + a.r() * 10], 1.2, { mat: CO, r1: 0.6 }); }
+  
   }
-  // ------------------------------------------------------------ la calzada de losas entre el agua hasta el pórtico, y lo que dejó la marea
-  for (let k = 0; k < 6; k++) bloque(F, (a.r() - 0.5) * 6, 160 + k * 10, -1, 64 - k * 2, 9, 3, { mat: PI, tono: -0.12, b: 0.6, j: 0.5, giro: (a.r() - 0.5) * 6 });
-  cascotes(F, 10, 120, 30, PI, -40, 120, 4);
-  for (let k = 0; k < 5; k++) calavera(F.sub(-120 + a.r() * 240, 120 + a.r() * 60, 1, a.r() * 360), 3.2, 'mu_hueso', k % 2 === 0, -0.1);
+  // ------------------------------------------------------------ el campanario: sin aguja, ladeado sobre el agua, las campanas a la vista
+  {
+    const T = F.sub(176, -60, -40, 0, 16, 'y').sub(0, 0, 0, 0, 10, 'x');
+    tronco(T, 0, 0, 0, 420, 96, 96, 82, 82, { mat: PI });
+    for (let k = 0; k < 6; k++) T.caja(0, 0, 80 + k * 64, 100 - k * 3, 100 - k * 3, 6, { mat: PI, tono: 0.08 });
+    T.caja(0, 0, 420, 88, 88, 90, { mat: PI });
+    T.caja(0, 0, 426, 50, 100, 74, { mat: PI, resta: true }); T.caja(0, 0, 426, 100, 50, 74, { mat: PI, resta: true });
+    campana(T.sub(0, 2, 454), [0, 0, 40], [0, 0, -1], 20, BR); campana(T.sub(16, -12, 462), [0, 0, 30], [0, 0, -1], 12, BR);
+    T.palo([-34, 0, 494], [34, 0, 494], 3, { mat: 'madera' });
+    for (let k = 0; k < 8; k++) T.caja(-36 + (k % 4) * 24, k < 4 ? -36 : 36, 510, 16, 16, 12 + a.r() * 30, { mat: PI, tono: 0.04 });
+    algas(T, -44, 44, 49, 420, 12, 100); percebes(T.sub(0, 49.5, 0), -44, 44, 40, 160, 0, 40);
+    let q: V3 = [50, 30, 40]; for (let k = 0; k < 26; k++) { const t = k * 0.6, n: V3 = [Math.cos(t) * 54, Math.sin(t) * 54, 40 + k * 10]; cadena(T, q, n, 0.4, HI, 2.8); q = n; }
+  }
+  for (let k = 0; k < 5; k++) calavera(F.sub(-120 + a.r() * 240, 140 + a.r() * 50, 1, a.r() * 360), 3.2, 'mu_hueso', k % 2 === 0, -0.1);
   return {
-    der: { c: [0, 170, 70] as V3, r: 90 + p * 12, color: '#4ad89a' },
-    medio: { c: [0, -40, 100] as V3, r: 150 + p * 20, color: '#3ac888' },
-    atras_d: { c: [160, -40, 440] as V3, r: 70 + p * 10, color: '#4ad89a' },
+    der: { c: [0, 180, 60] as V3, r: 100 + p * 12, color: '#4ad89a' },
+    medio: { c: [0, -60, 120] as V3, r: 170 + p * 20, color: '#3ac888' },
+    atras_d: { c: [176, -60, 460] as V3, r: 70 + p * 10, color: '#4ad89a' },
   };
 }
 registrarMonumento({
@@ -148,30 +165,34 @@ registrarMonumento({
   armar: (F, v, f) => { const r = armar(F, v, f); const o: Record<string, { c: V3; r: number; color: string }> = {}; for (const [k, l] of Object.entries(r)) { const [x, y] = deAvenida(l.c[0], l.c[1]); o[k] = { ...l, c: [x, y, l.c[2]] }; } return o; },
 });
 
-// ================================================================== las plañideras de sal
-/** Una mujer de sal arrodillada, enorme, que se tapa la cara; los percebes le suben por el manto y le cuelgan algas. */
+// ================================================================== los pilares de los ahogados
+/** Lo que quedó del claustro: un pilar gótico de haz de columnillas, con su capitel de cabezas que gritan, el pináculo partido,
+ *  un brazo de hierro con la campana de los ahogados colgando y su farol verde; la base comida de percebes en el agua. Uno se
+ *  ladea, al otro le falta el pináculo. */
+function pilar(g: G, ladeado: boolean) {
+  const a = g.a, P = ladeado ? g.sub(0, 0, 0, 0, 9, 'y') : g;
+  g.elip(0, 0, 0.6, 50, 44, 2, { mat: AG }); for (let k = 0; k < 8; k++) { const t = (k / 8) * TAU; bloque(g, Math.cos(t) * 30, Math.sin(t) * 26, -4, 14, 10, 8 + a.r() * 8, { mat: PI, giro: (t * 180) / Math.PI, incl: 20, b: 1, j: 0.6 }); }
+  // la base en dos escalones y el haz de ocho columnillas
+  P.cil(0, 0, -4, 30, 26, { mat: PI, r1: 26 }); P.cil(0, 0, 22, 24, 10, { mat: PI, r1: 21, tono: 0.04 });
+  for (let k = 0; k < 8; k++) { const t = (k / 8) * TAU; P.cil(Math.cos(t) * 14, Math.sin(t) * 14, 30, 5.6, 230, { mat: PI, tono: (k % 2) * 0.05 }); }
+  P.cil(0, 0, 30, 13, 230, { mat: PI, tono: -0.06 });
+  // el capitel con las cabezas que gritan y el ábaco
+  P.cil(0, 0, 258, 18, 14, { mat: PI, r1: 26, tono: 0.06 }); P.caja(0, 0, 272, 56, 56, 8, { mat: PI, tono: 0.1 });
+  for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU + 0.785, c = P.sub(Math.cos(t) * 20, Math.sin(t) * 20, 262, (t * 180) / Math.PI + 90); c.elip(0, 2, 0, 5, 4, 6, { mat: PI, tono: 0.08 }); c.elip(0, 5.4, -2, 2, 1, 2.6, { mat: 'negro' }); for (const e of [-1, 1]) c.elip(e * 2, 5, 2, 1, 0.6, 0.9, { mat: 'negro' }); }
+  // el pináculo con su crestería (o el muñón roto)
+  if (!ladeado) { P.cil(0, 0, 280, 18, 10, { mat: PI }); for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU; P.poli([[Math.cos(t) * 18 - 4, Math.sin(t) * 18 - 4, 290], [Math.cos(t) * 18 + 4, Math.sin(t) * 18 - 4, 290], [Math.cos(t) * 18 - 4, Math.sin(t) * 18 + 4, 290], [Math.cos(t) * 18 + 4, Math.sin(t) * 18 + 4, 290], [Math.cos(t) * 18, Math.sin(t) * 18, 320]], { mat: PI, tono: 0.08 }); } P.poli([[-12, -12, 290], [12, -12, 290], [-12, 12, 290], [12, 12, 290], [0, 0, 380]], { mat: PI, tono: 0.06 }); }
+  else { P.cil(0, 0, 280, 18, 26, { mat: PI, r1: 14 }); for (let k = 0; k < 5; k++) bloque(g, 30 + k * 8, -10 + k * 6, 0, 10, 8, 6, { mat: PI, giro: k * 40, b: 0.6, j: 0.4 }); }
+  // el brazo de hierro, la campana de los ahogados y el farol verde
+  P.palo([0, 0, 250], [0, 44, 250], 2.4, { mat: HI }); P.palo([0, 6, 236], [0, 40, 250], 1.4, { mat: HI });
+  cadena(P, [0, 42, 248], [0, 42, 226], 0.4, HI, 1.2); campana(P.sub(0, 42, 222), [0, 0, 0], [0, 0, -1], 13, BR);
+  P.cil(0, 42, 196, 4, 10, { mat: HI, r1: 3.4 }); P.cil(0, 42, 197, 3.2, 8, { mat: AN, tono: 0.2 });
+  // los percebes, los corales y las algas de la marea
+  percebes(P.sub(0, 26, 0), -22, 22, 0, 60, 0, 40); algas(P, -18, 18, 22, 276, 8, 60);
+  for (let k = 0; k < 6; k++) { const t = a.r() * TAU, x = Math.cos(t) * 24, y = Math.sin(t) * 24; for (let j = 0; j < 3; j++) P.palo([x, y, 10 + k * 6], [x + (a.r() - 0.5) * 10, y + (a.r() - 0.5) * 10, 18 + k * 6 + a.r() * 8], 1.2, { mat: CO, r1: 0.5 }); }
+}
 registrar({
-  id: 'mon_ys_planidera', nombre: ['Plañidera de sal', 'Salt mourner'], tema: 'ahogada', variantes: ['izq', 'der'], huella: [6, 6], bloquea: true,
-  armar: (v, _f, a) => {
-    const { ps, g } = raiz(a, -45);
-    bloque(g, 0, 0, 0, 120, 110, 14, { mat: PI, b: 2, j: 1, tono: -0.1 }); g.elip(0, 0, 14, 64, 58, 3, { mat: AG, tono: 0.05 });
-    // la figura arrodillada y encorvada, el manto que se derrama en el piso, la cabeza velada que cae hacia adelante y las dos
-    // manos sobre la cara (masas de sal, lisas, con los pliegues cavados)
-    const S = g.sub(0, 0, 14, v === 'der' ? 14 : -14).esc(4.4), SA = 'mon_ys_sal', cs: Comp[] = [], cb: Comp[] = [];
-    cs.push(S.bu([0, -2, 5], [17, 15, 7]), S.bu([0, 1, 9], [13, 11, 8]), S.hu([0, -1, 12], [0, 2.5, 30], 9.4, 7), S.bu([0, 1.6, 29], [10.4, 6.6, 5.4]));
-    S.masa(cs, { mat: SA, suave: 2.4 });
-    for (let i = 0; i < 9; i++) { const t = -1.2 + i * 0.3; S.palo([Math.sin(t) * 17, Math.cos(t) * 15 - 2, 1], [Math.sin(t) * 9, Math.cos(t) * 7 + 1, 22], 0.6, { mat: SA, resta: true }); }
-    // la cabeza velada, adelantada y baja, y el velo que cae por la espalda
-    cb.push(S.bu([0, 5.4, 35.4], [4.6, 5.2, 5.4]), S.hu([0, 3, 37], [0, -3.6, 26], 4.6, 6.4), S.hu([0, 1, 32], [0, 4.6, 35], 3, 3));
-    for (const sx of [-1, 1]) cb.push(S.hu([sx * 8.4, 1, 29], [sx * 7, 6.6, 21], 2.8, 2.4), S.hu([sx * 7, 6.6, 21], [sx * 2.4, 9.6, 33], 2.4, 2), S.bu([sx * 1.8, 10.2, 35], [2.2, 1.6, 3]));
-    S.masa(cb, { mat: SA, suave: 1.4 });
-    for (const sx of [-1, 1]) for (let k = 0; k < 3; k++) S.palo([sx * (0.8 + k * 1.1), 11.6, 37.4], [sx * (0.6 + k * 1.1), 11.6, 33.6], 0.3, { mat: SA, resta: true });
-    // la sal que le cae de los hombros y el velo en costras, y lo que dejó el mar en ella
-    for (let k = 0; k < 6; k++) S.elip((k - 2.5) * 3, -2 + (k % 2), 33 + (k % 3), 2.6, 2.2, 1.2, { mat: 'mon_ys_espuma', tono: 0.1 });
-    percebes(g.sub(0, 30, 14), -40, 40, 0, 50, 0, 40); algas(g, -30, 30, 26, 150, 8, 70);
-    for (let k = 0; k < 6; k++) g.palo([-40 + k * 16, 28, 14], [-38 + k * 16, 36, 30 + (k % 3) * 8], 1.6, { mat: CO, r1: 0.6 });
-    bajoTierra(ps); return ps;
-  },
+  id: 'mon_ys_pilar', nombre: ['Pilar de los ahogados', 'Pillar of the drowned'], tema: 'ahogada', variantes: ['entero', 'ladeado'], huella: [5, 5], bloquea: true, cuadros: 1,
+  armar: (v, _f, a) => { const { ps, g } = raiz(a, -45); pilar(g, v === 'ladeado'); bajoTierra(ps); return { piezas: ps, resplandor: { c: [0, 30, 200] as V3, r: 50, color: '#4ad89a' } }; },
 });
 
 // ================================================================== los faroles de los marinos

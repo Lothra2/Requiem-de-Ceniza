@@ -2418,6 +2418,40 @@ const CINE: Record<string, (o: AudioNode, t: number, p: number) => number> = {
   // la Marca: un dron grave que late
   dron_marca(o, t) { organoCine(o, t, [26, 38], 10, 0.09, 380); return 13; },
   // el cartel del acto que empieza: timbal, órgano entero y el coro arriba
+  // ---- acto 2: el desierto (frigio dominante sobre mi: mi, fa, sol#, la, si, do, re)
+  // el dron del desierto con un laúd pulsado que dibuja la escala, lento y con sus silencios
+  desierto(o, t, p) {
+    organoCine(o, t, [28, 35, 40].map((n) => n + 12 * Math.log2(p)), 10, 0.08, 520);
+    const esc = [52, 53, 56, 57, 59, 60, 62, 64], fr = [0, 1, 2, 1, 0, 4, 3, 2, 1, 0, 1, 0];
+    fr.forEach((k, i) => { const tt = t + 0.6 + i * 0.75 + (i % 3 === 2 ? 0.3 : 0); const f = mtof(esc[k]) * p, g = gan(0, o); env(g.gain, tt, 0.004, 0.06, 0.9); const lp = filt('lowpass', 2200, 1.2, g); osc('sawtooth', f, tt, tt + 1, lp); osc('triangle', f * 2.001, tt, tt + 0.6, gan(0.3, lp)); });
+    return 12;
+  },
+  // el viento con arena: un soplo que sube y baja, y el siseo del grano
+  viento_arena(o, t) {
+    const g = gan(0, o); envSost(g.gain, t, 1.2, 0.14, 4, 2.5); const b = filt('bandpass', 500, 0.8, g);
+    b.frequency.setValueAtTime(400, t); b.frequency.linearRampToValueAtTime(900, t + 2.5); b.frequency.linearRampToValueAtTime(350, t + 6); ruido(t, t + 7, b, ROSA);
+    const g2 = gan(0, o); envSost(g2.gain, t + 0.5, 1, 0.05, 4, 2); ruido(t, t + 7.5, filt('highpass', 5000, 0.7, g2), BLANCO);
+    return 8;
+  },
+  // la arena que se escurre de un cuerpo que se deshace
+  arena_cae(o, t) { const g = gan(0, o); envSost(g.gain, t, 0.15, 0.16, 1.8, 1.4); ruido(t, t + 3.6, filt('bandpass', 3800, 1.5, g), BLANCO); for (let i = 0; i < 20; i++) chasquido(o, t + i * al(0.05, 0.16), al(2500, 6000), 4, al(0.03, 0.08), 0.02); return 4; },
+  // la sombra que se arrastra: un roce grave al revés, que crece y se corta
+  sombra(o, t) {
+    const g = gan(0, o); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 2.4); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.7);
+    const lp = filt('lowpass', 300, 2, g); lp.frequency.setValueAtTime(200, t); lp.frequency.exponentialRampToValueAtTime(900, t + 2.4); ruido(t, t + 2.8, lp, MARRON);
+    coroCine(o, t, [41, 42], 2.4, 0.05, 'u'); return 5;
+  },
+  // ---- acto 3: el agua y la selva
+  // el coro sobre el agua: alto, en u, con un brillo de vidrio encima
+  coro_agua(o, t) { coroCine(o, t, [64, 67, 71, 74], 9, 0.05, 'u'); organoCine(o, t, [40, 47], 9, 0.05, 420); for (let i = 0; i < 7; i++) campanaFM(o, t + 1 + i * 1.2, mtof([76, 79, 83, 86][i % 4]), 2.2, 0.025); return 12; },
+  // los tambores de la selva: un pulso lento que se apura, graves y de cuero, con el contratiempo de un tambor chico
+  tambores(o, t, p) {
+    let x = 0, dt = 0.7; const fin = 9 * p;
+    while (x < fin) { golpeSordo(o, t + x, 110, 48, 0.5, 0.55); const g = gan(0, o); env(g.gain, t + x, 0.002, 0.18, 0.12); ruido(t + x, t + x + 0.15, filt('bandpass', 260, 2, g), ROSA);
+      if (x > 2) { const tt = t + x + dt / 2; golpeSordo(o, tt, 210, 120, 0.22, 0.18); }
+      x += dt; dt = Math.max(0.28, dt * 0.95); }
+    return fin + 1;
+  },
   titulo(o, t) { timbalCine(o, t, 0.85); organoCine(o, t, [40, 47, 52, 56, 59], 6.5, 0.1, 1600); coroCine(o, t + 0.2, [64, 68, 71], 6, 0.06, 'a'); return 9; },
 };
 

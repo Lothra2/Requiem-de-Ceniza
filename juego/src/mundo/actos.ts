@@ -757,6 +757,14 @@ export const PELICULA: Record<number, LineaPelicula[]> = {
     { es: 'Tomó el camino del sur, hacia Sahrim, donde los reyes no mueren. Solo duermen.', en: 'It took the southern road, toward Sahrim, where kings do not die. They only sleep.' },
     { es: 'Y en tu brazo, la Marca se calentó un poco más.', en: 'And on your arm, the Mark grew a little warmer.' },
   ],
+  2: [
+    { es: 'Khamer-Ul volvió al polvo.', en: 'Khamer-Ul went back to dust.' },
+    { es: 'Su sombra no lo esperó. Se fue con la brasa.', en: 'His shadow did not wait for him. It left with the ember.' },
+    { es: 'Cruzó el desierto hacia el este, donde la selva respira y el agua sangra.', en: 'It crossed the desert eastward, where the jungle breathes and the water bleeds.' },
+    { es: 'Oyá soltó las amarras. Nadie habló en todo el viaje.', en: 'Oya cast off. No one spoke the whole way.' },
+    { es: 'Detrás de la barca, algo pálido caminaba sobre el agua, cantando.', en: 'Behind the boat, something pale walked on the water, singing.' },
+    { es: 'En Yhuantl, los tambores empezaron a sonar solos.', en: 'In Yhuantl, the drums began to beat on their own.' },
+  ],
 };
 /** ¿Ese acto cierra con su película del motor? (`__cineViejo` vuelve a la cinemática y al entreacto de antes) */
 export const conPelicula = (acto: number) => !!PELICULA[acto] && !(globalThis as any).__cineViejo;

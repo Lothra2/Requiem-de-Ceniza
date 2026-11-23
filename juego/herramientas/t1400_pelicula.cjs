@@ -31,7 +31,7 @@ const VESTIR = `const O = window.__T.O; let u = 7000;
   if (!process.env.SIN_ROSTRO) for (let i = 0; i < 400; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__rostroListo())) break; }
   console.log('primer plano listo:', await p.evaluate(() => window.__rostroListo()), 'en', ((Date.now() - t0w) / 1000).toFixed(0), 's');
   await p.evaluate(() => window.__cineT(0));
-  const tomas = await p.evaluate(async (a) => { const M = await import('/src/ui/cine_acto1.ts'); return M.CINE_ACTO1.tomas.map((t) => [t.id, t.dur]); }, acto);
+  const tomas = await p.evaluate(async (a) => { const M = await import('/src/ui/cine_acto' + a + '.ts'); return M['CINE_ACTO' + a].tomas.map((t) => [t.id, t.dur]); }, acto);
   const total = tomas.reduce((s, t) => s + t[1], 0);
   console.log('tomas', JSON.stringify(tomas), 'total', total);
   if (process.env.COSTO) {

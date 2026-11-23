@@ -35,7 +35,7 @@ export interface CamClave { t: number; x: number; y: number; alt?: number; zoom?
 export type AccActor = 'quieto' | 'caminar' | 'correr' | 'atacar' | 'lanzar' | 'herido' | 'morir' | 'especial';
 /** Una clave de un actor: dónde está a ese segundo (si se da), qué hace desde ahí (`acc`) y a qué ritmo corre su animación (`ritmo`, 1 el del juego), hacia dónde mira (`dir`, o `mira` un punto) y su alfa. */
 export interface ActorClave { t: number; x?: number; y?: number; acc?: AccActor; dur?: number; ritmo?: number; bucle?: boolean; dir?: Dir; mira?: [number, number]; alfa?: number; c?: Curva }
-export interface Actor { id: string; tipo: 'heroe' | 'thor' | 'mon'; mon?: string; claves: ActorClave[]; /** Sin el tinte de su ficha (Vesperio pálido): lo pinta la luz de la toma. */ sinTinte?: boolean; /** Un tinte propio (la sombra que le baja lo pálido), con su fuerza. */ sombra?: [string, number] }
+export interface Actor { id: string; tipo: 'heroe' | 'thor' | 'mon' | 'sprite'; mon?: string; /** 'sprite': un cuerpo horneado cualquiera (la gente del campamento, que no son monstruos). */ sprite?: string; claves: ActorClave[]; /** Sin el tinte de su ficha (Vesperio pálido): lo pinta la luz de la toma. */ sinTinte?: boolean; /** Un tinte propio (la sombra que le baja lo pálido), con su fuerza. */ sombra?: [string, number] }
 /**
  * La luz de cine: todo se hunde (`hundir`, 0 a 1) menos un pozo de luz sobre lo que importa (un actor por su id, la brasa o
  * un punto relativo al ancla), a `z` puntos del dibujo sobre el piso y de radio `r` puntos del dibujo.
@@ -59,6 +59,8 @@ export interface Toma {
   id: string; dur: number;
   /** La zona (id de ZONAS). Sin zona la toma no pinta mundo (un primer plano o un cartel, con su `pantalla`). */
   zona?: string;
+  /** Piezas que la toma pone en la zona (`id|v`): se bajan con lo demás. */
+  objetos?: string[];
   /** El ancla dentro de la zona (casillas): todo lo de la toma es relativo a ella. */
   ancla?: (z: Zona) => [number, number];
   cam?: CamClave[];
@@ -113,9 +115,9 @@ export function heroeMuestra(): DatosHeroe { const d = nuevoHeroe('templario', '
 const semillaDe = (d: DatosHeroe, zid: string) => (hashTxt(d.id + zid) % 100000) + (hashTxt(zid + d.id + (d.ciclo ?? 0)) % 1000);
 
 /** Lo que hay que bajar para una zona y sus actores. */
-function atlasDeEscena(z: Zona, d: DatosHeroe, sprites: Set<string>): Set<string> {
+function atlasDeEscena(z: Zona, d: DatosHeroe, sprites: Set<string>, extra: string[] = []): Set<string> {
   const m: any = manifiesto(), s = new Set<string>();
-  const ids = new Set<string>();
+  const ids = new Set<string>(extra);
   for (const o of z.objetos) ids.add(`${o.id}|${o.v}`);
   for (const sa of z.salidas) for (const o of sa.piezas ?? []) ids.add(`${o.id}|${o.v}`);
   for (const k of ids) for (const e of m.o?.[k]?.f ?? []) s.add(e[0]);
@@ -126,7 +128,7 @@ function atlasDeEscena(z: Zona, d: DatosHeroe, sprites: Set<string>): Set<string
   for (const k of Object.keys(m.o ?? {})) if (k.startsWith('gore_') && !k.startsWith('gore_pared')) for (const e of m.o[k].f) s.add(e[0]);
   return s;
 }
-const spriteDe = (a: Actor, d: DatosHeroe) => a.tipo === 'thor' ? spriteThor(aspectoThor(d)).sprite : a.tipo === 'mon' ? MONSTRUOS[a.mon!]?.sprite : null;
+const spriteDe = (a: Actor, d: DatosHeroe) => a.tipo === 'thor' ? spriteThor(aspectoThor(d)).sprite : a.tipo === 'mon' ? MONSTRUOS[a.mon!]?.sprite : a.tipo === 'sprite' ? a.sprite! : null;
 
 /**
  * Prepara una película: genera sus zonas (de a una, sin trabar el cuadro) y baja lo que pinta. Se puede llamar de antemano
@@ -136,7 +138,8 @@ export function prepararPelicula(g: Guion, d: DatosHeroe) {
   if (guionVivo === g && heroeVivo?.id === d.id && (listo || cargando)) return;
   guionVivo = g; heroeVivo = d; listo = false; cargando = true; tPide = performance.now(); omitidas.clear(); escenas.clear(); tomaViva = -1; estado = null;
   const zonas = [...new Set(g.tomas.map((t) => t.zona).filter(Boolean) as string[])];
-  const sprites = new Map<string, Set<string>>();
+  const sprites = new Map<string, Set<string>>(), extra = new Map<string, string[]>();
+  for (const t of g.tomas) if (t.zona && t.objetos) extra.set(t.zona, [...(extra.get(t.zona) ?? []), ...t.objetos]);
   for (const t of g.tomas) if (t.zona) for (const a of t.actores ?? []) { const sp = spriteDe(a, d); if (sp) (sprites.get(t.zona) ?? sprites.set(t.zona, new Set()).get(t.zona)!).add(sp); }
   const yo = g;
   (async () => {
@@ -150,7 +153,7 @@ export function prepararPelicula(g: Guion, d: DatosHeroe) {
       j.zona = z; (j as any).sinAntorcha = true; (j as any).lucesCine = [];
       j.heroe.x = -500; j.heroe.y = -500;
       escenas.set(id, { z, j });
-      for (const a of atlasDeEscena(z, d, sprites.get(id) ?? new Set())) todo.add(a);
+      for (const a of atlasDeEscena(z, d, sprites.get(id) ?? new Set(), extra.get(id))) todo.add(a);
     }
     // (con los retratos del primer plano)
     for (const a of atlasDe('r' as any, clavesCon('r' as any, `${d.clase}/`))) todo.add(a);
@@ -196,7 +199,7 @@ function montar(i: number): EstadoToma | null {
     z.oscuridad = tm.oscuridad ?? (ZONAS[z.id].oscuridad ?? z.oscuridad);
     for (const a of tm.actores ?? []) {
       if (a.tipo === 'heroe') { actores.set(a.id, j.heroe); continue; }
-      const def0 = a.tipo === 'thor' ? { ...MONSTRUOS.lobo_sombrio, id: 'thor', sprite: spriteThor(aspectoThor(d)).sprite, nombre: ['Thor', 'Thor'] as [string, string], jefe: false } : MONSTRUOS[a.mon!];
+      const def0 = a.tipo === 'thor' ? { ...MONSTRUOS.lobo_sombrio, id: 'thor', sprite: spriteThor(aspectoThor(d)).sprite, nombre: ['Thor', 'Thor'] as [string, string], jefe: false } : a.tipo === 'sprite' ? { ...MONSTRUOS.lobo_sombrio, id: 'cine_' + a.sprite, sprite: a.sprite!, tinte: undefined, escala: 1, jefe: false } : MONSTRUOS[a.mon!];
       if (!def0) continue;
       const m = crearMonstruo(def0 as any, 10, ax, ay, 0, 0);
       m.estado = 'dormido'; (m as any).cine = true;
@@ -438,5 +441,6 @@ export function soltarPelicula() { terminar(); escenas.clear(); guionVivo = null
 /** El estado de la toma viva (las pruebas). */
 (window as any).__peliJ = () => estado?.j;
 (window as any).__peliEstado = () => ({ listo, cargando, toma: tomaViva, escenas: [...escenas.keys()] });
+(window as any).__peliE = () => estado;
 export { soltarParticulas };
 (window as any).__peliLista = () => peliculaLista();

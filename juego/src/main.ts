@@ -14,6 +14,7 @@ import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from 
 import { dibujarCine, precargarCine, claveCine, claveFinal, marcasCine, hayCine, soltarCine } from './ui/cine';
 import { dibujarPelicula, prepararPelicula, peliculaLista, heroeMuestra, terminar as terminarPelicula, soltarPelicula, type Guion } from './ui/director';
 import { CINE_ACTO1 } from './ui/cine_acto1';
+import { CINE_ACTO2 } from './ui/cine_acto2';
 import { pedirRostro } from './ui/cine_rostro';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { dibujarHudForja } from './ui/hud_forja';
@@ -42,7 +43,7 @@ const DUR_CAIDA = 2.8;
 const JEFE_CIERRA: Record<string, number> = {};
 for (const m of MISIONES) if (m.cierraActo && m.objetivo.tipo === 'matar') JEFE_CIERRA[m.objetivo.monstruo] = m.acto;
 /** Las películas de cierre hechas en el motor (ui/director.ts), por acto. Las demás siguen con ui/cine.ts. */
-const PELICULAS: Record<number, Guion> = { 1: CINE_ACTO1 };
+const PELICULAS: Record<number, Guion> = { 1: CINE_ACTO1, 2: CINE_ACTO2 };
 /** El héroe de la película: el de la partida o uno de muestra (desde el menú). */
 let heroePeli: DatosHeroe | null = null;
 const peliDe = (clave: string) => { const m = /^peli_(\d)$/.exec(clave); return m ? PELICULAS[+m[1]] ?? null : null; };

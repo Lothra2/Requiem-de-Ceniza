@@ -24,7 +24,7 @@ export const MONUMENTOS: Record<string, Mon> = {
   // acto 4: la Boca del Aliento, el glaciar con el frente de los jarls y el barco preso en el hielo (baja a a4_hielo1)
   a4_glaciar: mon('mon_hrim', 'a4_hielo1', 'hielo', [['mon_hr_jarl', 'izq', 2, 18], ['mon_hr_jarl', 'der_viejo', 18, 2], ['mon_hr_brasero', 'encendido', 13, 11], ['mon_hr_brasero', 'encendido', 11, 13], ['mon_hr_escudos', 'helado', -5, 23], ['mon_hr_trineo', 'vacio', 23, -5]], '106,208,255', ['#8ad8ff', '#e0f6ff', '#9aa8b4']),
   // acto 5: la Fragua de Ozmaren, el volcán de columnas con la brasa en el cráter (baja a a5_fragua; el río de lava va por un costado)
-  a5_rio: mon('mon_fragua', 'a5_fragua', 'lava_grietas', [['mon_fr_brazo', 'martillo', 2, 18], ['mon_fr_brazo', 'tenazas', 18, 2], ['mon_fr_brasero', 'encendido', 13, 11], ['mon_fr_brasero', 'encendido', 11, 13], ['mon_fr_cadena', 'tirando', -5, 23], ['mon_fr_moldes', 'enfriando', 23, -5]], '255,122,36', ['#ff7a24', '#ffd080', '#5a4a40']),
+  a5_rio: mon('mon_fragua', 'a5_fragua', 'lava_grietas', [['mon_fr_yunque', 'martillo', 0, 21], ['mon_fr_yunque', 'tenazas', 21, 0], ['mon_fr_brasero', 'encendido', 13, 11], ['mon_fr_brasero', 'encendido', 11, 13], ['mon_fr_cadena', 'tirando', -5, 23], ['mon_fr_moldes', 'enfriando', 23, -5]], '255,122,36', ['#ff7a24', '#ffd080', '#5a4a40']),
 };
 
 /** El monumento de una zona (o nada con `__sinMonumentos`). */

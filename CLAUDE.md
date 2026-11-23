@@ -20,7 +20,7 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Mundos** (rama `mundos`, copia en `/home/user/requiem-mundos`, respaldada en origin): entregas 1 a 9 publicadas en main
   (la 9, atascos repetibles, sin espera larga con hueco y cuenta objetiva, `485f3c7`, 21 nov). Cada entrega tiene su sección
   abajo; lo flojo que queda, al final de la 9. La 10 (roca viva de minas y cuevas, 22 nov) se publicó en `63e3477` y su tercera vuelta (lo flojo cerrado) en `637fe0d`.
-- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2, 6, 7 y 3 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 4, 5 y 1.
+- **Cada zona con lo suyo** (rama `acto2`, 22 nov 2026): actos 2, 6, 7, 3 y 4 hechos (ver sus secciones). Siguen, con el mismo mecanismo, los actos 5 y 1.
 - **Libro de Odrán** (rama `odran`, publicado en `b4ef6bb`, 21 nov 2026): el Códice por hilos de la historia. Pendiente: que
   Rick lea y apruebe los textos nuevos de `juego/src/mundo/libro_cierres.ts` (cierres, notas al margen, pistas y nombres).
 - **Botín en evolución** (rama `botin`, 22 nov 2026): bases y grados de afijo por nivel, parte del botín para la clase, varas con
@@ -1167,6 +1167,38 @@ Vientre `templo` (el mismo muro de glifos con musgo, la misma arenisca y la mism
   palacio 38 y 34, escalones 43 y 40, vientre 45 y 34.
 - Fotos: `DIR=/tmp/requiem-pruebas/acto3` (antes con `BANDERAS=__acto3Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
   `lamina_<zona>.png` y `ext_lamina.png` (selva y manglar, antes arriba).
+- Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 8 zonas, t370 (288, 0
+  malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0 atascados,
+  0 pegados), t440, t450, t500, t1001 y t961.
+
+## Cada zona con lo suyo: el acto 4 (22 nov 2026)
+
+Los Picos y el Paso del Glaciar tenían `nieve` (la misma nieve con placas de hielo), las dos Minas de los Gigantes `mina`, la
+Grieta, las Cuevas del Aliento Helado y el Trono de Hjaldur `hielo` (la misma cueva de roca escarchada) y la Cripta del Rey
+Bárbaro era la cripta del acto 1 (`cripta`: lajas, nichos de calaveras, Santa Oria en el norte).
+
+- **Pisos nuevos** (`catalogo/acto4_pisos.ts`): nieve barrida sobre pizarra negra con liquen, el hielo azul del glaciar con
+  grietas hondas, la tierra negra del socavón con tablones y charcos, la roca de la veta con vetas de oro y mena roja, las losas
+  de pizarra del túmulo con escarcha y alguna runa, el hielo hondo de la grieta en capas, la roca escarchada en plumas y las
+  tablas heladas del salón.
+- **Muros nuevos** (`catalogo/acto4.ts`, tema `acto4`, con su fila en `ESQUINAS_MURO`): `a4_muro_tumulo` (piedra seca de pizarra
+  entre postes de madera, la tierra del túmulo encima con poca nieve, escudos con lanza, la losa con la sierpe de runas que
+  brilla) y `a4_muro_salon` (la pared de tablones de un gran salón del norte, postes tallados con cabezas de dragón, escudos,
+  y el hielo que se lo tragó: costras, carámbanos de la viga).
+- **El trazado**: `organica` en `VarianteZona` (`tematicaDe` la copia): con `null` una zona de un tema de cuevas sale con salas de
+  obra. El **Trono de Hjaldur** ahora es el salón (salas de 5 a 7, la mayor de 8 x 7, `limpio`), no otra cueva.
+- **Cada zona**: los **Picos** de nieve y pizarra con piedras rúnicas, hitos, túmulos, armas clavadas y pinos, gris de piedra; el
+  **Glaciar** de hielo azul con la senda de hielo viejo (`camino: 'hielo'`) y lenguas de nieve, seracs, cristales, soldados
+  presos, el mamut, azul frío; los **Socavones** inundados (tierra negra, tablones y charcos negros, sin haces, frío); la **Veta
+  Madre** con las vetas de oro, mineral, tolvas, el horno, haces y motas de oro; la **Cripta del Rey Bárbaro** un túmulo del norte
+  (losas de pizarra, el muro de piedra seca, piedras rúnicas, túmulos, cuernos y escudos, la horca de castigo, ámbar de
+  brasero); la **Grieta** de hielo hondo azul casi negro con seracs, columnas con presos y cristales; las **Cuevas del Aliento
+  Helado** de roca cubierta de escarcha blanca, osamentas, fuego azul, gris blanco; el **Trono** con tablas heladas, el muro del
+  salón, pilares rúnicos, estatuas de hielo, braseros y el trono de escarcha.
+- Brillo medio sin el HUD (antes y ahora): picos 84 y 85, glaciar 84 y 68, socavones 46 y 43, veta 43 y 41, túmulo 42 y 45,
+  grieta 49 y 43, cuevas 58 y 65, trono 50 y 56.
+- Fotos: `DIR=/tmp/requiem-pruebas/acto4` (antes con `BANDERAS=__acto4Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,
+  `lamina_<zona>.png` y `ext_lamina.png` (picos y glaciar, antes arriba).
 - Pruebas: tsc, t1041, t1000 (todo en su piso), t1014 (96 iguales), t1015 (0 tapados), t1033 en las 8 zonas, t370 (288, 0
   malas), conectividad 20 (1920), t855 (0 de 192), t1011 `todas 2` (`SEMILLA=5000`, 0 atascados, objetiva 0), t995 (0 atascados,
   0 pegados), t440, t450, t500, t1001 y t961.

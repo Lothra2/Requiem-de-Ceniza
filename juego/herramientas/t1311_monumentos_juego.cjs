@@ -30,7 +30,7 @@ const DIR = `/tmp/requiem-pruebas/monumentos/juego/${et}`; fs.mkdirSync(DIR, { r
         const j = window.__juego(), z = j.zona, s = z.salidas.find((q) => q.piezas && q.piezas.length), fa = s.piezas[s.piezas.length - 1], md = s.piezas[1];
         z.explorado.fill(1);
         const libre = (x, y) => x > 0 && y > 0 && x < z.W && y < z.H && z.bloq[y * z.W + x] === 0;
-        const base = { puerta: [s.cx + 1.5, s.cy + 1.5, 1, 1], cerca: [s.cx + 6, s.cy + 6, 1, 1], lejos: [s.cx + 13, s.cy + 13, 1, 1], izq: [s.cx - 5, s.cy + 12, -1, 1], der: [s.cx + 12, s.cy - 5, 1, -1], detras: [md.cx - 14, md.cy - 14, -1, -1] }[pu];
+        const base = { puerta: [s.cx + 1.5, s.cy + 1.5, 1, 1], cerca: [s.cx + 6, s.cy + 6, 1, 1], lejos: [s.cx + 13, s.cy + 13, 1, 1], muy_lejos: [s.cx + 17, s.cy + 17, 1, 1], izq: [s.cx - 5, s.cy + 12, -1, 1], der: [s.cx + 12, s.cy - 5, 1, -1], detras: [md.cx - 14, md.cy - 14, -1, -1] }[pu];
         let c = null; for (let d = 0; d < 20 && !c; d++) { const x = Math.round(base[0] + base[2] * d), y = Math.round(base[1] + base[3] * d); if (libre(x, y) && libre(x + 1, y) && libre(x, y + 1)) c = [x, y, d]; }
         if (!c) return { sin: 1 };
         j.heroe.x = c[0] + 0.5; j.heroe.y = c[1] + 0.5; j.heroe.camino = null; j.heroe.destino = null;

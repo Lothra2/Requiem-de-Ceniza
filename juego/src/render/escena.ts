@@ -250,8 +250,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
     // (la distancia de frente y de costado se mide desde la puerta y por su eje: la catedral por y, los monumentos por la diagonal)
     const rx = h.x - pu.x, ry = h.y - pu.y, dy = pu.mon ? rx * pu.dx + ry * pu.dy : h.y - fa.cy, dx = pu.mon ? Math.abs(rx * pu.dy - ry * pu.dx) : Math.abs(h.x - fa.cx);
-    if (!(dy > -2 && dy < 26 && dx < 16)) continue;
-    const w = Math.min(1, (26 - dy) / 14) * Math.min(1, (16 - dx) / 6);
+    if (!(dy > -2 && dy < (luzMonumento(fa.id) ? 30 : 26) && dx < 16)) continue;
+    const w = (luzMonumento(fa.id) && !(window as any).__alzarCorto ? Math.min(1, (30 - dy) / 6) : Math.min(1, (26 - dy) / 14)) * Math.min(1, (16 - dx) / 6);
     // (los monumentos de los actos 2 a 7, monumentos.ts) sube lo justo para que entre la pieza más alta (con margen por el
     // adelanto de la cámara al caminar)
     let tope = 240;
@@ -259,7 +259,10 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       const yc = (MH - ALTO_HUD / ZM) / 2; let cima = 1e9;
       for (const o of sa.piezas) { const q = objetoMeta(o.id, o.v)?.f[0]; if (q) cima = Math.min(cima, (o.cx + o.cy + 1) * 8 - q.ay - (h.x + h.y) * 8 + yc); }
       // (hasta 290: el héroe en la puerta queda todavía por encima del HUD, con los pies a 34 puntos de él a 720)
-      if (cima < 1e9) tope = Math.max(0, Math.min(290, 40 - cima));
+      // (desde unas 12 celdas de la puerta, el tope sube con la distancia hasta dejar al héroe a 70 del HUD, como en `hitosDe`:
+      //  de lejos entra lo más alto del monumento, el anillo de la Escalera; cerca de la puerta sigue en 290. `__alzarCorto` lo apaga)
+      const lejos = (window as any).__alzarCorto ? 0 : Math.max(0, Math.min(1, (dy - 10) / 5)), tmax = 290 + lejos * Math.max(0, yc - 70 - 290);
+      if (cima < 1e9) tope = Math.max(0, Math.min(tmax, 40 - cima));
     }
     alzar = Math.max(alzar, tope * w);
     if (luzMonumento(fa.id)) monCerca = Math.max(monCerca, w);

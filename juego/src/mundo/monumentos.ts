@@ -28,7 +28,7 @@ export const MONUMENTOS: Record<string, Mon> = {
   // acto 6: la Catedral de las Campanas Ahogadas, hundida y escorada con el mar adentro (baja a a6_catedral1)
   a6_barrio2: mon('mon_ysmeral', 'a6_catedral1', 'empedrado', [['mon_ys_pilar', 'entero', 0, 21], ['mon_ys_pilar', 'ladeado', 21, 0], ['mon_ys_brasero', 'encendido', 13, 11], ['mon_ys_brasero', 'encendido', 11, 13], ['mon_ys_ancla', 'clavada', -5, 23], ['mon_ys_campana', 'abrazada', 23, -5]], '74,216,154', ['#4ad89a', '#c8f8de', '#7a8a90']),
   // acto 7: la Escalera al Trono, la escalera de caracol que flota alrededor del haz hasta el halo partido (baja a a7_escaleras)
-  a7_jardin: mon('mon_escalera', 'a7_escaleras', 'fortaleza', [['mon_es_estela', 'entera', 0, 21], ['mon_es_estela', 'raspada', 21, 0], ['mon_es_brasero', 'encendido', 13, 11], ['mon_es_brasero', 'encendido', 11, 13], ['mon_es_septimo', 'caido', 15, 15], ['mon_es_losas', 'nombres', -5, 23]], '255,236,180', ['#fff2c8', '#ffe8a0', '#c8b890']),
+  a7_jardin: mon('mon_escalera', 'a7_escaleras', 'fortaleza', [['mon_es_estela', 'entera', 0, 21], ['mon_es_estela', 'raspada', 21, 0], ['mon_es_brasero', 'encendido', 16, 9], ['mon_es_brasero', 'encendido', 9, 16], ['mon_es_septimo', 'caido', 15, 15], ['mon_es_losas', 'nombres', -5, 23]], '255,236,180', ['#fff2c8', '#ffe8a0', '#c8b890']),
 };
 
 /** El monumento de una zona (o nada con `__sinMonumentos`). */

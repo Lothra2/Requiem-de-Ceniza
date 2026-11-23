@@ -328,7 +328,7 @@ function franjas() { ctx.save(); ctx.fillStyle = '#000'; const b = franja(); ctx
 /** Un texto en la letra gótica de pixel, centrado en la franja de abajo (o arriba), con su entrada y salida. */
 function dibujarTexto(tx: Texto, tl: number) {
   const k = Math.min(1, Math.max(0, (tl - tx.t0) / 0.7), Math.max(0, (tx.t1 - tl) / 0.6)); if (k <= 0) return;
-  let s = IDI ? tx.en : tx.es; if (tx.voz) s = `«${s}»`;
+  let s = IDI ? tx.en : tx.es; if (tx.voz) s = IDI ? `“${s}”` : `«${s}»`;
   const b = franja(), tam = Math.max(E.tactil ? 18 : 17, Math.round(H / 29)), max = W * 0.86;
   // en uno o dos renglones, partido por palabras
   const ren: string[] = [];

@@ -26,6 +26,8 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Botín en evolución** (rama `botin`, 22 nov 2026): bases y grados de afijo por nivel, parte del botín para la clase, varas con
   daño de hechizos, la ficha y el piso dicen qué es mejora. Ver "Botín en evolución". El daño del arma que se lleva sube un 17 %.
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
+- **Cinemáticas de acto en el motor** (rama `cine`, 23 nov 2026): Rick aprobó la del acto 1 («Siiii está chévere, hazlo»). Siguen
+  los actos 2 a 7 con el mismo director, de a uno. Ver "Cinemáticas de acto en el motor".
 - **Enemigos repartidos** (rama `enemigos`, 22 nov 2026): el mismo presupuesto por todo el mapa en grupos de tamaños distintos que
   despiertan solos, en vez de campamentos de 6 a 10. Ver "Enemigos repartidos, no campamentos". Espera que Rick lo juegue.
   Después, un 50 % más de cuerpos con la experiencia y el botín por baja común bajados (ver "Más enemigos, como en Diablo 2").
@@ -2315,6 +2317,60 @@ juego. Para volver a pintarla con sus capas (luz, fuego tras los vitrales, niebl
   Costo en la nube (21 nov 2026, el título con su fuego y sus hojas, sin el fondo, ms de JS por cuadro): con celdas de
   2 o 3 puntos queda como el de antes: 720 de 15 a 16, 1080 de 28 a 28 a 32 (ruidoso), teléfono de 10 a 9. Con las celdas
   gruesas de la primera pasada era 12, 20 y 7. Las vetas del hierro van separables (senos por fila y por columna).
+
+## Cinemáticas de acto en el motor (23 nov 2026, rama `cine`)
+
+Rick: "las cinemáticas de los actos están muy flojas". Eran diapositivas 3D fijas (ui/cine.ts) con otro estilo, sin el héroe, y la
+historia se contaba dos veces (al matar al jefe y en el entreacto). Eligió rehacerlas en pixel art dentro del motor, como una
+película de 60 a 90 s por acto con el mismo arte del juego, una sola por acto. Aprobó la del acto 1 el 23 nov.
+
+- **El director** (`ui/director.ts`): un guion por acto (`Guion`, lista de `Toma`) como datos. Cada toma: la zona real (generada con
+  la semilla con que el héroe la jugó, `semillaDe`, y `explorado` lleno), su `ancla` (una función que la busca en la zona: el ruedo del
+  jefe, la fachada, el hito), la cámara por claves (`CamClave`: x, y relativos al ancla, `alt`, `fx`, `fy`, curva; `zoom` respecto de la
+  pantalla, 1 deja unos 640 puntos del dibujo de alto, siempre a puntos enteros del aparato, y cambia en seco en su clave: el corte de
+  acercamiento), los actores (`Actor`: 'heroe' con su equipo, 'thor', 'mon' con id de MONSTRUOS; claves con posición, `acc` con su
+  `ritmo` y `bucle`, `dir` o `mira`, `alfa`; la muerte horneada de 22 o 29 cuadros a cámara lenta; `sinTinte`, `sombra`), la brasa,
+  `luces` (con sombra o no), `focos` (luz de cine: todo se hunde con `hundir` menos el sujeto), `primer` (primer término en silueta,
+  más grande y con parallax, con un canto de luz), `temblores`, `textos` (letra gótica de pixel en la franja; `voz` va en su color y
+  entre « » o “ ” en inglés), `sonidos` (`cine: true` la música escrita), `sinClima`, `entra`/`sale` y los ganchos `preparar` (una vez:
+  sacar lo que tapa en la copia de la zona), `paso`, `mundo` (dentro del pase del mundo) y `pantalla` (encima, o en vez del mundo), y
+  `omitir` (si lo que necesita no está, la toma se salta sin aviso). Se evalúa por tiempo (`__cineT` salta a cualquier segundo); lo
+  suelto (chispas, partículas) se integra. Pinta con `dibujarMundo` sobre un Juego propio de la película (la partida no se toca) y la
+  cámara la manda `camCine` (escena.ts). La cámara siempre respira un poco (`__camaraQuieta` la para).
+- **Nada de la interfaz en cuadro**: con `camCine.on` escena.ts no pinta los umbrales de las salidas, el aro de Thor y los invocados,
+  las auras ni el torbellino; las barras de vida, las criaturas de ambiente (`__sinAmbientePfx`) y el plano de llegada van apagados, y
+  luces.ts toma `lucesCine` y `sinAntorcha` del Juego de la película.
+- **Espera**: no arranca hasta que las zonas están generadas, lo que pinta bajado y el héroe pintado con su equipo
+  (`progresoPintura`; a los 60 s sigue igual). Se prepara al caer el jefe, durante la cámara lenta.
+- **La brasa** (`render/brasa_cine.ts`): núcleo de pixel que late lub-dub, fuego de Doom chico, estela de celdas, chispas
+  (`estallido`) y su luz con sombra en el mundo. En planos abiertos crece hasta pesar en la pantalla, con halo grande y estela de cometa.
+- **El primer plano** (`ui/cine_rostro.ts`): el grande de la vigilia (`pedidoGrande` en ui/vigilia.ts, la misma K y equipo: sale de
+  IndexedDB `marca_vigilia` si el jugador eligió el héroe ahí). Si no está, se pide en segundo plano al entrar a la zona del jefe y al
+  caer el jefe; si no llegó, la toma se salta. La luz de la Marca se suma sobre el color real del cuadro en penumbra, con el relieve
+  (o, sin GPU, uno sacado del brillo), desde el pecho y el brazo del arma, con el filo y el metal que devuelven el rojo. Solo cuadros
+  enteros del reposo, nunca el boceto.
+- **Música y efectos** (`Sonido.cine(id)` y `CINE` en audio/sonido.ts, su propio bus con el volumen de la música, `cineCortar` al
+  saltar o terminar): órgano y coro que entran lentos, campana honda, zumbido de campana, timbal, sub, latido, la brasa que nace y la
+  que vuela, el cartel. Nadie lo escuchó con oídos todavía: solo se verificó que cada sonido se pida a su hora.
+- **El acto 1** (`ui/cine_acto1.ts`, 75 s): pozo (Ilvara muere, corte a ×3 en el golpe), la brasa sale del cuerpo, la catedral (lo que
+  la tapa sale de la copia, los vitrales arden de abajo arriba, tres campanadas, cuervos), el campanario caído con Vesperio (sin
+  texto), Vesperio de cerca («Gracias. Una puerta menos.», violeta), el camino del sur (cometa), la Marca en el pozo (corte a ×4), el
+  primer plano y el cartel «Acto II, Las arenas de Sahrim» en gótica con brasa.
+- **Cómo entra al juego** (main.ts, `PELICULAS`): al caer el jefe que cierra el acto, la cámara lenta y la película (`peli_<acto>`);
+  el Códice la vuelve a pasar. Al entregar la misión del acto ya no hay entreacto: se viaja directo al pueblo del acto siguiente.
+  Sin partida (desde el menú) va un héroe de muestra. Las líneas viven en `PELICULA` de mundo/actos.ts y el Libro de Odrán las lee
+  para `{ t: 'entreacto', a }`. `conPelicula(acto)`; **`__cineViejo` vuelve a la cinemática y al entreacto de antes**.
+- **Prueba**: `CHROMIUM=... node juego/herramientas/t1400_pelicula.cjs <etiqueta> [acto] [pc|pc1080|movil]` graba cuadro a cuadro a
+  25 por segundo con el reloj controlado y arma el mp4 en `/tmp/requiem-pruebas/cine2/<etiqueta>/`. Viste al héroe con piezas raras
+  y espera al pintor y al grande de la vigilia antes de grabar. `LAMINA=1` (tres cuadros por toma, `SOLO=tomas`, y
+  `python3 juego/herramientas/t1400_lamina.py <etiqueta>`), `COSTO=1` (en tiempo real, ms por toma), `ID=` (la semilla del héroe:
+  revisar con tres), `DESNUDO=1`, `SIN_ROSTRO=1`, `BANDERAS=`. Ganchos: `__peli(acto)`, `__peliLista()`, `__peliEstado()`, `__peliJ()`,
+  `__cineToma`, `__peliCosto()`, `__rostroListo()`.
+- Costo en la nube (sin tarjeta): 23 ms de media por cuadro, la catedral 65 y el páramo 37 (muchos objetos a ×1); el montaje de la
+  primera toma, unos 0,5 s.
+- Flojo: el primer plano no elige un cuadro que mire a cámara (el reposo de la vigilia va en tres cuartos) y el grano de los
+  materiales se nota a ×3; con yelmo cerrado no hay cara. Vesperio en el campanario sale rosado cuando lo alumbra la brasa. Los
+  vitrales encienden también algún rincón oscuro de la piedra. El sonido no lo oyó nadie.
 
 ## Historia y canon (19 nov 2026)
 

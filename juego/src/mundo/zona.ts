@@ -970,8 +970,10 @@ function rioDeLava(k: Constructor, r: () => number, arroyo = false) {
   // (con un monumento en el centro, la Fragua de Ozmaren en el Río de Lava, el cauce corre por un costado y no se le acerca:
   //  antes cruzaba justo por el medio del mapa)
   const mon = !!monumentoDe(z.id), lejosMon = (x: number) => !mon || Math.abs(x + 0.5 - tw / 2) >= 7;
-  if (mon) bx = bx < tw / 2 ? Math.max(2, Math.floor(tw / 2) - 9) : Math.min(tw - 3, Math.ceil(tw / 2) + 8);
+
   const cruzaCamino = (tx: number, ty: number) => { for (let y = ty * 5; y < ty * 5 + 5; y++) for (let x = tx * 5; x < tx * 5 + 5; x++) if (k.reserva[y * z.W + x]) return true; return false; };
+  // (y del lado por donde cruza un camino: si no, nadie le ponía puente y lo de más allá quedaba aislado)
+  if (mon) { const cand = [Math.max(2, Math.floor(tw / 2) - 9), Math.min(tw - 3, Math.ceil(tw / 2) + 8)], cruces = cand.map((c) => { let n = 0; for (let by = 0; by < th; by++) if (cruzaCamino(c, by)) n++; return n; }); const pref = bx < tw / 2 ? 0 : 1; bx = cruces[pref] ? cand[pref] : cruces[1 - pref] ? cand[1 - pref] : cand[pref]; }
   const bloquear = (tx: number, ty: number, v: number) => { for (let y = ty * 5; y < ty * 5 + 5; y++) for (let x = tx * 5; x < tx * 5 + 5; x++) if (z.bloq[y * z.W + x] !== 2) z.bloq[y * z.W + x] = v; };
   /** Un tramo: recto de norte a sur, o un codo (`codo`) que une dos lados de la baldosa. */
   const tramo = (tx: number, ty: number, codo?: string) => {

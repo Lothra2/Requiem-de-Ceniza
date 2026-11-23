@@ -24,7 +24,7 @@ import { cargarOpciones, opciones, guardarOpciones, dibujarIntro, menuPrincipal,
 import { hud, etiquetasMundo } from './ui/hud_rects';
 import { abrirTienda, cerrarPaneles, cambiarAgresivo, rectPanel, compacto, teclaAtajo } from './ui/juego_ui';
 import { ui, alzadoMano, dibujarBarra, dibujarPaneles, dibujarArriba, dibujarCursor, dibujarTooltipObjeto, entradaFicha, dibujarFicha, dibujarMapa, dibujarMuerte, hablarCon, alternar, prepararHud, lugarEn, COFRE_W, COFRE_H } from './ui/juego_ui';
-import { dibujarMundo, picks, aMundo, aPantUI, foco, opciones as opcionesRender, type Pick } from './render/escena';
+import { panoramicaActiva, dibujarMundo, picks, aMundo, aPantUI, foco, opciones as opcionesRender, type Pick } from './render/escena';
 import { vinetaSangre, dibujarPresentacion, dibujarCaida, DUR_PRESENTA } from './ui/horror';
 import { prepararPortada, esperarPortada, reiniciarPortada, durForjaTitulo, tituloFijo } from './ui/portada';
 import { miedoPaso } from './juego/miedo';
@@ -836,7 +836,7 @@ function paso(dt: number) {
       const jj = j!;
       if (zonaPendiente) { const z = zonaPendiente; zonaPendiente = null; if (z.entrada === '__portal') { const p = jj.portal!; irAZona(z.id, 'centro').then(() => { jj.heroe.x = p.x + 1; jj.heroe.y = p.y + 1; }); } else irAZona(z.id, z.entrada); break; }
       opcionesRender.idi = IDI;
-      const pausa = ui.izq === 'menu' || ui.confirmar || libroAbierto();
+      const pausa = ui.izq === 'menu' || ui.confirmar || libroAbierto() || panoramicaActiva();
       // presentación de un jefe: el mundo va en cámara lenta y la cámara lo mira
       if (presenta) { presenta.t += dt; foco.x = presenta.m.x; foco.y = presenta.m.y; foco.k = Math.min(1, presenta.t / 0.6, Math.max(0, (DUR_PRESENTA - presenta.t) / 0.6)); if (presenta.t >= DUR_PRESENTA || presenta.m.muerto) { presenta = null; foco.k = 0; } }
       if (caida) { caida.t += dt; if (caida.m) { foco.x = caida.m.x; foco.y = caida.m.y; } foco.k = Math.min(1, caida.t / 0.4); if (caida.t >= DUR_CAIDA) { const c = caida; caida = null; foco.k = 0; empezarCine(c.acto, c.despues); } }

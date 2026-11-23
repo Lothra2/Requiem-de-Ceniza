@@ -176,6 +176,29 @@ let camAlzada = 0, camJefe = 0, vivasMonstruo = 0;
 /** Qué tan cerca está el héroe de la puerta de un monumento de los actos 2 a 7 (0 a 1): la niebla se abre alrededor (su luz le gana). */
 let cercaMon = 0;
 /**
+ * La panorámica del monumento (actos 2 a 7): la primera vez en la sesión que el héroe llega frente a un monumento que no entra en
+ * la pantalla, la cámara sube hasta lo más alto (el anillo de la Escalera, el humo de la Fragua), se queda un instante y vuelve,
+ * en 2,5 s. Mientras dura el mundo espera (`panoramicaActiva`, main.ts). Un clic o una tecla la cortan. Sin temblor (respeta
+ * `acc.temblor` porque no sacude). `__sinPanoramica` la apaga.
+ */
+let monCima: { cima: number; zona: string } | null = null, pano: { t: number; cima: number } | null = null;
+const panoVistas = new Set<string>();
+const SUBE = 0.9, QUEDA = 0.7, BAJA = 0.9;
+export const panoramicaActiva = () => !!pano;
+if (typeof window !== 'undefined') { const cortar = () => { if (pano && pano.t > 0.15) pano.t = Math.max(pano.t, SUBE + QUEDA); }; window.addEventListener('keydown', cortar); window.addEventListener('pointerdown', cortar); }
+function panoramica(dt: number) {
+  if (!pano && monCima && !(window as any).__sinPanoramica && !panoVistas.has(monCima.zona)) {
+    panoVistas.add(monCima.zona);
+    // (cuánto falta para ver lo más alto con la cámara como está ahora: con el alzado y el plano de llegada ya puestos)
+    if (50 - monCima.cima + (cam.y - camS.y) > 60) pano = { t: 0, cima: monCima.cima };
+  }
+  if (!pano) return;
+  pano.t += dt; (window as any).__panoT = pano.t;
+  const t = pano.t, k = t < SUBE ? t / SUBE : t < SUBE + QUEDA ? 1 : Math.max(0, 1 - (t - SUBE - QUEDA) / BAJA), e = k * k * (3 - 2 * k);
+  cam.y -= Math.max(0, 50 - pano.cima + (cam.y - camS.y)) * e;
+  if (t >= SUBE + QUEDA + BAJA) { pano = null; (window as any).__panoT = undefined; }
+}
+/**
  * Si el dibujo de una pieza tapa de verdad al héroe (algún punto opaco sobre su cuerpo, de los pies a la cabeza): antes bastaba
  * con que el héroe cayera dentro del rectángulo del cuadro, y una pieza ancha con su sombra (los jarls de Hrimgard, con el
  * héroe en la puerta del glaciar) abría su ventana sin tapar nada. Sin máscara leída todavía, se toma como que tapa (lo de
@@ -245,7 +268,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   nuevoCuadroSombras();
   const sx = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 12 * acc.temblor : 0, sy = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 8 * acc.temblor : 0;
   // frente a la pieza ancla (la catedral), la cámara sube suave para que se vean las torres
-  let alzar = 0, monCerca = 0;
+  let alzar = 0, monCerca = 0; monCima = null;
   for (const sa of z.salidas) if (sa.piezas?.length) {
     const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
     // (la distancia de frente y de costado se mide desde la puerta y por su eje: la catedral por y, los monumentos por la diagonal)
@@ -263,6 +286,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       //  de lejos entra lo más alto del monumento, el anillo de la Escalera; cerca de la puerta sigue en 290. `__alzarCorto` lo apaga)
       const lejos = (window as any).__alzarCorto ? 0 : Math.max(0, Math.min(1, (dy - 10) / 5)), tmax = 290 + lejos * Math.max(0, yc - 70 - 290);
       if (cima < 1e9) tope = Math.max(0, Math.min(tmax, 40 - cima));
+      if (cima < 1e9 && dy < 26) monCima = { cima, zona: z.id + ':' + z.semilla };
     }
     alzar = Math.max(alzar, tope * w);
     if (luzMonumento(fa.id)) monCerca = Math.max(monCerca, w);
@@ -311,6 +335,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     cam.x += ((hx + bx) / 2 + sx - cam.x) * k; cam.y += (ty + sy - cam.y) * k;
   }
   if (foco.k > 0) { const k = foco.k * foco.k * (3 - 2 * foco.k); cam.x += ((foco.x - foco.y) * 16 - camS.x) * k; cam.y += ((foco.x + foco.y) * 8 - 60 - camS.y + camAlzada) * k; }
+  panoramica(dt);
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
   picksAnt = picks; picks = []; vivasMonstruo = 0;
   prepararFuegos(j, dt, aPant, W, H); seguirSuelo(j, dt); seguirPoderes(j); seguirPresencias(j); dtCuadro = dt; heroeDibujo = j.heroe; claridadPfx(j.zona.oscuridad);

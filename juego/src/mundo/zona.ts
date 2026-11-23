@@ -572,13 +572,19 @@ function exterior(def: DefZona, semilla: number): Zona {
         let d = 1e9;
         for (const [a, b] of puntos) d = Math.min(d, Math.hypot(a - x, b - y) - lejosSalida);
         for (const l of lugares) d = Math.min(d, Math.hypot(l.cx - x, l.cy - y) - l.r - rad - lejosLugar);
-        d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ?? monumentoDe(def.id) ? 36 : 12) - rad);
+        // (un monumento de los actos 2 a 7 se mide por su huella de verdad, la obra y su avenida: con un radio de 36 alrededor
+        //  del centro el claro del jefe no cabía en ningún lado y el jefe caía al lado de la avenida, sin ruedo)
+        if (!def.ancla && monumentoDe(def.id)) { const ax = centro[0], ay = centro[1] + 2, qx = Math.max(ax - 24, Math.min(ax + 16, x)), qy = Math.max(ay - 24, Math.min(ay + 16, y)), t = Math.max(0, Math.min(1, ((x - ax - 10) + (y - ay - 10)) / 36)), sx = ax + 10 + t * 18, sy = ay + 10 + t * 18; d = Math.min(d, Math.hypot(qx - x, qy - y) - rad - 4, Math.hypot(sx - x, sy - y) - rad - 7); }
+        else d = Math.min(d, Math.hypot(centro[0] - x, centro[1] - y) - (def.ancla ?? monumentoDe(def.id) ? 36 : 12) - rad);
         if (d > bd) { bd = d; mejor = [x, y]; }
       }
       return bd >= 0 ? mejor : null;
     };
     // el jefe de un mundo abierto pelea en su propio claro, el más grande y sin escena (antes salía en cualquier rincón, con despeje 2)
     if (def.jefe) { for (const rad of [14, 13, 12]) { const q = elegir(rad, 16, 12); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } } }
+    // (con un monumento el mapa queda más apretado: si no cupo, un claro un poco más chico y más cerca de las salidas, nunca
+    //  sin claro: sin él el jefe caía junto a la avenida y su ruedo bajaba a 2)
+    if (def.jefe && !def.ancla && monumentoDe(def.id) && !lugares.some((l) => l.escena === 'jefe')) for (const [rad, ls] of [[12, 10], [11, 8], [10, 6]]) { const q = elegir(rad, ls, 6); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro', escena: 'jefe' }); break; } }
     const nClaros = z.W * z.H > 12000 ? 4 : 3;
     for (let i = 0; i < nClaros; i++) { for (const rad of [10 + Math.floor(rl() * 4), 10, 9]) { const q = elegir(rad, 14, 12) ?? elegir(rad, 12, 7); if (q) { lugares.push({ cx: q[0], cy: q[1], r: rad, papel: 'claro' }); break; } } }
     // (entrega 6) el hito mira a +x +y (lo que ve la cámara: el relato va adelante y lo alto atrás), así que delante necesita su

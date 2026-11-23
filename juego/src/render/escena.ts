@@ -28,7 +28,7 @@ import { calorOzmaren, fuegoMundo, dibujarFuegosMundo, profFuegosMundo } from '.
 import { prepararFuegos, vivosDe, tieneFuegoDoom, dibujarVivos } from './fuego_vivo';
 import { dibujarPfx, alfaCuerpo, efectoPfx, dirPfx, claridadPfx, nochePfx } from './pfx';
 import { estadosPfx, usosPfx } from '../juego/pfx_usos';
-import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha, dibujarVeneno, dibujarAturdido, dibujarMarcaPresa } from './electro';
+import { fuerzaElectro, tinteElectro, dibujarElectro, cabezaDe, dibujarEscarcha, dibujarVeneno, dibujarAturdido, dibujarMarcaPresa, mascaraDe } from './electro';
 /** Estados que van encima de la cabeza (se suben a la cabeza de verdad del cuerpo). */
 const ENCIMA = /^fx_(aturdido|confundido|maldito|presa_marcada)$/;
 import { itemsAmbiente, dibujarClimaPfx } from './pfx_mundo';
@@ -175,6 +175,18 @@ export function framesMonstruo(sprite: string, acc: string, dir: string): Cuadro
 let camAlzada = 0, camJefe = 0, vivasMonstruo = 0;
 /** Qué tan cerca está el héroe de la puerta de un monumento de los actos 2 a 7 (0 a 1): la niebla se abre alrededor (su luz le gana). */
 let cercaMon = 0;
+/**
+ * Si el dibujo de una pieza tapa de verdad al héroe (algún punto opaco sobre su cuerpo, de los pies a la cabeza): antes bastaba
+ * con que el héroe cayera dentro del rectángulo del cuadro, y una pieza ancha con su sombra (los jarls de Hrimgard, con el
+ * héroe en la puerta del glaciar) abría su ventana sin tapar nada. Sin máscara leída todavía, se toma como que tapa (lo de
+ * antes). `__tapaCaja` vuelve a mirar solo el rectángulo.
+ */
+function opacoSobre(q: Cuadro, lx: number, ly: number): boolean {
+  if ((window as any).__tapaCaja) return true;
+  const m = mascaraDe(q); if (!m) return true;
+  for (let dy = -64; dy <= 0; dy += 8) for (let dx = -10; dx <= 10; dx += 5) { const x = Math.round(lx + dx), y = Math.round(ly + dy); if (x >= 0 && y >= 0 && x < m.w && y < m.h && m.a[y * m.w + x]) return true; }
+  return false;
+}
 /** Las piezas de los monumentos de los actos 2 a 7 no llevan la bruma de altura: su silueta se lee de lejos y no se lava. */
 const monumentoPieza = (id: string) => PIEZA_MONUMENTO.test(id) && !(window as any).__brumaMonumento;
 /** Los hitos del acto de la zona (una vez por zona: la cámara los mira cada cuadro). */
@@ -443,7 +455,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       if (alto > 60) {
         const lx = hx - (px - q.ax);
         const t = tiras.find((f) => lx >= f.a && lx < f.b);
-        if (t && t.prof > h.x + h.y && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85) cubre = true;
+        if (t && t.prof > h.x + h.y && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85 && opacoSobre(q, lx, hy - (py - q.ay))) cubre = true;
       }
       // (entrega 6) con el héroe detrás se abre una ventana a su alrededor en las franjas que están delante de él (ver recorte.ts)
       const viejo = (window as any).__alfaViejo, kRec = viejo ? 0 : aperturaRecorte(o, cubre, tiempo);
@@ -467,7 +479,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       let alfa = 1, cubre = false;
       const [hx, hy] = aPant(h.x, h.y);
       if (alto > 60) {
-        if (prof > h.x + h.y && hx > px - q.ax && hx < px - q.ax + q.w && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85) cubre = true;
+        if (prof > h.x + h.y && hx > px - q.ax && hx < px - q.ax + q.w && hy - 30 > py - q.ay && hy - 30 < py - q.ay + q.h * 0.85 && opacoSobre(q, hx - (px - q.ax), hy - (py - q.ay))) cubre = true;
       }
       // (entrega 6) antes la pieza entera bajaba a 0,45 y el hito quedaba como un fantasma: ahora solo se abre una ventana
       // alrededor del héroe (recorte.ts). `__alfaViejo` vuelve a lo de antes
@@ -1572,7 +1584,9 @@ function brumaAncla(j: Juego) {
   };
   for (const sa of z.salidas) if (sa.piezas?.length) {
     const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
-    if (pu.mon) { for (let i = -8; i <= 8; i += 2) mancha(pu.x + pu.dx * 2 + i * pu.dy, pu.y + pu.dy * 2 - i * pu.dx); continue; }
+    // (los monumentos de los actos 2 a 7 no llevan la bruma baja al pie: velaba a los colosos de los costados justo donde más se
+    //  mira, con el héroe en la puerta. `__brumaMonumento` la vuelve a poner)
+    if (pu.mon) { if ((window as any).__brumaMonumento) for (let i = -8; i <= 8; i += 2) mancha(pu.x + pu.dx * 2 + i * pu.dy, pu.y + pu.dy * 2 - i * pu.dx); continue; }
     for (let i = -6; i <= 6; i += 2) mancha(fa.cx + 0.5 + i, fa.cy + 3.3);
     for (const p of sa.piezas.slice(0, -1)) for (let i = -4; i <= 4; i += 2) mancha(p.cx + 7.7, p.cy + 0.5 + i);
   }

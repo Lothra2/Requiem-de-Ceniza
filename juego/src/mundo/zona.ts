@@ -332,7 +332,7 @@ export function tematicaDe(def: DefZona): Tematica {
   let t = cacheTemZona.get(def.id);
   if (!t) {
     t = { ...base } as Tematica;
-    for (const k of ['piso', 'parches', 'camino', 'oscuridad', 'borde', 'disperso', 'grande', 'luces', 'deco', 'muroX', 'muroY'] as const) if ((vz as any)[k] !== undefined) (t as any)[k] = (vz as any)[k];
+    for (const k of ['piso', 'parches', 'camino', 'oscuridad', 'borde', 'disperso', 'grande', 'luces', 'deco', 'muroX', 'muroY', 'organica'] as const) if ((vz as any)[k] !== undefined) (t as any)[k] = (vz as any)[k];
     if (vz.muroX) t.murosAlt = [];
     cacheTemZona.set(def.id, t);
   }

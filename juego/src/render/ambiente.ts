@@ -349,15 +349,18 @@ export function ambienteAire(j: Juego, dt: number, t: number, aP: AP) {
   ((window as any).__amb ??= {}).volando = enVuelo.length;
   // ---- neblina baja: jirones anchos y bajos que se arrastran con el viento, anclados al mundo
   ((window as any).__amb ??= {}).jirones = jirones.length; (window as any).__amb.motas = motas.length;
-  if (z.tipo !== 'mazmorra' && BRUMA.test(tema) && !poco) {
-    while (jirones.length < (E.tactil ? 5 : 9)) jirones.push({ x: h.x + (Math.random() - 0.5) * 44, y: h.y + (Math.random() - 0.5) * 44, r: 90 + Math.random() * 110, v: 0.5 + Math.random() * 0.9, f: Math.random() * 6 });
+  // (acto 3: el Manglar Negro lleva la suya, tupida, baja y verde gris sobre el agua: `bruma` en zonas_propias)
+  const vb = varianteDe(z.id)?.bruma, nJ = vb ? Math.round(vb.n * (E.tactil ? 0.55 : 1)) : E.tactil ? 5 : 9, cJ = vb?.c ?? '170,182,196', aJ = vb?.a ?? 1;
+  if (z.tipo !== 'mazmorra' && (BRUMA.test(tema) || vb) && !poco) {
+    while (jirones.length < nJ) jirones.push({ x: h.x + (Math.random() - 0.5) * 44, y: h.y + (Math.random() - 0.5) * 44, r: 90 + Math.random() * 110, v: 0.5 + Math.random() * 0.9, f: Math.random() * 6 });
+    if (jirones.length > nJ) jirones.length = nJ;
     for (const q of jirones) {
       q.x += q.v * dt; q.y -= q.v * 0.35 * dt;
       // el que se aleja vuelve a entrar por el otro lado del héroe
       if (q.x - h.x > 24) q.x -= 48; if (h.x - q.x > 24) q.x += 48; if (q.y - h.y > 24) q.y -= 48; if (h.y - q.y > 24) q.y += 48;
       const [px, py] = aP(q.x, q.y); if (px < -q.r || px > W + q.r || py < -q.r || py > H + q.r) continue;
-      const a = 0.075 + 0.035 * Math.sin(t * 0.5 + q.f), g = ctx.createRadialGradient(px, py, 0, px, py, q.r);
-      g.addColorStop(0, `rgba(170,182,196,${a})`); g.addColorStop(0.6, `rgba(170,182,196,${a * 0.5})`); g.addColorStop(1, 'rgba(170,182,196,0)');
+      const a = (0.075 + 0.035 * Math.sin(t * 0.5 + q.f)) * aJ, g = ctx.createRadialGradient(px, py, 0, px, py, q.r);
+      g.addColorStop(0, `rgba(${cJ},${a})`); g.addColorStop(0.6, `rgba(${cJ},${a * 0.5})`); g.addColorStop(1, `rgba(${cJ},0)`);
       ctx.save(); ctx.translate(px, py); ctx.scale(1, 0.34); ctx.translate(-px, -py); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py, q.r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     }
   }

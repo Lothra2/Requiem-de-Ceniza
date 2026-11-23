@@ -43,6 +43,8 @@ export interface VarianteZona {
   tinta?: [number, number, number];
   haz?: { c: string; dens: number; frio?: boolean } | null;
   motas?: 'polvo' | 'oro' | 'brasa' | '';
+  /** Neblina baja que se arrastra sobre el suelo, más tupida y de su color (afuera; `ambienteAire`). */
+  bruma?: { n: number; a: number; c: string };
 }
 
 

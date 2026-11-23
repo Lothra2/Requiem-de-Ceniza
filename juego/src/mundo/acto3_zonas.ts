@@ -13,14 +13,22 @@ export const ZONAS_ACTO3: Record<string, VarianteZona> = {
     piso: 'a3_hojarasca', parches: ['a3_hojarasca', 'selva', 'a3_hojarasca'], camino: 'tierra',
     tinta: [2, 9, 3],
   },
-  // El Manglar Negro: lodo negro con charcos, el manglar que se clava, chozas en pilotes, barcas y canoas, puentes colgantes.
+  // El Manglar Negro: canales y charcas de agua negra con reflejo entre el lodo, manglares de raíces zancudas, chozas en pilotes,
+  // barcas y canoas, y la neblina baja verde gris sobre el agua. Fría, contra el verde cálido de la Selva.
   a3_pantano: {
-    piso: 'a3_lodo', parches: ['pantano', 'a3_lodo', 'a3_lodo'], camino: 'tierra',
-    pisoExt: (bx, by) => (suave(bx, by, 3, 41) < 0.3 ? 'pantano' : undefined),
-    disperso: [{ t: SE, p: ['sel2_manglar', 'sel2_charca', 'sel2_ranas', 'sel2_tronco_podrido', 'sel2_raices', 'sel2_hongos', 'sel2_cadaver'] }, { t: SE, p: ['sel_tronco_pantano', 'sel_charco', 'sel_canoa'] }],
-    grande: [{ t: SE, p: ['sel2_manglar', 'sel2_choza', 'sel2_barca', 'sel_choza_pilotes', 'sel2_arbol_gigante'] }],
+    // el agua manda: canales que serpentean (bandas de un campo suave) y charcas negras entre el lodo, con su orilla de ciénaga
+    piso: 'a3_lodo', parches: ['a3_lodo', 'pantano', 'a3_lodo'], camino: 'tierra',
+    pisoExt: (bx, by) => {
+      const canal = Math.abs(suave(bx, by, 5, 43) - 0.5), charca = suave(bx, by, 3, 41);
+      return canal < 0.07 || charca < 0.37 ? 'a3_agua_negra' : canal < 0.1 || charca < 0.43 ? 'pantano' : undefined;
+    },
+    oscuridad: 0.42, tinta: [9, 14, 15],
+    bruma: { n: 16, a: 2.2, c: '150,170,165' },
+    borde: [{ t: SE, p: ['sel2_manglar', 'sel2_manglar', 'sel_tronco_pantano'] }],
+    disperso: [{ t: SE, p: ['sel2_manglar', 'sel2_manglar', 'sel2_raices', 'sel2_charca', 'sel2_ranas', 'sel2_tronco_podrido', 'sel2_cadaver'] }, { t: SE, p: ['sel_tronco_pantano', 'sel_canoa', 'sel2_raices'] }],
+    grande: [{ t: SE, p: ['sel2_manglar', 'sel2_manglar', 'sel_choza_pilotes', 'sel2_barca', 'sel2_choza'] }],
+    luces: [{ t: SE, p: ['sel_antorcha'] }],
     castigo: [['sel2_jaula', 'preso'], ['sel_tronco_pantano', undefined], ['sel2_cadaver', 'tribal']],
-    tinta: [3, 6, 4],
   },
   // Las Cavernas Inundadas: el agua quieta cubre media cueva y la roca brilla mojada; lagos negros, gours, hongos que alumbran.
   a3_inundadas: {

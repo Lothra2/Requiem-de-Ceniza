@@ -1029,6 +1029,12 @@ Vientre `templo` (el mismo muro de glifos con musgo, la misma arenisca y la mism
   con musgo, canoas, columnas de serpiente y ruinas, verde agua; el **Palacio** de jade, obsidiana y oro con ídolos y pedestales con
   orbes, motas de oro; los **Escalones** ocres con el muro de musgo y raíces, ídolos y altares; el **Vientre** de carne roja con la
   pared de carne, huevos y capullos. Cada una con su castigo de campamento.
+- **El Manglar, segunda pasada** (el coordinador: en la lámina la Selva y el Manglar eran el mismo verde negro): agua de verdad
+  (`a3_agua_negra`: agua negra verdosa con el cielo gris reflejado en manchas anchas y las ondas a lo ancho de la pantalla, anillos,
+  lenteja de agua y alguna hoja; caminable como todo piso) en canales que serpentean y charcas (`pisoExt`, con su orilla de
+  `pantano`), los manglares de raíces zancudas en el riego, lo grande y el borde, oscuridad 0,42 y la tinta verde gris fría
+  ([9, 14, 15], la Selva va cálida), y la neblina baja propia (`bruma` en `VarianteZona`: más jirones, más tupida y verde gris;
+  `ambienteAire` en ambiente.ts la lee). Brillo 39 (selva 37).
 - Brillo medio sin el HUD (antes y ahora): selva 36 y 36, manglar 38 y 39, inundadas 42 y 43, nido 36 y 35, calles 33 y 39,
   palacio 38 y 34, escalones 43 y 40, vientre 45 y 34.
 - Fotos: `DIR=/tmp/requiem-pruebas/acto3` (antes con `BANDERAS=__acto3Viejo`); láminas `lamina_mazmorras_{p1,p2,entrada}.png`,

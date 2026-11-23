@@ -90,6 +90,8 @@ export interface Toma {
   filo?: number;
   /** Lo que no cabe en claves: se llama cada cuadro con el estado de la toma. */
   paso?: (e: EstadoToma, tl: number, dt: number) => void;
+  /** La película se queda quieta al final de esta toma hasta que main.ts la suelta (la elección de la revelación, ver `pausaEn`). */
+  pausa?: boolean;
   /** Lo plano del piso de la toma (huellas): se pinta con las manchas, debajo de todo lo que está de pie. */
   suelo?: (e: EstadoToma, tl: number, dt: number) => void;
   /** Lo que se dibuja dentro del pase del mundo, después de él (en puntos del dibujo: `aPant` vale). */
@@ -446,6 +448,21 @@ export function terminar(fundido = 0.5) {
 /** Suelta las zonas y el guion (para que una película nueva arme de cero). */
 export function soltarPelicula() { terminar(); escenas.clear(); guionVivo = null; heroeVivo = null; listo = false; cargando = false; }
 /** El estado de la toma viva (las pruebas). */
+/**
+ * Dónde se queda quieta la película (segundos desde su principio): al final de la primera toma con `pausa` que no se omite, o
+ * null si no hay. Mira `omitir` de las tomas de antes en este momento (las que todavía no llegaron también), así un salto
+ * cae justo en la pausa.
+ */
+export function pausaEn(g: Guion, d: DatosHeroe): number | null {
+  let t0 = 0;
+  for (let k = 0; k < g.tomas.length; k++) {
+    const tm = g.tomas[k], fuera = omitidas.has(k) || !!tm.omitir?.({ toma: tm, j: null, z: null, ax: 0, ay: 0, actores: new Map(), brasa: reiniciarBrasa(), mem: {}, heroe: d });
+    if (fuera) continue;
+    if (tm.pausa) return t0 + tm.dur - 0.02;
+    t0 += tm.dur;
+  }
+  return null;
+}
 (window as any).__peliJ = () => estado?.j;
 (window as any).__peliEstado = () => ({ listo, cargando, toma: tomaViva, escenas: [...escenas.keys()] });
 (window as any).__peliE = () => estado;

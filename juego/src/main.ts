@@ -12,11 +12,12 @@ import { Sonido } from './audio/sonido';
 import { T, TT, texto, IDI, fijarIdioma, tooltip, TITULO } from './ui/comun';
 import { dibujarFinal, dibujarEntreacto, dibujarRevelacion, dibujarCiclo } from './ui/menus';
 import { dibujarCine, precargarCine, claveCine, claveFinal, marcasCine, hayCine, soltarCine } from './ui/cine';
-import { dibujarPelicula, prepararPelicula, peliculaLista, heroeMuestra, terminar as terminarPelicula, soltarPelicula, type Guion } from './ui/director';
+import { dibujarPelicula, prepararPelicula, peliculaLista, pausaEn, heroeMuestra, terminar as terminarPelicula, soltarPelicula, type Guion } from './ui/director';
 import { CINE_ACTO1 } from './ui/cine_acto1';
 import { CINE_ACTO2 } from './ui/cine_acto2';
 import { CINE_ACTO3 } from './ui/cine_acto3';
 import { CINE_ACTO4 } from './ui/cine_acto4';
+import { CINE_ACTO5, eleccionPeli, limpiarEleccionPeli } from './ui/cine_acto5';
 import { pedirRostro } from './ui/cine_rostro';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { dibujarHudForja } from './ui/hud_forja';
@@ -45,7 +46,7 @@ const DUR_CAIDA = 2.8;
 const JEFE_CIERRA: Record<string, number> = {};
 for (const m of MISIONES) if (m.cierraActo && m.objetivo.tipo === 'matar') JEFE_CIERRA[m.objetivo.monstruo] = m.acto;
 /** Las películas de cierre hechas en el motor (ui/director.ts), por acto. Las demás siguen con ui/cine.ts. */
-const PELICULAS: Record<number, Guion> = { 1: CINE_ACTO1, 2: CINE_ACTO2, 3: CINE_ACTO3, 4: CINE_ACTO4 };
+const PELICULAS: Record<number, Guion> = { 1: CINE_ACTO1, 2: CINE_ACTO2, 3: CINE_ACTO3, 4: CINE_ACTO4, 5: CINE_ACTO5 };
 /** El héroe de la película: el de la partida o uno de muestra (desde el menú). */
 let heroePeli: DatosHeroe | null = null;
 const peliDe = (clave: string) => { const m = /^peli_(\d)$/.exec(clave); return m ? PELICULAS[+m[1]] ?? null : null; };
@@ -760,9 +761,19 @@ function paso(dt: number) {
       if (!cine) { estado = 'juego'; break; }
       const peli = peliDe(cine.clave);
       // (la película no corre mientras baja lo que pinta: la toma espera en negro)
-      if (!peli || peliculaLista()) cine.t += dt;
+      // (la revelación del acto 5: la película se queda quieta en la elección hasta que se elige; saltar lleva a la elección)
+      const pausa = peli ? pausaEn(peli, heroePeli ?? heroeMuestra()) : null;
+      if (!peli || peliculaLista()) cine.t = pausa !== null && cine.t <= pausa + 0.01 ? Math.min(pausa, cine.t + dt) : cine.t + dt;
       const fin = peli ? dibujarPelicula(peli, heroePeli ?? heroeMuestra(), cine.t) : dibujarCine(cine.clave, cine.acto, cine.t);
-      if (fin || (cine.t > 0.6 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
+      const r = peli ? eleccionPeli() : null;
+      if (r && pausa !== null) {
+        limpiarEleccionPeli(); E.clicIzq = false;
+        if (j) { hist(j.heroe.d).finalElegido = r; guardar(); } else if (heroePeli) hist(heroePeli).finalElegido = r;
+        Sonido.efecto(r === 'absorber' ? 'rugido_jefe' : 'campana', { vol: 0.8 }); cine.t = pausa + 0.03;
+      }
+      else if (pausa !== null && cine.t < pausa - 0.05 && cine.t > 0.6 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter'))) { E.clicIzq = false; cine.t = pausa - 1.5; }
+      else if (pausa !== null && cine.t >= pausa - 0.05) { /* en la elección: los clics son de los botones */ }
+      else if (fin || (cine.t > 0.6 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
         E.clicIzq = false; const c = cine; cine = null; estado = j ? 'juego' : 'menu'; tEstado = 0;
         if (peli) { terminarPelicula(fin ? 2.5 : 0.5); soltarPelicula(); } else soltarCine(); c.despues();
       }

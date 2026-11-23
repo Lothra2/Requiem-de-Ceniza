@@ -20,8 +20,8 @@ const sacrificada = (d: DatosHeroe) => decisionDe(d, 'vigdis') === 'sacrificar';
 const lucesDe = (e: EstadoToma): any[] | null => ((e.j as any)?.lucesCine as any[] | undefined) ?? null;
 
 // ------------------------------------------------------------------ el trono
-/** El trono de hielo detrás de Hjaldur (el asiento de la sala queda lejos del ruedo): cae sentado contra él. */
-const TRONO: [number, number] = [-1.6, -1.6];
+/** El trono de hielo junto a Hjaldur (el asiento de la sala queda lejos del ruedo): la muerte horneada lo echa de espaldas, así que cae junto al trono y la cámara corta cuando queda contra él. */
+const TRONO: [number, number] = [-0.8, 1.9];
 function ponerTrono(e: EstadoToma) {
   const z = e.z; if (!z || z.objetos.some((o) => o.capa === 'cine')) return;
   despejarPies(e, TRONO[0], TRONO[1], 2.6);
@@ -69,8 +69,8 @@ function dibujarCalor(e: EstadoToma, tl: number) {
 }
 
 // ------------------------------------------------------------------ el Fortín
-/** Adentro del Fortín, junto a la puerta del norte (la que da a los picos). */
-const anclaPuertaFortin = (z: Zona): [number, number] => { const sa = z.salidas.find((q) => q.destino === 'a4_picos'); const q = libreCerca(z, (sa?.cx ?? z.W / 2), (sa?.cy ?? 8) + 6); return [q[0] + 0.5, q[1] + 0.5]; };
+/** Adentro del Fortín, frente al portón del norte (el que da a los picos), con el pabellón de delante fuera (lo saca `preparar`). */
+const anclaPuertaFortin = (z: Zona): [number, number] => { const sa = z.salidas.find((q) => q.destino === 'a4_picos'); if (!sa) { const q = libreCerca(z, z.W / 2, 12); return [q[0] + 0.5, q[1] + 0.5]; } return [sa.cx + 4, sa.cy + 2.7]; };
 /** La lámpara de Vigdis: un farol de pixel en su mano, con la llama que tiembla (y más cuando pasa la brasa). */
 function lampara(e: EstadoToma, tl: number) {
   const v = e.actores.get('vigdis') as any; if (!v) return;
@@ -162,15 +162,18 @@ const tomas: Toma[] = [
   {
     // Vesperio junto al gigante del glaciar: solo en la nieve; la brasa baja hasta su cara y él la mira con algo de celos, sin
     // tocarla. Da las gracias y se va hacia el sur
-    id: 'vesperio', dur: 9, zona: 'a4_glaciar', ancla: anclaHito, entra: 0.6, sale: 0.9, oscuridad: 0.86, hundir: 0.7, sinBruma: true, filo: 0.4,
+    id: 'vesperio', dur: 9, zona: 'a4_glaciar', ancla: anclaHito, entra: 0.6, sale: 0.9, oscuridad: 0.86, hundir: 0.72, sinBruma: true, sinClima: ['fx_niebla', 'fx_ventisca', 'fx_nieve'],
     preparar: (e) => despejarPies(e, 4.4, 4.4, 3.5),
     cam: [{ t: 0, x: 4.6, y: 4.6, alt: 54, zoom: 3, fy: 0.58 }, { t: 9, x: 4.3, y: 4.3, alt: 58, c: 'suave' }],
     actores: [
-      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.5], claves: [{ t: 0, x: 4.4, y: 4.4, dir: 'no', acc: 'quieto' }, { t: 2.6, mira: [6, 3] }, { t: 4.6, dir: 's' }, { t: 7.0, x: 4.4, y: 4.4, alfa: 1, acc: 'caminar', mira: [8, 9] }, { t: 8.8, x: 5.4, y: 5.6, alfa: 0, c: 'lineal' }] },
+      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.42], claves: [{ t: 0, x: 4.4, y: 4.4, dir: 'no', acc: 'quieto' }, { t: 2.6, mira: [6, 3] }, { t: 4.6, dir: 's' }, { t: 7.0, x: 4.4, y: 4.4, alfa: 1, acc: 'caminar', mira: [8, 9] }, { t: 8.8, x: 5.4, y: 5.6, alfa: 0, c: 'lineal' }] },
     ],
-    brasa: [{ t: 0.4, x: -1, y: -1, z: 120, k: 0.7, tam: 0.7 }, { t: 2.6, x: 4.9, y: 3.7, z: 58, k: 0.7, tam: 0.7, c: 'sale' }, { t: 4.4, x: 5.2, y: 3.6, z: 60, k: 0.7, c: 'suave' }, { t: 6.4, x: 14, y: 6, z: 160, k: 0.6, tam: 0.5, c: 'entra' }],
+    brasa: [{ t: 0.4, x: -1, y: -1, z: 120, k: 0.7, tam: 0.7 }, { t: 2.6, x: 4.9, y: 3.5, z: 62, k: 0.45, tam: 0.6, c: 'sale' }, { t: 4.4, x: 5.3, y: 3.4, z: 64, k: 0.45, c: 'suave' }, { t: 6.4, x: 14, y: 6, z: 160, k: 0.6, tam: 0.5, c: 'entra' }],
     focos: [{ de: 'vesperio', z: 56, r: 170, k: 0.85 }, { de: 'brasa', r: 120, k: 0.6 }],
-    luces: [{ id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: 5.8, y: 3.4, z: 50, r: 140, k: 0.7 }, { t: 7.0, k: 0.65 }, { t: 8.8, k: 0 }] }],
+    luces: [
+      { id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: 6.0, y: 4.6, z: 70, r: 170, k: 1.0 }, { t: 7.0, k: 0.95 }, { t: 8.8, k: 0 }] },
+      { id: 'canto', color: [170, 120, 240], claves: [{ t: 0, x: 3.3, y: 2.7, z: 60, r: 120, k: 0.9 }, { t: 7.0, k: 0.9 }, { t: 8.8, k: 0 }] },
+    ],
     sonidos: [{ t: 0, id: 'coro_vesperio', cine: true, tono: 0.89 }, { t: 0, id: 'viento_nieve', cine: true, vol: 0.4 }],
     paso: (e, tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * (tl > 7 ? 30 : 6)) ceniza(e.j, m.x, m.y, tl > 7 ? 2 : 1, '#9e96ae'); const b = brasaEn(e, tl); if (b) vahoEn(e, b.x, b.y, b.z, 1, dt); },
     textos: [L(3, 4.8, 8.2, { tono: VIOLETA })],
@@ -179,8 +182,8 @@ const tomas: Toma[] = [
     // el Fortín, Vigdis viva: en la puerta del norte con su lámpara, mirando la montaña; la llama tiembla cuando la brasa pasa
     id: 'fortin', dur: 8, zona: 'a4_fortin', ancla: anclaPuertaFortin, entra: 0.6, sale: 0.6, oscuridad: 0.86, hundir: 0.66, sinBruma: true,
     omitir: (e) => sacrificada(e.heroe),
-    preparar: (e) => despejarPies(e, 0, 0, 2.5),
-    cam: [{ t: 0, x: 1.4, y: 1.6, alt: 46, zoom: 2, fy: 0.6 }, { t: 8, x: 1.0, y: 1.2, alt: 52, c: 'suave' }],
+    preparar: (e) => despejarPies(e, 1.5, 2.5, 5),
+    cam: [{ t: 0, x: 0.9, y: 1.1, alt: 40, zoom: 3, fy: 0.6 }, { t: 8, x: 0.6, y: 0.8, alt: 46, c: 'suave' }],
     actores: [{ id: 'vigdis', tipo: 'sprite', sprite: 'vigdis', claves: [{ t: 0, x: 0, y: 0, dir: 'n' }, { t: 3.4, dir: 'ne' }, { t: 5.6, dir: 'n' }] }],
     brasa: [{ t: 2.4, x: -12, y: -6, z: 260, k: 0.6, tam: 0.6 }, { t: 5.4, x: 6, y: -14, z: 260, k: 0.6, c: 'lineal' }],
     focos: [{ de: 'vigdis', z: 30, r: 140 }],
@@ -193,8 +196,8 @@ const tomas: Toma[] = [
     // el Fortín, Vigdis entregada: su tumba en la nieve junto a la puerta; la nieve se derrite alrededor de la piedra y sube vaho
     id: 'tumba', dur: 8, zona: 'a4_fortin', ancla: anclaPuertaFortin, objetos: ['cem_lapida_cruz|intacta'], entra: 0.6, sale: 0.6, oscuridad: 0.86, hundir: 0.66, sinBruma: true,
     omitir: (e) => !sacrificada(e.heroe),
-    preparar: (e) => { despejarPies(e, 0, 0, 2.5); if (e.z && !e.z.objetos.some((o) => o.capa === 'cine')) e.z.objetos.push({ id: 'cem_lapida_cruz', v: 'intacta', cx: Math.floor(e.ax), cy: Math.floor(e.ay), hw: 0, hh: 0, bloquea: false, capa: 'cine' } as any); },
-    cam: [{ t: 0, x: 1.4, y: 1.6, alt: 40, zoom: 2, fy: 0.6 }, { t: 8, x: 1.0, y: 1.2, alt: 46, c: 'suave' }],
+    preparar: (e) => { despejarPies(e, 1.5, 2.5, 5); if (e.z && !e.z.objetos.some((o) => o.capa === 'cine')) e.z.objetos.push({ id: 'cem_lapida_cruz', v: 'intacta', cx: Math.floor(e.ax), cy: Math.floor(e.ay), hw: 0, hh: 0, bloquea: false, capa: 'cine' } as any); },
+    cam: [{ t: 0, x: 1.0, y: 1.3, alt: 30, zoom: 3, fy: 0.6 }, { t: 8, x: 0.7, y: 1.0, alt: 36, c: 'suave' }],
     brasa: [{ t: 2.4, x: -12, y: -6, z: 260, k: 0.6, tam: 0.6 }, { t: 5.4, x: 6, y: -14, z: 260, k: 0.6, c: 'lineal' }],
     focos: [{ de: [0.3, 0.6], z: 10, r: 130 }],
     luces: [

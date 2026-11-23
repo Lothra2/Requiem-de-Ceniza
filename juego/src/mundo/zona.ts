@@ -6,7 +6,7 @@ export interface Atrio { marco: [string, string, number, number][]; reservar: [n
 import './actos67';
 import { REGISTRO, huellaDe, generarPaisaje, type ObjetoDef, type Tema, type AmbienteId } from '../../../src/engine/gotico/index';
 import { ATRIO_CATEDRAL } from '../../../src/engine/gotico/catalogo/atrio_oria';
-import { monumentoDe } from './monumentos';
+import { monumentoDe, PIEZA_MONUMENTO } from './monumentos';
 import { ESQUINAS_MURO } from '../../../src/engine/gotico/catalogo/muros';
 import { FAM_SENDERO } from '../../../src/engine/gotico/catalogo/senderos';
 import { juncosDeTramo } from '../../../src/engine/gotico/agua';
@@ -97,7 +97,7 @@ const cacheBusca = new Map<string, ObjetoDef[]>();
 export function buscar(temas: string[], palabras?: string[], sin?: string[]): ObjetoDef[] {
   const k = temas.join() + '|' + (palabras ?? []).join() + '|' + (sin ?? []).join();
   let r = cacheBusca.get(k);
-  if (!r) { r = REGISTRO.filter((d) => temas.includes(d.tema) && !/^(gore|hor)_/.test(d.id) && !d.id.endsWith('_sin_llama') && (!palabras || palabras.some((p) => d.id.includes(p))) && !(sin ?? []).some((p) => d.id.includes(p))); cacheBusca.set(k, r); }
+  if (!r) { r = REGISTRO.filter((d) => temas.includes(d.tema) && !/^(gore|hor)_/.test(d.id) && !PIEZA_MONUMENTO.test(d.id) && !d.id.endsWith('_sin_llama') && (!palabras || palabras.some((p) => d.id.includes(p))) && !(sin ?? []).some((p) => d.id.includes(p))); cacheBusca.set(k, r); }
   return r;
 }
 

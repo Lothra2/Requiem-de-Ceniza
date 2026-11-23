@@ -90,6 +90,8 @@ export interface Toma {
   filo?: number;
   /** Lo que no cabe en claves: se llama cada cuadro con el estado de la toma. */
   paso?: (e: EstadoToma, tl: number, dt: number) => void;
+  /** Lo plano del piso de la toma (huellas): se pinta con las manchas, debajo de todo lo que está de pie. */
+  suelo?: (e: EstadoToma, tl: number, dt: number) => void;
   /** Lo que se dibuja dentro del pase del mundo, después de él (en puntos del dibujo: `aPant` vale). */
   mundo?: (e: EstadoToma, tl: number, dt: number) => void;
   /** Lo que se dibuja encima del mundo, ya en la pantalla (o en vez del mundo, si la toma no tiene zona). */
@@ -403,6 +405,7 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
     (window as any).__sinBarras = true; (window as any).__sinAmbientePfx = true; (window as any).__climaFuera = tm.sinClima; (window as any).__sinBruma = !!tm.sinBruma; (window as any).__filoK = tm.filo;
     try {
       enMundoA(Tz, () => {
+        (e.j as any).sueloCine = tm.suelo ? () => tm.suelo!(e, tl, dt) : undefined;
         dibujarMundo(e.j!, dt, t);
         // la brasa, en el aire (después de la luz: es la luz)
         const b = brasaEn(e, tl);

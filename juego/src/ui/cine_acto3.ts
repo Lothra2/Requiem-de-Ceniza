@@ -40,42 +40,48 @@ function lucesHuevos(e: EstadoToma, tl: number, t0: number) {
 
 // ------------------------------------------------------------------ el cordón de sangre
 /**
- * El cordón: un hilo de sangre de pixel entre el pecho del cuerpo y la brasa, que cuelga, late (se hincha con el latido) y
- * se estira; a los `corte` segundos se parte: el pedazo de abajo cae y se recoge en el cuerpo, el de arriba se encoge hacia la
- * brasa. En el pase del mundo (aPant vale).
+ * El cordón: un cordón de carne del ancho de un dedo entre el cuerpo de la Madre y la brasa. Carne oscura con su canto de luz
+ * arriba, y por adentro la sangre clara que corre hacia la brasa a golpes de latido. Cuelga flojo mientras la brasa está cerca,
+ * se estira al subir ella (se afina y tiembla) y a los `corte` segundos se parte: los dos cabos latiguean (el de abajo cae
+ * coleteando sobre el cuerpo, el de arriba se enrosca hacia la brasa). En el pase del mundo (aPant vale).
  */
 function cordon(e: EstadoToma, tl: number, corte: number) {
-  const b = brasaEn(e, tl); if (!b && tl < corte) return;
-  const [cx, cy] = aPant(e.ax + 0.1, e.ay + 0.1), P0: [number, number] = [cx, cy - 10];
-  const bb = b ?? e.mem.ultB; if (!bb) return; e.mem.ultB = bb;
-  const [bx, by0] = aPant(bb.x, bb.y), P1: [number, number] = [bx, by0 - bb.z];
-  const lat = latido(tl - 0.2), d = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]);
+  const b = brasaEn(e, tl) ?? e.mem.ultB; if (!b) return; if (tl < corte) e.mem.ultB = b;
+  const [cx, cy] = aPant(e.ax + 0.1, e.ay + 0.1), P0: [number, number] = [cx - 2, cy - 14];
+  const bb = tl < corte ? b : e.mem.ultB, [bx, by0] = aPant(bb.x, bb.y), P1: [number, number] = [bx, by0 - bb.z + 2];
+  const lat = latido(tl - 0.2), estira = Math.min(1, Math.max(0, (tl - 1.2) / (corte - 1.2)));
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  // (un trazo continuo, con un punto cada medio punto del dibujo: la curva se va de lado como un cordón que cuelga, y ondea)
-  const pinta = (u0: number, u1: number, sag: number, grueso: number, alfa: number, desde: [number, number], hasta: [number, number]) => {
-    const L = Math.hypot(hasta[0] - desde[0], hasta[1] - desde[1]) || 1, nx = -(hasta[1] - desde[1]) / L, ny = (hasta[0] - desde[0]) / L;
-    const n = Math.max(12, Math.round(L * 2)), pts: [number, number, number][] = [];
+  /** Un tramo: de A a B, colgando `sag` puntos hacia abajo y a la izquierda, con una onda `onda`, de grosor g0 a g1. */
+  const tramo = (A: [number, number], B: [number, number], sag: number, onda: number, g0: number, g1: number, alfa: number, fase: number) => {
+    const Lg = Math.hypot(B[0] - A[0], B[1] - A[1]) || 1, n = Math.max(16, Math.round(Lg * 2.5)), pts: [number, number, number][] = [];
     for (let i = 0; i <= n; i++) {
-      const u = u0 + (u1 - u0) * (i / n), b = Math.sin(u * Math.PI), o = b * sag + Math.sin(u * 9 - tl * 5) * b * 2.5;
-      pts.push([desde[0] + (hasta[0] - desde[0]) * u + nx * o, desde[1] + (hasta[1] - desde[1]) * u + ny * o + b * sag * 0.25, u]);
+      const u = i / n, bq = Math.sin(u * Math.PI), o = Math.sin(u * 7 - tl * 6 + fase) * onda * bq;
+      pts.push([A[0] + (B[0] - A[0]) * u - bq * sag * 0.55 + o, A[1] + (B[1] - A[1]) * u + bq * sag + o * 0.4, g0 + (g1 - g0) * u]);
     }
     ctx.globalAlpha = alfa;
-    for (const [x, y, u] of pts) { const w = Math.max(1, Math.round(grueso * (1.3 - 0.7 * u) * (1 + 0.35 * lat))); ctx.fillStyle = '#2a0304'; ctx.fillRect(Math.round(x - w / 2) - 1, Math.round(y - w / 2), w + 2, w + 1); }
-    for (const [x, y, u] of pts) { const w = Math.max(1, Math.round(grueso * (1.3 - 0.7 * u) * (1 + 0.35 * lat))); ctx.fillStyle = '#8a1410'; ctx.fillRect(Math.round(x - w / 2), Math.round(y - w / 2), w, w); }
-    // la sangre que corre por adentro, hacia arriba, con el latido
-    for (let k = 0; k < pts.length; k += 3) { const [x, y, u] = pts[k], f = ((u * 6 - tl * 2.2) % 1 + 1) % 1; if (f < 0.35) { ctx.globalAlpha = alfa * (0.5 + 0.5 * lat); ctx.fillStyle = '#e0402a'; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); } }
+    const pinta = (col: string, mas: number, dy: number) => { ctx.fillStyle = col; for (const [x, y, g] of pts) { const w = Math.max(1, Math.round(g + mas)); ctx.fillRect(Math.round(x - w / 2), Math.round(y - w / 2 + dy), w, w); } };
+    pinta('#1e0304', 2, 0.5);        // el canto oscuro y su sombra
+    pinta('#4e0e0c', 0, 0);          // la carne
+    pinta('#6c1812', -1.6, -0.6);    // la carne con luz
+    ctx.fillStyle = '#a04434'; for (let k = 0; k < pts.length; k += 2) { const [x, y, g] = pts[k]; if (g > 2.2) ctx.fillRect(Math.round(x - g * 0.2), Math.round(y - g / 2), 1, 1); }
+    // la sangre que corre por adentro hacia la brasa: tramos claros que avanzan con el latido
+    for (let k = 0; k < pts.length; k++) {
+      const [x, y, g] = pts[k], u = k / pts.length, f = (((u * 5 - tl * (1.4 + lat * 1.6)) % 1) + 1) % 1;
+      if (f < 0.3 && g > 1.6) { ctx.globalAlpha = alfa * (0.55 + 0.45 * lat); ctx.fillStyle = f < 0.12 ? '#ff7a50' : '#d8341e'; ctx.fillRect(Math.round(x - 0.5), Math.round(y - 0.5), Math.max(1, Math.round(g * 0.45)), Math.max(1, Math.round(g * 0.45))); }
+    }
+    ctx.globalAlpha = 1;
   };
+  const G = 4.2 - 1.6 * estira + 0.6 * lat; // del ancho de un dedo; se afina al estirarse
   if (tl < corte) {
-    // tenso: cuelga menos cuanto más se estira; tiembla en el último segundo
-    const tiembla = tl > corte - 1 ? Math.sin(tl * 60) * 1.2 : 0;
-    pinta(0, 1, Math.min(12, d * 0.22) + tiembla, 2, 1, P0, P1);
+    const Lg = Math.hypot(P1[0] - P0[0], P1[1] - P0[1]), tiembla = tl > corte - 0.9 ? Math.sin(tl * 70) * 1.2 : 0;
+    tramo(P0, P1, Math.max(2, (1 - estira) * Math.min(26, Lg * 0.5)) + tiembla, 1.2 * (1 - estira) + Math.abs(tiembla), G + 1, G * 0.7, 1, 0);
   } else {
-    const u = Math.min(1, (tl - corte) / 0.6), cae = u * u;
-    const M: [number, number] = [(P0[0] + P1[0]) / 2, (P0[1] + P1[1]) / 2];
-    // el de abajo: se recoge latigueando hacia el cuerpo
-    pinta(0, 1, 10 + cae * 30, 2, 1 - u * 0.6, P0, [M[0] + (P0[0] - M[0]) * cae, M[1] + (P0[1] - M[1]) * cae + cae * 18]);
-    // el de arriba: se encoge hacia la brasa
-    if (u < 1) pinta(0, 1, 6, 1, 1 - u, [M[0] + (P1[0] - M[0]) * u, M[1] + (P1[1] - M[1]) * u], P1);
+    const u = Math.min(1, (tl - corte) / 0.9), M: [number, number] = [(P0[0] + P1[0]) / 2, (P0[1] + P1[1]) / 2];
+    // el de abajo: el cabo se suelta, latiguea y cae sobre el cuerpo
+    const caeX = M[0] + (P0[0] + 10 - M[0]) * u + Math.sin(u * 14) * (1 - u) * 10, caeY = M[1] + (P0[1] + 8 - M[1]) * u * u;
+    tramo(P0, [caeX, caeY], 4 + u * 10, (1 - u) * 5, G + 1, G * 0.8, 1, 1);
+    // el de arriba: se enrosca hacia la brasa y se encoge
+    if (u < 1) { const [bx2, by2] = aPant(b.x, b.y), Q: [number, number] = [bx2, by2 - b.z + 2], E: [number, number] = [Q[0] + (M[0] - Q[0]) * (1 - u) + Math.sin(u * 16) * (1 - u) * 8, Q[1] + (M[1] - Q[1]) * (1 - u)]; tramo(Q, E, 3, (1 - u) * 4, G * 0.7, G * 0.9, 1 - u * 0.7, 2); }
   }
   ctx.restore();
 }
@@ -93,38 +99,44 @@ function vaho(e: EstadoToma, tl: number, dt: number, n: number) {
   for (let i = 0; i < n; i++) if (Math.random() < dt * 40) e.j.particulas.push({ x: b.x + (Math.random() - 0.5) * 0.5, y: b.y + (Math.random() - 0.5) * 0.5, z: b.z - 4 + Math.random() * 8, vx: (Math.random() - 0.5) * 0.4, vy: (Math.random() - 0.5) * 0.4, vz: 6 + Math.random() * 10, t: 0, dur: 1.6 + Math.random() * 1.2, color: Math.random() < 0.5 ? '#b8c4d2' : '#8a96a8', tam: 1 + Math.random() * 1.2, grav: -2, tipo: 'ceniza' } as any);
 }
 /**
- * Las huellas del Rey de Escarcha: pies desnudos enormes (casi una casilla de largo), hundidos en la nieve con el labio de
- * nieve levantado alrededor, cinco dedos y escarcha que brilla adentro. Van de la cámara hacia la puerta (`hacia`), de a una
- * por pie, alternando. Se dibujan en el piso del mundo (en el pase del mundo).
+ * Las huellas del Rey de Escarcha, hundidas en la nieve (van con lo plano del piso: las tapa lo que está de pie). Pies desnudos
+ * enormes, de algo más de una casilla, en fila de pasos alternados y bien separados (izquierdo, derecho), que salen de la puerta
+ * y se pierden hacia el norte, fuera de cuadro. Cada una es un hueco: el fondo azul gris, la pared del lado de la luz (arriba a
+ * la izquierda) en sombra y la de enfrente más clara, y el borde levantado de nieve, claro donde le da la luz.
  */
-function huellasRey(e: EstadoToma, tl: number, desde: [number, number], hacia: [number, number], n: number) {
-  const [dx, dy] = [hacia[0] - desde[0], hacia[1] - desde[1]], d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d;
-  // el rumbo en la pantalla (la huella apunta hacia donde va)
-  const sx = (ux - uy) * 16, sy = (ux + uy) * 8, sl = Math.hypot(sx, sy), ax = sx / sl, ay = sy / sl;
+const PASO = 2.3;
+function dentroPie(u: number, v: number): boolean {
+  // el talón, el arco angosto, la planta ancha y cinco dedos (el gordo del lado de adentro, v > 0)
+  const el = (cu: number, cv: number, ru: number, rv: number) => ((u - cu) / ru) ** 2 + ((v - cv) / rv) ** 2 <= 1;
+  if (el(-8, 0, 5, 4.2) || el(-1, -0.8, 6, 3.4) || el(5, 0.4, 4.6, 5.4)) return true;
+  const dedos: [number, number, number][] = [[11.4, 3.6, 2.1], [11.6, 0.9, 1.5], [10.9, -1.4, 1.35], [10.0, -3.4, 1.2], [8.7, -5.0, 1.05]];
+  return dedos.some(([cu, cv, r]) => el(cu, cv, r * 1.15, r));
+}
+function huellasRey(e: EstadoToma, desde: [number, number], hacia: [number, number]) {
+  const dx = hacia[0] - desde[0], dy = hacia[1] - desde[1], d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d, n = Math.floor(d / PASO) + 1;
+  // el rumbo en el plano del piso (la pantalla con el alto al doble)
+  const ax = (ux - uy) * 16, ay = (ux + uy) * 16, al = Math.hypot(ax, ay), cx = ax / al, cy = ay / al;
+  const C = { fondo: '#4e5a76', sombra: '#2e3650', claro: '#7a88a6', borde: '#f4f8fd', bajo: '#c4cede' }, ES = 1.5;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   for (let i = 0; i < n; i++) {
-    const k = i / (n - 1), lado = i % 2 ? 1 : -1;
-    const wx = e.ax + desde[0] + dx * k - uy * lado * 0.45, wy = e.ay + desde[1] + dy * k + ux * lado * 0.45;
-    const [px, py] = aPant(wx, wy);
-    // el pie en un marco propio: a lo largo (ax, ay) y a lo ancho (perpendicular, aplastado por el piso)
-    const G = 1.4, pie = (u: number, v: number): [number, number] => [Math.round(px + (ax * u - ay * v * 0.55) * G), Math.round(py + (ay * u * 0.55 + ax * v * 0.5) * G)];
-    const frio = 0.75 + 0.25 * Math.sin(tl * 3 + i * 1.7);
-    const mancha = (u: number, v: number, ru: number, rv: number, col: string, a: number) => {
-      ctx.globalAlpha = a; ctx.fillStyle = col;
-      for (let q = -ru; q <= ru; q++) for (let w = -rv; w <= rv; w++) if ((q / ru) ** 2 + (w / rv) ** 2 <= 1) { const [x, y] = pie(u + q, v + w); ctx.fillRect(x, y, 2, 2); }
-    };
-    // el labio de nieve levantado (claro), el hueco (azul oscuro) y la escarcha que brilla
-    mancha(-5, 0, 6, 5, '#f2f6fb', 1); mancha(5, lado * 0.5, 7, 6, '#f2f6fb', 1);
-    mancha(-5, 0, 5, 4, '#9aa6bf', 1); mancha(4, lado * 0.5, 6, 5, '#9aa6bf', 1);
-    mancha(-1, 0, 2, 3, '#9aa6bf', 1);
-    for (let t = 0; t < 5; t++) { const v = (t - 2) * 2.4 + lado * 0.5, u = 13 - Math.abs(t - 1.2) * 1.0; mancha(u, v, 1.6, 1.6, '#f2f6fb', 1); mancha(u, v, 1, 1, '#7a87a2', 1); }
-    mancha(-6, -1, 3, 2, '#7a87a2', 1); mancha(5, lado, 4, 3, '#7a87a2', 1);
-    // escarcha: puntos que destellan de a uno
-    for (let s = 0; s < 4; s++) { const [x, y] = pie(-6 + s * 4, ((s * 7 + i * 3) % 7) - 3); ctx.globalAlpha = frio * (((s + i + Math.floor(tl * 4)) % 4) === 0 ? 1 : 0.45); ctx.fillStyle = '#cfe6ff'; ctx.fillRect(x, y, 1, 1); }
+    const lado = i % 2 ? 1 : -1, k = i * PASO;
+    const [px, py] = aPant(e.ax + desde[0] + ux * k - uy * lado * 0.42, e.ay + desde[1] + uy * k + ux * lado * 0.42), X = Math.round(px), Y = Math.round(py);
+    // (de la pantalla al pie: el piso aplastado a la mitad, girado al rumbo; el izquierdo en espejo)
+    const en = (sx: number, sy: number) => { const qy = sy * 2; return dentroPie((sx * cx + qy * cy) / ES, ((-sx * cy + qy * cx) * lado) / ES); };
+    for (let sy = -14; sy <= 14; sy++) for (let sx = -24; sx <= 24; sx++) {
+      let col: string | null = null;
+      if (en(sx, sy)) col = !en(sx - 1, sy - 1) ? C.sombra : !en(sx + 1, sy + 1) ? C.claro : C.fondo;
+      else if (en(sx + 1, sy + 1) || en(sx + 1, sy)) col = C.borde;
+      else if (en(sx - 1, sy - 1)) col = C.bajo;
+      if (!col) continue;
+      ctx.globalAlpha = col === C.bajo ? 0.6 : 1; ctx.fillStyle = col; ctx.fillRect(X + sx, Y + sy, 1, 1);
+    }
   }
   ctx.restore();
 }
 
+/** Cuánto sube Vesperio por la escalera de la pirámide (puntos del dibujo sobre el piso de la boca). */
+const ALTO_VES = 275, VX = 4, ALZA = ALTO_VES + (VX - 0.9) * 16;
 /** Sin lluvia en esta toma (a ×2 y ×3 las gotas se leen como rayas rotas). */
 const sinLluvia = (e: EstadoToma) => { const z: any = e.z; if (!z) return; if (z.lluvia0 === undefined) z.lluvia0 = z.lluvia; z.lluvia = false; };
 
@@ -154,7 +166,7 @@ const tomas: Toma[] = [
     // el cordón: de la carne sale la brasa, sujeta por un hilo de sangre que late; se estira, se corta y la brasa sube. El héroe
     // la mira irse; Thor olfatea la carne que se enfría
     id: 'cordon', dur: 9, zona: 'a3_templo2', ancla: anclaJefe, objetos: PUESTA.map((p) => p[0]), preparar: ponerPuesta, entra: 0.25, sale: 0.6, oscuridad: 0.9, hundir: 0.7,
-    cam: [{ t: 0, x: 1.1, y: -0.2, alt: 26, zoom: 3, fy: 0.55 }, { t: 4.6, x: 1.0, y: -0.2, alt: 40, c: 'suave' }, { t: 6.4, x: 0.9, y: -0.3, alt: 80, c: 'entra' }, { t: 9, x: 0.9, y: -0.3, alt: 92 }],
+    cam: [{ t: 0, x: 1.1, y: -0.2, alt: 26, zoom: 3, fy: 0.55 }, { t: 4.9, x: 1.0, y: -0.2, alt: 38, c: 'suave' }, { t: 4.91, x: 0.3, y: 0.1, alt: 34, zoom: 4, fy: 0.5 }, { t: 6.2, x: 0.3, y: 0.1, alt: 38 }, { t: 6.21, x: 0.9, y: -0.3, alt: 60, zoom: 3, fy: 0.55 }, { t: 7.0, x: 0.9, y: -0.3, alt: 84, c: 'entra' }, { t: 9, x: 0.9, y: -0.3, alt: 92 }],
     actores: [
       { id: 'madre', tipo: 'mon', mon: 'madre_cienaga', claves: [{ t: 0, x: 0, y: 0, dir: 's', acc: 'morir', ritmo: 60 }] },
       { id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 2.5, y: -0.9, mira: [0, 0] }, { t: 3.6, x: 2.5, y: -0.9 }, { t: 4.4, x: 3.0, y: -1.2, c: 'sale' }, { t: 4.5, mira: [0.2, 0.2] }, { t: 6.5, dir: 'no' }] },
@@ -162,7 +174,7 @@ const tomas: Toma[] = [
     ],
     focos: [{ de: 'brasa', r: 200 }, { de: 'heroe', z: 34, r: 120, k: 0.75 }, { de: [0.2, 0.2], z: 10, r: 110, k: 0.6 }],
     primer: [{ id: columnaDe, fx: 0.9, fy: 1.16, par: 2.2, mas: 2 }],
-    brasa: [{ t: 0.9, x: 0.15, y: 0.15, z: 4, k: 0, tam: 0.35 }, { t: 2.2, z: 10, k: 0.55, tam: 0.55 }, { t: 4.0, z: 34, k: 0.9, tam: 0.9, c: 'sale' }, { t: 5.4, z: 46, k: 1, tam: 1 }, { t: 6.6, z: 560, k: 1, c: 'entra' }],
+    brasa: [{ t: 0.9, x: 0.15, y: 0.15, z: 4, k: 0, tam: 0.35 }, { t: 2.2, z: 10, k: 0.55, tam: 0.55 }, { t: 4.0, z: 34, k: 0.9, tam: 0.9, c: 'sale' }, { t: 5.3, z: 62, k: 1, tam: 1, c: 'suave' }, { t: 6.2, z: 84, k: 1 }, { t: 7.2, z: 560, k: 1, c: 'entra' }],
     luces: [{ id: 'carne', color: [200, 50, 40], claves: [{ t: 0, x: -1, y: 2, z: 40, r: 200, k: 0.35 }, { t: 9, k: 0.15 }] }],
     sonidos: [{ t: 0.9, id: 'brasa_nace', cine: true }, { t: 1.4, id: 'latido', cine: true }, { t: 2.5, id: 'latido', cine: true }, { t: 3.6, id: 'latido', cine: true, vol: 1.2 }, { t: 5.3, id: 'golpe_carne' }, { t: 5.35, id: 'cordon', cine: true }, { t: 5.9, id: 'brasa_vuela', cine: true }],
     temblores: [[5.35, 0.3, 2]],
@@ -171,26 +183,27 @@ const tomas: Toma[] = [
       vez(e, 'pecho', tl, 2.2, () => estallido(e.brasa, (e.ax - e.ay) * 16, (e.ax + e.ay) * 8 - 8, 26, 0.6));
       vez(e, 'corta', tl, 5.35, () => gotasCorte(e, tl));
     },
-    mundo: (e, tl) => { if (tl > 0.9 && tl < 6.2) cordon(e, tl, 5.35); },
+    mundo: (e, tl) => { if (tl > 0.9 && tl < 6.3) cordon(e, tl, 5.35); },
     textos: [L(1, 4.6, 8.8)],
   },
   {
-    // la escalera de la pirámide de Yhuantl: la brasa sale por la boca de la máscara; abajo, al pie de los escalones, Vesperio de
-    // espaldas cantando bajito. La brasa le pasa junto a la cara, él se inclina, se da vuelta y nos mira un instante
-    id: 'escalones', dur: 9, zona: 'a3_pantano', ancla: anclaSalida('a3_templo1'), entra: 0.6, sale: 0.8, oscuridad: 0.84, hundir: 0.66, sinBruma: true, filo: 0.4, sinClima: ['fx_lluvia', 'fx_tormenta', 'fx_luciernagas'],
-    preparar: (e) => { sinLluvia(e); despejarPiezas(e.z!, 'a3_templo1'); despejarPies(e, 3, 3, 3.5); },
-    cam: [{ t: 0, x: 4.4, y: 2.8, alt: 90, zoom: 2, fy: 0.62 }, { t: 9, x: 4.1, y: 2.5, alt: 96, c: 'suave' }],
+    // la escalera de la pirámide de Yhuantl: Vesperio subido en los escalones, sobre la máscara, de espaldas, cantando bajito
+    // (como sobre el agua del acto 2: sus colores en sombra, el canto violeta de un lado y su luz violeta). La brasa sale por la
+    // boca, sube por la escalera y le pasa junto a la cara; él se inclina, se da vuelta y nos mira un instante
+    id: 'escalones', dur: 9, zona: 'a3_pantano', ancla: anclaSalida('a3_templo1'), entra: 0.6, sale: 0.8, oscuridad: 0.8, hundir: 0.62, sinBruma: true, sinClima: ['fx_lluvia', 'fx_tormenta', 'fx_luciernagas', 'fx_niebla'],
+    preparar: (e) => { sinLluvia(e); despejarPiezas(e.z!, 'a3_templo1'); },
+    cam: [{ t: 0, x: VX, y: VX, alt: ALZA + 30, zoom: 2, fy: 0.6 }, { t: 9, x: VX, y: VX, alt: ALZA + 40, c: 'suave' }],
     actores: [
-      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.55], claves: [{ t: 0, x: 5.2, y: 1.4, dir: 'no', acc: 'quieto' }, { t: 2.4, mira: [0, 0] }, { t: 3.3, acc: 'lanzar', dur: 1.0, ritmo: 0.25, mira: [0, 0] }, { t: 5.2, acc: 'quieto', mira: [6, 2] }, { t: 5.9, dir: 's' }, { t: 7.5, x: 5.2, y: 1.4, alfa: 1 }, { t: 8.8, x: 4.6, y: 0.8, alfa: 0, c: 'lineal' }] },
+      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.42], claves: [{ t: 0, x: VX, y: VX, dir: 'no', acc: 'quieto' }, { t: 3.0, acc: 'lanzar', dur: 1.0, ritmo: 0.25, dir: 'no' }, { t: 4.8, acc: 'quieto', dir: 'o' }, { t: 5.5, dir: 's' }, { t: 7.5, x: VX, y: VX, alfa: 1 }, { t: 8.8, x: VX - 0.4, y: VX - 0.4, alfa: 0, c: 'lineal' }] },
     ],
-    brasa: [{ t: 0.3, x: 0, y: 0, z: 40, k: 0.7, tam: 0.8 }, { t: 2.6, x: 4.4, y: 2.0, z: 70, k: 0.75, tam: 0.9, c: 'sale' }, { t: 4.2, x: 5.0, y: 2.0, z: 76, k: 0.75, c: 'suave' }, { t: 6.0, x: 8, y: -2, z: 150, k: 1, c: 'entra' }, { t: 7.2, x: 16, y: -8, z: 240, k: 0.8, tam: 0.7, c: 'lineal' }],
-    focos: [{ de: 'vesperio', z: 56, r: 170, k: 0.85 }, { de: [0, 0], z: 90, r: 200, k: 0.4 }, { de: 'brasa', r: 140, k: 0.7 }],
+    brasa: [{ t: 0.3, x: VX, y: VX, z: 30, k: 0.6, tam: 0.7 }, { t: 2.4, x: VX - 0.2, y: VX - 0.5, z: ALZA + 40, k: 0.8, tam: 0.9, c: 'sale' }, { t: 4.0, x: VX + 0.2, y: VX - 0.6, z: ALZA + 60, k: 0.8, c: 'suave' }, { t: 5.6, x: -2, y: -4, z: ALZA + 200, k: 0.8, c: 'entra' }, { t: 6.6, x: -6, y: -9, z: ALZA + 320, k: 0.6, tam: 0.6, c: 'lineal' }],
+    focos: [{ de: [VX - ALZA / 16, VX - ALZA / 16], z: 50, r: 190, k: 0.85 }],
     luces: [
-      { id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: 6.2, y: 0.8, z: 50, r: 140, k: 0.7 }, { t: 7.5, k: 0.65 }, { t: 8.8, k: 0 }] },
-      { id: 'luna', color: [110, 140, 130], claves: [{ t: 0, x: 2, y: 2, z: 400, r: 600, k: 0.25 }] },
+      { id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: VX + 1.4 - ALZA / 16, y: VX - 0.6 - ALZA / 16, z: 70, r: 190, k: 1.0 }, { t: 7.5, k: 0.95 }, { t: 8.8, k: 0 }] },
+      { id: 'canto', color: [170, 120, 240], claves: [{ t: 0, x: VX - 1.1 - ALZA / 16, y: VX - 1.7 - ALZA / 16, z: 60, r: 140, k: 1.3 }, { t: 7.5, k: 1.3 }, { t: 8.8, k: 0 }] },
     ],
     sonidos: [{ t: 0, id: 'coro_vesperio', cine: true, tono: 0.94 }, { t: 0.4, id: 'brasa_vuela', cine: true, vol: 0.4 }],
-    paso: (e, tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * (tl > 7.5 ? 30 : 6)) ceniza(e.j, m.x, m.y, tl > 7.5 ? 2 : 1, '#9e96ae'); },
+    paso: (e, tl, dt) => { const m = e.actores.get('vesperio') as any; if (!m) return; m.alto = ALZA; if (e.j && Math.random() < dt * (tl > 7.5 ? 30 : 6)) ceniza(e.j, m.x, m.y, tl > 7.5 ? 2 : 1, '#9e96ae'); },
     textos: [L(2, 5.0, 7.8, { tono: VIOLETA })],
   },
   {
@@ -211,14 +224,20 @@ const tomas: Toma[] = [
     textos: [L(3, 4.0, 7.6)],
   },
   {
-    // hacia el norte: los picos con la nieve que empieza; la brasa entra en el frío, su fuego se encoge y deja vaho
-    id: 'norte', dur: 9, zona: 'a4_picos', ancla: anclaHito, entra: 0.8, sale: 0.6, oscuridad: 0.6, hundir: 0.4, sinBruma: true,
-    cam: [{ t: 0, x: 26, y: 18, alt: 120, zoom: 1, fy: 0.5 }, { t: 9, x: 12, y: 8, alt: 120, c: 'suave' }],
-    brasa: [{ t: 0.5, x: 38, y: 30, z: 220, k: 1, tam: 2.2 }, { t: 5, x: 20, y: 14, z: 150, k: 0.9, tam: 1.5, c: 'suave' }, { t: 9, x: 9, y: 6, z: 100, k: 0.75, tam: 0.9, c: 'suave' }],
-    focos: [{ de: 'brasa', r: 300 }],
-    luces: [{ id: 'cielo', color: [140, 160, 200], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 800, k: 0.3 }] }],
+    // hacia el norte: un campo de nieve abierto y limpio, la nieve que cae; la brasa entra en el frío, se encoge echando vaho y su
+    // luz se enfría. Nada en el medio
+    id: 'norte', dur: 9, zona: 'a4_picos', ancla: anclaHito, entra: 0.8, sale: 0.6, oscuridad: 0.62, hundir: 0.42, sinBruma: true,
+    preparar: (e) => { const z = e.z; if (!z) return; const dentro = (o: any) => { const dx = o.cx + 0.5 - e.ax, dy = o.cy + 0.5 - e.ay; for (let k = 0; k <= 1; k += 0.1) if (Math.hypot(dx - (40 - 32 * k), dy - (32 - 26 * k)) < 17) return true; return false; }; z.objetos = z.objetos.filter((o) => /acto_hito|macizo/.test(o.id) || !dentro(o)); },
+    cam: [{ t: 0, x: 28, y: 21, alt: 110, zoom: 1, fy: 0.5 }, { t: 9, x: 16, y: 11, alt: 110, c: 'suave' }],
+    brasa: [{ t: 0.4, x: 40, y: 32, z: 200, k: 1, tam: 2.2 }, { t: 4.5, x: 26, y: 19, z: 150, k: 0.85, tam: 1.5, c: 'suave' }, { t: 9, x: 12, y: 8, z: 110, k: 0.55, tam: 0.8, c: 'suave' }],
+    focos: [{ de: 'brasa', r: 320 }],
+    luces: [{ id: 'cielo', color: [130, 150, 200], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 800, k: 0.26 }] }],
     sonidos: [{ t: 0, id: 'viento_nieve', cine: true }, { t: 0.4, id: 'dron_frio', cine: true }, { t: 0.6, id: 'brasa_vuela', cine: true, vol: 0.4 }],
-    paso: (e, tl, dt) => vaho(e, tl, dt, 2),
+    paso: (e, tl, dt) => {
+      vaho(e, tl, dt, 3);
+      // su luz se enfría: una luz azul que la acompaña y crece mientras ella se encoge
+      const b = brasaEn(e, tl), Ls = lucesDe(e); if (b && Ls) Ls.push({ id: 'frio', x: b.x, y: b.y, z: b.z, r: 200, c: [150, 190, 255], k: 0.15 + 0.55 * Math.min(1, tl / 8), sinSombra: true });
+    },
     textos: [L(4, 2.0, 8.6)],
   },
   {
@@ -235,7 +254,7 @@ const tomas: Toma[] = [
     ],
     sonidos: [{ t: 0, id: 'viento_nieve', cine: true, vol: 0.7 }, { t: 3.6, id: 'runas', cine: true }, { t: 5.4, id: 'cuerno', cine: true }],
     paso: (e, tl, dt) => vaho(e, tl, dt, 1),
-    mundo: (e, tl) => huellasRey(e, tl, [7.8, -3.0], [3.4, -4.6], 6),
+    suelo: (e) => huellasRey(e, [2.2, 0.4], [-0.6, -15]),
     textos: [L(5, 4.6, 9.6)],
   },
   { id: 'acto4', dur: 7, entra: 0, sale: 1.4, sonidos: [{ t: 0.35, id: 'titulo', cine: true }], pantalla: (_e, tl) => cartel(tl, 7, 4) },

@@ -388,6 +388,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     if (m.tipo === 'sangre' && m.r > 0.5) { ctx.beginPath(); ctx.ellipse(px + m.r * 9, py + 3, m.r * 6, m.r * 3, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
   }
+  // lo plano del piso de una cinemática (ui/director.ts: huellas en la nieve), con las manchas
+  (j as any).sueloCine?.();
   // el piso que sigue ardiendo después de los poderes de fuego
   // (el piso que arde ya no se pinta acá, debajo de todo: va en el orden del mundo, ver itemsSuelo)
   // aviso del aliento: el cono se enciende en el piso antes de soplar (para poder salir de él)

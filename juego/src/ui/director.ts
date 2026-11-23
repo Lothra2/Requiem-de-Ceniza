@@ -113,7 +113,7 @@ export interface EstadoToma {
 interface Escena { z: Zona; j: Juego }
 let guionVivo: Guion | null = null, heroeVivo: DatosHeroe | null = null;
 const escenas = new Map<string, Escena>();
-const omitidas = new Set<number>();
+const omitidas = new Set<number>(), evaluadas = new Set<number>();
 let listo = false, cargando = false, tomaViva = -1, estado: EstadoToma | null = null, tAnt = -1;
 const sonados = new Set<string>();
 
@@ -144,7 +144,7 @@ const spriteDe = (a: Actor, d: DatosHeroe) => a.tipo === 'thor' ? spriteThor(asp
  */
 export function prepararPelicula(g: Guion, d: DatosHeroe) {
   if (guionVivo === g && heroeVivo?.id === d.id && (listo || cargando)) return;
-  guionVivo = g; heroeVivo = d; listo = false; cargando = true; tPide = performance.now(); omitidas.clear(); escenas.clear(); tomaViva = -1; estado = null;
+  guionVivo = g; heroeVivo = d; listo = false; cargando = true; tPide = performance.now(); omitidas.clear(); evaluadas.clear(); escenas.clear(); tomaViva = -1; estado = null;
   const zonas = [...new Set(g.tomas.map((t) => t.zona).filter(Boolean) as string[])];
   const sprites = new Map<string, Set<string>>(), extra = new Map<string, string[]>();
   for (const t of g.tomas) if (t.zona && t.objetos) extra.set(t.zona, [...(extra.get(t.zona) ?? []), ...t.objetos]);
@@ -370,7 +370,9 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
   ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
   let t0 = 0, i = 0;
   const durDe = (k: number) => (omitidas.has(k) ? 0 : g.tomas[k].dur);
-  while (i < g.tomas.length && t >= t0 + durDe(i)) { t0 += durDe(i); i++; }
+  // (cada toma que se alcanza decide si se omite, también las que un salto pasa de largo: si no, el salto caía corrido)
+  const decide = (k: number) => { if (!listo || evaluadas.has(k)) return; evaluadas.add(k); if (g.tomas[k].omitir?.({ toma: g.tomas[k], j: null, z: null, ax: 0, ay: 0, actores: new Map(), brasa: reiniciarBrasa(), mem: {}, heroe: d })) omitidas.add(k); };
+  while (i < g.tomas.length) { decide(i); if (t < t0 + durDe(i)) break; t0 += durDe(i); i++; }
   // (la toma que no tiene lo que necesita se salta sin aviso: la que sigue empieza en su lugar)
   if (listo && i < g.tomas.length && i !== tomaViva && g.tomas[i].omitir?.({ toma: g.tomas[i], j: null, z: null, ax: 0, ay: 0, actores: new Map(), brasa: reiniciarBrasa(), mem: {}, heroe: d })) { omitidas.add(i); return dibujarPeli(g, d, t); }
   if (i >= g.tomas.length) { terminar(2.5); return true; }

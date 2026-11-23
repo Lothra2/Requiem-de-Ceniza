@@ -2372,6 +2372,19 @@ película de 60 a 90 s por acto con el mismo arte del juego, una sola por acto. 
   materiales se nota a ×3; con yelmo cerrado no hay cara. Vesperio en el campanario sale rosado cuando lo alumbra la brasa. Los
   vitrales encienden también algún rincón oscuro de la piedra. El sonido no lo oyó nadie.
 
+- **Actos 3, 4 y 5** (`ui/cine_acto3.ts`, `cine_acto4.ts`, `cine_acto5.ts`; el 3 aprobado, el 4 con la segunda vuelta, el 5 en borrador).
+  - Las líneas viven en `PELICULA[n]`. Las de una variante llevan `si: [clave, valor]` y el Libro de Odrán solo escribe las de la
+    decisión tomada (`vigdis`, `brasa`; Vigdis sin elección cuenta como salvada).
+  - Las variantes son tomas con `omitir`. El director decide si se omite cada toma que se alcanza, también las que un salto pasa
+    de largo (`evaluadas`).
+  - Gancho `suelo` en la Toma: lo plano del piso (huellas, nieve pintada), en escena.ts con las manchas (`j.sueloCine`).
+  - **La revelación del acto 5 va dentro de la película**: la toma `eleccion` lleva `pausa`. main.ts la para al final
+    (`pausaEn`) hasta que se elige con los botones góticos (`eleccionPeli`), y guarda `finalElegido` igual que la de antes. Saltar
+    lleva a la elección. Si `finalDe` ya está, la toma se omite. `__cineViejo` vuelve a la pantalla de texto.
+  - Un monstruo se alza con `alto` (Vesperio en la escalera de la pirámide). Las luces y el foco van al punto del piso que cae bajo
+    su cuerpo alzado, porque si no la luz no le llega.
+  - t1400 descuenta las tomas omitidas y acepta `DECIDE=vigdis=sacrificar` y `FINAL=destruir|absorber`.
+
 ## Historia y canon (19 nov 2026)
 
 Rick aprobó la revisión entera de la historia (70 propuestas). Lo que quedó como canon, para que nada nuevo lo contradiga:

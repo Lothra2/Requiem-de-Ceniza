@@ -14,7 +14,7 @@ import { cuadrosVivos } from '../motor/pintor';
 import { cuadrosHeroe } from '../motor/assets';
 import { boton } from './comun';
 import { dibujarRostro, rostroListo } from './cine_rostro';
-import { brasaEn, type Guion, type Toma, type Texto, type EstadoToma } from './director';
+import { type Guion, type Toma, type Texto, type EstadoToma } from './director';
 import { linea, VIOLETA, anclaJefe, anclaSalida, despejarPiezas, despejarPies, charco, vez, ceniza, columnaDe, cartel, latido, siluetaEnPiso } from './cine_kit';
 const L = (n: number, t0: number, t1: number, o: Partial<Texto> = {}): Texto => linea(5, n, t0, t1, o);
 const R = (n: number, t0: number, t1: number): Texto => ({ t0, t1, es: REVELACION[n][0], en: REVELACION[n][1] });
@@ -165,7 +165,7 @@ const tomas: Toma[] = [
     sonidos: [{ t: 0, id: 'dron_marca', cine: true }],
     paso: (e, tl) => { charco(e, 'c', 0.3, 0.3, 2.2, 2.2); luzMarca(e, tl, 1); },
     pantalla: (_e, tl) => botonesEleccion(tl),
-    textos: [{ ...R(3, 0.4, 99999), arriba: true }],
+    textos: [R(3, 0.4, 99999)],
   },
   {
     // destruir: el héroe levanta la Brasa y la aprieta en el puño hasta que deja de latir; humo, ceniza y la Marca que se pone gris

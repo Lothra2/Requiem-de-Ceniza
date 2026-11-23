@@ -20,8 +20,8 @@ const sacrificada = (d: DatosHeroe) => decisionDe(d, 'vigdis') === 'sacrificar';
 const lucesDe = (e: EstadoToma): any[] | null => ((e.j as any)?.lucesCine as any[] | undefined) ?? null;
 
 // ------------------------------------------------------------------ el trono
-/** El trono de hielo junto a Hjaldur (el asiento de la sala queda lejos del ruedo): la muerte horneada lo echa de espaldas, así que cae junto al trono y la cámara corta cuando queda contra él. */
-const TRONO: [number, number] = [-0.8, 1.9];
+/** El trono de hielo junto a Hjaldur (el asiento de la sala queda lejos del ruedo): la muerte horneada lo echa de espaldas, así que cae junto al trono, que queda al costado de su hombro y no le tapa las piernas. */
+const TRONO: [number, number] = [-3.2, -1.0];
 function ponerTrono(e: EstadoToma) {
   const z = e.z; if (!z || z.objetos.some((o) => o.capa === 'cine')) return;
   despejarPies(e, TRONO[0], TRONO[1], 2.6);
@@ -82,7 +82,58 @@ function lampara(e: EstadoToma, tl: number) {
   ctx.fillStyle = '#ffb860'; ctx.fillRect(X - 1, Y - 5, 3, 6);
   ctx.fillStyle = '#fff0c0'; ctx.globalAlpha = tiembla; ctx.fillRect(X, Y - 3 - Math.round(tiembla), 1, 2 + Math.round(tiembla));
   ctx.restore();
-  const Ls = lucesDe(e); if (Ls) Ls.push({ id: 'lampara', x: v.x + 0.3, y: v.y, z: 24, r: 140, c: [255, 180, 100], k: 0.75 * (0.8 + 0.2 * tiembla), sinSombra: false });
+  const Ls = lucesDe(e); if (Ls) Ls.push({ id: 'lampara', x: v.x + 0.3, y: v.y + 0.2, z: 12, r: 150, c: [255, 170, 90], k: 1.0 * (0.8 + 0.2 * tiembla), sinSombra: false });
+}
+
+/**
+ * Nieve y escarcha sobre el piso del Fortín (el portón tiene pasto: el norte es nieve). Manchas de pixel con el borde que se
+ * deshace, claras arriba y azuladas en la sombra, alrededor del ancla; van con lo plano del piso.
+ */
+function nievePiso(e: EstadoToma, r: number) {
+  const [cx, cy] = aPant(e.ax, e.ay), RX = r * 16, RY = r * 8;
+  const ruido = (x: number, y: number) => { const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return s - Math.floor(s); };
+  const suave = (x: number, y: number) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi; const a = ruido(xi, yi), b = ruido(xi + 1, yi), c = ruido(xi, yi + 1), d = ruido(xi + 1, yi + 1); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  for (let y = -RY; y <= RY; y += 1) for (let x = -RX; x <= RX; x += 1) {
+    const d = (x / RX) ** 2 + (y / RY) ** 2; if (d > 1) continue;
+    const n = suave((e.ax * 16 + x) / 9, (e.ay * 8 + y) / 5) * 0.65 + suave((e.ax * 16 + x) / 3, (e.ay * 8 + y) / 2) * 0.35;
+    if (n < 0.28 + d * 0.5) continue;
+    ctx.fillStyle = n > 0.78 ? '#e6edf5' : n > 0.55 ? '#c3cedd' : '#97a6bc'; ctx.globalAlpha = Math.min(1, (n - 0.28 - d * 0.5) * 6);
+    ctx.fillRect(Math.round(cx + x), Math.round(cy + y), 1, 1);
+  }
+  ctx.restore();
+}
+/**
+ * La raja del cielo sobre la Herida: una grieta roja quebrada que cruza lo alto del cuadro de lado a lado, con su resplandor,
+ * humo que entra en ella y una luz roja que baja hasta la boca de la Fragua. En el pase del mundo, en lo alto de la pantalla.
+ */
+function rajaCielo(e: EstadoToma, tl: number) {
+  const m = ctx.getTransform(), inv = m.inverse(), a = inv.transformPoint(new DOMPoint(0, 0)), b = inv.transformPoint(new DOMPoint(ctx.canvas.width, ctx.canvas.height));
+  const x0 = a.x, x1 = b.x, alto = b.y - a.y, y0 = a.y + alto * 0.2, ancho = x1 - x0, lat = 0.85 + 0.15 * Math.sin(tl * 2.3);
+  // (quebrada: tramos de largo y ángulo dispar, siempre los mismos)
+  const pts: [number, number][] = []; let y = y0, x = x0 - 8, k = 0;
+  while (x <= x1 + 8) { pts.push([x, y]); const r1 = Math.sin(k * 91.7) * 0.5 + 0.5, r2 = Math.sin(k * 37.3 + 2) * 0.5 + 0.5; x += 8 + r1 * 22; y += (r2 - 0.5) * 44 + (y0 - y) * 0.4; k++; }
+  // el cielo: lo alto del cuadro se oscurece hacia la noche, para que la raja se lea en el cielo
+  { ctx.save(); const gc = ctx.createLinearGradient(0, a.y, 0, a.y + alto * 0.42); gc.addColorStop(0, 'rgba(6,2,2,1)'); gc.addColorStop(0.6, 'rgba(10,3,3,0.85)'); gc.addColorStop(1, 'rgba(10,3,3,0)'); ctx.fillStyle = gc; ctx.fillRect(x0, a.y, ancho, alto * 0.42); ctx.restore(); }
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  // el resplandor (es luz: blando)
+  ctx.globalCompositeOperation = 'lighter';
+  const g = ctx.createLinearGradient(0, y0 - 60, 0, y0 + 60); g.addColorStop(0, 'rgba(255,40,20,0)'); g.addColorStop(0.5, `rgba(255,60,20,${0.5 * lat})`); g.addColorStop(1, 'rgba(255,40,20,0)');
+  ctx.fillStyle = g; ctx.fillRect(x0, y0 - 60, ancho, 120);
+  // la luz que baja hasta la boca
+  const [bx, by] = aPant(e.ax, e.ay), gb = ctx.createLinearGradient(0, y0, 0, by);
+  gb.addColorStop(0, `rgba(255,50,20,${0.28 * lat})`); gb.addColorStop(1, 'rgba(255,50,20,0.04)');
+  ctx.fillStyle = gb; ctx.beginPath(); ctx.moveTo(bx - 30, y0); ctx.lineTo(bx + 30, y0); ctx.lineTo(bx + 70, by); ctx.lineTo(bx - 70, by); ctx.closePath(); ctx.fill();
+  ctx.globalCompositeOperation = 'source-over';
+  // la grieta: borde oscuro, carne roja y el alma clara, a pixel
+  const linea = (w: number, col: string, dy: number) => { ctx.fillStyle = col; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [cx2, cy2] = pts[i]; for (let s = 0; s <= 6; s++) { const u = s / 6; ctx.fillRect(Math.round(ax + (cx2 - ax) * u - w / 2), Math.round(ay + (cy2 - ay) * u - w / 2 + dy), w, w); } } };
+  linea(9, '#1a0202', 0); linea(6, '#a01810', 0); linea(3, '#ff7038', 0); linea(1, '#ffe0a0', 0);
+  for (let i = 2; i < pts.length; i += 5) { const [px, py] = pts[i]; for (let s = 0; s < 8; s++) { ctx.fillStyle = s < 4 ? '#a01810' : '#5a0806'; ctx.fillRect(Math.round(px + Math.sin(i + s) * s * 0.8), Math.round(py + (i % 2 ? s : -s) * 1.5), 2, 2); } }
+  ctx.restore();
+}
+/** El humo que sube y entra en la raja. */
+function humoRaja(e: EstadoToma, dt: number) {
+  if (!e.j) return; for (let i = 0; i < 2; i++) if (Math.random() < dt * 20) e.j.particulas.push({ x: e.ax - 2 + (Math.random() - 0.5) * 8, y: e.ay - 2 + (Math.random() - 0.5) * 8, z: 140 + Math.random() * 80, vx: 0, vy: 0, vz: 50 + Math.random() * 30, t: 0, dur: 4, color: Math.random() < 0.5 ? '#1c1616' : '#342828', tam: 2 + Math.random() * 2, grav: -4, tipo: 'ceniza' } as any);
 }
 
 // ------------------------------------------------------------------ el guion
@@ -162,17 +213,17 @@ const tomas: Toma[] = [
   {
     // Vesperio junto al gigante del glaciar: solo en la nieve; la brasa baja hasta su cara y él la mira con algo de celos, sin
     // tocarla. Da las gracias y se va hacia el sur
-    id: 'vesperio', dur: 9, zona: 'a4_glaciar', ancla: anclaHito, entra: 0.6, sale: 0.9, oscuridad: 0.86, hundir: 0.72, sinBruma: true, sinClima: ['fx_niebla', 'fx_ventisca', 'fx_nieve'],
+    id: 'vesperio', dur: 9, zona: 'a4_glaciar', ancla: anclaHito, entra: 0.6, sale: 0.9, oscuridad: 0.92, hundir: 0.84, sinBruma: true, filo: 1.4, sinClima: ['fx_niebla', 'fx_ventisca', 'fx_nieve'],
     preparar: (e) => despejarPies(e, 4.4, 4.4, 3.5),
     cam: [{ t: 0, x: 4.6, y: 4.6, alt: 54, zoom: 3, fy: 0.58 }, { t: 9, x: 4.3, y: 4.3, alt: 58, c: 'suave' }],
     actores: [
       { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.42], claves: [{ t: 0, x: 4.4, y: 4.4, dir: 'no', acc: 'quieto' }, { t: 2.6, mira: [6, 3] }, { t: 4.6, dir: 's' }, { t: 7.0, x: 4.4, y: 4.4, alfa: 1, acc: 'caminar', mira: [8, 9] }, { t: 8.8, x: 5.4, y: 5.6, alfa: 0, c: 'lineal' }] },
     ],
-    brasa: [{ t: 0.4, x: -1, y: -1, z: 120, k: 0.7, tam: 0.7 }, { t: 2.6, x: 4.9, y: 3.5, z: 62, k: 0.45, tam: 0.6, c: 'sale' }, { t: 4.4, x: 5.3, y: 3.4, z: 64, k: 0.45, c: 'suave' }, { t: 6.4, x: 14, y: 6, z: 160, k: 0.6, tam: 0.5, c: 'entra' }],
-    focos: [{ de: 'vesperio', z: 56, r: 170, k: 0.85 }, { de: 'brasa', r: 120, k: 0.6 }],
+    brasa: [{ t: 0.4, x: -1, y: -1, z: 120, k: 0.7, tam: 0.7 }, { t: 2.6, x: 6.6, y: 2.6, z: 96, k: 0.3, tam: 0.5, c: 'sale' }, { t: 4.4, x: 7.2, y: 2.6, z: 100, k: 0.3, c: 'suave' }, { t: 6.4, x: 14, y: 6, z: 160, k: 0.6, tam: 0.5, c: 'entra' }],
+    focos: [{ de: 'vesperio', z: 50, r: 120, k: 0.6 }, { de: 'brasa', r: 70, k: 0.5 }],
     luces: [
-      { id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: 6.0, y: 4.6, z: 70, r: 170, k: 1.0 }, { t: 7.0, k: 0.95 }, { t: 8.8, k: 0 }] },
-      { id: 'canto', color: [170, 120, 240], claves: [{ t: 0, x: 3.3, y: 2.7, z: 60, r: 120, k: 0.9 }, { t: 7.0, k: 0.9 }, { t: 8.8, k: 0 }] },
+      { id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: 6.0, y: 4.6, z: 70, r: 130, k: 0.18 }, { t: 7.0, k: 0.18 }, { t: 8.8, k: 0 }] },
+      { id: 'canto', color: [170, 120, 240], claves: [{ t: 0, x: 3.5, y: 2.9, z: 60, r: 90, k: 0.75 }, { t: 7.0, k: 0.9 }, { t: 8.8, k: 0 }] },
     ],
     sonidos: [{ t: 0, id: 'coro_vesperio', cine: true, tono: 0.89 }, { t: 0, id: 'viento_nieve', cine: true, vol: 0.4 }],
     paso: (e, tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * (tl > 7 ? 30 : 6)) ceniza(e.j, m.x, m.y, tl > 7 ? 2 : 1, '#9e96ae'); const b = brasaEn(e, tl); if (b) vahoEn(e, b.x, b.y, b.z, 1, dt); },
@@ -187,8 +238,9 @@ const tomas: Toma[] = [
     actores: [{ id: 'vigdis', tipo: 'sprite', sprite: 'vigdis', claves: [{ t: 0, x: 0, y: 0, dir: 'n' }, { t: 3.4, dir: 'ne' }, { t: 5.6, dir: 'n' }] }],
     brasa: [{ t: 2.4, x: -12, y: -6, z: 260, k: 0.6, tam: 0.6 }, { t: 5.4, x: 6, y: -14, z: 260, k: 0.6, c: 'lineal' }],
     focos: [{ de: 'vigdis', z: 30, r: 140 }],
-    luces: [{ id: 'luna', color: [120, 140, 190], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 600, k: 0.2 }] }],
+    luces: [{ id: 'luna', color: [90, 120, 200], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 600, k: 0.32 }] }],
     sonidos: [{ t: 0, id: 'nana', cine: true }],
+    suelo: (e) => nievePiso(e, 6),
     mundo: (e, tl) => lampara(e, tl),
     textos: [L(4, 3.6, 7.6)],
   },
@@ -205,6 +257,7 @@ const tomas: Toma[] = [
       { id: 'tibia', color: [255, 190, 130], claves: [{ t: 0, x: 0.4, y: 0.8, z: 6, r: 90, k: 0.4 }] },
     ],
     sonidos: [{ t: 0, id: 'viento_nieve', cine: true, vol: 0.5 }],
+    suelo: (e) => nievePiso(e, 6),
     paso: (e, tl, dt) => { vez(e, 'charco', tl, 0, () => { if (e.j) e.j.manchas.push({ x: e.ax + 0.4, y: e.ay + 0.8, r: 0.9, rmax: 1.2, color: '#5a6270', t: 0, tipo: 'hielo', forma: 'charco', sem: 2 } as any); }); vahoEn(e, e.ax + 0.4, e.ay + 0.8, 2, 1, dt * 0.6, '#d8dde6'); },
     textos: [L(5, 3.6, 7.6)],
   },
@@ -212,7 +265,7 @@ const tomas: Toma[] = [
     // la Herida: el cielo rajado en rojo sobre la Fragua de Ozmaren; la brasa entra por la boca encendida y la lava se aviva
     id: 'herida', dur: 9, zona: 'a5_rio', ancla: anclaSalida('a5_fragua'), entra: 0.7, sale: 0.6, oscuridad: 0.6, hundir: 0.45,
     preparar: (e) => { if (e.z) despejarPiezas(e.z, 'a5_fragua'); },
-    cam: [{ t: 0, x: 9, y: 9, alt: 260, zoom: 0.6, fy: 0.5 }, { t: 9, x: 6, y: 6, alt: 300, c: 'suave' }],
+    cam: [{ t: 0, x: 9, y: 9, alt: 200, zoom: 0.6, fy: 0.68 }, { t: 9, x: 6, y: 6, alt: 230, c: 'suave' }],
     brasa: [{ t: 0, x: 26, y: 20, z: 280, k: 1, tam: 1.4 }, { t: 3.6, x: 7, y: 7, z: 90, k: 1, c: 'suave' }, { t: 6.0, x: 0.5, y: 0.5, z: 30, k: 1, tam: 1, c: 'suave' }, { t: 6.6, x: 0, y: 0, z: 26, k: 0, tam: 0.6 }],
     focos: [{ de: [-6, -6], z: 260, r: 440, k: 0.8 }, { de: 'brasa', r: 240 }],
     luces: [
@@ -221,7 +274,8 @@ const tomas: Toma[] = [
     ],
     sonidos: [{ t: 0, id: 'herida', cine: true }, { t: 0.3, id: 'brasa_vuela', cine: true, vol: 0.6 }, { t: 6.5, id: 'sub', cine: true }],
     temblores: [[6.5, 0.6, 3]],
-    paso: (e, tl) => vez(e, 'entra', tl, 6.5, () => estallido(e.brasa, (e.ax - e.ay) * 16, (e.ax + e.ay) * 8 - 30, 50, 1)),
+    mundo: (e, tl) => rajaCielo(e, tl),
+    paso: (e, tl, dt) => { humoRaja(e, dt); vez(e, 'entra', tl, 6.5, () => estallido(e.brasa, (e.ax - e.ay) * 16, (e.ax + e.ay) * 8 - 30, 50, 1)); },
     textos: [L(6, 1.4, 8.6)],
   },
   {

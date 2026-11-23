@@ -4,7 +4,7 @@
 //   LAMINA=1 solo la lámina (salta a cada toma), COSTO=1 la corre en tiempo real y mide lo que cuesta por cuadro,
 //   CLASE=, NIVEL=, MUESTRA=1 sin héroe (desde el menú, con el de muestra), BANDERAS=a,b=1.
 // Sale en /tmp/requiem-pruebas/cine2/<etiqueta>/. Las tomas que se omiten (`omitir`: una variante, el primer plano sin pintar) no
-// cuentan en el tiempo de la película. DECIDE=vigdis=sacrificar pone una decisión en el héroe.
+// cuentan en el tiempo de la película. DECIDE=vigdis=sacrificar pone una decisión en el héroe y FINAL=destruir|absorber la Brasa elegida.
 const { entrar } = require('./comun_pruebas.cjs');
 const fs = require('fs'), { execSync } = require('child_process');
 // (el héroe de la prueba va vestido con piezas que caen, como en t852: el pintor lo pinta con su equipo y la película lo
@@ -20,7 +20,7 @@ const VESTIR = `const O = window.__T.O; let u = 7000;
   const et = process.argv[2] || 'prueba', acto = +(process.argv[3] || 1), vista = process.argv[4] || 'pc';
   const DIR = `/tmp/requiem-pruebas/cine2/${et}`; fs.rmSync(DIR, { recursive: true, force: true }); fs.mkdirSync(DIR + '/f', { recursive: true });
   process.on('unhandledRejection', (e) => { console.log('FALLA', String(e).slice(0, 400)); process.exit(1); });
-  const { b, p, errs } = await entrar(vista, process.env.CLASE || 'templario', +(process.env.NIVEL || 14), process.env.URL || 'http://127.0.0.1:5198/', `d.decisiones = ${JSON.stringify(Object.fromEntries((process.env.DECIDE || '').split(',').filter(Boolean).map((x) => x.split('='))))};` + `d.id = ${JSON.stringify(process.env.ID || 'cine_prueba')};` + (process.env.DESNUDO ? '' : VESTIR));
+  const { b, p, errs } = await entrar(vista, process.env.CLASE || 'templario', +(process.env.NIVEL || 14), process.env.URL || 'http://127.0.0.1:5198/', `d.finalElegido = ${JSON.stringify(process.env.FINAL || undefined) || 'undefined'}; d.decisiones = ${JSON.stringify(Object.fromEntries((process.env.DECIDE || '').split(',').filter(Boolean).map((x) => x.split('='))))};` + `d.id = ${JSON.stringify(process.env.ID || 'cine_prueba')};` + (process.env.DESNUDO ? '' : VESTIR));
   if (process.env.BANDERAS) await p.evaluate((bs) => { for (const x of bs.split(',')) { const [k, v] = x.split('='); window[k] = v === undefined ? true : isNaN(+v) ? v : +v; } }, process.env.BANDERAS);
   if (process.env.MUESTRA) await p.evaluate(() => window.__salirAlMenu && window.__salirAlMenu());
   await p.evaluate((a) => window.__peli(a), acto);

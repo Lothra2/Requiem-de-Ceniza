@@ -784,6 +784,15 @@ export const PELICULA: Record<number, LineaPelicula[]> = {
     { es: 'Tu Marca ya no duele. Late.', en: 'Your Mark no longer hurts. It beats.' },
     { es: 'Y algo, del otro lado, te llama sangre de su sangre.', en: 'And something, on the other side, calls you blood of its blood.' },
   ],
+  5: [
+    { es: 'Ozmaren cayó. La sed que bajó a beber se quedó sin boca.', en: 'Ozmaren fell. The thirst that came down to drink was left without a mouth.' },
+    { es: 'La Brasa se apagó en tu puño. Tu Marca quedó gris.', en: 'The Ember went out in your fist. Your Mark turned grey.', si: ['brasa', 'destruir'] },
+    { es: 'La Brasa entró en ti. Desde entonces tu sombra es tibia.', en: 'The Ember entered you. Since then your shadow has been warm.', si: ['brasa', 'absorber'] },
+    { es: 'El que cantó de noche ya no canta.', en: 'The one who sang at night sings no more.' },
+    { es: 'Esa noche, muy al norte, el mar se partió en dos.', en: 'That night, far to the north, the sea split in two.' },
+    { es: 'Del fondo subió Ysmeral, la Ciudad Ahogada, con sus campanas todavía sonando.', en: 'From the depths rose Ysmeral, the Drowned City, its bells still ringing.' },
+    { es: 'El barco de Oyá quedó varado en su costa. Las campanas parecían llamar a alguien.', en: 'Oya\'s ship ran aground on its coast. The bells seemed to be calling someone.' },
+  ],
 };
 /** ¿Ese acto cierra con su película del motor? (`__cineViejo` vuelve a la cinemática y al entreacto de antes) */
 export const conPelicula = (acto: number) => !!PELICULA[acto] && !(globalThis as any).__cineViejo;

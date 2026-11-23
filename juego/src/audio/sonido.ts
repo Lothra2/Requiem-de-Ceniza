@@ -2518,6 +2518,29 @@ const CINE: Record<string, (o: AudioNode, t: number, p: number) => number> = {
     let x = 0.8, d = 1.1; while (x < 8.5) { latidoCine(o, t + x, 0.35 + x * 0.03); x += d; d = Math.max(0.5, d * 0.88); }
     return 11;
   },
+  // ---- acto 5: la Herida
+  // Ozmaren: el órgano medio tono abajo, grave y sucio, con un coro roto
+  ozmaren(o, t) { organoCine(o, t, [25, 32, 37, 40], 10, 0.1, 500); coroCine(o, t + 1, [49, 50, 56], 6, 0.04, 'a'); return 13; },
+  // la Brasa que rueda: brasas que crepitan y un roce de piedra
+  rueda(o, t) { for (let i = 0; i < 30; i++) chasquido(o, t + i * al(0.05, 0.1), al(1500, 4000), 3, al(0.04, 0.1), 0.02); const g = gan(0, o); envSost(g.gain, t, 0.2, 0.08, 2.2, 0.6); ruido(t, t + 3, filt('bandpass', 400, 1.2, g), MARRON); return 3.5; },
+  // la Brasa que se apaga en el puño: un siseo que muere y un acorde frío
+  apaga(o, t) { const g = gan(0, o); envSost(g.gain, t, 0.05, 0.2, 1.4, 1.2); const b = filt('highpass', 2500, 0.7, g); b.frequency.linearRampToValueAtTime(7000, t + 2.4); ruido(t, t + 2.8, b, BLANCO); organoCine(o, t + 0.8, [45, 52, 57, 60], 5, 0.06, 500); return 8; },
+  // la Fragua que se enfría: un rumor grave que baja y se apaga, chasquidos de la piedra que se contrae
+  fragua_enfria(o, t) { const g = gan(0, o); envSost(g.gain, t, 0.5, 0.2, 5, 2); const lp = filt('lowpass', 500, 1, g); lp.frequency.exponentialRampToValueAtTime(90, t + 7); ruido(t, t + 8, lp, MARRON); for (let i = 0; i < 18; i++) chasquido(o, t + 2 + i * al(0.2, 0.4), al(800, 2500), 4, al(0.05, 0.12), 0.03); return 9; },
+  // el mar que se parte: rugido sordo, el sub y la espuma
+  mar_parte(o, t) { const g = gan(0, o); envSost(g.gain, t + 1, 1.5, 0.3, 5, 2); ruido(t, t + 9, filt('lowpass', 300, 0.9, g), MARRON); const s = osc('sine', 40, t + 1, t + 8, gan(0.3, o)); s.frequency.linearRampToValueAtTime(28, t + 7); const g2 = gan(0, o); envSost(g2.gain, t + 2, 2, 0.07, 4, 2); ruido(t + 2, t + 9, filt('bandpass', 2400, 0.6, g2), BLANCO); return 10; },
+  // las campanas de Ysmeral bajo el agua: campanas por un paso bajo que se abre al salir
+  campanas_ahogadas(o, t) {
+    const lp = filt('lowpass', 300, 1.5, o); lp.frequency.setValueAtTime(300, t); lp.frequency.exponentialRampToValueAtTime(3000, t + 6);
+    [0, 1.3, 2.4, 3.6, 4.5, 5.6, 6.4].forEach((x, i) => campanaFM(lp, t + x, [98, 131, 110, 147, 98, 165, 123][i], 5, 0.3));
+    organoCine(o, t, [31, 38, 43], 9, 0.05, 400); return 12;
+  },
+  // Oyá: un laúd lento en re dórico
+  tema_oya(o, t) {
+    const fr: [number, number][] = [[62, 0.8], [65, 0.4], [67, 0.8], [69, 1.2], [67, 0.6], [65, 0.6], [62, 1.6]]; let x = 0;
+    for (const [n, d] of fr) { const g = gan(0, o); env(g.gain, t + x, 0.004, 0.06, 1.2); const lp = filt('lowpass', 2000, 1.2, g); osc('sawtooth', mtof(n), t + x, t + x + 1.4, lp); osc('triangle', mtof(n) * 2.001, t + x, t + x + 0.8, gan(0.3, lp)); x += d; }
+    return x + 2;
+  },
   titulo(o, t) { timbalCine(o, t, 0.85); organoCine(o, t, [40, 47, 52, 56, 59], 6.5, 0.1, 1600); coroCine(o, t + 0.2, [64, 68, 71], 6, 0.06, 'a'); return 9; },
 };
 

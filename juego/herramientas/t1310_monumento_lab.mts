@@ -9,7 +9,7 @@ for (const f of readdirSync(raiz + 'catalogo')) await import(raiz + 'catalogo/' 
 const { pintarCuadro, huellaDe, objeto } = await import(raiz + 'objeto.ts');
 const id = process.argv[2] || 'mon_sol', v = process.argv[3] || 'entera', OUT = process.argv[4] || `/tmp/requiem-pruebas/monumentos/lab_${id}`;
 mkdirSync(OUT.replace(/\/[^/]*$/, ''), { recursive: true });
-const F = +(process.env.F || 0), solo = (process.env.SOLO || 'atras,medio,izq,der,frente').split(',');
+const F = +(process.env.F || 0), solo = (process.env.SOLO || 'atras,atras_i,atras_d,medio,izq,der,frente').split(',');
 const kit = await import(raiz + 'catalogo/monumentos_kit.ts');
 // (id `catedral`: la de Santa Oria del acto 1, para comparar)
 const piezas = (id === 'catedral' ? [['abo_catedral_cabecera', 0, -9], ['abo_catedral_nave', 0, 0], ['abo_catedral_fachada', 0, 7]] : kit.piezasMonumento(id)) as [string, number, number][];

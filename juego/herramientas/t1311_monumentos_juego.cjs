@@ -8,6 +8,8 @@ const fs = require('fs');
 const et = process.argv[2] || 'ahora';
 const ZONAS = (process.argv[3] || 'a2_ruinas,a3_pantano,a4_glaciar,a5_rio,a6_barrio2,a7_jardin').split(',');
 const PUESTOS = (process.argv[4] || 'puerta,cerca,lejos,izq,der,detras').split(',');
+// (la catedral del acto 1, con el héroe en su puerta, se corta 108 arriba: un monumento no puede cortarse más que ella)
+const CORTE = +(process.env.CORTE || -130);
 const DIR = `/tmp/requiem-pruebas/monumentos/juego/${et}`; fs.mkdirSync(DIR, { recursive: true });
 (async () => {
   const { b, p, errs } = await entrar(process.env.VISTA || 'pc', 'berserker', 40, process.env.URL || 'http://127.0.0.1:5197/', "d.id = 'monumentos1'");
@@ -43,9 +45,9 @@ const DIR = `/tmp/requiem-pruebas/monumentos/juego/${et}`; fs.mkdirSync(DIR, { r
         const [hx, hy] = window.__aPant(j.heroe.x, j.heroe.y);
         return { arriba, falta, hud: cv.height - Lz.ALTO_HUD * cv.height / window.__vista().H, hy };
       });
-      const fila = `${zid} ${pu} d=${r.d} arriba=${m.arriba.toFixed(0)} héroe=${m.hy.toFixed(0)} hud=${m.hud.toFixed(0)}${m.falta ? ' SIN ATLAS ' + m.falta : ''}${m.arriba < -30 && pu === 'puerta' ? ' CORTADO' : ''}`;
+      const fila = `${zid} ${pu} d=${r.d} arriba=${m.arriba.toFixed(0)} héroe=${m.hy.toFixed(0)} hud=${m.hud.toFixed(0)}${m.falta ? ' SIN ATLAS ' + m.falta : ''}${m.arriba < CORTE && pu === 'puerta' ? ' CORTADO' : ''}`;
       console.log(fila); filas.push(fila);
-      if ((m.arriba < -30 && pu === 'puerta') || m.falta) malos.push(fila);
+      if ((m.arriba < CORTE && pu === 'puerta') || m.falta) malos.push(fila);
       await p.screenshot({ path: `${DIR}/${zid}_${pu}.png` });
     }
     // la puerta lleva a su mazmorra

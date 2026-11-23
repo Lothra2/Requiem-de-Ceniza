@@ -129,7 +129,8 @@ export function dibujarClimaPfx(ctx: CanvasRenderingContext2D, j: Juego, W: numb
     // en mosaico a escala 2, cada tesela con su propio tiempo para que no se note la repetición. Las teselas se enciman
     // FUNDE puntos y se funden en ese margen (cada una se apaga hacia su borde): antes iban a tope, cada una en otro
     // momento del efecto y recortada, y la ventisca dejaba una raya oscura a lo ancho de la pantalla y un corte a lo alto
-    const alfa = ALFA[id] ?? 0.4, caja = cajaPfx(id);
+    // (la niebla se abre frente a un monumento de los actos 2 a 7: su luz le gana, escena.ts `cercaMon`)
+    const alfa = (ALFA[id] ?? 0.4) * (id === 'fx_niebla' ? 1 - 0.7 * (((window as any).__cercaMon as number) || 0) : 1), caja = cajaPfx(id);
     let dibujo = false;
     if (!caja) continue;
     const cw = caja[2] * 2, ch = caja[3] * 2, px = cw - FUNDE, py = ch - FUNDE, mz = mascaraTesela(cw, ch);

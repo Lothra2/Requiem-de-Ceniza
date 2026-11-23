@@ -69,7 +69,7 @@ import { tramo, cerrarTramos, rend } from '../nucleo/rendimiento';
 import { fijarGanchoRelieve, relieveDe } from '../motor/assets';
 import { brilloPuas } from './puas';
 import { aperturaRecorte, piezaRecortada, ALTO_PECHO, RX_REC } from './recorte';
-import { luzMonumento } from '../mundo/monumentos';
+import { luzMonumento, PIEZA_MONUMENTO } from '../mundo/monumentos';
 import { recolectar, sombras, reflejos, luces, destello, destelloColor, luzFuerte } from './luces';
 
 export const cam = { x: 0, y: 0 };
@@ -173,6 +173,10 @@ export function framesMonstruo(sprite: string, acc: string, dir: string): Cuadro
 
 
 let camAlzada = 0, camJefe = 0, vivasMonstruo = 0;
+/** Qué tan cerca está el héroe de la puerta de un monumento de los actos 2 a 7 (0 a 1): la niebla se abre alrededor (su luz le gana). */
+let cercaMon = 0;
+/** Las piezas de los monumentos de los actos 2 a 7 no llevan la bruma de altura: su silueta se lee de lejos y no se lava. */
+const monumentoPieza = (id: string) => PIEZA_MONUMENTO.test(id) && !(window as any).__brumaMonumento;
 /** Los hitos del acto de la zona (una vez por zona: la cámara los mira cada cuadro). */
 const hitosZona = new WeakMap<object, { cx: number; cy: number; id: string; v: string }[]>();
 function hitosDe(z: { objetos: { cx: number; cy: number; id: string; v: string }[] }) { let l = hitosZona.get(z); if (!l) { l = z.objetos.filter((o) => o.id === 'acto_hito'); hitosZona.set(z, l); } return l; }
@@ -229,7 +233,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   nuevoCuadroSombras();
   const sx = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 12 * acc.temblor : 0, sy = j.sacudida > 0 ? (R() - 0.5) * j.sacudida * 8 * acc.temblor : 0;
   // frente a la pieza ancla (la catedral), la cámara sube suave para que se vean las torres
-  let alzar = 0;
+  let alzar = 0, monCerca = 0;
   for (const sa of z.salidas) if (sa.piezas?.length) {
     const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
     // (la distancia de frente y de costado se mide desde la puerta y por su eje: la catedral por y, los monumentos por la diagonal)
@@ -246,6 +250,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       if (cima < 1e9) tope = Math.max(0, Math.min(290, 40 - cima));
     }
     alzar = Math.max(alzar, tope * w);
+    if (luzMonumento(fa.id)) monCerca = Math.max(monCerca, w);
   }
   // (entrega 6) frente a un hito del acto la cámara también sube lo justo para que entre entero en la pantalla, a lo sumo
   // 150 puntos (el héroe queda en el tercio de abajo, nunca bajo el HUD). Antes el gigante del glaciar, la escalera de los
@@ -258,6 +263,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
     if (cima < 12) alzar = Math.max(alzar, Math.min(tope, 12 - cima) * w * w * (3 - 2 * w));
   }
   camAlzada += (alzar - camAlzada) * Math.min(1, dt * 2.5);
+  cercaMon += (((window as any).__nieblaMonViejo ? 0 : monCerca) - cercaMon) * Math.min(1, dt * 1.5); (window as any).__cercaMon = cercaMon;
   // la cámara sigue al héroe con un resorte corto y se adelanta un poco hacia donde camina (antes iba clavada a él: cada
   // arranque y cada giro sacudían toda la pantalla). Al cambiar de zona o teletransportarse, corta en seco
   {
@@ -448,7 +454,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
         items.push({ prof: t.prof, t: 'objetos', draw: () => {
           const x0 = px - sub.ax; if (x0 + sub.w < 0 || x0 > W || py - q.ay > H || py - q.ay + q.h < 0) return;
           if (alfa < 1) ctx.globalAlpha = alfa;
-          const br = q.ay > 200 ? conBruma(q, colorBruma) : null;
+          const br = q.ay > 200 && !monumentoPieza(o.id) ? conBruma(q, colorBruma) : null;
           if (kRec > 0.01 && t.prof > h.x + h.y && hx + RX_REC > x0 && hx - RX_REC < x0 + sub.w) {
             if (recCv === undefined) recCv = piezaRecortada(q, br, px, py, hx, hy - ALTO_PECHO, kRec);
             if (recCv) { ctx.drawImage(recCv, t.a, 0, t.b - t.a, q.h, Math.round(px - q.ax) + t.a, Math.round(py - q.ay), t.b - t.a, q.h); const a0 = ctx.globalAlpha; ctx.globalAlpha = a0 * (1 - 0.5 * kRec); relieveDe(ctx, sub, px, py); ctx.globalAlpha = a0; }
@@ -468,7 +474,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       const viejo = (window as any).__alfaViejo, kRec = viejo ? 0 : aperturaRecorte(o, cubre, tiempo);
       if (viejo && cubre) alfa = 0.45;
       // lo alto (más de 200 px sobre el ancla) lleva bruma de altura: perspectiva atmosférica
-      const br = q.ay > 200 ? conBruma(q, colorBruma) : null;
+      const br = q.ay > 200 && !monumentoPieza(o.id) ? conBruma(q, colorBruma) : null;
       if (alfa < 1) ctx.globalAlpha = alfa;
       // (lo que cuelga gira desde su punto más alto; lo que está plantado, desde el pie)
       // lo plantado se mece de la franja del piso para arriba: la base, las raíces y la sombra horneada sobre el piso quedan
@@ -2013,7 +2019,7 @@ function clima(j: Juego, dt: number, t: number) {
     ctx.save();
     for (const b of bancos) {
       b.x += b.v * dt; if (b.x - b.r > W) b.x = -b.r;
-      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r); g.addColorStop(0, `rgba(150,150,160,${z.niebla * 0.22})`); g.addColorStop(1, 'rgba(150,150,160,0)');
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r); g.addColorStop(0, `rgba(150,150,160,${z.niebla * 0.22 * (1 - 0.75 * cercaMon)})`); g.addColorStop(1, 'rgba(150,150,160,0)');
       ctx.fillStyle = g; ctx.fillRect(b.x - b.r, b.y - b.r, b.r * 2, b.r * 2);
     }
     ctx.restore();

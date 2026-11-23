@@ -57,6 +57,21 @@ function rango(p: Pieza): [number, number, number, number, number] {
   if (p.k === 'elip') { const R = Math.max(...p.r); return [p.c[0] - R, p.c[0] + R, p.c[1] - R, p.c[1] + R, p.c[2] + R]; }
   const e = esferaDe(p); return [e[0] - e[3], e[0] + e[3], e[1] - e[3], e[1] + e[3], e[2] + e[3]];
 }
+/** Un poliedro convexo recortado a la caja [x0, x1] × [y0, y1]: sus planos más los cuatro de la caja, y los vértices de nuevo. */
+function recortarConv(p: Pieza & { k: 'conv' }, x0: number, x1: number, y0: number, y1: number): Pieza | null {
+  const planos: [V3, number][] = [...p.planos, [[1, 0, 0], x1], [[-1, 0, 0], -x0], [[0, 1, 0], y1], [[0, -1, 0], -y0]];
+  const pts: V3[] = [], n = planos.length;
+  const det = (a: V3, b: V3, c: V3) => a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]);
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) for (let k = j + 1; k < n; k++) {
+    const [A, a] = planos[i], [B, b] = planos[j], [C, c] = planos[k], D = det(A, B, C);
+    if (Math.abs(D) < 1e-9) continue;
+    const x = det([a, A[1], A[2]], [b, B[1], B[2]], [c, C[1], C[2]]) / D, y = det([A[0], a, A[2]], [B[0], b, B[2]], [C[0], c, C[2]]) / D, z = det([A[0], A[1], a], [B[0], B[1], b], [C[0], C[1], c]) / D;
+    const v: V3 = [x, y, z];
+    if (planos.every(([m, e]) => m[0] * v[0] + m[1] * v[1] + m[2] * v[2] <= e + 1e-3) && !pts.some((q) => Math.abs(q[0] - x) + Math.abs(q[1] - y) + Math.abs(q[2] - z) < 1e-3)) pts.push(v);
+  }
+  if (pts.length < 4) return null;
+  return { ...p, planos, pts };
+}
 let herr: { caja: (x: number, y: number, z: number, w: number, d: number, h: number, o: { mat: string; resta?: boolean }) => Pieza } | null = null;
 /** Las piezas que caen (aunque sea en parte) en la caja [x0, x1] × [y0, y1], más los cortes que se llevan lo que sobra de cada lado.
  *  (la caja del corte no pasa de lo más alto que queda: el motor mide la sombra del sprite con el alto de todas las piezas) */
@@ -67,6 +82,12 @@ function partir(ps: Pieza[], x0: number, x1: number, y0: number, y1: number): Pi
     if (p.resta) { out.push(p); continue; }
     const [a0, a1, b0, b1, zt] = rango(p);
     if (a1 < x0 || a0 > x1 || b1 < y0 || b0 > y1) continue;
+    // un poliedro que cruza la costura se recorta de verdad (sus planos más los de la caja): así el sprite de cada pieza mide
+    // lo que le toca y no la grada entera
+    if (p.k === 'conv' && (a0 < x0 || a1 > x1 || b0 < y0 || b1 > y1)) {
+      const q = recortarConv(p, x0, x1, y0, y1); if (!q) continue;
+      out.push(q); zmax = Math.max(zmax, rango(q)[4]); continue;
+    }
     out.push(p); zmax = Math.max(zmax, zt);
     if (a0 < x0) corta[0] = true; if (a1 > x1) corta[1] = true; if (b0 < y0) corta[2] = true; if (b1 > y1) corta[3] = true;
   }
@@ -105,3 +126,5 @@ export const piezasMonumento = (id: string): [string, number, number][] => (DEFS
 export const deAvenida = (v: number, u: number): [number, number] => [(v + u) * 0.7071, (u - v) * 0.7071];
 /** La celda de la puerta de un monumento (desde la pieza del medio). */
 export const puertaMonumento = (id: string): [number, number] => PUERTAS.get(id) ?? PUERTA_DIAGONAL;
+/** La celda más atrás (en x y en y, desde la pieza del medio) que ocupa un monumento: hasta ahí va el piso de su atrio. */
+export const fondoMonumento = (id: string): number => Math.min(...(DEFS.get(id) ?? DIAGONAL).map((p) => Math.min(p.dx - p.w / 2, p.dy - p.h / 2)));

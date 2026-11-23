@@ -6,7 +6,7 @@ export interface Atrio { marco: [string, string, number, number][]; reservar: [n
 import './actos67';
 import { REGISTRO, huellaDe, generarPaisaje, type ObjetoDef, type Tema, type AmbienteId } from '../../../src/engine/gotico/index';
 import { ATRIO_CATEDRAL } from '../../../src/engine/gotico/catalogo/atrio_oria';
-import { monumentoDe } from './monumentos';
+import { monumentoDe, PIEZA_MONUMENTO } from './monumentos';
 import { ESQUINAS_MURO } from '../../../src/engine/gotico/catalogo/muros';
 import { FAM_SENDERO } from '../../../src/engine/gotico/catalogo/senderos';
 import { juncosDeTramo } from '../../../src/engine/gotico/agua';
@@ -94,8 +94,6 @@ export interface DefZona {
 
 // ------------------------------------------------------------------ búsqueda en el catálogo
 const cacheBusca = new Map<string, ObjetoDef[]>();
-/** Las piezas de los monumentos de los actos (monumentos.ts) no se riegan: van solo en su atrio. */
-const PIEZA_MONUMENTO = /^mon_(sol|yh|yhuantl)_/;
 export function buscar(temas: string[], palabras?: string[], sin?: string[]): ObjetoDef[] {
   const k = temas.join() + '|' + (palabras ?? []).join() + '|' + (sin ?? []).join();
   let r = cacheBusca.get(k);

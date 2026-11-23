@@ -8,7 +8,7 @@ import { piezasMonumento, puertaMonumento, fondoMonumento } from '../../../src/e
 
 type Ancla = NonNullable<DefZona['ancla']>;
 /** Las piezas de los monumentos (sus prefijos): no se riegan con el tema (van solo en su atrio) ni llevan la bruma de altura. */
-export const PIEZA_MONUMENTO = /^mon_(sol|yh|yhuantl|hr|hrim|fr|fragua|ys|ysmeral)_/;
+export const PIEZA_MONUMENTO = /^mon_(sol|yh|yhuantl|hr|hrim|fr|fragua|ys|ysmeral|es|escalera)_/;
 type Mon = Ancla & { color: string; motas?: [string, string, string]; eje?: 'y' | 'diag' };
 /** El atrio de cada uno: el piso que va bajo la obra y la plaza de adelante, reservada para que el riego no caiga encima. */
 const atrio = (piso: string, marco: [string, string, number, number][] = [], atras = -14) => ({ piso, marco, reservar: [4, 4, 24, 24] as [number, number, number, number], tierra: [atras, atras, 18, 18] as [number, number, number, number] });

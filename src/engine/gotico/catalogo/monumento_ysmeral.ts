@@ -33,7 +33,7 @@ M.mon_ys_coral = { rampa: ['#2a0a08', '#48140e', '#661e14', '#842a1a', '#a03a22'
 M.mon_ys_agua = { rampa: ['#010403', '#020806', '#040e0a', '#07160f', '#0b2016', '#122d1f', '#1c3e2b'], ruido: 0.4, escala: 0.06, emite: true, patron: (p) => (ruido(p[0] * 0.04, p[1] * 0.04, 2) > 0.66 ? 0.3 : (ruido(p[0] * 0.012, p[1] * 0.012, 5) - 0.5) * 0.3) };
 M.mon_ys_animas = { rampa: ['#062418', '#0c3e2a', '#16603f', '#2a8a5c', '#4ab884', '#86e0b0', '#c8f8de'], ruido: 0.4, escala: 0.2, emite: true };
 M.mon_ys_espuma = { rampa: ['#56636a', '#73828a', '#93a2a8', '#b3c0c4', '#d2dcde', '#eaf0f0'], ruido: 0.5, escala: 0.4 };
-M.mon_ys_bronce = { rampa: ['#140c06', '#26180c', '#3c2814', '#56391c', '#704c26', '#8a6232', '#a67a40', '#c29452'], ruido: 0.25, escala: 0.3, brillo: 0.6, patron: (p) => (ruido(p[0] * 0.15, p[1] * 0.15, p[2] * 0.15) - 0.5) * 0.18 };
+M.mon_ys_bronce = { rampa: ['#0a0d0b', '#141a16', '#1e2a24', '#2a3c34', '#365046', '#43665a', '#52806f', '#6a9a88'], ruido: 0.3, escala: 0.3, brillo: 0.45, patron: (p, n) => (n[2] > 0.3 ? 0.12 : -0.08) + (ruido(p[0] * 0.12, p[1] * 0.12, p[2] * 0.12) > 0.6 ? -0.3 : 0) + (ruido(p[0] * 0.5, p[1] * 0.5, p[2] * 0.5) - 0.5) * 0.14 };
 M.mon_ys_verdin = { rampa: ['#0a1814', '#12291f', '#1c3d2e', '#2a5541', '#3a6e55', '#52886b'], ruido: 0.4, escala: 0.3 };
 M.mon_ys_hierro = { rampa: ['#0c0806', '#1a100a', '#2a1a10', '#3c2416', '#50301c', '#643c22'], ruido: 0.4, escala: 0.4 };
 const PI = 'mon_ys_piedra', AL = 'mon_ys_alga', PE = 'mon_ys_percebe', CO = 'mon_ys_coral', AG = 'mon_ys_agua', AN = 'mon_ys_animas', ES = 'mon_ys_espuma', BR = 'mon_ys_bronce', HI = 'mon_ys_hierro';
@@ -62,7 +62,7 @@ function armar(F: G, _v: string, f: number) {
   charco(0, -60, 236, 250, 0, AG, 0); charco(-20, 30, 150, 120, 0.8, AG, 0.06);
   for (let k = 0; k < 14; k++) F.elip(-140 + a.r() * 280, -200 + a.r() * 300, 2.4, 12 + a.r() * 26, 3 + a.r() * 4, 0.6, { mat: AN, tono: -0.35 + a.r() * 0.1, giro: (a.r() - 0.5) * 30 });
   // el escombro que asoma del agua alrededor
-  for (let k = 0; k < 16; k++) { const t = a.r() * TAU, rr = 150 + a.r() * 70, v = Math.cos(t) * rr, u = -60 + Math.sin(t) * rr; if (u > 296 - Math.abs(v) - 30 || u < -486 + Math.abs(v) || (u > 90 && Math.abs(v) < 160)) continue; bloque(F, v, u, -6, 18 + a.r() * 22, 12 + a.r() * 14, 10 + a.r() * 22, { mat: PI, giro: a.r() * 90, incl: (a.r() - 0.5) * 40, b: 1.4, j: 1 }); F.elip(v, u, 1.6, 22, 10, 1.2, { mat: ES, giro: a.r() * 180 }); }
+  for (let k = 0; k < 16; k++) { const t = a.r() * TAU, rr = 150 + a.r() * 70, v = Math.cos(t) * rr, u = -60 + Math.sin(t) * rr; if (u > 296 - Math.abs(v) - 30 || u < -486 + Math.abs(v) || u > -20) continue; bloque(F, v, u, -6, 18 + a.r() * 22, 12 + a.r() * 14, 10 + a.r() * 22, { mat: PI, giro: a.r() * 90, incl: (a.r() - 0.5) * 40, b: 1.4, j: 1 }); F.elip(v, u, 1.6, 22, 10, 1.2, { mat: ES, giro: a.r() * 180 }); }
   // ------------------------------------------------------------ la catedral: hundida hasta media ventana y escorada a la derecha
   const N = F.sub(0, 140, -70, 0, 14, 'y').sub(0, 0, 0, 0, -6, 'x').sub(0, -140, 0);
   const U0 = -300, U1 = 150, WN = 104, HM = 340, NB = 6, BAY = (U1 - U0) / NB, ZW = 110, WW = 52, HW = 150;
@@ -122,6 +122,13 @@ function armar(F: G, _v: string, f: number) {
     campana(N.sub(-4, UF0 + 10, 330), [0, 0, 0], [0.32, 0.4, -0.86], 50, BR);
     algas(N, -50, 50, UF0 + 18, 220, 10, 70);
   }
+  // ------------------------------------------------------------ el pie de la fachada que asoma del agua a los lados del pórtico: un
+  // derrumbe de sillares con su espuma (si no, el canto del muro hundido se leía como una losa suelta)
+  for (const s2 of [-1, 1]) {
+    for (let k = 0; k < 9; k++) { const v = s2 * (96 + a.r() * 70), u = 150 + a.r() * 46 - Math.max(0, Math.abs(v) - 120) * 0.6; bloque(F, v, u, -4 + a.r() * 10, 18 + a.r() * 20, 14 + a.r() * 16, 10 + a.r() * 18, { mat: PI, giro: a.r() * 90, incl: (a.r() - 0.5) * 50, b: 1.6, j: 1 }); }
+    for (let k = 0; k < 6; k++) { const v = s2 * (92 + k * 14), u = 196 - k * 5; F.elip(v, u, 1.6, 18, 7, 1.4, { mat: ES, giro: s2 * 30 }); }
+    percebes(F.sub(s2 * 120, 190, 0), -30, 30, 0, 20, 0, 12); algas(F, s2 * 140 - 20, s2 * 140 + 20, 200, 24, 4, 20);
+  }
   // ------------------------------------------------------------ el pórtico: lo único que sigue en alto, a ras del agua, delante de la fachada hundida
   {
     const P = F;
@@ -177,11 +184,24 @@ function pilar(g: G, ladeado: boolean) {
   for (let k = 0; k < 8; k++) { const t = (k / 8) * TAU; P.cil(Math.cos(t) * 14, Math.sin(t) * 14, 30, 5.6, 230, { mat: PI, tono: (k % 2) * 0.05 }); }
   P.cil(0, 0, 30, 13, 230, { mat: PI, tono: -0.06 });
   // el capitel con las cabezas que gritan y el ábaco
-  P.cil(0, 0, 258, 18, 14, { mat: PI, r1: 26, tono: 0.06 }); P.caja(0, 0, 272, 56, 56, 8, { mat: PI, tono: 0.1 });
+  P.cil(0, 0, 258, 18, 14, { mat: PI, r1: 26, tono: 0.06 }); P.cil(0, 0, 272, 28, 8, { mat: PI, r1: 24, tono: -0.04 });
   for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU + 0.785, c = P.sub(Math.cos(t) * 20, Math.sin(t) * 20, 262, (t * 180) / Math.PI + 90); c.elip(0, 2, 0, 5, 4, 6, { mat: PI, tono: 0.08 }); c.elip(0, 5.4, -2, 2, 1, 2.6, { mat: 'negro' }); for (const e of [-1, 1]) c.elip(e * 2, 5, 2, 1, 0.6, 0.9, { mat: 'negro' }); }
   // el pináculo con su crestería (o el muñón roto)
-  if (!ladeado) { P.cil(0, 0, 280, 18, 10, { mat: PI }); for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU; P.poli([[Math.cos(t) * 18 - 4, Math.sin(t) * 18 - 4, 290], [Math.cos(t) * 18 + 4, Math.sin(t) * 18 - 4, 290], [Math.cos(t) * 18 - 4, Math.sin(t) * 18 + 4, 290], [Math.cos(t) * 18 + 4, Math.sin(t) * 18 + 4, 290], [Math.cos(t) * 18, Math.sin(t) * 18, 320]], { mat: PI, tono: 0.08 }); } P.poli([[-12, -12, 290], [12, -12, 290], [-12, 12, 290], [12, 12, 290], [0, 0, 380]], { mat: PI, tono: 0.06 }); }
-  else { P.cil(0, 0, 280, 18, 26, { mat: PI, r1: 14 }); for (let k = 0; k < 5; k++) bloque(g, 30 + k * 8, -10 + k * 6, 0, 10, 8, 6, { mat: PI, giro: k * 40, b: 0.6, j: 0.4 }); }
+  if (!ladeado) {
+    // el pináculo: cuatro gabletes con su crestería, cuatro agujitas y la aguja con crochets y su flor
+    P.cil(0, 0, 280, 18, 12, { mat: PI, tono: 0.02 });
+    for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU, c = P.sub(Math.cos(t) * 15, Math.sin(t) * 15, 292, (t * 180) / Math.PI + 90); c.poli([[-11, -2, 0], [11, -2, 0], [-11, 2, 0], [11, 2, 0], [0, -2, 26], [0, 2, 26]], { mat: PI, tono: 0.06 }); for (let j = 0; j < 4; j++) c.esf(-8 + j * 5.4, 2.6, 6 + Math.min(j, 3 - j) * 7, 1.6, { mat: PI, tono: 0.1 }); }
+    for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU + 0.785; P.cil(Math.cos(t) * 20, Math.sin(t) * 20, 292, 3, 22, { mat: PI, r1: 0.6, tono: 0.08 }); }
+    P.cil(0, 0, 292, 12, 110, { mat: PI, r1: 1.4, tono: 0.04 });
+    for (let k = 0; k < 10; k++) { const z = 302 + k * 9.5, rr = 12 * (1 - (z - 292) / 110), t = k * 1.9; P.palo([Math.cos(t) * rr, Math.sin(t) * rr, z], [Math.cos(t) * (rr + 4), Math.sin(t) * (rr + 4), z + 3], 1.2, { mat: PI, r1: 0.5, tono: 0.1 }); }
+    for (let k = 0; k < 4; k++) { const t = (k / 4) * TAU; P.palo([0, 0, 400], [Math.cos(t) * 6, Math.sin(t) * 6, 406], 1.4, { mat: PI, r1: 0.6, tono: 0.1 }); }
+  } else {
+    // el muñón roto en diagonal, con los sillares sueltos, y la aguja que se cayó al agua
+    P.cil(0, 0, 280, 18, 10, { mat: PI });
+    P.poli([[-18, -18, 289], [18, -18, 289], [-18, 18, 289], [18, 18, 289], [-18, -18, 322], [-14, 18, 306], [10, -18, 300], [18, 18, 291]], { mat: PI, tono: 0.02 });
+    for (let k = 0; k < 5; k++) bloque(P, -10 + k * 5, -6 + (k % 2) * 8, 296 + (k % 3) * 6, 8, 7, 6, { mat: PI, giro: k * 37, incl: 20, b: 0.6, j: 0.4 });
+    g.sub(46, -14, 4, 30, 80, 'y').cil(0, 0, 0, 12, 96, { mat: PI, r1: 1.6, tono: 0.02 }); for (let k = 0; k < 4; k++) bloque(g, 30 + k * 8, -10 + k * 6, 0, 10, 8, 6, { mat: PI, giro: k * 40, b: 0.6, j: 0.4 });
+  }
   // el brazo de hierro, la campana de los ahogados y el farol verde
   P.palo([0, 0, 250], [0, 44, 250], 2.4, { mat: HI }); P.palo([0, 6, 236], [0, 40, 250], 1.4, { mat: HI });
   cadena(P, [0, 42, 248], [0, 42, 226], 0.4, HI, 1.2); campana(P.sub(0, 42, 222), [0, 0, 0], [0, 0, -1], 13, BR);

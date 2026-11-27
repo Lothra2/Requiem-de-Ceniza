@@ -417,6 +417,7 @@ export function alternar(p: PanelId, lado: 'izq' | 'der') {
 
 // ------------------------------------------------------------------ cosas de arriba: jefe, plaquita del monstruo, mensajes
 export function dibujarArriba(j: Juego, encima: Monstruo | null) {
+  misionPC(j);
   // purga en curso: cuántos faltan y cuánto tiempo queda
   const pu = (j as any).purga;
   if (pu) { const s = Math.max(0, Math.ceil(pu.t)); const falta = Math.max(0, pu.n - (pu.hechos ?? 0)); texto(`${T('Purga', 'Purge')}: ${falta} · ${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`, W / 2, j.jefe && !j.jefe.muerto ? 64 : 52, { alin: 'center', tam: 16, color: s < 20 ? '#ff6040' : '#ffb060', fuente: TITULO }); }
@@ -1429,6 +1430,48 @@ function panelViaje(j: Juego, x: number, y: number) {
     if (boton(tiene ? TT(z.nombre) : '? ? ?', x + 30, yy, 260, 26, { tam: 12, activo: tiene && z.id !== j.zona.id })) { E.clicIzq = false; if (tiene) j.eventos.push({ tipo: 'viajar', dato: z.id }); ui.izq = null; }
     yy += 30;
   }
+}
+/** Por dónde seguir: la zona vecina en el camino más corto (por las salidas) de una zona a otra, o null si ya está ahí o no
+ *  hay camino. Solo el nombre de la zona: nada de flechas en el mapa (Rick quiere explorar, 27 nov 2026). */
+function siguienteZona(desde: string, hasta: string): string | null {
+  if (desde === hasta || !ZONAS[desde] || !ZONAS[hasta]) return null;
+  const de = new Map<string, string>([[desde, '']]), cola = [desde];
+  while (cola.length) {
+    const z = cola.shift()!;
+    for (const s of ZONAS[z].salidas ?? []) { const n = s.destino; if (!ZONAS[n] || de.has(n)) continue; de.set(n, z); if (n === hasta) { let k = n; while (de.get(k) !== desde) k = de.get(k)!; return k; } cola.push(n); }
+  }
+  return null;
+}
+const puebloDe = (acto: number) => PUEBLO_DE[acto] ?? Object.keys(ZONAS).find((k) => ZONAS[k].acto === acto && ZONAS[k].tipo === 'pueblo') ?? '';
+/** La misión principal en curso del acto, qué hay que hacer y por qué zona seguir para llegar. Sirve al HUD de PC y al táctil. */
+export function rumboMision(j: Juego): { nombre: string; objetivo: string; paso: string | null; vuelve: boolean } | null {
+  const d = j.heroe.d;
+  let m = MISIONES.find((q) => q.acto === d.acto && !q.lateral && (d.misiones[q.id] ?? 0) >= 1 && (d.misiones[q.id] ?? 0) < 3);
+  let destino = '', objetivo = '', vuelve = false;
+  if (m) {
+    const e = d.misiones[m.id];
+    if (e === 2) { vuelve = true; destino = puebloDe(m.acto); objetivo = `${T('Vuelve con', 'Return to')} ${TT(NPCS[quienDa(m, d)]?.nombre ?? ['', ''])} · ${TT(ZONAS[destino]?.nombre ?? ['', ''])}`; }
+    else { destino = m.objetivo.zona; objetivo = objetivoTxt(m, d); }
+  } else {
+    m = MISIONES.find((q) => q.acto === d.acto && !q.lateral && !(d.misiones[q.id] ?? 0) && (q.requiere ?? []).every((r) => (d.misiones[r] ?? 0) >= 3));
+    if (!m) return null;
+    destino = puebloDe(m.acto); objetivo = `${T('Habla con', 'Speak with')} ${TT(NPCS[quienDa(m, d)]?.nombre ?? ['', ''])} · ${TT(ZONAS[destino]?.nombre ?? ['', ''])}`;
+  }
+  const sig = siguienteZona(j.zona.id, destino);
+  const paso = sig ? `${T('Sigue por', 'Head to')}: ${TT(ZONAS[sig].nombre)}` : null;
+  return { nombre: TT(m.nombre), objetivo, paso, vuelve };
+}
+/** La misión en curso en el HUD de PC: arriba a la izquierda, con por dónde seguir. `__sinRumbo` la apaga. */
+function misionPC(j: Juego) {
+  if ((window as any).__sinRumbo || E.tactil || ui.izq || ui.der) return;
+  const r = rumboMision(j); if (!r) return;
+  const x = 14, y = 12, w = 330, lineas = r.paso ? 3 : 2, h = 14 + lineas * 17;
+  ctx.save(); const g = ctx.createLinearGradient(x, 0, x + w, 0); g.addColorStop(0, 'rgba(0,0,0,0.6)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(x - 6, y - 4, w, h); ctx.fillStyle = 'rgba(200,150,70,0.55)'; ctx.fillRect(x - 6, y - 4, 2, h); ctx.restore();
+  texto(r.nombre, x + 2, y + 13, { tam: 14, color: '#ffd080', fuente: TITULO, max: w - 14 });
+  texto(r.objetivo, x + 2, y + 31, { tam: 12, color: r.vuelve ? '#90e090' : '#d8c8a0', max: w - 14 });
+  if (r.paso) texto(r.paso, x + 2, y + 48, { tam: 12, color: '#a8c0d8', max: w - 14 });
+  hud.mision = [x - 6, y - 4, w, h];
 }
 export function objetivoTxt(m: Mision, d: DatosHeroe): string {
   const o = m.objetivo, z = TT(ZONAS[o.zona]?.nombre ?? ['?', '?']);

@@ -2776,3 +2776,9 @@ t1011.
   su propia protección (un error ahí ya no se salta el dibujo). Cada error distinto se anota en `marca.fallos` (las últimas 12, con
   versión, zona y pila; no es la partida) y se avisa una vez en el registro en naranja para que Rick mande la foto; `__fallos()` las
   lee. Héroe y monstruos con posición que no es número vuelven a su última buena (o a su sitio). Prueba: `fallo.cjs` (scratchpad).
+- **La misión en el HUD** (mismo día, Rick: "no sé a dónde ir, no sé cómo completar el acto 2"). En PC el HUD no mostraba la misión
+  en ninguna parte (solo el táctil, arriba a la izquierda). Ahora `rumboMision` (`ui/juego_ui.ts`) da la misión principal del acto
+  en curso (o la que hay que pedir en el campamento), qué hacer y **por qué zona seguir**: la vecina en el camino más corto por las
+  salidas (`siguienteZona`, solo el nombre: nada de flechas ni guía en el mapa, Rick quiere explorar). En PC va arriba a la
+  izquierda (`misionPC`, se esconde con un panel abierto) y en el táctil en el rastreo de siempre con un renglón más. `__sinRumbo`
+  quita el renglón de por dónde seguir. Prueba: `rumbo.cjs` (scratchpad). Pasaron t950 pc y movil, t500, t1001, t450 y t961.

@@ -11,9 +11,8 @@ import { disposicionForja, dibujarBaseForja, pocionForja, type DispForja } from 
 import { iconoPixel } from './forja_habilidad';
 import { texto, T, TT, dentro, icono, envolver as envolverT, TITULO, cacheRaster } from './comun';
 import { botonForjado } from '../../../src/engine/gotico/hud';
-import { ui, alternar, discoHab, orbeHud, selloNivel, recursoClase, objetivoTxt, COLOR_POCION, cambiarAgresivo } from './juego_ui';
+import { ui, alternar, discoHab, orbeHud, selloNivel, recursoClase, rumboMision, COLOR_POCION, cambiarAgresivo } from './juego_ui';
 import { hud, type Rect } from './hud_rects';
-import { MISIONES } from '../mundo/actos';
 import { habilidadDe, costoMana, usarPocion, caminarA, type Juego } from '../juego/mundo';
 import type { Habilidad } from '../datos/clases';
 import { cant, nivelHab, tiposCinturon, xpPara } from '../juego/heroe';
@@ -353,17 +352,14 @@ export function dibujarHudTactil(j: Juego, t: number) {
 
 /** La misión en curso (arriba a la izquierda, debajo de los orbes o, con el HUD forjado, en la esquina). */
 function misionArriba(j: Juego) {
-  const d = j.heroe.d, P = disposicion();
-    const m = MISIONES.find((q) => q.acto === d.acto && !q.lateral && (d.misiones[q.id] ?? 0) >= 1 && (d.misiones[q.id] ?? 0) < 3);
-    if (m) {
-      const e = d.misiones[m.id];
-      const linea = e === 2 ? T('Vuelve al campamento', 'Return to camp') : objetivoTxt(m, d);
-      const [rx, ry, rw, rh] = P.rastreo;
-      ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(rx, ry, rw, rh); ctx.restore();
-      texto(TT(m.nombre), rx + L(6), ry + Math.max(L(13), 12), { tam: Math.max(10, Math.round(L(11))), color: '#ffd080', max: rw - L(10) });
-      texto(linea, rx + L(6), ry + Math.max(L(28), 25), { tam: Math.max(9, Math.round(L(10))), color: e === 2 ? '#80ff80' : '#d8c8a0', max: rw - L(10) });
-      hud.rastreo = P.rastreo;
-    }
+  const P = disposicion(), r = rumboMision(j);
+  if (!r) return;
+  const [rx, ry, rw, rh0] = P.rastreo, extra = r.paso && !(window as any).__sinRumbo ? Math.max(L(13), 12) : 0, rh = rh0 + extra;
+  ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.45)'; ctx.fillRect(rx, ry, rw, rh); ctx.restore();
+  texto(r.nombre, rx + L(6), ry + Math.max(L(13), 12), { tam: Math.max(10, Math.round(L(11))), color: '#ffd080', max: rw - L(10) });
+  texto(r.objetivo, rx + L(6), ry + Math.max(L(28), 25), { tam: Math.max(9, Math.round(L(10))), color: r.vuelve ? '#80ff80' : '#d8c8a0', max: rw - L(10) });
+  if (extra) texto(r.paso!, rx + L(6), ry + Math.max(L(28), 25) + extra, { tam: Math.max(9, Math.round(L(10))), color: '#a8c0d8', max: rw - L(10) });
+  hud.rastreo = [rx, ry, rw, rh];
 }
 /** Dónde poner la barra del jefe sin pisar los botones de arriba (en táctil). */
 export function rectJefeTactil(w: number, h: number): Rect {

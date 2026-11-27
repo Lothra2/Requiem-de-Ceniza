@@ -17,7 +17,7 @@ import { IDI } from './comun';
 import type { DatosHeroe } from '../juego/heroe';
 import { EPILOGOS, type Final } from '../mundo/decisiones';
 import { dibujarRostro, rostroListo } from './cine_rostro';
-import { type Guion, type Toma, type Texto, type EstadoToma } from './director';
+import { type Guion, type Toma, type Texto, type EstadoToma, brasaEn } from './director';
 import { linea, anclaJefe, anclaSalida, despejarPiezas, despejarPies, vez, ceniza, columnaDe, latido, tituloGotico } from './cine_kit';
 import { anclaFachada, anclaCamino } from './cine_acto1';
 import { nievePiso, anclaPuertaFortin } from './cine_acto4';
@@ -433,11 +433,12 @@ function lluviaOro(e: EstadoToma, dt: number, fuerza: number, r = 14) {
   for (let i = 0; i < 3; i++) if (Math.random() < dt * 60 * fuerza) e.j.particulas.push({ x: e.ax + (Math.random() - 0.5) * r * 2, y: e.ay + (Math.random() - 0.5) * r * 2, z: 160 + Math.random() * 200, vx: 0.1, vy: 0.1, vz: -70 - Math.random() * 30, t: 0, dur: 4, color: Math.random() < 0.3 ? '#fff0b0' : Math.random() < 0.5 ? '#e8b048' : '#c08a24', tam: 1 + Math.random() * 0.6, grav: 0, tipo: 'ceniza' } as any);
 }
 /** La Corona puesta: la pieza horneada sobre la cabeza del héroe, que baja desde sus manos a la cabeza entre `t0` y `t1`. */
-/** A qué altura (puntos del dibujo) se apoya la Corona puesta: el ancla de la pieza va sobre la coronilla. */
-const CABEZA = 75;
+/** A qué altura (puntos del dibujo) se apoya la Corona puesta: sobre la coronilla del cuadro que se ve (la mide escena.ts, con o sin
+ *  casco y para cada clase), hundida unos puntos para que la abrace; 75 si todavía no se midió. */
+const cabeza = (h: any) => (h?.cimaCine ? h.cimaCine - 4 : 75);
 function coronaPuesta(e: EstadoToma, tl: number, t0: number, t1: number) {
   const h = e.actores.get('heroe') as any; if (!h || tl < t0 - 1.2) return;
-  const u = Math.min(1, Math.max(0, (tl - t0) / (t1 - t0))), s2 = u * u * (3 - 2 * u), z = tl < t0 ? 26 + (tl - t0 + 1.2) * 10 : 38 + 14 * Math.sin(s2 * Math.PI) + s2 * (CABEZA - 38);
+  const u = Math.min(1, Math.max(0, (tl - t0) / (t1 - t0))), s2 = u * u * (3 - 2 * u), z = tl < t0 ? 26 + (tl - t0 + 1.2) * 10 : 38 + 14 * Math.sin(s2 * Math.PI) + s2 * (cabeza(h) - 38);
   coronaEnMano(h.x + 0.15 * (1 - s2), h.y - 0.15 * (1 - s2), z, Math.min(1, (tl - t0 + 1.2) / 0.4), 0.7 - 0.22 * s2);
 }
 /** La toma del héroe que se pone la Corona (×3): sube las manos, la Corona baja a la cabeza. `arde` con la Brasa bebida (brasas que
@@ -611,7 +612,7 @@ function reyCeniza(vigdis: string | undefined, ecos: [string, string][]): Toma[]
     focos: [{ de: 'heroe', z: 40, r: 140 }],
     luces: [{ id: 'sed', color: [255, 40, 16], sombra: true, claves: [{ t: 0, x: 1.6, y: 1.6, z: 8, r: 220, k: 0.7 }] }],
     sonidos: [{ t: 0, id: 'dron_marca', cine: true, tono: 0.5 }, ...[0.8, 1.9, 3.0, 4.1, 5.2, 6.3, 7.4].map((t) => ({ t, id: 'latido', cine: true, vol: 0.8 }))],
-    mundo: (e, tl) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, CABEZA, 1, 0.48); void tl; },
+    mundo: (e, tl) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, cabeza(h), 1, 0.48); void tl; },
     paso: (e, tl, dt) => {
       const Ls = (e.j as any)?.lucesCine as any[]; if (Ls && Ls[0]) Ls[0].k = 0.35 + 0.6 * latido(tl);
       // (lo que tiene calor viene: brasas y ceniza tibia que se arrastran por el piso hacia el trono)
@@ -650,14 +651,19 @@ function tomaCaldo(par: [string, string]): Toma {
  *  cambia de rumbo y viene hacia acá, creciendo hasta llenar el cuadro. */
 function tomaTerceraBrasa(D: number, textos: Texto[]): Toma {
   return {
-    id: 'fuego', dur: D, zona: 'a1_paramo', ancla: anclaCamino, entra: 0.8, sale: 0.3, colorSale: '#3a0604', oscuridad: 0.7, hundir: 0.5,
+    id: 'fuego', dur: D, zona: 'a1_paramo', ancla: anclaCamino, entra: 0.8, sale: 0.3, colorSale: '#3a0604', oscuridad: 0.58, hundir: 0.34, luzBrasa: 1.8,
     cam: [{ t: 0, x: 8, y: 8, alt: 170, zoom: 0.8, fy: 0.7 }, { t: D, x: 7, y: 7, alt: 180, c: 'suave' }],
     // (lejos y alta, de izquierda a derecha; a la mitad se detiene, late, gira y viene hacia la cámara)
-    brasa: [{ t: 0.4, x: -10, y: 2, z: 430, k: 0.9, tam: 0.8 }, { t: D * 0.45, x: 4, y: -6, z: 420, k: 1, tam: 0.9, c: 'suave' }, { t: D * 0.6, x: 4.5, y: -5.5, z: 410, k: 1, tam: 1.1, c: 'suave' }, { t: D, x: 9, y: 9, z: 210, k: 1, tam: 3, c: 'entra' }],
-    focos: [{ de: 'brasa', r: 260 }],
-    luces: [{ id: 'luna', color: [110, 125, 170], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 700, k: 0.18 }] }],
+    brasa: [{ t: 0.4, x: -10, y: 2, z: 400, k: 1, tam: 1.3 }, { t: D * 0.45, x: 4, y: -6, z: 390, k: 1, tam: 1.5, c: 'suave' }, { t: D * 0.6, x: 4.5, y: -5.5, z: 380, k: 1, tam: 1.9, c: 'suave' }, { t: D, x: 9, y: 9, z: 190, k: 1, tam: 3.6, c: 'entra' }],
+    focos: [{ de: 'brasa', r: 380 }],
+    luces: [{ id: 'luna', color: [120, 132, 180], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 900, k: 0.32 }] }],
     sonidos: [{ t: 0, id: 'organo_sur', cine: true, tono: 0.8 }, { t: 0.6, id: 'brasa_vuela', cine: true, vol: 0.5 }, ...[D * 0.5, D * 0.5 + 1.1].map((t) => ({ t, id: 'latido', cine: true, vol: 1.2 })), { t: D * 0.62, id: 'brasa_nace', cine: true }, { t: D * 0.7, id: 'brasa_vuela', cine: true }, { t: D - 0.6, id: 'sub', cine: true }],
-    mundo: (_e, tl) => cieloNoche(tl, 80, 0, 0.62, '6,4,10'),
+    // (un cielo de noche hondo pero vivo: muchas estrellas y un resplandor rojo que la sigue y le da peso)
+    mundo: (e, tl) => {
+      cieloNoche(tl, 180, 0, 0.66, '14,8,22');
+      const b = brasaEn(e, tl); if (!b) return; const [px, py] = aPant(b.x, b.y), Y = py - b.z, R = 60 + 90 * (b.tam ?? 1);
+      ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(px, Y, 0, px, Y, R); g.addColorStop(0, `rgba(255,90,30,${0.35 * b.k})`); g.addColorStop(0.4, `rgba(200,40,10,${0.16 * b.k})`); g.addColorStop(1, 'rgba(120,10,0,0)'); ctx.fillStyle = g; ctx.fillRect(px - R, Y - R, R * 2, R * 2); ctx.restore();
+    },
     textos,
   };
 }
@@ -668,7 +674,7 @@ function coronaFria(vigdis: string | undefined, ecos: [string, string][]): Toma[
   const D1 = leer(l[1], 10), D2 = leer(l[2], 11);
   // la gente del Refugio lo recibe en corro; él quieto en el medio, con la Corona puesta
   const gente: [string, string, number, number][] = [['heroe', '', 0.6, 0.6], ['odran', 'odran', -2.2, 2.0], ['lys', 'lys', 3.2, -1.6], ['brannoc', 'brannoc', 3.4, 1.4], ['tomas', 'tomas', 1.2, 3.4], ['ysolde', 'ysolde', -2.0, -1.4]];
-  const conCorona: Toma['mundo'] = (e) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, CABEZA, 1, 0.48); };
+  const conCorona: Toma['mundo'] = (e) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, cabeza(h), 1, 0.48); };
   ts.push({ ...tomaRefugio('recibe', D1, T(l[1], 0.8, D1 - 0.5), gente, { frio: true, mundo: conCorona }), objetos: ['cine_corona|t1'], actores: gente.map(([qid, sp, x, y]) => (qid === 'heroe' ? { id: 'heroe', tipo: 'heroe' as const, claves: [{ t: 0, x, y, dir: 's' as const }] } : { id: qid, tipo: 'sprite' as const, sprite: sp, claves: [{ t: 0, x, y, mira: [0.6, 0.6] as [number, number] }] })), focos: [{ de: [0.6, 0.6], z: 30, r: 200 }] });
   // el invierno largo: nieve sobre el Refugio, Ysolde le tira las cartas y sale la misma (el rey con escarcha en la cara)
   ts.push({ ...tomaRefugio('invierno', D2, T(l[2], 0.8, D2 - 0.5), [['heroe', '', 1.6, -0.4], ['ysolde', 'ysolde', -0.4, 1.6]], { frio: true, nieve: true, mundo: (e, tl) => { conCorona(e, tl, 0); cartaRey(e, tl); } }), objetos: ['cine_corona|t1'] });
@@ -698,7 +704,7 @@ function tomaSolo(D: number, textos: Texto[]): Toma {
     sonidos: [{ t: 0, id: 'viento_nieve', cine: true, vol: 0.5, tono: 0.6 }],
     suelo: (e) => nievePiso(e, 8),
     mundo: (e, tl) => {
-      const h = e.actores.get('heroe') as any; if (!h) return; coronaEnMano(h.x, h.y, CABEZA, 1, 0.48);
+      const h = e.actores.get('heroe') as any; if (!h) return; coronaEnMano(h.x, h.y, cabeza(h), 1, 0.48);
       // la escarcha que le crece en la cara y en la Corona: cristales de pixel que destellan
       const [px, py] = aPant(h.x, h.y); ctx.save(); ctx.imageSmoothingEnabled = false;
       for (let i = 0; i < 16; i++) { const k = Math.min(1, tl / 4 - i * 0.04); if (k <= 0) continue; const x = Math.round(px - 7 + hash(i) * 14), y = Math.round(py - 50 + hash(i + 7) * 14); ctx.globalAlpha = k * (0.6 + 0.4 * Math.sin(tl * 3 + i)); ctx.fillStyle = i % 3 ? '#dff0ff' : '#ffffff'; ctx.fillRect(x, y, 1, 1); if (i % 5 === 0) { ctx.fillRect(x - 1, y, 3, 1); } }

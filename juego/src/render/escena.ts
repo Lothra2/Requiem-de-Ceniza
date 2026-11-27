@@ -1302,6 +1302,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   const pm = (e as any).pfxMuerte as { id: string; t0: number } | undefined;
   const alfaM = (e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1) * (e.tipo === 'invocado' ? alfaInvocado(e, j.t) : 1) * ((e as any).alfaCine ?? 1);
   if (alfaM <= 0.01) return;
+  // (las películas: dónde queda la coronilla del héroe sobre sus pies, del cuadro que se ve de verdad: la Corona puesta se apoya ahí)
+  if (camCine.on && e.tipo === 'heroe') { const M = mascaraDe(q); if (M) (e as any).cimaCine = (q.ay - M.arriba) * (esc ?? 1); }
   // el muerto que revienta (Estallido fúnebre, Cosecha del osario, Lamento) se hincha y deja de estar al reventar; el que
   // se come el Festín de tumba se seca y se hunde (solo lo que se ve, `revienta` lo pone mundo.ts)
   const rv = e.muerto && poderesVivos() ? ((e as any).revienta as number | undefined) : undefined;

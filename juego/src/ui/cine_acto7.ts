@@ -1,9 +1,12 @@
 // El acto 7 termina en un final, no en un cartel, y lleva dos películas (ver ui/director.ts):
-// - 7a «La Corona tibia» (`CINE_ACTO7`, al caer Aun-Saar): cae, la boca del pecho se cierra, la Corona rueda tibia hasta los pies
-//   del héroe, la gloria de la Escalera se apaga y la Marca late o queda gris. Vuelve al juego (la Corona se lleva al campamento).
-// - 7b «El final» (`guionFinal`, al entregar la Corona): el final elegido con su epílogo, una toma por línea de `EPILOGOS`, la de
-//   Vigdis y los ecos antes de la última, y el título del final con «Fin». Sin líneas nuevas. Por ahora solo la Vigilia: los demás
-//   finales siguen con la cinemática y la pantalla de texto de antes (`guionFinal` devuelve null).
+// - 7a «La Corona tibia» (`CINE_ACTO7`, al caer Aun-Saar): cae (sus aros de halos se rompen en esquirlas y el oro de las grietas del
+//   piso se apaga), la Corona (`cine_corona`) rueda de canto a ×4 hasta los pies del héroe, la gloria de la Escalera se apaga en cuatro
+//   etapas (`cine_escalera`) y la Marca late o queda gris. Vuelve al juego (la Corona se lleva al campamento).
+// - 7b «El final» (`guionFinal`, al entregar la Corona): los cuatro finales (Vigilia, Cielo Abierto, Rey de Ceniza, Corona Fría), una
+//   toma por línea de `EPILOGOS` que dura lo que tarda en leerse, la de Vigdis y los ecos antes de la última, y el título del final
+//   con «Fin» en la letra gótica con brasa (escarcha en la Corona Fría). Sin líneas nuevas. Cuerpos de película: cine_auren,
+//   cine_monje, cine_vigdis y cine_mira (hornear_extra.ts). Ojo: el piso de vidrio de a7_campamento se pinta encima de las figuras;
+//   las tomas de Auren y Mira van al pie de la Escalera apagada (a7_jardin).
 // Canon: CLAUDE.md, "Historia y canon".
 import { ctx, W, H } from '../nucleo/lienzo';
 import { aPant } from '../render/escena';
@@ -24,10 +27,13 @@ const hash = (n: number) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453
 
 // ------------------------------------------------------------------ la Corona
 /** La Corona en las manos (la pieza horneada, echada), a `z` puntos del dibujo sobre el piso y con `k` de alfa: lo que se da. */
-function coronaEnMano(x: number, y: number, z: number, k: number) {
+function coronaEnMano(x: number, y: number, z: number, k: number, esc = 0.7) {
   const q = objetoMeta('cine_corona', 't1')?.f[0]; if (!q || k <= 0) return;
   const [px, py] = aPant(x, y);
-  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = k; dibujar(ctx, q, Math.round(px), Math.round(py - z)); ctx.restore();
+  // (a escala de la mano: la pieza es la del piso, grande para el ×4; puesta en la cabeza, a la mitad)
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalAlpha = k; ctx.translate(Math.round(px), Math.round(py - z)); ctx.scale(esc, esc);
+  // (en el aire no lleva la sombra horneada del piso: se corta lo que queda por debajo de su apoyo)
+  ctx.beginPath(); ctx.rect(-q.ax - 2, -q.ay - 2, q.w + 4, q.ay + 3); ctx.clip(); dibujar(ctx, q, 0, 0); ctx.restore();
 }
 // ------------------------------------------------------------------ 7a: la Corona tibia
 const HX = 2.6, HY = -0.9, PIES: [number, number] = [HX - 1.0, HY + 0.9];
@@ -333,8 +339,8 @@ function vigilia(d: DatosHeroe, vigdis: string | undefined, ecos: [string, strin
       preparar: (e) => { prepararEscalera(e); apagarEscalera(e, 1); despejarPies(e, 2.6, 2.6, 2.6); },
       cam: [{ t: 0, x: 2.8, y: 2.8, alt: 34, zoom: 3, fy: 0.6 }, { t: 10, x: 1.8, y: 1.9, alt: 42, c: 'suave' }],
       actores: [
-        { id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 3.7, y: 2.4, mira: [1.6, 2.9] }, { t: 6, mira: [0.2, 0.2] }] },
-        { id: 'auren', tipo: 'sprite', sprite: 'cine_auren', claves: [{ t: 0, x: 1.6, y: 2.9, mira: [3.7, 2.4], alfa: 1 }, { t: 4.6, x: 1.6, y: 2.9, dir: 'n' }, { t: 5.4, x: 1.6, y: 2.9, dir: 'no', alfa: 1 }, { t: 9.2, x: 0.4, y: 1.5, c: 'lineal', alfa: 1 }, { t: 9.9, alfa: 0 }] },
+        { id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 4.3, y: 1.9, mira: [1.6, 2.9] }, { t: 6, mira: [0.2, 0.2] }] },
+        { id: 'auren', tipo: 'sprite', sprite: 'cine_auren', claves: [{ t: 0, x: 1.6, y: 2.9, mira: [4.3, 1.9], alfa: 1 }, { t: 4.6, x: 1.6, y: 2.9, dir: 'n' }, { t: 5.4, x: 1.6, y: 2.9, dir: 'no', alfa: 1 }, { t: 9.2, x: -0.4, y: 2.2, c: 'lineal', alfa: 1 }, { t: 9.9, alfa: 0 }] },
       ],
       focos: [{ de: 'heroe', z: 30, r: 120 }, { de: 'auren', z: 36, r: 130 }],
       luces: [
@@ -415,9 +421,9 @@ function cieloNoche(tl: number, n: number, mas = 0, alto = 0.5, color = '4,6,14'
   for (let i = 0; i < tot; i++) {
     const x = a.x + hash(i * 3.1) * LW, f = hash(i * 7.7), y = a.y + f * f * LH * 0.8, nueva = i >= n, k0 = nueva ? Math.min(1, Math.max(0, mas * n * 1.2 - (i - n))) : 1;
     const tit = 0.55 + 0.45 * Math.sin(tl * (1.5 + hash(i) * 3) + i), k = k0 * tit * (1 - f * 0.6); if (k < 0.05) continue;
-    const gr = hash(i * 13.3) > 0.93; ctx.globalAlpha = k; ctx.fillStyle = hash(i * 5.5) > 0.7 ? '#ffe8c0' : '#dfe8ff';
-    ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
-    if (gr) { ctx.globalAlpha = k * 0.5; ctx.fillRect(Math.round(x) - 1, Math.round(y), 3, 1); ctx.fillRect(Math.round(x), Math.round(y) - 1, 1, 3); }
+    const gr = hash(i * 13.3) > 0.8; ctx.globalAlpha = k; ctx.fillStyle = hash(i * 5.5) > 0.7 ? '#ffe8c0' : '#dfe8ff';
+    ctx.fillRect(Math.round(x), Math.round(y), gr ? 2 : 1, gr ? 2 : 1);
+    if (gr) { ctx.globalAlpha = k * 0.6; ctx.fillRect(Math.round(x) - 1, Math.round(y), 3, 1); ctx.fillRect(Math.round(x), Math.round(y) - 1, 1, 3); }
   }
   ctx.restore();
 }
@@ -427,10 +433,12 @@ function lluviaOro(e: EstadoToma, dt: number, fuerza: number, r = 14) {
   for (let i = 0; i < 3; i++) if (Math.random() < dt * 60 * fuerza) e.j.particulas.push({ x: e.ax + (Math.random() - 0.5) * r * 2, y: e.ay + (Math.random() - 0.5) * r * 2, z: 160 + Math.random() * 200, vx: 0.1, vy: 0.1, vz: -70 - Math.random() * 30, t: 0, dur: 4, color: Math.random() < 0.3 ? '#fff0b0' : Math.random() < 0.5 ? '#e8b048' : '#c08a24', tam: 1 + Math.random() * 0.6, grav: 0, tipo: 'ceniza' } as any);
 }
 /** La Corona puesta: la pieza horneada sobre la cabeza del héroe, que baja desde sus manos a la cabeza entre `t0` y `t1`. */
+/** A qué altura (puntos del dibujo) se apoya la Corona puesta: el ancla de la pieza va sobre la coronilla. */
+const CABEZA = 75;
 function coronaPuesta(e: EstadoToma, tl: number, t0: number, t1: number) {
   const h = e.actores.get('heroe') as any; if (!h || tl < t0 - 1.2) return;
-  const u = Math.min(1, Math.max(0, (tl - t0) / (t1 - t0))), s2 = u * u * (3 - 2 * u), z = tl < t0 ? 26 + (tl - t0 + 1.2) * 10 : 38 + 14 * Math.sin(s2 * Math.PI) + s2 * 11;
-  coronaEnMano(h.x + 0.15 * (1 - s2), h.y - 0.15 * (1 - s2), z, Math.min(1, (tl - t0 + 1.2) / 0.4));
+  const u = Math.min(1, Math.max(0, (tl - t0) / (t1 - t0))), s2 = u * u * (3 - 2 * u), z = tl < t0 ? 26 + (tl - t0 + 1.2) * 10 : 38 + 14 * Math.sin(s2 * Math.PI) + s2 * (CABEZA - 38);
+  coronaEnMano(h.x + 0.15 * (1 - s2), h.y - 0.15 * (1 - s2), z, Math.min(1, (tl - t0 + 1.2) / 0.4), 0.7 - 0.22 * s2);
 }
 /** La toma del héroe que se pone la Corona (×3): sube las manos, la Corona baja a la cabeza. `arde` con la Brasa bebida (brasas que
  *  suben y la sombra roja que late); sin ella no pasa nada (la Marca gris y una luz fría). */
@@ -439,16 +447,16 @@ function tomaPonerse(par: [string, string], arde: boolean): Toma {
   return {
     id: 'ponerse', dur: D, zona: 'a7_trono', ancla: anclaJefe, objetos: ['cine_corona|t1'], entra: 1.0, sale: 0.6, oscuridad: 0.92, hundir: 0.72, sinBruma: true,
     preparar: (e) => despejarPies(e, 3.2, 1.6, 2),
-    cam: [{ t: 0, x: 3.0, y: 1.5, alt: 34, zoom: 3, fy: 0.56 }, { t: D, x: 3.1, y: 1.6, alt: 38, c: 'suave' }],
+    cam: [{ t: 0, x: 3.1, y: 1.5, alt: 26, zoom: 3, fy: 0.6 }, { t: D, x: 3.15, y: 1.55, alt: 30, c: 'suave' }],
     actores: [{ id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 3.2, y: 1.6, dir: 's' }, { t: 1.6, acc: 'lanzar', dur: 1.6, ritmo: 0.7, dir: 's' }, { t: 3.9, acc: 'quieto', dir: 's' }] }],
     focos: [{ de: 'heroe', z: 34, r: 130 }],
     luces: arde
       ? [{ id: 'arriba', color: [200, 170, 130], claves: [{ t: 0, x: 3.6, y: 0.8, z: 120, r: 220, k: 0.35 }] }, { id: 'sed', color: [255, 40, 16], sombra: true, claves: [{ t: 0, x: 3.4, y: 1.9, z: 6, r: 160, k: 0 }, { t: 3.8, k: 0 }, { t: 5, k: 0.9, c: 'sale' }] }]
       : [{ id: 'arriba', color: [200, 210, 230], sombra: true, claves: [{ t: 0, x: 3.6, y: 0.8, z: 120, r: 220, k: 0.45 }, { t: 4, k: 0.45 }, { t: 7, k: 0.3 }] }],
     sonidos: arde ? [{ t: 3.8, id: 'sub', cine: true }, ...[4.2, 5.3, 6.4, 7.5].map((t) => ({ t, id: 'latido', cine: true, vol: 1.1 })), { t: 4.0, id: 'fuego_lanzar', vol: 0.4 }] : [{ t: 3.8, id: 'viento_nieve', cine: true, vol: 0.4, tono: 0.7 }],
-    mundo: (e, tl) => {
-      coronaPuesta(e, tl, 2.0, 3.8);
-      // (la sombra tibia del acto 5: el piso se tiñe de rojo bajo sus pies y late)
+    mundo: (e, tl) => coronaPuesta(e, tl, 2.0, 3.8),
+    suelo: (e, tl) => {
+      // (la sombra tibia del acto 5: el piso se tiñe de rojo bajo sus pies y late; en lo plano, debajo del cuerpo)
       if (arde && tl > 3.8) { const h = e.actores.get('heroe') as any, [px, py] = aPant(h.x, h.y), k = Math.min(1, (tl - 3.8) / 1.2) * (0.5 + 0.5 * latido(tl)); ctx.save(); ctx.globalCompositeOperation = 'multiply'; const g = ctx.createRadialGradient(px, py, 4, px, py, 70); g.addColorStop(0, `rgba(150,20,10,${0.9 * k})`); g.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g; ctx.fillRect(px - 70, py - 36, 140, 72); ctx.restore(); }
     },
     paso: (e, tl, dt) => {
@@ -491,8 +499,8 @@ function cielo(vigdis: string | undefined, ecos: [string, string][]): Toma[] {
     preparar: (e) => { prepararEscalera(e); apagarEscalera(e, 1); despejarPies(e, 2.6, 2.6, 2.6); },
     cam: [{ t: 0, x: 2.8, y: 2.8, alt: 40, zoom: 3, fy: 0.66 }, { t: D0, x: 2.4, y: 2.4, alt: 70, c: 'suave' }],
     actores: [
-      { id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 3.7, y: 2.4, mira: [1.6, 2.9] }, { t: 4.5, mira: [1.0, 1.0] }] },
-      { id: 'mira', tipo: 'sprite', sprite: 'cine_mira', claves: [{ t: 0, x: 1.6, y: 2.9, mira: [3.7, 2.4] }, { t: 3.4, dir: 'n' }, { t: 3.6, acc: 'lanzar', dur: 1.4, ritmo: 0.55 }, { t: 6.2, acc: 'quieto', dir: 'n' }] },
+      { id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 4.3, y: 1.9, mira: [1.4, 3.1] }, { t: 4.5, mira: [1.0, 1.0] }] },
+      { id: 'mira', tipo: 'sprite', sprite: 'cine_mira', claves: [{ t: 0, x: 1.4, y: 3.1, mira: [4.3, 1.9] }, { t: 3.4, dir: 'n' }, { t: 3.6, acc: 'lanzar', dur: 1.4, ritmo: 0.55 }, { t: 6.2, acc: 'quieto', dir: 'n' }] },
     ],
     focos: [{ de: 'heroe', z: 30, r: 120 }, { de: 'mira', z: 40, r: 140 }],
     luces: [{ id: 'estrellas', color: [200, 210, 255], sombra: true, claves: [{ t: 0, x: 0, y: 0, z: 400, r: 600, k: 0.35 }] }, { id: 'corona', color: [255, 210, 130], claves: [{ t: 0, x: 3.4, y: 2.5, z: 30, r: 90, k: 0.35 }, { t: 3, x: 1.8, y: 2.7, k: 0.5 }, { t: D0, x: 1.4, y: 2.4, z: 200, k: 0.2 }] }],
@@ -513,7 +521,7 @@ function cielo(vigdis: string | undefined, ecos: [string, string][]): Toma[] {
   });
   ts.push({
     // arriba, la Corona se rompe como un vidrio y llueve oro tibio sobre el valle (el Refugio desde lejos)
-    id: 'rompe', dur: D1, zona: 'a1_refugio', ancla: anclaFogata, entra: 0.6, sale: 0.8, oscuridad: 0.74, hundir: 0.4, sinClima: ['fx_lluvia', 'fx_tormenta'],
+    id: 'rompe', dur: D1, zona: 'a1_refugio', ancla: anclaFogata, entra: 0.6, sale: 0.8, oscuridad: 0.56, hundir: 0.3, sinClima: ['fx_lluvia', 'fx_tormenta'],
     preparar: (e) => { const z: any = e.z; if (z) z.lluvia = false; },
     cam: [{ t: 0, x: 3, y: 3, alt: 110, zoom: 0.8, fy: 0.74 }, { t: D1, x: 2, y: 2, alt: 100, c: 'suave' }],
     focos: [{ de: [0, 0], z: 40, r: 420, k: 0.6 }],
@@ -526,15 +534,19 @@ function cielo(vigdis: string | undefined, ecos: [string, string][]): Toma[] {
       const m = ctx.getTransform().inverse(), a = m.transformPoint(new DOMPoint(0, 0)), b = m.transformPoint(new DOMPoint(ctx.canvas.width, ctx.canvas.height));
       const cx = (a.x + b.x) / 2, cy = a.y + (b.y - a.y) * 0.16, q = objetoMeta('cine_corona', 'r2')?.f[0];
       ctx.save(); ctx.imageSmoothingEnabled = false;
-      if (tl < 2.2 && q) { ctx.globalAlpha = Math.min(1, tl / 0.8); dibujar(ctx, q, Math.round(cx), Math.round(cy + 10 - tl * 4)); }
+      if (tl < 2.2 && q) { ctx.globalAlpha = Math.min(1, tl / 0.8); ctx.save(); ctx.translate(Math.round(cx), Math.round(cy + 10 - tl * 4)); ctx.scale(3, 3); dibujar(ctx, q, 0, 0); ctx.restore(); ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g0 = ctx.createRadialGradient(cx, cy - 20, 0, cx, cy - 20, 70); g0.addColorStop(0, `rgba(255,210,130,${0.25 * Math.min(1, tl)})`); g0.addColorStop(1, 'rgba(255,200,100,0)'); ctx.fillStyle = g0; ctx.fillRect(cx - 70, cy - 90, 140, 140); ctx.restore(); }
       else if (q) {
         // el estallido: un fogonazo, el aro de luz que se abre y los pedazos de oro que vuelan girando y destellan
         const u = tl - 2.2; ctx.globalCompositeOperation = 'lighter';
         const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, 30 + u * 120); g.addColorStop(0, `rgba(255,240,190,${Math.max(0, 0.9 - u * 0.5)})`); g.addColorStop(1, 'rgba(255,200,100,0)'); ctx.fillStyle = g; ctx.fillRect(cx - 200, cy - 200, 400, 400);
         if (u < 1.2) { ctx.globalAlpha = 1 - u / 1.2; ctx.strokeStyle = '#fff0c0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(cx, cy, 8 + u * 90, 4 + u * 45, 0, 0, Math.PI * 2); ctx.stroke(); }
         ctx.globalCompositeOperation = 'source-over';
-        for (let i = 0; i < 26; i++) { const an = hash(i) * Math.PI * 2, v = 30 + hash(i + 9) * 70, x = cx + Math.cos(an) * v * u, y = cy + Math.sin(an) * v * u * 0.7 + u * u * 22, gi = u * (4 + hash(i + 3) * 8), w = 2 + Math.round(hash(i + 5) * 3);
-          if (u > 3.5) continue; ctx.globalAlpha = Math.max(0, 1 - u / 3.5); ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(gi); ctx.fillStyle = Math.sin(gi * 3) > 0.6 ? '#fff4c8' : i % 2 ? '#e0a83a' : '#a87420'; ctx.fillRect(-w, -1, w * 2, 2); ctx.restore(); }
+        for (let i = 0; i < 40; i++) { const an = hash(i) * Math.PI * 2, v = 60 + hash(i + 9) * 160, x = cx + Math.cos(an) * v * u, y = cy + Math.sin(an) * v * u * 0.7 + u * u * 22, gi = u * (4 + hash(i + 3) * 8), w = 3 + Math.round(hash(i + 5) * 5);
+          if (u > 3.5) continue; ctx.globalAlpha = Math.max(0, 1 - u / 3.5); ctx.save(); ctx.translate(Math.round(x), Math.round(y)); ctx.rotate(gi); ctx.fillStyle = Math.sin(gi * 3) > 0.6 ? '#fff4c8' : i % 2 ? '#e0a83a' : '#a87420'; ctx.fillRect(-w, -2, w * 2, 3); ctx.restore(); }
+        // la lluvia de oro tibio: hilos de pixel que caen por todo el cuadro, cada vez más
+        const kr = Math.min(1, Math.max(0, (u - 0.4) / 1.4)), Hh = b.y - a.y;
+        for (let i = 0; i < 480 * kr; i++) { const x = a.x + hash(i * 1.7) * (b.x - a.x), y = a.y + ((hash(i * 2.3) * Hh + tl * 160 * (0.7 + hash(i * 3.1) * 0.6)) % Hh), L = 3 + Math.round(hash(i * 4.1) * 4);
+          ctx.globalAlpha = 0.55 + 0.45 * hash(i * 5.3); ctx.fillStyle = i % 4 ? '#f0b850' : '#fff4c0'; ctx.fillRect(Math.round(x), Math.round(y), 2, L); ctx.fillStyle = '#fff8d8'; ctx.fillRect(Math.round(x), Math.round(y) + L, 2, 2); }
       }
       ctx.restore();
     },
@@ -555,7 +567,7 @@ function cielo(vigdis: string | undefined, ecos: [string, string][]): Toma[] {
   ts.push(...ecosYFin(ecos, l[3], (id, dur, tx) => {
     // Mira cuenta estrellas: junto al fuego, con el cielo lleno (en la de los ecos todavía las de siempre; en la última, más)
     const ult = id === 'fuego';
-    return tomaRefugio(id, dur, tx, [['mira', 'cine_mira', -1.0, 1.9], ['heroe', '', 2.2, -0.8], ['thor', '', -2.0, -0.7]], { frio: true, mundo: (_e, tl) => cieloNoche(tl, 90, ult ? Math.min(1, tl / (dur * 0.7)) : 0, 0.46) });
+    return tomaRefugio(id, dur, tx, [['mira', 'cine_mira', -1.0, 1.9], ['heroe', '', 2.2, -0.8], ['thor', '', -2.0, -0.7]], { frio: true, mundo: (_e, tl) => cieloNoche(tl, 150, ult ? Math.min(1, tl / (dur * 0.7)) : 0, 0.5) });
   }, ep.titulo, false));
   return ts;
 }
@@ -564,9 +576,9 @@ function tomaLampara(par: [string, string]): Toma {
   const D = leer(par, 10);
   return {
     id: 'vigdis', dur: D, zona: 'a4_glaciar', ancla: anclaCentro, entra: 0.8, sale: 0.8, oscuridad: 0.86, hundir: 0.62, sinBruma: true, sinClima: ['fx_ventisca'],
-    preparar: (e) => despejarPies(e, 0, 0, 4),
-    cam: [{ t: 0, x: 0.6, y: 0.4, alt: 40, zoom: 2, fy: 0.6 }, { t: D, x: -1.4, y: -1.6, alt: 46, c: 'suave' }],
-    actores: [{ id: 'vigdis', tipo: 'sprite', sprite: 'cine_vigdis', claves: [{ t: 0, x: 2.4, y: 2.2 }, { t: D * 0.8, x: -1.8, y: -2.2, c: 'lineal' }, { t: D, dir: 'n' }] }],
+    preparar: (e) => { despejarPies(e, 0, 0, 4); const z: any = e.z; if (z) z.niebla = 0; },
+    cam: [{ t: 0, x: 1.4, y: 1.2, alt: 36, zoom: 3, fy: 0.6 }, { t: D, x: -0.6, y: -0.8, alt: 40, c: 'suave' }],
+    actores: [{ id: 'vigdis', tipo: 'sprite', sprite: 'cine_vigdis', claves: [{ t: 0, x: 2.0, y: 1.8 }, { t: D * 0.85, x: -1.0, y: -1.3, c: 'lineal' }, { t: D, dir: 'n' }] }],
     focos: [{ de: 'vigdis', z: 40, r: 150 }],
     luces: [{ id: 'luna', color: [130, 150, 200], claves: [{ t: 0, x: -4, y: -4, z: 400, r: 800, k: 0.3 }] }],
     sonidos: [{ t: 0, id: 'viento_nieve', cine: true, vol: 0.5 }, { t: 0.5, id: 'nana', cine: true, vol: 0.6 }],
@@ -580,7 +592,7 @@ function tomaTumba(par: [string, string], modo: 'derrite' | 'tibia' | 'quieta', 
   const D = leer(par, 9), base = tomaVigdis(par, false);
   return {
     ...base, dur: D, textos: T(par, 0.8, D - 0.5),
-    actores: conHeroe ? [{ id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 1.2, y: 1.4, mira: [0.4, 0.6] }] }] : undefined,
+    actores: conHeroe ? [{ id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 1.7, y: -0.3, mira: [0.4, 0.6] }] }] : undefined,
     suelo: (e) => nievePiso(e, modo === 'derrite' ? Math.max(4, 15 - e.mem.tl * 2.2) : 15),
     paso: (e, tl, dt) => { e.mem.tl = tl; base.paso?.(e, tl, dt); const Ls = (e.j as any)?.lucesCine as any[]; if (modo === 'tibia' && Ls) Ls.push({ id: 'tibia2', x: e.ax + 0.4, y: e.ay + 0.7, z: 3, r: 70, c: [255, 90, 40], k: 0.35 + 0.35 * latido(tl * 0.8), sinSombra: true }); },
   };
@@ -599,7 +611,7 @@ function reyCeniza(vigdis: string | undefined, ecos: [string, string][]): Toma[]
     focos: [{ de: 'heroe', z: 40, r: 140 }],
     luces: [{ id: 'sed', color: [255, 40, 16], sombra: true, claves: [{ t: 0, x: 1.6, y: 1.6, z: 8, r: 220, k: 0.7 }] }],
     sonidos: [{ t: 0, id: 'dron_marca', cine: true, tono: 0.5 }, ...[0.8, 1.9, 3.0, 4.1, 5.2, 6.3, 7.4].map((t) => ({ t, id: 'latido', cine: true, vol: 0.8 }))],
-    mundo: (e, tl) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, 49, 1); void tl; },
+    mundo: (e, tl) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, CABEZA, 1, 0.48); void tl; },
     paso: (e, tl, dt) => {
       const Ls = (e.j as any)?.lucesCine as any[]; if (Ls && Ls[0]) Ls[0].k = 0.35 + 0.6 * latido(tl);
       // (lo que tiene calor viene: brasas y ceniza tibia que se arrastran por el piso hacia el trono)
@@ -641,7 +653,7 @@ function tomaTerceraBrasa(D: number, textos: Texto[]): Toma {
     id: 'fuego', dur: D, zona: 'a1_paramo', ancla: anclaCamino, entra: 0.8, sale: 0.3, colorSale: '#3a0604', oscuridad: 0.7, hundir: 0.5,
     cam: [{ t: 0, x: 8, y: 8, alt: 170, zoom: 0.8, fy: 0.7 }, { t: D, x: 7, y: 7, alt: 180, c: 'suave' }],
     // (lejos y alta, de izquierda a derecha; a la mitad se detiene, late, gira y viene hacia la cámara)
-    brasa: [{ t: 0.4, x: -18, y: 6, z: 520, k: 0.8, tam: 0.45 }, { t: D * 0.45, x: 4, y: -6, z: 470, k: 0.9, tam: 0.55, c: 'suave' }, { t: D * 0.6, x: 4.5, y: -5.5, z: 460, k: 1, tam: 0.7, c: 'suave' }, { t: D, x: 9, y: 9, z: 210, k: 1, tam: 2.6, c: 'entra' }],
+    brasa: [{ t: 0.4, x: -10, y: 2, z: 430, k: 0.9, tam: 0.8 }, { t: D * 0.45, x: 4, y: -6, z: 420, k: 1, tam: 0.9, c: 'suave' }, { t: D * 0.6, x: 4.5, y: -5.5, z: 410, k: 1, tam: 1.1, c: 'suave' }, { t: D, x: 9, y: 9, z: 210, k: 1, tam: 3, c: 'entra' }],
     focos: [{ de: 'brasa', r: 260 }],
     luces: [{ id: 'luna', color: [110, 125, 170], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 700, k: 0.18 }] }],
     sonidos: [{ t: 0, id: 'organo_sur', cine: true, tono: 0.8 }, { t: 0.6, id: 'brasa_vuela', cine: true, vol: 0.5 }, ...[D * 0.5, D * 0.5 + 1.1].map((t) => ({ t, id: 'latido', cine: true, vol: 1.2 })), { t: D * 0.62, id: 'brasa_nace', cine: true }, { t: D * 0.7, id: 'brasa_vuela', cine: true }, { t: D - 0.6, id: 'sub', cine: true }],
@@ -655,8 +667,8 @@ function coronaFria(vigdis: string | undefined, ecos: [string, string][]): Toma[
   const ep = EPILOGOS.corona_fria, l = ep.lineas, ts: Toma[] = [tomaPonerse(l[0], false)];
   const D1 = leer(l[1], 10), D2 = leer(l[2], 11);
   // la gente del Refugio lo recibe en corro; él quieto en el medio, con la Corona puesta
-  const gente: [string, string, number, number][] = [['heroe', '', 0.6, 0.6], ['odran', 'odran', -1.4, 1.8], ['lys', 'lys', 2.4, -1.2], ['brannoc', 'brannoc', 2.6, 1.6], ['tomas', 'tomas', 0.4, 2.8], ['ysolde', 'ysolde', -1.6, -0.6]];
-  const conCorona: Toma['mundo'] = (e) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, 49, 1); };
+  const gente: [string, string, number, number][] = [['heroe', '', 0.6, 0.6], ['odran', 'odran', -2.2, 2.0], ['lys', 'lys', 3.2, -1.6], ['brannoc', 'brannoc', 3.4, 1.4], ['tomas', 'tomas', 1.2, 3.4], ['ysolde', 'ysolde', -2.0, -1.4]];
+  const conCorona: Toma['mundo'] = (e) => { const h = e.actores.get('heroe') as any; if (h) coronaEnMano(h.x, h.y, CABEZA, 1, 0.48); };
   ts.push({ ...tomaRefugio('recibe', D1, T(l[1], 0.8, D1 - 0.5), gente, { frio: true, mundo: conCorona }), objetos: ['cine_corona|t1'], actores: gente.map(([qid, sp, x, y]) => (qid === 'heroe' ? { id: 'heroe', tipo: 'heroe' as const, claves: [{ t: 0, x, y, dir: 's' as const }] } : { id: qid, tipo: 'sprite' as const, sprite: sp, claves: [{ t: 0, x, y, mira: [0.6, 0.6] as [number, number] }] })), focos: [{ de: [0.6, 0.6], z: 30, r: 200 }] });
   // el invierno largo: nieve sobre el Refugio, Ysolde le tira las cartas y sale la misma (el rey con escarcha en la cara)
   ts.push({ ...tomaRefugio('invierno', D2, T(l[2], 0.8, D2 - 0.5), [['heroe', '', 1.6, -0.4], ['ysolde', 'ysolde', -0.4, 1.6]], { frio: true, nieve: true, mundo: (e, tl) => { conCorona(e, tl, 0); cartaRey(e, tl); } }), objetos: ['cine_corona|t1'] });
@@ -679,14 +691,14 @@ function tomaSolo(D: number, textos: Texto[]): Toma {
   return {
     id: 'fuego', dur: D, zona: 'a1_refugio', ancla: anclaFogata, objetos: ['cine_corona|t1'], entra: 0.8, sale: 0.8, oscuridad: 0.84, hundir: 0.74, sinClima: ['fx_lluvia', 'fx_tormenta'], sinBruma: true,
     preparar: (e) => { const z: any = e.z; if (z) z.lluvia = false; despejarPies(e, 3, -1, 1.5); },
-    cam: [{ t: 0, x: 3.05, y: -0.95, alt: 34, zoom: 4, fy: 0.55 }, { t: D, x: 3.0, y: -1.0, alt: 38, c: 'suave' }],
+    cam: [{ t: 0, x: 3.05, y: -0.95, alt: 44, zoom: 4, fy: 0.55 }, { t: D, x: 3.0, y: -1.0, alt: 48, c: 'suave' }],
     actores: [{ id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: 3, y: -1, dir: 's' }] }],
     focos: [{ de: 'heroe', z: 40, r: 90 }],
     luces: [{ id: 'frio', color: [160, 190, 235], sombra: true, claves: [{ t: 0, x: 1.5, y: 0.5, z: 80, r: 200, k: 0.55 }] }, { id: 'fuego', color: [255, 150, 70], claves: [{ t: 0, x: 0, y: 0, z: 9, r: 120, k: 0.25 }] }],
     sonidos: [{ t: 0, id: 'viento_nieve', cine: true, vol: 0.5, tono: 0.6 }],
     suelo: (e) => nievePiso(e, 8),
     mundo: (e, tl) => {
-      const h = e.actores.get('heroe') as any; if (!h) return; coronaEnMano(h.x, h.y, 49, 1);
+      const h = e.actores.get('heroe') as any; if (!h) return; coronaEnMano(h.x, h.y, CABEZA, 1, 0.48);
       // la escarcha que le crece en la cara y en la Corona: cristales de pixel que destellan
       const [px, py] = aPant(h.x, h.y); ctx.save(); ctx.imageSmoothingEnabled = false;
       for (let i = 0; i < 16; i++) { const k = Math.min(1, tl / 4 - i * 0.04); if (k <= 0) continue; const x = Math.round(px - 7 + hash(i) * 14), y = Math.round(py - 50 + hash(i + 7) * 14); ctx.globalAlpha = k * (0.6 + 0.4 * Math.sin(tl * 3 + i)); ctx.fillStyle = i % 3 ? '#dff0ff' : '#ffffff'; ctx.fillRect(x, y, 1, 1); if (i % 5 === 0) { ctx.fillRect(x - 1, y, 3, 1); } }

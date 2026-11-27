@@ -1885,6 +1885,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
       let x = tx, y = ty;
       if (!pasable(j.zona, x, y)) { const q = libreCerca(j.zona, x, y); x = q[0] + 0.5; y = q[1] + 0.5; }
       if (dist(x, y, h.x, h.y) > 14) { const a = Math.atan2(y - h.y, x - h.x); x = h.x + Math.cos(a) * 14; y = h.y + Math.sin(a) * 14; if (!pasable(j.zona, x, y)) { const q = libreCerca(j.zona, x, y); x = q[0] + 0.5; y = q[1] + 0.5; } }
+      [x, y] = caidaSegura(j.zona, h.x, h.y, x, y);
       efecto(j, 'destello_teleporte', h.x, h.y); h.x = x; h.y = y; efecto(j, 'destello_teleporte', h.x, h.y);
       sonar(j, 'teletransporte');
       break;
@@ -1894,6 +1895,7 @@ function resolverHabilidad0(j: Juego, parte?: number, cb?: { remate: boolean }) 
       const a = Math.atan2(y - h.y, x - h.x), dd = Math.min(hb.tipo === 'salto' ? 8 : 10, dist(x, y, h.x, h.y));
       x = h.x + Math.cos(a) * Math.max(0, dd - (obj ? 0.8 : 0)); y = h.y + Math.sin(a) * Math.max(0, dd - (obj ? 0.8 : 0));
       if (!pasable(j.zona, x, y)) { const q = libreCerca(j.zona, x, y); x = q[0] + 0.5; y = q[1] + 0.5; }
+      [x, y] = caidaSegura(j.zona, h.x, h.y, x, y);
       h.salto = { x0: h.x, y0: h.y, x1: x, y1: y, t: 0, T: hb.tipo === 'salto' ? 0.45 : 0.3, hab: hb };
       (h as any).saltoN = n; (h as any).saltoMult = mult;
       break;
@@ -2235,6 +2237,9 @@ function actualizarHeroe(j: Juego, dt: number) {
   const h = j.heroe;
   h.t += dt; h.destello = Math.max(0, h.destello - dt);
   if (h.muerto) return;
+  // (red de seguridad: si algo dejó al héroe dentro de una celda que no se pisa, sale a la libre más cercana; si no, no
+  // podía caminar nunca más. `__caidaVieja` lo apaga)
+  if (!h.salto && !pasable(j.zona, h.x, h.y) && !(globalThis as any).__caidaVieja) { const q = libreCerca(j.zona, h.x, h.y); h.x = q[0] + 0.5; h.y = q[1] + 0.5; h.camino = null; }
   // congelado o aturdido: un momento sin poder hacer nada
   if (h.congelado > 0 || h.aturdido > 0) { h.congelado = Math.max(0, h.congelado - dt); h.aturdido = Math.max(0, h.aturdido - dt); h.acc = 'quieto'; h.camino = null; h.destino = null; return; }
   for (const k of Object.keys(h.recargas)) h.recargas[k] = Math.max(0, h.recargas[k] - dt);
@@ -3246,6 +3251,25 @@ function actualizarAreas(j: Juego, dt: number) {
 }
 
 // ------------------------------------------------------------------ acciones del jugador
+/** Adónde puede caer el héroe de un teletransporte, carga o salto: un punto pasable al que se llega caminando desde donde
+ *  está. Antes bastaba con que la celda fuera pasable y se podía caer en un bolsillo cerrado del otro lado de un muro (un
+ *  nicho, un hueco del relleno): el héroe quedaba encerrado sin poder salir. Si el punto no sirve, se recorre la línea de
+ *  vuelta hacia el héroe hasta dar con uno que sí; si ninguno sirve, se queda donde está. `__caidaVieja` vuelve a lo de antes. */
+function caidaSegura(z: Zona, hx: number, hy: number, x: number, y: number): [number, number] {
+  if (!pasable(z, x, y)) { const q = libreCerca(z, x, y); x = q[0] + 0.5; y = q[1] + 0.5; }
+  if ((globalThis as any).__caidaVieja) return [x, y];
+  const llega = (px: number, py: number) => {
+    if (!pasable(z, px, py)) return false;
+    if (Math.floor(px) === Math.floor(hx) && Math.floor(py) === Math.floor(hy)) return true;
+    const c = buscarCamino(z, hx, hy, px, py, 6000);
+    if (!c || (c as any).parcial) return false;
+    const u = c[c.length - 1]; return Math.floor(u[0]) === Math.floor(px) && Math.floor(u[1]) === Math.floor(py);
+  };
+  if (llega(x, y)) return [x, y];
+  const d = Math.hypot(x - hx, y - hy);
+  for (let k = d - 0.5; k > 0.4; k -= 0.5) { const px = hx + (x - hx) * k / d, py = hy + (y - hy) * k / d; if (llega(px, py)) return [Math.floor(px) + 0.5, Math.floor(py) + 0.5]; }
+  return [hx, hy];
+}
 export function caminarA(j: Juego, x: number, y: number) {
   const h = j.heroe; if (h.muerto) return;
   h.camino = buscarCamino(j.zona, h.x, h.y, x, y, 2500);

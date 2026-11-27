@@ -2759,3 +2759,13 @@ de salida. **`MAPA_V` pasó a 6**: se pierde solo la niebla.
     En todos esos casos la ventana de lo alto se abre al pasar detrás.
   - La obra sigue sin mirarse con los sonidos ni con oídos humanos.
   - Los monumentos pesan en atlas: subir en tandas si un push rebota.
+
+## Héroe encerrado (27 nov 2026)
+
+Rick se quedó pegado en el Pozo de los Nombres con la arcanista. El teletransporte (`paso_tormenta`), las cargas y los saltos solo
+miraban que el punto de llegada fuera pasable: se podía caer en un bolsillo cerrado del otro lado de un muro (un nicho, un hueco del
+relleno) y no había camino de salida. `caidaSegura` en `juego/mundo.ts` exige que al punto se llegue caminando desde donde está el
+héroe (`buscarCamino` completo, no parcial); si no, recorre la línea de vuelta hacia él y, si nada sirve, se queda. Y en
+`actualizarHeroe`, si el héroe queda dentro de una celda que no se pisa, sale a la libre más cercana. `__caidaVieja` vuelve a lo de
+antes. Prueba: `pegado.cjs` en el scratchpad de la sesión (no se sube). Pasaron t223 arcanista, t500, t1001, t440, t450, t961, t995 y
+t1011.

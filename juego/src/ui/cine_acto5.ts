@@ -4,7 +4,7 @@
 // `finalElegido`), y sigue con su variante: el puño que la apaga o el pecho que la bebe. Después la Fragua se enfría, quedan las
 // cenizas de Vesperio, el mar se parte, Ysmeral sube con sus campanas y Oyá la mira desde su barco varado. Cartel del acto 6.
 // Ver ui/director.ts. Canon: CLAUDE.md, "Historia y canon".
-import { ctx, W, H } from '../nucleo/lienzo';
+import { ctx, W, H, ESCALA } from '../nucleo/lienzo';
 import { aPant } from '../render/escena';
 import { libreCerca, type Zona } from '../mundo/zona';
 import { estallido } from '../render/brasa_cine';
@@ -34,6 +34,8 @@ function botonesEleccion(tl: number) {
   ctx.save(); ctx.globalAlpha = 0.55 * k; ctx.fillStyle = '#020102'; ctx.fillRect(0, 0, W, H); ctx.restore();
   if (k < 1 || elegido) return;
   const bw = Math.min(260, W * 0.34), bh = 44, by = Math.round(H * 0.72), g = 24;
+  // (dónde caen, en puntos CSS: las pruebas tocan ahí)
+  (window as any).__botonesEleccion = [[W / 2 - bw - g / 2, by, bw, bh], [W / 2 + g / 2, by, bw, bh]].map((r) => r.map((v) => v * ESCALA));
   if (boton(OPCIONES_BRASA.destruir[0], W / 2 - bw - g / 2, by, bw, bh, { gotico: true, tono: 'hierro', en: OPCIONES_BRASA.destruir[1] } as any)) elegido = 'destruir';
   if (boton(OPCIONES_BRASA.absorber[0], W / 2 + g / 2, by, bw, bh, { gotico: true, tono: 'brasa', en: OPCIONES_BRASA.absorber[1] } as any)) elegido = 'absorber';
 }
@@ -52,12 +54,13 @@ function sombraTibia(e: EstadoToma, tl: number, k: number) {
   const h = e.actores.get('heroe') as any; if (!h || k <= 0) return;
   const q = cuadrosVivos('quieto', h.dir)?.[0] ?? cuadrosHeroe(e.heroe.clase, 'quieto', h.dir)[0];
   const [px, py] = aPant(h.x, h.y);
-  const lat = latido(tl);
-  siluetaEnPiso(q, px, py, -0.9, -0.35, k * 0.92, '#1a0302');
+  // (larga y negra sobre el piso rojo, con el canto que arde y late: en un piso de lava una sombra roja no se ve)
+  const lat = latido(tl), AX = 0.75, AY = 0.62; // (hacia la cámara y a la derecha: detrás caía sobre el cuerpo negro de Ozmaren)
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  siluetaEnPiso(q, px, py, -0.9, -0.35, k * (0.5 + 0.5 * lat), '#b0180a');
-  siluetaEnPiso(q, px - 1, py, -0.9, -0.35, k * 0.35 * lat, '#ff5a20');
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) siluetaEnPiso(q, px + dx, py + dy, AX, AY, k * (0.45 + 0.55 * lat), '#d02010');
   ctx.restore();
+  siluetaEnPiso(q, px, py, AX, AY, k * 0.96, '#050101');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; siluetaEnPiso(q, px, py, AX, AY, k * 0.3 * lat, '#701008'); ctx.restore();
 }
 /** Humo y ceniza que se escapan del puño que apaga la Brasa. */
 function humoPuno(e: EstadoToma, dt: number) {
@@ -150,7 +153,7 @@ function marPartido(tl: number) {
   // las paredes de agua a los dos lados del tajo, de lejos a cerca (lo cercano tapa lo lejano), con su cresta de espuma
   for (let y = hz; y < LH; y++) {
     const p = (y - hz) / (LH - hz), esc = 0.15 + p * 0.85; if (p < 1 - prog) continue;
-    const ancho = (2 + abre * 46) * esc, cx = mid + Math.sin(y * 0.15 + tl * 0.8) * esc * 1.5, pared = Math.round(abre * 22 * esc);
+    const ancho = (2 + abre * 46) * esc, cx = mid + Math.sin(y * 0.15 + tl * 0.8) * esc * 1.5, pared = Math.round(abre * 38 * esc);
     if (pared < 1) continue;
     for (const lado of [-1, 1]) {
       const x = Math.round(cx + lado * ancho);
@@ -313,7 +316,7 @@ const tomas: Toma[] = [
     luces: [
       { id: 'boca', color: [255, 110, 40], sombra: true, claves: [{ t: 0, x: 0, y: 0, z: 30, r: 320, k: 1.1 }, { t: 2, k: 1.1 }, { t: 6.5, k: 0.05, c: 'suave' }] },
       { id: 'cielo', color: [255, 60, 30], claves: [{ t: 0, x: -10, y: -10, z: 700, r: 1200, k: 0.45 }, { t: 7, k: 0.08, c: 'suave' }] },
-      { id: 'luna', color: [110, 120, 150], claves: [{ t: 0, x: -6, y: -6, z: 500, r: 900, k: 0 }, { t: 4, k: 0 }, { t: 7.5, k: 0.3, c: 'suave' }] },
+      { id: 'luna', color: [120, 130, 165], claves: [{ t: 0, x: 4, y: 2, z: 500, r: 1100, k: 0 }, { t: 2.5, k: 0 }, { t: 7, k: 0.62, c: 'suave' }] },
     ],
     lucesZona: 1,
     sonidos: [{ t: 0, id: 'fragua_enfria', cine: true }],
@@ -329,12 +332,12 @@ const tomas: Toma[] = [
     // borde y una chispa violeta que se suelta y sube sola
     id: 'cenizas', dur: 7, zona: 'a5_rio', ancla: anclaSalida('a5_fragua'), entra: 0.5, sale: 0.6, oscuridad: 0.9, hundir: 0.74, lucesZona: 0,
     preparar: (e) => despejarPies(e, 3.5, 3.5, 3.5),
-    cam: [{ t: 0, x: 4.3, y: 4.2, alt: 24, zoom: 3, fy: 0.6 }, { t: 7, x: 4.1, y: 4.0, alt: 44, c: 'suave' }],
+    cam: [{ t: 0, x: 4.0, y: 4.0, alt: 14, zoom: 4, fy: 0.56 }, { t: 7, x: 3.9, y: 3.9, alt: 30, c: 'suave' }],
     focos: [{ de: [3.9, 3.9], z: 6, r: 150 }],
     luces: [
       { id: 'ves', color: [150, 100, 235], claves: [{ t: 0, x: 3.7, y: 3.8, z: 10, r: 110, k: 0.55 }, { t: 6, k: 0.3 }] },
-      { id: 'papel', color: [255, 150, 70], claves: [{ t: 0, x: 4.6, y: 4.4, z: 3, r: 60, k: 0.0 }, { t: 1.2, k: 0.55 }, { t: 6.6, k: 0.35 }] },
-      { id: 'luna', color: [110, 120, 150], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 600, k: 0.18 }] },
+      { id: 'papel', color: [255, 150, 70], claves: [{ t: 0, x: 4.8, y: 4.6, z: 2, r: 34, k: 0.0 }, { t: 1.2, k: 0.4 }, { t: 6.6, k: 0.25 }] },
+      { id: 'luna', color: [120, 130, 165], claves: [{ t: 0, x: 6, y: 4, z: 500, r: 1000, k: 0.5 }] },
     ],
     sonidos: [{ t: 0, id: 'coro_vesperio', cine: true, tono: 0.84, vol: 0.6 }],
     paso: (e, tl, dt) => {
@@ -371,15 +374,15 @@ const tomas: Toma[] = [
     // el barco varado: Oyá sola en la proa de su barco, en la arena de la costa, mirando hacia la ciudad; las campanas lejos
     id: 'oya', dur: 8, zona: 'a6_barco', ancla: anclaCubierta, objetos: ['cine_barco|varado'], entra: 0.6, sale: 0.6, oscuridad: 0.84, hundir: 0.5, lucesZona: 0.3,
     preparar: (e) => {
-      despejarPies(e, 0, 0, 9); const z = e.z;
+      despejarPies(e, 0, 0, 13); const z = e.z; if (z) z.objetos = z.objetos.filter((o) => !/fuente|torre|pabellon/.test(o.id) || Math.hypot(o.cx - e.ax, o.cy - e.ay) > 26);
       if (z && !z.objetos.some((o) => o.capa === 'cine')) z.objetos.push({ id: 'cine_barco', v: 'varado', cx: e.ax - 0.5 - BARCO_ATRAS, cy: e.ay - 0.5 - BARCO_ATRAS, hw: 1, hh: 1, bloquea: false, capa: 'cine' } as any);
     },
-    cam: [{ t: 0, x: 1.6, y: 0.4, alt: 64, zoom: 2, fy: 0.56 }, { t: 8, x: 2.0, y: -0.2, alt: 70, c: 'suave' }],
+    cam: [{ t: 0, x: 1.4, y: -0.6, alt: 78, zoom: 3, fy: 0.66 }, { t: 8, x: 1.8, y: -1.2, alt: 84, c: 'suave' }],
     actores: [{ id: 'oya', tipo: 'sprite', sprite: 'oya', claves: [{ t: 0, x: PROA[0], y: PROA[1], dir: 'ne' }, { t: 4.5, dir: 'n' }] }],
     focos: [{ de: [0.6, -0.6], z: 40, r: 300, k: 0.8 }, { de: 'oya', z: 70, r: 120 }],
     luces: [
       { id: 'farol', color: [255, 176, 100], sombra: true, titila: 0.12, claves: [{ t: 0, x: 5.0, y: -4.8, z: 44, r: 190, k: 0.95 }] },
-      { id: 'luna', color: [120, 140, 180], sombra: true, claves: [{ t: 0, x: -8, y: -2, z: 300, r: 800, k: 0.42 }] },
+      { id: 'luna', color: [120, 140, 180], sombra: true, claves: [{ t: 0, x: -6, y: 4, z: 200, r: 800, k: 0.6 }] },
     ],
     sonidos: [{ t: 0, id: 'campana', cine: true, tono: 0.7, vol: 0.4 }, { t: 3.2, id: 'campana', cine: true, tono: 0.66, vol: 0.35 }, { t: 0.5, id: 'tema_oya', cine: true }],
     paso: (e) => { const m = e.actores.get('oya') as any; if (m) m.alto = CUBIERTA; },

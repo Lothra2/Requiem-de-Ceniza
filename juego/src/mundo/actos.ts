@@ -747,7 +747,7 @@ export interface TomaEntreacto { escena: string; seed: number; texto: [string, s
  * las lee como lo que pasó al terminar el acto (`{ t: 'entreacto', a }`). `voz` es quien habla (va en su color y entre
  * comillas). Un acto sin película sigue con ENTREACTO.
  */
-export interface LineaPelicula { es: string; en: string; voz?: boolean; /** Solo con esa decisión ([clave, valor] de `decisiones`; Vigdis sin elección cuenta como salvada). */ si?: [string, string] }
+export interface LineaPelicula { es: string; en: string; voz?: boolean; /** Solo con esa decisión ([clave, valor] de `decisiones`; Vigdis sin elección cuenta como salvada; valor '' es sin elección). */ si?: [string, string] }
 export const PELICULA: Record<number, LineaPelicula[]> = {
   1: [
     { es: 'Ilvara cayó en el fondo del pozo.', en: 'Ilvara fell at the bottom of the well.' },
@@ -792,6 +792,17 @@ export const PELICULA: Record<number, LineaPelicula[]> = {
     { es: 'Esa noche, muy al norte, el mar se partió en dos.', en: 'That night, far to the north, the sea split in two.' },
     { es: 'Del fondo subió Ysmeral, la Ciudad Ahogada, con sus campanas todavía sonando.', en: 'From the depths rose Ysmeral, the Drowned City, its bells still ringing.' },
     { es: 'El barco de Oyá quedó varado en su costa. Las campanas parecían llamar a alguien.', en: 'Oya\'s ship ran aground on its coast. The bells seemed to be calling someone.' },
+  ],
+  6: [
+    { es: 'La Campana calló.', en: 'The Bell fell silent.' },
+    { es: 'El mar volvió a su lugar, como un perro que reconoce a su amo.', en: 'The sea returned to its place, like a dog that knows its master.' },
+    // (línea nueva: espera que Rick la lea)
+    { es: 'Tu Marca calló un momento. Cuando volvió a latir, la voz ya no era la de Vesperio. Era más vieja, y tenía sed.', en: 'Your Mark fell silent for a moment. When it beat again, the voice was no longer Vesperio\'s. It was older, and it was thirsty.' },
+    { es: 'Entonces el cielo se rompió como un vidrio, y detrás del vidrio había escalones de oro.', en: 'Then the sky broke like glass, and behind the glass there were steps of gold.' },
+    { es: 'Arriba, en un trono que tiene sed desde antes del mundo, Aun-Saar abrió la boca que tiene en el pecho.', en: 'Above, on a throne that has thirsted since before the world, Aun-Saar opened the mouth in his chest.' },
+    { es: 'Y por primera vez en mil inviernos, dijo una palabra. Era tu nombre.', en: 'And for the first time in a thousand winters, he spoke a word. It was your name.', si: ['brasa', ''] },
+    { es: 'Y por primera vez en mil inviernos, preguntó por el pedazo que le faltaba. Preguntó por ti.', en: 'And for the first time in a thousand winters, he asked for the piece he was missing. He asked for you.', si: ['brasa', 'destruir'] },
+    { es: 'Y por primera vez en mil inviernos, sonrió. Ya sabía que su sed venía en camino.', en: 'And for the first time in a thousand winters, he smiled. He knew his thirst was on its way.', si: ['brasa', 'absorber'] },
   ],
 };
 /** ¿Ese acto cierra con su película del motor? (`__cineViejo` vuelve a la cinemática y al entreacto de antes) */

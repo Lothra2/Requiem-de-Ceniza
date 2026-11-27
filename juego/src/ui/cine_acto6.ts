@@ -33,9 +33,9 @@ function arosTanido(e: EstadoToma, tl: number, hasta: number) {
 function grietaBronce(e: EstadoToma, tl: number, t0: number) {
   const u = Math.min(1, Math.max(0, (tl - t0) / 0.5)); if (u <= 0) return;
   const m = e.actores.get('abadesa') as any; if (!m) return;
-  const [px, py] = aPant(m.x, m.y); let x = px - 4, y = py - 96;
+  const [px, py] = aPant(m.x, m.y); let x = px - 2, y = py - 46;
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  for (let s = 0; s < 70 * u; s++) { x += (hash(s) - 0.5) * 2.4 + (s % 9 < 4 ? 0.5 : -0.5); y += 1; ctx.fillStyle = '#1a1210'; ctx.fillRect(Math.round(x) + 1, Math.round(y), 1, 1); ctx.fillStyle = s > 70 * u - 4 ? '#ffffff' : '#e8f2f0'; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); }
+  for (let s = 0; s < 36 * u; s++) { x += (hash(s) - 0.5) * 2.4 + (s % 9 < 4 ? 0.5 : -0.5); y += 1; ctx.fillStyle = '#1a1210'; ctx.fillRect(Math.round(x) + 1, Math.round(y), 1, 1); ctx.fillStyle = s > 36 * u - 4 ? '#ffffff' : '#e8f2f0'; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); }
   ctx.restore();
 }
 /** La sal: escamas blancas que se le caen a la Abadesa y quedan en el piso (es de sal, como su estatua del arrecife). */
@@ -47,8 +47,8 @@ function salAbadesa(e: EstadoToma, x: number, y: number, n: number, dt: number) 
 // ------------------------------------------------------------------ el mar que vuelve
 /** El agua que vuelve por la arena: una lámina oscura con su línea de espuma que entra desde adelante y rodea el casco (lo plano). */
 function marVuelve(e: EstadoToma, tl: number) {
-  const u = Math.min(1, Math.max(0, (tl - 0.8) / 2.6)), s = 1 - (1 - u) ** 3; if (s <= 0) return;
-  const m = ctx.getTransform().inverse(), a = m.transformPoint(new DOMPoint(0, 0)), b = m.transformPoint(new DOMPoint(ctx.canvas.width, ctx.canvas.height));
+  const u = Math.min(1, Math.max(0, (tl - 0.6) / 5.2)), s = 1 - (1 - u) ** 2; if (s <= 0) return;
+  const [cx, cy] = aPant(e.ax, e.ay), a = { x: cx - 900, y: cy - 300 }, b = { x: cx + 900, y: cy + 240 };
   const yf = b.y - (b.y - a.y) * 0.95 * s;
   ctx.save(); ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = 'rgba(10,26,34,0.82)'; ctx.fillRect(a.x, yf, b.x - a.x, b.y - yf + 2);
@@ -128,7 +128,7 @@ function cieloRoto(e: EstadoToma, tl: number) {
 
 // ------------------------------------------------------------------ la boca del pecho
 /** Dónde queda el pecho de Aun-Saar sobre su ancla (puntos del dibujo hacia arriba). */
-const PECHO = 74;
+const PECHO = 130;
 /**
  * La boca que tiene en el pecho: la carne que se abre en vertical (los labios oscuros, dos hileras de dientes y adentro un fondo que
  * alumbra en oro), o curvada hacia arriba cuando sonríe (`sonrie`). `k` lo que se abrió, 0 a 1. Guarda dónde quedó en la pantalla
@@ -138,9 +138,16 @@ function bocaPecho(e: EstadoToma, k: number, tl: number, sonrie = 0) {
   const m = e.actores.get('aun') as any; if (!m) return;
   const [px, py] = aPant(m.x, m.y), X = Math.round(px), Y = Math.round(py - PECHO);
   const T = ctx.getTransform(); const q = T.transformPoint(new DOMPoint(X, Y)); e.mem.boca = [q.x / RES, q.y / RES, T.a / RES];
-  if (k <= 0) return;
-  const alto = Math.round(26 * k), lat = 0.8 + 0.2 * Math.sin(tl * 5);
+  const ALTO = 24, lat = 0.8 + 0.2 * Math.sin(tl * 5);
   ctx.save(); ctx.imageSmoothingEnabled = false;
+  // cerrada: la carne pálida del pecho tapa la boca que trae el cuerpo, con la costura oscura en el medio
+  for (let dy = -ALTO - 2; dy <= ALTO + 2; dy++) {
+    const f = 1 - (dy / (ALTO + 2.5)) ** 2, w = Math.round(9 * Math.sqrt(Math.max(0, f)));
+    if (w <= 0) continue; ctx.fillStyle = Math.abs(dy) % 5 === 0 ? '#7a6e62' : '#8c8072'; ctx.fillRect(X - w, Y + dy, w * 2, 1);
+    ctx.fillStyle = '#3a2a22'; ctx.fillRect(X - (k > 0 ? 0 : 0), Y + dy, 1, 1);
+  }
+  if (k <= 0) { ctx.restore(); return; }
+  const alto = Math.round(ALTO * k);
   for (let dy = -alto; dy <= alto; dy++) {
     const f = 1 - (dy / (alto + 0.5)) ** 2, w = Math.round(7 * Math.sqrt(Math.max(0, f)) * (0.8 + 0.4 * k));
     const curva = Math.round(sonrie * ((dy / Math.max(1, alto)) ** 2) * 6);
@@ -161,9 +168,9 @@ function bocaPecho(e: EstadoToma, k: number, tl: number, sonrie = 0) {
 function nombreDicho(e: EstadoToma, tl: number, t0: number, rajado: boolean) {
   const b = e.mem.boca; if (!b || tl < t0) return;
   const u = tl - t0, k = Math.min(1, u / 0.8) * (1 - Math.max(0, (u - 3.6) / 1.2)); if (k <= 0) return;
-  const nombre = (e.heroe.nombre || '').toUpperCase(), tam = Math.max(22, Math.round(H / 16));
+  const nombre = (e.heroe.nombre || '').toUpperCase(), tam = Math.max(26, Math.round(H / 11));
   ctx.save(); ctx.globalAlpha = k;
-  textoGotico(rajado ? nombre.slice(0, Math.ceil(nombre.length * 0.6)) + '…' : nombre, b[0], b[1] - tam * 1.6, tam, { alin: 'center', tono: ORO, brillo: 0.3 + 0.2 * latido(u) } as any);
+  textoGotico(rajado ? nombre.slice(0, Math.ceil(nombre.length * 0.6)) : nombre, b[0], b[1] - tam * 1.6, tam, { alin: 'center', tono: ORO, brillo: 0.3 + 0.2 * latido(u) } as any);
   ctx.restore();
   // la ceniza que se suelta de las letras al deshacerse
   if (u > 3.4) { ctx.save(); ctx.fillStyle = '#c8a060'; for (let i = 0; i < 40; i++) { const v = u - 3.4; ctx.globalAlpha = Math.max(0, 1 - v / 1.4) * hash(i); ctx.fillRect(Math.round(b[0] + (hash(i) - 0.5) * tam * nombre.length * 0.6), Math.round(b[1] - tam * 1.6 - v * 30 * hash(i + 3)), 2, 2); } ctx.restore(); }
@@ -188,7 +195,7 @@ function tomaNombre(fin: 'destruir' | 'absorber' | null, n: number): Toma {
   return {
     id: 'nombre' + (fin ? '_' + fin : ''), dur: 8, zona: 'a7_trono', ancla: anclaJefe, entra: 0.2, sale: 0.8, oscuridad: 0.92, hundir: 0.76,
     omitir: (e) => (finalDe(e.heroe) ?? null) !== fin,
-    cam: [{ t: 0, x: 0.5, y: 0.5, alt: 70, zoom: 3, fy: 0.55 }, { t: 8, x: 0.45, y: 0.45, alt: 72 }],
+    cam: [{ t: 0, x: 0.5, y: 0.5, alt: 150, zoom: 3, fy: 0.56 }, { t: 8, x: 0.45, y: 0.45, alt: 154 }],
     actores: [{ id: 'aun', tipo: 'mon', mon: 'aun_saar', claves: [{ t: 0, x: 0, y: 0, dir: 's', acc: 'quieto' }] }],
     focos: [{ de: 'aun', z: PECHO, r: 150 }],
     luces: [{ id: 'arriba', color: [230, 190, 110], sombra: true, claves: [{ t: 0, x: 0.5, y: 0.5, z: 260, r: 260, k: 0.55 }] }],
@@ -198,7 +205,7 @@ function tomaNombre(fin: 'destruir' | 'absorber' | null, n: number): Toma {
     textos: [L(n, 2.6, 7.8)],
   };
 }
-const HX = 2.6, HY = -0.9;
+const HX = -3.2, HY = 0.4;
 const sala = { zona: 'a6_catedral2', ancla: anclaJefe } as const;
 const trono = { zona: 'a7_trono', ancla: anclaJefe } as const;
 const tomas: Toma[] = [
@@ -207,7 +214,7 @@ const tomas: Toma[] = [
     id: 'campana', dur: 10, ...sala, entra: 1.6, sale: 0.4, oscuridad: 0.84, hundir: 0.6,
     cam: [{ t: 0, x: 3.2, y: 1.4, alt: 62, zoom: 2, fy: 0.52 }, { t: 3.05, x: 2.2, y: 0.5, alt: 64, c: 'suave' }, { t: 3.06, x: 1.2, y: -0.4, alt: 60, zoom: 3, fy: 0.5 }, { t: 9.6, x: 1.0, y: -0.3, alt: 46, c: 'suave' }],
     actores: [
-      { id: 'abadesa', tipo: 'mon', mon: 'campana_ahoga', claves: [{ t: 0, x: 0, y: 0, mira: [3, -0.6], acc: 'especial', dur: 1.15, bucle: true }, { t: 3.55, acc: 'morir', ritmo: 0.36 }] },
+      { id: 'abadesa', tipo: 'mon', mon: 'campana_ahoga', sombra: ['#e4e8e2', 0.38], claves: [{ t: 0, x: 0, y: 0, mira: [3, -0.6], acc: 'especial', dur: 1.15, bucle: true }, { t: 3.55, acc: 'morir', ritmo: 0.36 }] },
       { id: 'heroe', tipo: 'heroe', claves: [{ t: 0, x: HX + 1.3, y: HY + 0.5, mira: [0, 0] }, { t: 2.2, x: HX + 1.3, y: HY + 0.5 }, { t: 3.0, x: HX, y: HY, c: 'lineal' }, { t: 3.0, acc: 'atacar', dur: 0.62, mira: [0, 0] }, { t: 3.8, acc: 'quieto', mira: [0, 0] }] },
       { id: 'thor', tipo: 'thor', claves: [{ t: 0, x: 3.4, y: 1.8, mira: [0, 0] }, { t: 1.2, acc: 'especial', dur: 0.9, mira: [0, 0] }, { t: 2.1, acc: 'quieto', mira: [0, 0] }] },
     ],
@@ -220,7 +227,7 @@ const tomas: Toma[] = [
     sonidos: [...[0.3, 1.45, 2.6].map((t, i) => ({ t, id: 'campana', cine: true, tono: 0.62, vol: 0.7 + i * 0.1 })), { t: 3.3, id: 'coro_muerte', cine: true, tono: 0.8 }, { t: 3.3, id: 'golpe_metal' }, { t: 5.8, id: 'campana', cine: true, tono: 0.5, vol: 1 }, { t: 5.8, id: 'golpe', cine: true }],
     temblores: [[5.8, 0.5, 3]],
     suelo: (e, tl) => arosTanido(e, tl, 5.8),
-    paso: (e, tl, dt) => { const m = e.actores.get('abadesa') as any; if (m && tl > 5.6) salAbadesa(e, m.x, m.y, 2, dt); },
+    paso: (e, tl, dt) => { const m = e.actores.get('abadesa') as any; if (m) salAbadesa(e, m.x, m.y, tl > 5.6 ? 3 : 1, dt); },
     mundo: (e, tl) => grietaBronce(e, tl, 5.8),
     textos: [L(0, 6.2, 9.7)],
   },

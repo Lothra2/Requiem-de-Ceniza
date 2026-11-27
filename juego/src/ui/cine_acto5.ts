@@ -141,8 +141,17 @@ function marHondo(e: EstadoToma, tl: number) {
     const h1 = Math.sin(k * 91.7) * 0.5 + 0.5, h2 = Math.sin(k * 37.1 + 3) * 0.5 + 0.5, x = cx - RX + h1 * RX * 2 + ((tl * 14 + k * 7) % 40) - 20, y = cy - RY + h2 * RY * 2;
     ctx.fillStyle = k % 4 ? '#2c4260' : '#5a7494'; ctx.fillRect(Math.round(x), Math.round(y), 3 + (k % 3), 1);
   }
-  const mx = cx - 60;
-  for (let y = cy - RY; y < cy + RY; y += 2) { const w = 6 + Math.sin(y * 0.11 + tl * 3) * 5 + Math.sin(y * 0.031) * 4; if (Math.sin(y * 0.7 + tl * 4) < -0.3) continue; ctx.fillStyle = Math.sin(y * 1.3 + tl * 6) > 0.4 ? '#c8d4e4' : '#6a7c98'; ctx.fillRect(Math.round(mx - w + Math.sin(y * 0.2 + tl * 2) * 4), Math.round(y), Math.round(w * 2), 1); }
+  // el reguero de la luna como lo pinta el pixel art: manchas horizontales cortas y quebradas de largo distinto, anchas y juntas
+  //  arriba (cerca de la luna) y ralas abajo, que tiemblan con las olas, de un blanco frío apagado
+  const mx = cx - 60, y0 = cy - RY * 0.55, ham = (n: number) => { const v = Math.sin(n * 57.3 + 1.7) * 43758.5453; return v - Math.floor(v); };
+  for (let k = 0; k < 90; k++) {
+    const f = k / 90, y = y0 + f * f * RY * 1.3 + ham(k) * 3, tira = 1 - f;
+    if (ham(k + 300) > 0.35 + 0.6 * tira) continue; // (ralas abajo)
+    const ola = Math.sin(tl * 2.3 + k * 1.7) * (2 + 4 * f), w = Math.round((3 + ham(k + 50) * 12) * (0.4 + 0.9 * tira)), x = mx + (ham(k + 9) - 0.5) * (14 + 50 * f) + ola;
+    const brilla = Math.sin(tl * 3.1 + k * 2.9) > 0.2;
+    ctx.fillStyle = brilla ? (tira > 0.6 ? '#b4c2d2' : '#8a9ab0') : '#5c6c84'; ctx.fillRect(Math.round(x - w / 2), Math.round(y), w, 1);
+    if (w > 8 && ham(k + 77) < 0.5) { ctx.fillStyle = '#4a5a72'; ctx.fillRect(Math.round(x + w / 2 + 2), Math.round(y), Math.round(w * 0.3), 1); } // (la mancha quebrada)
+  }
   ctx.restore();
 }
 /**
@@ -174,6 +183,7 @@ function tajoMundo(e: EstadoToma, tl: number, dt: number) {
         if (f > 0.55) col = lado < 0 ? '#28445e' : '#16283c';
         if (f > 0.8) col = lado < 0 ? '#5a7c98' : '#2c4860';
         if (f > 0.92) col = Math.sin(s * 13 + k + tl * 9) > 0 ? '#e4eef4' : '#a8c0d0';
+        if (lado < 0 && f > 0.72 && f <= 0.92) col = Math.sin(s * 7 + k * 0.5 + tl * 3) > -0.2 ? '#8aa6c0' : '#6a88a4'; // (la luna en la cresta de la izquierda)
         if (f < 0.9 && Math.sin(s * 23 + k * 0.7 - tl * 14) > 0.93) col = '#4a6a86'; // (el agua que corre por la pared)
         ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y - k), 2, 1);
       }

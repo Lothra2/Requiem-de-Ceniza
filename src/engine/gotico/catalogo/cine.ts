@@ -122,14 +122,16 @@ function barco(a: Arma) {
   ps.push(pl([top[0] + 2, top[1], top[2] - 2], [top[0] - 3, top[1] + 4, top[2] + 9], 2.4, { mat: 'madera_vieja', tono: 0.06 })); // (la astilla de la rotura)
   const v0: V3 = [-36, -10, CUBIERTA + 120], v1: V3 = [44, -12, CUBIERTA + 104];
   ps.push(pl(v0, v1, 1.8, { mat: 'madera_vieja' }));
-  { // (la vela: una tela de cuadritos que cuelga de la verga, con agujeros, el borde de abajo roto y la comba del viento)
-    const C = 12, F = 10, hash = (n: number) => { const v = Math.sin(n * 91.3 + 7.1) * 43758.5453; return v - Math.floor(v); };
+  { // (la vela: cuelga de la verga en una sola tela de franjas pegadas, rota abajo en flecos de largo parejo que cambia de a poco,
+    //  con la comba del viento y dos desgarrones; colgando del mástil, no un bloque)
+    const C = 18, hash = (n: number) => { const v = Math.sin(n * 91.3 + 7.1) * 43758.5453; return v - Math.floor(v); };
     for (let ci = 0; ci < C; ci++) {
-      const u = (ci + 0.5) / C, x = v0[0] + (v1[0] - v0[0]) * u, zt = v0[2] + (v1[2] - v0[2]) * u, filas = F - Math.floor(hash(ci) * hash(ci + 3) * 7);
-      for (let fi = 0; fi < filas; fi++) {
-        if (hash(ci * 31 + fi * 7) < 0.09 && fi > 1) continue; // (agujeros)
-        const comba = Math.sin((fi / F) * Math.PI) * 5 + Math.sin(u * Math.PI) * 3;
-        ps.push(cj(x, -10 + comba, zt - 3.6 - fi * 7.2, 80 / C + 0.4, 0.7, 7.6, { mat: 'tela', tono: -0.14 - hash(ci * 5 + fi) * 0.12 }));
+      const u = (ci + 0.5) / C, x = v0[0] + (v1[0] - v0[0]) * u, zt = v0[2] + (v1[2] - v0[2]) * u;
+      const largo = 34 + 36 * Math.sin(u * Math.PI) * (0.75 + 0.25 * Math.sin(u * 9)) + hash(ci) * 10 - (ci === 5 || ci === 6 ? 26 : 0);
+      for (let z = 0; z < largo; z += 6) {
+        const comba = Math.sin((z / 76) * Math.PI) * 6 * Math.sin(u * Math.PI);
+        if ((ci === 11 && z > 14 && z < 30) || (ci === 12 && z > 18 && z < 26)) continue; // (el desgarrón)
+        ps.push(cj(x, -10 + comba, zt - 2 - z - 6, 80 / C + 0.6, 0.8, 6.4, { mat: 'tela', tono: -0.04 - hash(ci * 5 + z) * 0.05 - z / 600 }));
       }
     }
   }

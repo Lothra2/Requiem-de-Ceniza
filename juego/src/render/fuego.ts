@@ -144,6 +144,9 @@ function calor(ctx: CanvasRenderingContext2D, cx: number, top: number, w: number
 // Las mismas llamas que Ozmaren pero chicas: nacen en la boca del fuego, suben meciéndose y se apagan en humo.
 interface Lengua { x: number; y: number; vx: number; vy: number; t: number; d: number; s: number; brasa: boolean; f: number; /** profundidad en el mundo del fuego que la echó (para pintarla en su orden) */ p: number }
 const lenguas: Lengua[] = [];
+/** Suelta las llamas que quedaron en el aire (las películas, ui/director.ts, al cambiar de toma: solo las mueve quien las prende, y
+ *  si en la toma nueva nadie arde quedaban quietas en la pantalla). */
+export function soltarLenguas() { lenguas.length = 0; }
 let ultimoMundo = 0, cuadroMundo = -1;
 /** Emite fuego en (x, y) de pantalla; `tam` ~ 1 para una fogata grande. Se llama por cada fuego visible en el cuadro. */
 export function fuegoMundo(ctx: CanvasRenderingContext2D, x: number, y: number, tam: number, t: number, camX: number, camY: number, prof = 1e9) {

@@ -161,7 +161,7 @@ export function enfriarPiezas(e: EstadoToma, re: RegExp, u: number, k = 0.9) {
     const [px, py] = aPant(o.cx + 0.5, o.cy + 0.5);
     if (px - q.ax > b.x || px - q.ax + q.w < a.x || py - q.ay > b.y || py - q.ay + q.h < yCorte) continue;
     ctx.globalCompositeOperation = 'saturation'; dibujarTenido(ctx, q, px, py, '#808080', 1, 1);
-    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = k; dibujarTenido(ctx, q, px, py, '#3a2e2a', 1, 1); ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = k; dibujarTenido(ctx, q, px, py, '#b2a8a4', 1, 1); ctx.globalAlpha = 1;
   }
   ctx.restore();
   // el filo que se enfría: una línea de brasa justo encima del corte, que sube con él

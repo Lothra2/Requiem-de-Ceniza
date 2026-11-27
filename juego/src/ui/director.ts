@@ -24,6 +24,7 @@ import { IDI, T } from './comun';
 import { textoGotico, medirGotico } from './texto_gotico';
 import type { TonoGotico } from './letra_gotica';
 import { dibujarBrasa, reiniciarBrasa, type EstadoBrasa } from '../render/brasa_cine';
+import { soltarLenguas } from '../render/fuego';
 import { acc } from '../nucleo/accesible';
 import * as Pintor from '../motor/pintor';
 import { objetoMeta, dibujarTenido } from '../motor/assets';
@@ -221,6 +222,7 @@ function montar(i: number): EstadoToma | null {
       j.monstruos.push(m); actores.set(a.id, m);
     }
   }
+  soltarLenguas();
   const e: EstadoToma = { toma: tm, j, z, ax, ay, actores, brasa: reiniciarBrasa(), mem: {}, heroe: d };
   tm.preparar?.(e);
   return e;

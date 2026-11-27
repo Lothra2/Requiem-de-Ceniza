@@ -4,7 +4,7 @@
 // `finalElegido`), y sigue con su variante: el puño que la apaga o el pecho que la bebe. Después la Fragua se enfría, quedan las
 // cenizas de Vesperio, el mar se parte, Ysmeral sube con sus campanas y Oyá la mira desde su barco varado. Cartel del acto 6.
 // Ver ui/director.ts. Canon: CLAUDE.md, "Historia y canon".
-import { ctx, W, H } from '../nucleo/lienzo';
+import { ctx, W, H, ESCALA } from '../nucleo/lienzo';
 import { aPant } from '../render/escena';
 import { libreCerca, type Zona } from '../mundo/zona';
 import { estallido } from '../render/brasa_cine';
@@ -15,7 +15,7 @@ import { cuadrosHeroe } from '../motor/assets';
 import { boton } from './comun';
 import { dibujarRostro, rostroListo } from './cine_rostro';
 import { type Guion, type Toma, type Texto, type EstadoToma } from './director';
-import { linea, anclaJefe, anclaSalida, despejarPiezas, despejarPies, charco, vez, ceniza, columnaDe, cartel, latido, siluetaEnPiso, enfriarPiezas } from './cine_kit';
+import { linea, anclaJefe, anclaSalida, anclaAgua, despejarPiezas, despejarPies, charco, vez, ceniza, columnaDe, cartel, latido, siluetaEnPiso, enfriarPiezas } from './cine_kit';
 const L = (n: number, t0: number, t1: number, o: Partial<Texto> = {}): Texto => linea(5, n, t0, t1, o);
 const R = (n: number, t0: number, t1: number): Texto => ({ t0, t1, es: REVELACION[n][0], en: REVELACION[n][1] });
 const lucesDe = (e: EstadoToma): any[] | null => ((e.j as any)?.lucesCine as any[] | undefined) ?? null;
@@ -34,6 +34,8 @@ function botonesEleccion(tl: number) {
   ctx.save(); ctx.globalAlpha = 0.55 * k; ctx.fillStyle = '#020102'; ctx.fillRect(0, 0, W, H); ctx.restore();
   if (k < 1 || elegido) return;
   const bw = Math.min(260, W * 0.34), bh = 44, by = Math.round(H * 0.72), g = 24;
+  // (dónde caen, en puntos CSS: las pruebas tocan ahí)
+  (window as any).__botonesEleccion = [[W / 2 - bw - g / 2, by, bw, bh], [W / 2 + g / 2, by, bw, bh]].map((r) => r.map((v) => v * ESCALA));
   if (boton(OPCIONES_BRASA.destruir[0], W / 2 - bw - g / 2, by, bw, bh, { gotico: true, tono: 'hierro', en: OPCIONES_BRASA.destruir[1] } as any)) elegido = 'destruir';
   if (boton(OPCIONES_BRASA.absorber[0], W / 2 + g / 2, by, bw, bh, { gotico: true, tono: 'brasa', en: OPCIONES_BRASA.absorber[1] } as any)) elegido = 'absorber';
 }
@@ -52,12 +54,13 @@ function sombraTibia(e: EstadoToma, tl: number, k: number) {
   const h = e.actores.get('heroe') as any; if (!h || k <= 0) return;
   const q = cuadrosVivos('quieto', h.dir)?.[0] ?? cuadrosHeroe(e.heroe.clase, 'quieto', h.dir)[0];
   const [px, py] = aPant(h.x, h.y);
-  const lat = latido(tl);
-  siluetaEnPiso(q, px, py, -0.9, -0.35, k * 0.92, '#1a0302');
+  // (larga y negra sobre el piso rojo, con el canto que arde y late: en un piso de lava una sombra roja no se ve)
+  const lat = latido(tl), AX = 0.75, AY = 0.62; // (hacia la cámara y a la derecha: detrás caía sobre el cuerpo negro de Ozmaren)
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  siluetaEnPiso(q, px, py, -0.9, -0.35, k * (0.5 + 0.5 * lat), '#b0180a');
-  siluetaEnPiso(q, px - 1, py, -0.9, -0.35, k * 0.35 * lat, '#ff5a20');
+  for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) siluetaEnPiso(q, px + dx, py + dy, AX, AY, k * (0.45 + 0.55 * lat), '#d02010');
   ctx.restore();
+  siluetaEnPiso(q, px, py, AX, AY, k * 0.96, '#050101');
+  ctx.save(); ctx.globalCompositeOperation = 'lighter'; siluetaEnPiso(q, px, py, AX, AY, k * 0.3 * lat, '#701008'); ctx.restore();
 }
 /** Humo y ceniza que se escapan del puño que apaga la Brasa. */
 function humoPuno(e: EstadoToma, dt: number) {
@@ -114,58 +117,84 @@ function cenizasVesperio(e: EstadoToma, tl: number) {
 
 // ------------------------------------------------------------------ el mar que se parte
 /**
- * El mar de noche, muy al norte, pintado a pixel en su propio lienzo (sin zona: es lejos de todo lo que se camina): el cielo con
- * la luna y su reguero en el agua, las olas que corren a lo ancho y se apretan hacia el horizonte, y el tajo que nace cerca y
- * corre hasta el horizonte: el agua se abre en dos paredes con su cresta de espuma, el fondo negro y mojado en medio, y la
- * espuma que salta de las crestas. Se pega a puntos enteros.
+ * El mar de noche sobre todo el piso de la toma (la costa de Ysmeral, mar adentro): agua honda azul negra con las crestas de las
+ * olas a pixel y el reguero de la luna que tiembla. Lo de abajo se pinta una vez en su lienzo (como la nieve del Fortín del acto 4)
+ * y las crestas que corren y el reguero cada cuadro. Va con lo plano del piso.
  */
-let lienzoMar: { c: HTMLCanvasElement; g: CanvasRenderingContext2D } | null = null;
-function marPartido(tl: number) {
-  const LW = 320, LH = 180;
-  if (!lienzoMar) { const c = document.createElement('canvas'); c.width = LW; c.height = LH; lienzoMar = { c, g: c.getContext('2d')! }; }
-  const g = lienzoMar.g, hz = 62, hash = (n: number) => { const v = Math.sin(n * 12.9898) * 43758.5453; return v - Math.floor(v); };
-  // el cielo: casi negro arriba, un azul de tormenta sobre el horizonte, nubes en bandas y alguna estrella
-  for (let y = 0; y < hz; y++) { const f = y / hz; g.fillStyle = `rgb(${Math.round(4 + 14 * f)},${Math.round(6 + 18 * f)},${Math.round(12 + 30 * f)})`; g.fillRect(0, y, LW, 1); }
-  for (let i = 0; i < 40; i++) { const x = Math.floor(hash(i) * LW), y = Math.floor(hash(i + 70) * hz * 0.6); g.fillStyle = hash(i + 5) < 0.3 ? '#9aa8c0' : '#4a5468'; g.fillRect(x, y, 1, 1); }
-  for (let y = 8; y < hz - 4; y += 1) for (let x = 0; x < LW; x += 1) { const n = Math.sin(x * 0.045 + y * 0.31 + tl * 0.08) + Math.sin(x * 0.11 - y * 0.2 + 2) * 0.6; if (n > 1.15) { g.fillStyle = y < 30 ? '#0e121c' : '#1a2030'; g.fillRect(x, y, 1, 1); } }
-  // la luna, baja a la izquierda, y su halo
-  const MX = 78, MY = 30; g.fillStyle = 'rgba(120,140,180,0.10)'; for (let r = 16; r > 7; r -= 3) { g.beginPath(); g.arc(MX, MY, r, 0, 7); g.fill(); }
-  for (let y = -7; y <= 7; y++) for (let x = -7; x <= 7; x++) { const d = x * x + y * y; if (d > 49) continue; g.fillStyle = d > 36 ? '#9aa4b4' : (x + y < -3 ? '#e8ecf0' : hash(x * 9 + y) < 0.2 ? '#aab2be' : '#cfd6de'); g.fillRect(MX + x, MY + y, 1, 1); }
-  // el agua, fila a fila: más oscura y las olas más juntas hacia el horizonte
-  const prog = Math.min(1, Math.max(0, (tl - 1.2) / 4.2)), abre = Math.min(1, Math.max(0, (tl - 1.6) / 3.2)), mid = LW * 0.56;
-  for (let y = hz; y < LH; y++) {
-    const p = (y - hz) / (LH - hz), esc = 0.15 + p * 0.85; // (la profundidad: 0 en el horizonte)
-    g.fillStyle = `rgb(${Math.round(5 + 10 * p)},${Math.round(9 + 16 * p)},${Math.round(16 + 22 * p)})`; g.fillRect(0, y, LW, 1);
-    // el reguero de la luna
-    for (let x = MX - 10 - p * 20; x < MX + 10 + p * 20; x++) if (Math.sin(x * 0.7 / esc + y * 1.3 + tl * 2) > 0.55) { g.fillStyle = p < 0.3 ? '#8a96ac' : '#5a6880'; g.fillRect(Math.round(x), y, 1, 1); }
-    // las crestas de las olas
-    for (let x = 0; x < LW; x++) { const n = Math.sin(x * 0.09 / esc + y * 0.9 - tl * 1.4 + hash(y) * 6) * Math.sin(x * 0.021 / esc + y * 0.37 + 1.3); if (n > 0.72) { g.fillStyle = n > 0.9 ? '#46566c' : '#26324a'; g.fillRect(x, y, 1, 1); } }
-    // el tajo: nace cerca y corre hacia el horizonte
-    const llega = 1 - prog; if (p < llega) continue;
-    const ancho = (2 + abre * 46) * esc * Math.min(1, (p - llega) / 0.08 + 0.2), cx = mid + Math.sin(y * 0.15 + tl * 0.8) * esc * 1.5;
-    // el fondo: negro mojado con un brillo
-    g.fillStyle = '#020305'; g.fillRect(Math.round(cx - ancho), y, Math.round(ancho * 2), 1);
-    if (hash(y * 3) < 0.25) { g.fillStyle = '#10161e'; g.fillRect(Math.round(cx + (hash(y) - 0.5) * ancho), y, 2, 1); }
+function marHondo(e: EstadoToma, tl: number) {
+  const RX = 760, RY = 420, [cx, cy] = aPant(e.ax, e.ay);
+  if (!e.mem.mar) {
+    const c = document.createElement('canvas'); c.width = RX * 2; c.height = RY * 2; const g = c.getContext('2d')!, img = g.createImageData(c.width, c.height), D = img.data;
+    const hash = (x: number, y: number) => { const v = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return v - Math.floor(v); };
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      const wx = x - RX, wy = y - RY, n = Math.sin(wx * 0.05 + wy * 0.21 + Math.sin(wy * 0.03) * 2) * 0.5 + Math.sin(wx * 0.013 - wy * 0.07) * 0.5;
+      const i = (y * c.width + x) * 4; let r = 8, gg = 16, bb = 26;
+      if (n > 0.55) { r = 18; gg = 32; bb = 48; } else if (n < -0.6) { r = 4; gg = 9; bb = 16; }
+      if (hash(x, y) < 0.02) { r += 10; gg += 14; bb += 18; }
+      D[i] = r; D[i + 1] = gg; D[i + 2] = bb; D[i + 3] = 255;
+    }
+    g.putImageData(img, 0, 0); e.mem.mar = c;
   }
-  // las paredes de agua a los dos lados del tajo, de lejos a cerca (lo cercano tapa lo lejano), con su cresta de espuma
-  for (let y = hz; y < LH; y++) {
-    const p = (y - hz) / (LH - hz), esc = 0.15 + p * 0.85; if (p < 1 - prog) continue;
-    const ancho = (2 + abre * 46) * esc, cx = mid + Math.sin(y * 0.15 + tl * 0.8) * esc * 1.5, pared = Math.round(abre * 22 * esc);
-    if (pared < 1) continue;
-    for (const lado of [-1, 1]) {
-      const x = Math.round(cx + lado * ancho);
-      for (let h = 0; h < pared; h++) { const k = h / pared; g.fillStyle = k > 0.85 ? (hash(y * 7 + h + lado) < 0.5 ? '#e6eef2' : '#b8c8d4') : k > 0.6 ? '#3e5268' : lado < 0 ? '#16243a' : '#0c1626'; g.fillRect(x - (lado < 0 ? 0 : 1), y - h, 2, 1); }
-      // espuma que salta de la cresta
-      if (hash(y * 13 + Math.floor(tl * 9) + lado) < 0.3) { g.fillStyle = '#d8e4ea'; g.fillRect(x + lado * Math.round(hash(y + tl) * 3), y - pared - 1 - Math.round(hash(y * 5 + tl) * 3), 1, 1); }
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(e.mem.mar, Math.round(cx - RX), Math.round(cy - RY));
+  // las crestas que corren y el reguero de la luna (a la izquierda, de arriba abajo)
+  for (let k = 0; k < 260; k++) {
+    const h1 = Math.sin(k * 91.7) * 0.5 + 0.5, h2 = Math.sin(k * 37.1 + 3) * 0.5 + 0.5, x = cx - RX + h1 * RX * 2 + ((tl * 14 + k * 7) % 40) - 20, y = cy - RY + h2 * RY * 2;
+    ctx.fillStyle = k % 4 ? '#2c4260' : '#5a7494'; ctx.fillRect(Math.round(x), Math.round(y), 3 + (k % 3), 1);
+  }
+  // el reguero de la luna como lo pinta el pixel art: manchas horizontales cortas y quebradas de largo distinto, anchas y juntas
+  //  arriba (cerca de la luna) y ralas abajo, que tiemblan con las olas, de un blanco frío apagado
+  const mx = cx - 60, y0 = cy - RY * 0.55, ham = (n: number) => { const v = Math.sin(n * 57.3 + 1.7) * 43758.5453; return v - Math.floor(v); };
+  for (let k = 0; k < 90; k++) {
+    const f = k / 90, y = y0 + f * f * RY * 1.3 + ham(k) * 3, tira = 1 - f;
+    if (ham(k + 300) > 0.35 + 0.6 * tira) continue; // (ralas abajo)
+    const ola = Math.sin(tl * 2.3 + k * 1.7) * (2 + 4 * f), w = Math.round((3 + ham(k + 50) * 12) * (0.4 + 0.9 * tira)), x = mx + (ham(k + 9) - 0.5) * (14 + 50 * f) + ola;
+    const brilla = Math.sin(tl * 3.1 + k * 2.9) > 0.2;
+    ctx.fillStyle = brilla ? (tira > 0.6 ? '#b4c2d2' : '#8a9ab0') : '#5c6c84'; ctx.fillRect(Math.round(x - w / 2), Math.round(y), w, 1);
+    if (w > 8 && ham(k + 77) < 0.5) { ctx.fillStyle = '#4a5a72'; ctx.fillRect(Math.round(x + w / 2 + 2), Math.round(y), Math.round(w * 0.3), 1); } // (la mancha quebrada)
+  }
+  ctx.restore();
+}
+/**
+ * El tajo en el agua del mundo: nace cerca de la cámara y corre en diagonal hacia arriba de la pantalla (-y del mundo); el agua se
+ * levanta en dos paredes oscuras con la cresta de espuma a pixel y entre ellas asoma el fondo negro. Se pinta de lo lejano a lo
+ * cercano (lo de adelante tapa) en el pase del mundo, y la espuma que salta va como partículas del mundo.
+ */
+const LARGO_TAJO = 26;
+function tajoMundo(e: EstadoToma, tl: number, dt: number) {
+  const prog = Math.min(1, Math.max(0, (tl - 1.0) / 3.6)), abre = Math.min(1, Math.max(0, (tl - 1.4) / 2.6)); if (prog <= 0) return;
+  // (nada a regla: el ancho y el alto ondulan a lo largo y con el tiempo, la cresta se rompe, y las dos puntas bajan al agua)
+  const ola = (s: number, k: number) => Math.sin(s * 0.9 + k + tl * 1.7) * 0.5 + Math.sin(s * 2.3 - tl * 2.9 + k * 2) * 0.3 + Math.sin(s * 5.1 + k * 3) * 0.2;
+  const frente = LARGO_TAJO * (1 - (1 - prog) ** 2), puntas = (s: number) => Math.min(1, (frente - s) / 3 + 0.1) * Math.min(1, s / 2.2 + 0.15);
+  const ancho = (s: number) => (0.6 + abre * 2.4) * puntas(s) * (1 - s / (LARGO_TAJO * 1.6)) * (1 + 0.18 * ola(s, 1));
+  const alto = (s: number, lado = 0) => (8 + abre * 46) * puntas(s) * (1 - s / (LARGO_TAJO * 1.4)) * (1 + 0.3 * ola(s, 4 + lado));
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  for (let s = frente; s >= 0; s -= 0.06) {
+    const w = ancho(s), y0 = e.ay - s;
+    const [lx, ly] = aPant(e.ax - w, y0), [rx, ry] = aPant(e.ax + w, y0);
+    // el fondo negro entre las paredes (con un brillo de agua que se escurre)
+    ctx.fillStyle = '#010203'; const n = Math.max(1, Math.round(Math.hypot(rx - lx, ry - ly)));
+    for (let i = 0; i <= n; i += 1) { const u = i / n; ctx.fillRect(Math.round(lx + (rx - lx) * u), Math.round(ly + (ry - ly) * u), 1, 2); }
+    if (Math.sin(s * 9 + tl * 6) > 0.92) { ctx.fillStyle = '#1a2a3a'; ctx.fillRect(Math.round((lx + rx) / 2), Math.round((ly + ry) / 2), 3, 1); }
+    // las dos paredes: oscuras abajo, el verde azul del agua que sube y la cresta blanca rota
+    for (const [x, y, lado] of [[lx, ly, -1], [rx, ry, 1]] as [number, number, number][]) {
+      const h = Math.round(alto(s, lado) + (Math.sin(s * 31 + lado * 7 + tl * 11) > 0.6 ? 2 : 0));
+      for (let k = 0; k < h; k++) {
+        const f = k / Math.max(1, h); let col = lado < 0 ? '#16283c' : '#0a1624';
+        if (f > 0.55) col = lado < 0 ? '#28445e' : '#16283c';
+        if (f > 0.8) col = lado < 0 ? '#5a7c98' : '#2c4860';
+        if (f > 0.92) col = Math.sin(s * 13 + k + tl * 9) > 0 ? '#e4eef4' : '#a8c0d0';
+        if (lado < 0 && f > 0.72 && f <= 0.92) col = Math.sin(s * 7 + k * 0.5 + tl * 3) > -0.2 ? '#8aa6c0' : '#6a88a4'; // (la luna en la cresta de la izquierda)
+        if (f < 0.9 && Math.sin(s * 23 + k * 0.7 - tl * 14) > 0.93) col = '#4a6a86'; // (el agua que corre por la pared)
+        ctx.fillStyle = col; ctx.fillRect(Math.round(x), Math.round(y - k), 2, 1);
+      }
     }
   }
-  // al pegar: la pantalla entera, a puntos enteros, con el temblor
-  const esc = Math.max(W / LW, H / LH), ox = Math.round((W - LW * esc) / 2), oy = Math.round((H - LH * esc) / 2);
-  const tiembla = tl > 1.4 && tl < 5 ? (5 - tl) / 3.6 : 0, sx = Math.round((Math.random() - 0.5) * 4 * tiembla), sy = Math.round((Math.random() - 0.5) * 3 * tiembla);
-  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(lienzoMar.c, ox + sx, oy + sy, LW * esc, LH * esc);
-  // la viñeta
-  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, Math.hypot(W, H) / 2); v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.7)'); ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
   ctx.restore();
+  // la espuma que salta de las crestas
+  if (e.j && abre > 0.05) for (let i = 0; i < 6; i++) if (Math.random() < dt * 40) {
+    const s = Math.random() * frente, w = ancho(s), lado = Math.random() < 0.5 ? -1 : 1;
+    e.j.particulas.push({ x: e.ax + lado * w, y: e.ay - s, z: alto(s), vx: lado * (0.6 + Math.random()), vy: (Math.random() - 0.5) * 0.6, vz: 20 + Math.random() * 40, t: 0, dur: 0.9 + Math.random() * 0.6, color: Math.random() < 0.6 ? '#e4eef4' : '#9ab4c8', tam: 1 + Math.random(), grav: 90, tipo: 'ceniza' } as any);
+  }
 }
 
 // ------------------------------------------------------------------ Ysmeral que sube
@@ -313,7 +342,7 @@ const tomas: Toma[] = [
     luces: [
       { id: 'boca', color: [255, 110, 40], sombra: true, claves: [{ t: 0, x: 0, y: 0, z: 30, r: 320, k: 1.1 }, { t: 2, k: 1.1 }, { t: 6.5, k: 0.05, c: 'suave' }] },
       { id: 'cielo', color: [255, 60, 30], claves: [{ t: 0, x: -10, y: -10, z: 700, r: 1200, k: 0.45 }, { t: 7, k: 0.08, c: 'suave' }] },
-      { id: 'luna', color: [110, 120, 150], claves: [{ t: 0, x: -6, y: -6, z: 500, r: 900, k: 0 }, { t: 4, k: 0 }, { t: 7.5, k: 0.3, c: 'suave' }] },
+      { id: 'luna', color: [120, 130, 165], claves: [{ t: 0, x: 4, y: 2, z: 500, r: 1100, k: 0 }, { t: 2.5, k: 0 }, { t: 7, k: 0.62, c: 'suave' }] },
     ],
     lucesZona: 1,
     sonidos: [{ t: 0, id: 'fragua_enfria', cine: true }],
@@ -329,12 +358,12 @@ const tomas: Toma[] = [
     // borde y una chispa violeta que se suelta y sube sola
     id: 'cenizas', dur: 7, zona: 'a5_rio', ancla: anclaSalida('a5_fragua'), entra: 0.5, sale: 0.6, oscuridad: 0.9, hundir: 0.74, lucesZona: 0,
     preparar: (e) => despejarPies(e, 3.5, 3.5, 3.5),
-    cam: [{ t: 0, x: 4.3, y: 4.2, alt: 24, zoom: 3, fy: 0.6 }, { t: 7, x: 4.1, y: 4.0, alt: 44, c: 'suave' }],
+    cam: [{ t: 0, x: 4.0, y: 4.0, alt: 14, zoom: 4, fy: 0.56 }, { t: 7, x: 3.9, y: 3.9, alt: 30, c: 'suave' }],
     focos: [{ de: [3.9, 3.9], z: 6, r: 150 }],
     luces: [
       { id: 'ves', color: [150, 100, 235], claves: [{ t: 0, x: 3.7, y: 3.8, z: 10, r: 110, k: 0.55 }, { t: 6, k: 0.3 }] },
-      { id: 'papel', color: [255, 150, 70], claves: [{ t: 0, x: 4.6, y: 4.4, z: 3, r: 60, k: 0.0 }, { t: 1.2, k: 0.55 }, { t: 6.6, k: 0.35 }] },
-      { id: 'luna', color: [110, 120, 150], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 600, k: 0.18 }] },
+      { id: 'papel', color: [255, 150, 70], claves: [{ t: 0, x: 4.8, y: 4.6, z: 2, r: 34, k: 0.0 }, { t: 1.2, k: 0.4 }, { t: 6.6, k: 0.25 }] },
+      { id: 'luna', color: [120, 130, 165], claves: [{ t: 0, x: 6, y: 4, z: 500, r: 1000, k: 0.5 }] },
     ],
     sonidos: [{ t: 0, id: 'coro_vesperio', cine: true, tono: 0.84, vol: 0.6 }],
     paso: (e, tl, dt) => {
@@ -345,10 +374,20 @@ const tomas: Toma[] = [
     textos: [L(3, 2.4, 6.6)],
   },
   {
-    // el mar se parte: muy al norte, de noche, un tajo corre hacia el horizonte y el agua se levanta en dos paredes
-    id: 'mar', dur: 9, entra: 0.6, sale: 0.6,
+    // el mar se parte: muy al norte, de noche, mar adentro; el agua se abre en dos paredes y el tajo corre en diagonal hacia el fondo
+    id: 'mar', dur: 9, zona: 'a6_costa', ancla: anclaAgua(/agua/, false), entra: 0.6, sale: 0.6, oscuridad: 0.8, hundir: 0.3, lucesZona: 0, sinBruma: true, sinClima: ['fx_lluvia', 'fx_tormenta', 'fx_niebla'],
+    // (mar adentro: nada en pie alrededor, el agua se pinta sobre todo el piso)
+    preparar: (e) => { const z: any = e.z; if (z) { z.objetos = []; z.lluvia = false; z.marcas = []; for (const sa of z.salidas) { sa.piezas = []; sa.obj = undefined; } } },
+    cam: [{ t: 0, x: 1.5, y: -3, alt: 40, zoom: 1.5, fy: 0.62 }, { t: 9, x: 1, y: -9, alt: 50, c: 'suave' }],
+    focos: [{ de: [0, -8], z: 0, r: 520, k: 0.5 }],
+    luces: [
+      { id: 'luna', color: [150, 170, 210], sombra: true, claves: [{ t: 0, x: -14, y: -4, z: 400, r: 1200, k: 0.55 }] },
+      { id: 'fondo', color: [120, 160, 200], claves: [{ t: 0, x: 0, y: -6, z: 30, r: 300, k: 0 }, { t: 2, k: 0 }, { t: 5, k: 0.35, c: 'suave' }] },
+    ],
     sonidos: [{ t: 0, id: 'mar_parte', cine: true }],
-    pantalla: (_e, tl) => marPartido(tl),
+    temblores: [[1.2, 4, 3]],
+    suelo: (e, tl) => marHondo(e, tl),
+    mundo: (e, tl, dt) => tajoMundo(e, tl, dt),
     textos: [L(4, 2.0, 8.6)],
   },
   {
@@ -371,15 +410,15 @@ const tomas: Toma[] = [
     // el barco varado: Oyá sola en la proa de su barco, en la arena de la costa, mirando hacia la ciudad; las campanas lejos
     id: 'oya', dur: 8, zona: 'a6_barco', ancla: anclaCubierta, objetos: ['cine_barco|varado'], entra: 0.6, sale: 0.6, oscuridad: 0.84, hundir: 0.5, lucesZona: 0.3,
     preparar: (e) => {
-      despejarPies(e, 0, 0, 9); const z = e.z;
+      despejarPies(e, 0, 0, 13); const z = e.z; if (z) z.objetos = z.objetos.filter((o) => !/fuente|torre|pabellon/.test(o.id) || Math.hypot(o.cx - e.ax, o.cy - e.ay) > 26);
       if (z && !z.objetos.some((o) => o.capa === 'cine')) z.objetos.push({ id: 'cine_barco', v: 'varado', cx: e.ax - 0.5 - BARCO_ATRAS, cy: e.ay - 0.5 - BARCO_ATRAS, hw: 1, hh: 1, bloquea: false, capa: 'cine' } as any);
     },
-    cam: [{ t: 0, x: 1.6, y: 0.4, alt: 64, zoom: 2, fy: 0.56 }, { t: 8, x: 2.0, y: -0.2, alt: 70, c: 'suave' }],
+    cam: [{ t: 0, x: PROA[0] - 0.3, y: PROA[1] + 0.5, alt: 70, zoom: 3, fy: 0.62 }, { t: 8, x: PROA[0], y: PROA[1] + 0.2, alt: 74, c: 'suave' }],
     actores: [{ id: 'oya', tipo: 'sprite', sprite: 'oya', claves: [{ t: 0, x: PROA[0], y: PROA[1], dir: 'ne' }, { t: 4.5, dir: 'n' }] }],
-    focos: [{ de: [0.6, -0.6], z: 40, r: 300, k: 0.8 }, { de: 'oya', z: 70, r: 120 }],
+    focos: [{ de: 'oya', z: 70, r: 170 }, { de: [PROA[0] + 1.6, PROA[1] - 1.6], z: 50, r: 120, k: 0.7 }],
     luces: [
-      { id: 'farol', color: [255, 176, 100], sombra: true, titila: 0.12, claves: [{ t: 0, x: 5.0, y: -4.8, z: 44, r: 190, k: 0.95 }] },
-      { id: 'luna', color: [120, 140, 180], sombra: true, claves: [{ t: 0, x: -8, y: -2, z: 300, r: 800, k: 0.42 }] },
+      { id: 'farol', color: [255, 176, 100], sombra: true, titila: 0.12, claves: [{ t: 0, x: PROA[0] + 1.4, y: PROA[1] - 0.6, z: 66, r: 170, k: 1.1 }] },
+      { id: 'luna', color: [120, 140, 180], sombra: true, claves: [{ t: 0, x: -6, y: 4, z: 200, r: 800, k: 0.6 }] },
     ],
     sonidos: [{ t: 0, id: 'campana', cine: true, tono: 0.7, vol: 0.4 }, { t: 3.2, id: 'campana', cine: true, tono: 0.66, vol: 0.35 }, { t: 0.5, id: 'tema_oya', cine: true }],
     paso: (e) => { const m = e.actores.get('oya') as any; if (m) m.alto = CUBIERTA; },

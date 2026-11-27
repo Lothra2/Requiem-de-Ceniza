@@ -76,104 +76,156 @@ function marcaDueno(e: EstadoToma, tl: number, hx: number, hy: number) {
 
 // ------------------------------------------------------------------ el cielo que se rompe
 /**
- * El cielo de lo alto del cuadro (como la raja del acto 4: el isométrico no mira arriba) que se raja como un vidrio desde un punto:
- * grietas en rayos y anillos quebrados, pedazos que se sueltan y caen girando sobre el mar con su destello, y por los huecos la luz
- * de oro con los escalones que suben al fondo. En el pase del mundo, en lo alto de la pantalla.
+ * El cielo de lo alto del cuadro (como la raja del acto 4: el isométrico no mira arriba) que se raja como un vidrio desde un punto,
+ * todo a pixel en su propio lienzo (a puntos del dibujo, pegado sin suavizar): grietas quebradas de 2 o 3 puntos que se ramifican
+ * sin orden, con el filo de oro de un lado y la sombra del otro; los pedazos entre grietas se sueltan y caen girando sobre el mar
+ * con su canto claro y su reflejo; y por los huecos la luz de oro con tramos de losas de mármol de canto dorado que suben en
+ * perspectiva y se pierden en la luz.
  */
+interface Rama { pts: [number, number][]; grueso: number; t0: number }
+let lienzoCielo: { c: HTMLCanvasElement; g: CanvasRenderingContext2D; f: HTMLCanvasElement; fg: CanvasRenderingContext2D } | null = null;
+let ramasCielo: Rama[] | null = null;
+function armarRamas(): Rama[] {
+  const R: Rama[] = []; let sem = 7;
+  const rnd = () => { sem = (sem * 9301 + 49297) % 233280; return sem / 233280; };
+  const crecer = (x: number, y: number, an: number, largo: number, grueso: number, t0: number, nivel: number) => {
+    const pts: [number, number][] = [[x, y]];
+    for (let i = 0; i < largo; i++) {
+      an += (rnd() - 0.5) * 0.45; const paso = 4 + rnd() * 6; x += Math.cos(an) * paso; y += Math.sin(an) * paso * 0.62; pts.push([x, y]);
+      if (nivel < 1 && rnd() < 0.2) crecer(x, y, an + (rnd() < 0.5 ? -1 : 1) * (0.6 + rnd() * 0.8), Math.floor(largo * (0.3 + rnd() * 0.4)), Math.max(1, grueso - 1), t0 + i * 0.05, nivel + 1);
+    }
+    R.push({ pts, grueso, t0 });
+  };
+  for (let i = 0; i < 11; i++) crecer(0, 0, (i / 11) * Math.PI * 2 + (rnd() - 0.5) * 0.4, 10 + Math.floor(rnd() * 10), 3, rnd() * 0.3, 0);
+  return R;
+}
 function cieloRoto(e: EstadoToma, tl: number) {
   const m = ctx.getTransform().inverse(), a = m.transformPoint(new DOMPoint(0, 0)), b = m.transformPoint(new DOMPoint(ctx.canvas.width, ctx.canvas.height));
-  const ancho = b.x - a.x, alto = b.y - a.y, cx = a.x + ancho * 0.52, cy = a.y + alto * 0.17, hz = a.y + alto * 0.44;
-  // el cielo de noche sobre el mar
-  { const g = ctx.createLinearGradient(0, a.y, 0, hz); g.addColorStop(0, 'rgba(4,6,12,1)'); g.addColorStop(0.75, 'rgba(10,16,28,0.92)'); g.addColorStop(1, 'rgba(10,16,28,0)'); ctx.fillStyle = g; ctx.fillRect(a.x, a.y, ancho, hz - a.y); }
-  const raja = Math.min(1, Math.max(0, (tl - 0.6) / 1.6)), cae = Math.max(0, tl - 3.2);
-  const RAY = 13, ANI = [0.05, 0.1, 0.17, 0.26].map((f) => f * ancho);
-  // los rayos (ángulo con su quiebre) y los anillos: cada celda (rayo i, anillo j) es un pedazo
-  const ang = Array.from({ length: RAY }, (_, i) => (i / RAY) * Math.PI * 2 + (hash(i) - 0.5) * 0.35);
-  const P = (i: number, j: number): [number, number] => { const r = j === 0 ? 0 : ANI[j - 1] * (0.85 + hash(i * 13 + j) * 0.3), an = ang[(i + RAY) % RAY] + (j ? (hash(i * 7 + j) - 0.5) * 0.12 : 0); return [cx + Math.cos(an) * r, cy + Math.sin(an) * r * 0.62]; };
-  ctx.save(); ctx.imageSmoothingEnabled = false;
-  // los pedazos que ya cayeron dejan ver el oro y los escalones
-  const caido = (i: number, j: number) => j >= 1 && cae > (j - 1) * 0.5 + hash(i * 3 + j) * 1.3;
-  ctx.save(); ctx.beginPath(); let alguno = false;
-  for (let i = 0; i < RAY; i++) for (let j = 1; j <= ANI.length; j++) if (caido(i, j) || (j === 1 && cae > 0)) { const p0 = P(i, j - 1), p1 = P(i + 1, j - 1), p2 = P(i + 1, j), p3 = P(i, j); ctx.moveTo(...p0); ctx.lineTo(...p1); ctx.lineTo(...p2); ctx.lineTo(...p3); ctx.closePath(); alguno = true; }
-  if (alguno) {
-    ctx.clip();
-    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, ANI[3]); g.addColorStop(0, '#fff4d0'); g.addColorStop(0.35, '#f0c060'); g.addColorStop(1, '#8a5a18'); ctx.fillStyle = g; ctx.fillRect(cx - ANI[3], cy - ANI[3], ANI[3] * 2, ANI[3] * 2);
-    // los escalones de oro: suben hacia el punto, cada vez más angostos, con su canto claro y su sombra
-    for (let k = 0; k < 16; k++) { const f = 1 - k / 16, y = cy + ANI[2] * 0.55 * f, w = ANI[2] * (0.25 + 0.9 * f); ctx.fillStyle = '#6a4210'; ctx.fillRect(Math.round(cx - w / 2), Math.round(y), Math.round(w), Math.max(1, Math.round(3 * f))); ctx.fillStyle = '#ffe8a8'; ctx.fillRect(Math.round(cx - w / 2), Math.round(y) - 1, Math.round(w), 1); }
+  const LW = Math.ceil(b.x - a.x), LH = Math.ceil((b.y - a.y) * 0.56), cx = Math.round(LW * 0.52), cy = Math.round(LH * 0.46), E2 = Math.max(1, LW / 300);
+  if (!lienzoCielo) { const c = document.createElement('canvas'), f = document.createElement('canvas'); lienzoCielo = { c, g: c.getContext('2d')!, f, fg: f.getContext('2d')! }; }
+  const { c, g, f, fg } = lienzoCielo; if (c.width !== LW || c.height !== LH) { c.width = f.width = LW; c.height = f.height = LH; }
+  const ramas = (ramasCielo ??= armarRamas());
+  const raja = Math.max(0, (tl - 0.5) / 1.8), cae = Math.max(0, tl - 3.0);
+  g.clearRect(0, 0, LW, LH); g.imageSmoothingEnabled = false;
+  // el cielo de noche (se funde hacia abajo con el mar)
+  { const gr = g.createLinearGradient(0, 0, 0, LH); gr.addColorStop(0, 'rgba(4,6,12,1)'); gr.addColorStop(0.8, 'rgba(10,16,28,0.9)'); gr.addColorStop(1, 'rgba(10,16,28,0)'); g.fillStyle = gr; g.fillRect(0, 0, LW, LH); }
+  // los huecos: los pedazos entre dos ramas grandes vecinas, del anillo que ya cayó
+  const esc2 = (r: Rama): Rama => ({ ...r, pts: r.pts.map(([x, y]) => [x * E2, y * E2] as [number, number]) });
+  const ramasE = ramas.map(esc2);
+  const grandes = ramasE.filter((r) => r.grueso === 3).sort((p, q) => Math.atan2(p.pts[3][1], p.pts[3][0]) - Math.atan2(q.pts[3][1], q.pts[3][0]));
+  const pedazos: { poli: [number, number][]; t0: number; k: number }[] = [];
+  for (let i = 0; i < grandes.length; i++) {
+    const A = grandes[i].pts, B = grandes[(i + 1) % grandes.length].pts;
+    for (const [i0, i1, k] of [[0, 5, 0], [5, 10, 1], [10, 15, 2]] as [number, number, number][]) {
+      if (A.length <= i1 || B.length <= i1) continue;
+      pedazos.push({ poli: [...A.slice(i0, i1 + 1), ...B.slice(i0, i1 + 1).reverse()], t0: k * 0.6 + ((i * 37) % 10) / 12, k });
+    }
   }
+  // lo de atrás: la luz de oro y la escalera, por el agujero quebrado que se abre desde el punto a medida que caen los pedazos
+  const Rh = Math.min(1, cae / 2.6) * LW * 0.2;
+  if (Rh > 2) {
+    fg.clearRect(0, 0, LW, LH); fg.globalCompositeOperation = 'source-over'; fg.imageSmoothingEnabled = false;
+    const gl = fg.createRadialGradient(cx, cy - Rh * 0.5, 0, cx, cy - Rh * 0.3, LW * 0.22); gl.addColorStop(0, '#fff6dc'); gl.addColorStop(0.25, '#f0c070'); gl.addColorStop(0.6, '#8a5a1c'); gl.addColorStop(1, '#2a1606'); fg.fillStyle = gl; fg.fillRect(0, 0, LW, LH);
+    // la escalera: losas de mármol en rombo (como se ven en el mundo), con su canto de oro, que suben en caracol hacia el punto y
+    //  se pierden en la luz
+    for (let k = 26; k >= 0; k--) {
+      const u = k / 26, x = Math.round(cx + Math.sin(u * 6) * 46 * (1 - u * 0.7) * E2), y = Math.round(cy - Rh * 0.45 + (1 - u) * Rh * 1.0), w = Math.round(30 * E2 * (1 - u * 0.75)), h = Math.max(2, Math.round(w / 2)), g2 = Math.max(1, Math.round(5 * E2 * (1 - u * 0.7)));
+      fg.globalAlpha = 1 - Math.min(0.8, u * 0.9);
+      fg.fillStyle = '#2a1c10'; fg.beginPath(); fg.moveTo(x - w, y); fg.lineTo(x, y + h); fg.lineTo(x, y + h + g2); fg.lineTo(x - w, y + g2); fg.closePath(); fg.fill();
+      fg.fillStyle = '#7a6040'; fg.beginPath(); fg.moveTo(x + w, y); fg.lineTo(x, y + h); fg.lineTo(x, y + h + g2); fg.lineTo(x + w, y + g2); fg.closePath(); fg.fill();
+      fg.fillStyle = '#d8ccb2'; fg.beginPath(); fg.moveTo(x - w, y); fg.lineTo(x, y - h); fg.lineTo(x + w, y); fg.lineTo(x, y + h); fg.closePath(); fg.fill();
+      fg.fillStyle = '#e8b048'; fg.fillRect(x - w, y, w * 2, 1); fg.fillRect(x, y + h, 1, g2);
+    }
+    fg.globalAlpha = 1; fg.globalCompositeOperation = 'destination-in'; fg.beginPath();
+    for (let i = 0; i < 26; i++) { const an = (i / 26) * Math.PI * 2, r = Rh * (0.55 + 0.45 * hash(i * 3 + 1)) * (i % 2 ? 0.78 : 1); const X = cx + Math.cos(an) * r, Y = cy + Math.sin(an) * r * 0.66; i ? fg.lineTo(X, Y) : fg.moveTo(X, Y); }
+    fg.closePath(); fg.fillStyle = '#000'; fg.fill(); fg.globalCompositeOperation = 'source-over';
+    g.drawImage(f, 0, 0);
+  }
+  // las grietas: cuerpo claro de 2 o 3 puntos, filo de oro de un lado y sombra del otro; crecen desde el punto
+  for (const r of ramasE) {
+    const n = Math.floor(Math.min(1, Math.max(0, (raja - r.t0) * 1.4)) * r.pts.length); if (n < 2) continue;
+    for (let i = 1; i < n; i++) {
+      const [x0, y0] = r.pts[i - 1], [x1, y1] = r.pts[i], L = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0))), w = Math.max(1, r.grueso - (i > r.pts.length * 0.6 ? 1 : 0));
+      for (let s2 = 0; s2 <= L; s2++) {
+        const X = Math.round(cx + x0 + (x1 - x0) * s2 / L), Y = Math.round(cy + y0 + (y1 - y0) * s2 / L);
+        g.fillStyle = '#04060a'; g.fillRect(X + 1, Y + 1, w, w);
+        g.fillStyle = '#b8c8dc'; g.fillRect(X, Y, w, w);
+        g.fillStyle = cae > 0 || Math.sin(tl * 3 + i) > 0 ? '#ffd27a' : '#e8f0fa'; g.fillRect(X, Y - 1, w, 1);
+      }
+    }
+  }
+  if (tl > 0.3) { g.fillStyle = '#ffffff'; g.fillRect(cx - 1, cy - 1, 3, 3); }
+  // los pedazos que caen: vidrio del color del cielo con su canto claro y un reflejo en diagonal, girando hasta el mar
+  for (const p of pedazos) {
+    const u = cae - p.t0 * 0.8; if (u <= 0 || u > 3.4) continue;
+    const mx = p.poli.reduce((s2, q) => s2 + q[0], 0) / p.poli.length, my = p.poli.reduce((s2, q) => s2 + q[1], 0) / p.poli.length;
+    g.save(); g.translate(Math.round(cx + mx + mx * u * 0.3), Math.round(cy + my + (u * u * 34 + u * 8) * E2)); g.rotate(u * ((p.t0 * 7) % 2 - 1) * 2.4);
+    const esc = Math.max(0.25, 1 - u * 0.2); g.scale(esc, esc * (0.55 + 0.45 * Math.abs(Math.cos(u * 2.6 + p.t0 * 5))));
+    g.beginPath(); p.poli.forEach(([x, y], k) => (k ? g.lineTo(x - mx, y - my) : g.moveTo(x - mx, y - my))); g.closePath();
+    g.fillStyle = '#141e32'; g.fill(); g.strokeStyle = '#c8d8ec'; g.lineWidth = 1; g.stroke();
+    g.strokeStyle = Math.sin(u * 7 + p.t0 * 3) > 0.3 ? 'rgba(255,230,170,0.9)' : 'rgba(150,170,200,0.6)'; g.beginPath(); g.moveTo(-6, -3); g.lineTo(5, 3); g.stroke();
+    g.restore();
+  }
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(c, Math.round(a.x), Math.round(a.y)); 
+  if (cae > 0) { ctx.globalCompositeOperation = 'lighter'; const k = Math.min(1, cae / 1.5), X = a.x + cx, Y = a.y + cy, gr = ctx.createRadialGradient(X, Y, 0, X, Y, LW * 0.35); gr.addColorStop(0, `rgba(255,210,120,${0.35 * k})`); gr.addColorStop(1, 'rgba(255,180,80,0)'); ctx.fillStyle = gr; ctx.fillRect(X - LW * 0.35, Y - LW * 0.35, LW * 0.7, LW * 0.7); }
   ctx.restore();
-  // el resplandor del oro
-  if (cae > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const k = Math.min(1, cae / 1.5); const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, ANI[3] * 1.6); g.addColorStop(0, `rgba(255,210,120,${0.45 * k})`); g.addColorStop(1, 'rgba(255,180,80,0)'); ctx.fillStyle = g; ctx.fillRect(cx - ANI[3] * 1.6, cy - ANI[3] * 1.6, ANI[3] * 3.2, ANI[3] * 3.2); ctx.restore(); }
-  // las grietas: los rayos corren del punto hacia afuera y los anillos se cierran detrás
-  const linea = (p: [number, number], q: [number, number], col: string, k: number) => { const n = Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) * k); ctx.fillStyle = col; for (let s = 0; s <= n; s++) { const u = n ? s / Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1])) : 0; ctx.fillRect(Math.round(p[0] + (q[0] - p[0]) * u), Math.round(p[1] + (q[1] - p[1]) * u), 1, 1); } };
-  for (let i = 0; i < RAY; i++) for (let j = 1; j <= ANI.length; j++) {
-    const kr = Math.min(1, Math.max(0, raja * ANI.length - (j - 1))); if (kr <= 0) continue;
-    linea(P(i, j - 1), P(i, j), '#e8f0ff', kr);
-    if (kr >= 1 && raja > (j + 0.5) / (ANI.length + 1)) linea(P(i, j), P(i + 1, j), '#9aa8c8', 1);
-  }
-  // el punto blanco donde empezó
-  if (tl > 0.4) { ctx.fillStyle = '#ffffff'; ctx.fillRect(Math.round(cx) - 1, Math.round(cy) - 1, 3, 3); }
-  // los pedazos que caen: el vidrio oscuro del cielo, girando, con un destello de oro en el canto; caen hasta el mar
-  for (let i = 0; i < RAY; i++) for (let j = 1; j <= ANI.length; j++) {
-    const t0 = (j - 1) * 0.5 + hash(i * 3 + j) * 1.3, u = cae - t0; if (u <= 0 || u > 3.2) continue;
-    const c = [P(i, j - 1), P(i + 1, j - 1), P(i + 1, j), P(i, j)], mx = c.reduce((s, p) => s + p[0], 0) / 4, my = c.reduce((s, p) => s + p[1], 0) / 4;
-    const dy = u * u * 60 + u * 10, dx = (mx - cx) * u * 0.25, giro = u * (hash(i + j * 5) - 0.5) * 5, esc = Math.max(0.2, 1 - u * 0.22);
-    ctx.save(); ctx.translate(mx + dx, my + dy); ctx.rotate(giro); ctx.scale(esc, esc * (0.6 + 0.4 * Math.abs(Math.cos(u * 3 + i))));
-    ctx.beginPath(); c.forEach((p, k) => (k ? ctx.lineTo(p[0] - mx, p[1] - my) : ctx.moveTo(p[0] - mx, p[1] - my))); ctx.closePath();
-    ctx.fillStyle = '#0c1424'; ctx.fill(); ctx.strokeStyle = Math.sin(u * 9 + i) > 0.6 ? '#ffe8b0' : '#5a6a8a'; ctx.lineWidth = 1; ctx.stroke();
-    ctx.restore();
-  }
-  ctx.restore();
+  void e;
 }
 
 // ------------------------------------------------------------------ la boca del pecho
 /** Dónde queda el pecho de Aun-Saar sobre su ancla (puntos del dibujo hacia arriba). */
 const PECHO = 130;
 /**
- * La boca que tiene en el pecho: la carne que se abre en vertical (los labios oscuros, dos hileras de dientes y adentro un fondo que
- * alumbra en oro), o curvada hacia arriba cuando sonríe (`sonrie`). `k` lo que se abrió, 0 a 1. Guarda dónde quedó en la pantalla
- * (`e.mem.boca`, puntos lógicos) para que el nombre se escriba delante.
+ * La boca que tiene en el pecho, sobre la que ya trae el cuerpo (la tapa entera): cerrada es la carne pálida del pecho con la
+ * costura; al abrirse la carne se parte en vertical con los labios húmedos oscuros (con su brillo), una hilera de dientes finos a
+ * cada lado y una garganta que alumbra de oro desde adentro. `k` lo que se abrió, 0 a 1; `sonrie` tira de las comisuras. Guarda
+ * dónde quedó en la pantalla (`e.mem.boca`, puntos lógicos) para que el nombre se escriba delante.
  */
 function bocaPecho(e: EstadoToma, k: number, tl: number, sonrie = 0) {
   const m = e.actores.get('aun') as any; if (!m) return;
   const [px, py] = aPant(m.x, m.y), X = Math.round(px), Y = Math.round(py - PECHO);
   const T = ctx.getTransform(); const q = T.transformPoint(new DOMPoint(X, Y)); e.mem.boca = [q.x / RES, q.y / RES, T.a / RES];
-  const ALTO = 24, lat = 0.8 + 0.2 * Math.sin(tl * 5);
+  const ALTO = 27, ANCHO = 13, lat = 0.8 + 0.2 * Math.sin(tl * 5), ruido = (a: number, b: number) => { const v = Math.sin(a * 12.9898 + b * 78.233) * 43758.5453; return v - Math.floor(v); };
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  // cerrada: la carne pálida del pecho tapa la boca que trae el cuerpo, con la costura oscura en el medio
-  for (let dy = -ALTO - 2; dy <= ALTO + 2; dy++) {
-    const f = 1 - (dy / (ALTO + 2.5)) ** 2, w = Math.round(9 * Math.sqrt(Math.max(0, f)));
-    if (w <= 0) continue; ctx.fillStyle = Math.abs(dy) % 5 === 0 ? '#7a6e62' : '#8c8072'; ctx.fillRect(X - w, Y + dy, w * 2, 1);
-    ctx.fillStyle = '#3a2a22'; ctx.fillRect(X - (k > 0 ? 0 : 0), Y + dy, 1, 1);
+  // la carne del pecho que tapa la boca del cuerpo (con su grano y sus pliegues)
+  for (let dy = -ALTO - 3; dy <= ALTO + 3; dy++) {
+    const f = 1 - (dy / (ALTO + 3.5)) ** 2, w = Math.round(ANCHO * Math.sqrt(Math.max(0, f)) + 2); if (w <= 0) continue;
+    for (let dx = -w; dx < w; dx++) { const n = ruido(dx, dy); ctx.fillStyle = Math.abs(dx) > w - 2 ? '#6e625a' : n < 0.15 ? '#7e7066' : n > 0.85 ? '#b2a296' : (dy + dx * 0.3) % 6 === 0 ? '#86786c' : '#9c8e82'; ctx.fillRect(X + dx, Y + dy, 1, 1); }
   }
-  if (k <= 0) { ctx.restore(); return; }
-  const alto = Math.round(ALTO * k);
-  for (let dy = -alto; dy <= alto; dy++) {
-    const f = 1 - (dy / (alto + 0.5)) ** 2, w = Math.round(7 * Math.sqrt(Math.max(0, f)) * (0.8 + 0.4 * k));
-    const curva = Math.round(sonrie * ((dy / Math.max(1, alto)) ** 2) * 6);
-    const x0 = X - w + curva, ww = w * 2;
-    if (ww <= 0) continue;
-    ctx.fillStyle = '#2a0806'; ctx.fillRect(x0 - 2, Y + dy, ww + 4, 1); // (el labio)
-    ctx.fillStyle = '#5a1008'; ctx.fillRect(x0 - 1, Y + dy, ww + 2, 1);
-    ctx.fillStyle = '#0a0202'; ctx.fillRect(x0, Y + dy, ww, 1); // (el adentro)
-    if (Math.abs(dy) < alto * 0.6) { ctx.globalAlpha = lat * (1 - Math.abs(dy) / (alto * 0.6)); ctx.fillStyle = '#c08020'; ctx.fillRect(X - Math.max(1, Math.round(w * 0.35)) + curva, Y + dy, Math.max(2, Math.round(w * 0.7)), 1); ctx.globalAlpha = 1; }
-    // los dientes: en los dos bordes, uno cada dos filas
-    if (dy % 2 === 0 && Math.abs(dy) < alto - 1) { ctx.fillStyle = '#e8dcc0'; ctx.fillRect(x0, Y + dy, 2, 1); ctx.fillRect(x0 + ww - 2, Y + dy, 2, 1); }
+  // la costura (cerrada)
+  ctx.fillStyle = '#3a2620'; ctx.fillRect(X, Y - ALTO + 2, 1, ALTO * 2 - 4);
+  if (k > 0) {
+    const alto = Math.round(ALTO * Math.min(1, k * 1.1)), abre = k;
+    for (let dy = -alto; dy <= alto; dy++) {
+      const f = 1 - (dy / (alto + 0.5)) ** 2, w = Math.round((ANCHO - 3) * Math.pow(Math.max(0, f), 0.6) * abre), cur = Math.round(sonrie * Math.pow(Math.abs(dy) / Math.max(1, alto), 2) * 4);
+      if (w <= 0) { ctx.fillStyle = '#3a2620'; ctx.fillRect(X, Y + dy, 1, 1); continue; }
+      const x0 = X - w - cur, x1 = X + w + cur;
+      // los labios: oscuros y húmedos, con el brillo del lado de la luz
+      ctx.fillStyle = '#2a0808'; ctx.fillRect(x0 - 2, Y + dy, 2, 1); ctx.fillRect(x1, Y + dy, 2, 1);
+      if ((dy + 30) % 7 < 2) { ctx.fillStyle = '#c06a5a'; ctx.fillRect(x0 - 2, Y + dy, 1, 1); }
+      ctx.fillStyle = '#5a1410'; ctx.fillRect(x0, Y + dy, 1, 1); ctx.fillRect(x1 - 1, Y + dy, 1, 1);
+      // la garganta: oscura en la orilla y de oro hacia el fondo
+      for (let dx = x0 + 1; dx < x1 - 1; dx++) { const r = Math.abs(dx - X) / Math.max(1, w) * 0.7 + Math.abs(dy) / alto * 0.5; ctx.fillStyle = r > 0.8 ? '#1a0303' : r > 0.55 ? '#4a0c06' : r > 0.32 ? '#a04a14' : r > 0.16 ? '#e09a3a' : '#ffe2a0'; ctx.fillRect(dx, Y + dy, 1, 1); }
+      // los dientes: finos y en hilera, uno por fila con un hueco cada tanto
+      if (Math.abs(dy) < alto - 1 && (dy + 40) % 4 !== 3) { ctx.fillStyle = (dy + 40) % 2 ? '#e8dcc4' : '#c8b8a0'; ctx.fillRect(x0 + 1, Y + dy, 2, 1); ctx.fillRect(x1 - 3, Y + dy, 2, 1); }
+    }
+    ctx.globalCompositeOperation = 'lighter'; const gr = ctx.createRadialGradient(X, Y, 0, X, Y, 34); gr.addColorStop(0, `rgba(255,190,90,${0.4 * k * lat})`); gr.addColorStop(1, 'rgba(255,150,60,0)'); ctx.fillStyle = gr; ctx.fillRect(X - 34, Y - 34, 68, 68);
   }
-  ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(X, Y, 0, X, Y, 30); g.addColorStop(0, `rgba(255,190,90,${0.35 * k * lat})`); g.addColorStop(1, 'rgba(255,150,60,0)'); ctx.fillStyle = g; ctx.fillRect(X - 30, Y - 30, 60, 60);
   ctx.restore();
-  const Ls = lucesDe(e); if (Ls) Ls.push({ id: 'boca', x: m.x + 0.4, y: m.y + 0.4, z: PECHO, r: 140, c: [255, 190, 100], k: 0.8 * k * lat, sinSombra: true });
+  const Ls = lucesDe(e); if (Ls && k > 0) Ls.push({ id: 'boca', x: m.x + 0.4, y: m.y + 0.4, z: PECHO, r: 140, c: [255, 190, 100], k: 0.8 * k * lat, sinSombra: true });
 }
-/** El nombre del héroe, en oro, que la boca dice: se escribe delante de ella, late y se deshace en ceniza (encima, en la pantalla). */
+/** El nombre del héroe, en oro y grande, que la boca dice: se escribe delante de ella, en el medio, late y se deshace en ceniza. */
 function nombreDicho(e: EstadoToma, tl: number, t0: number, rajado: boolean) {
   const b = e.mem.boca; if (!b || tl < t0) return;
   const u = tl - t0, k = Math.min(1, u / 0.8) * (1 - Math.max(0, (u - 3.6) / 1.2)); if (k <= 0) return;
-  const nombre = (e.heroe.nombre || '').toUpperCase(), tam = Math.max(26, Math.round(H / 11));
+  const completo = (e.heroe.nombre || '').toUpperCase(), nombre = rajado ? completo.slice(0, Math.ceil(completo.length * 0.6)) : completo;
+  const tam = Math.max(44, Math.round(H / 6.2)), x = b[0], y = b[1] + tam * 0.36;
   ctx.save(); ctx.globalAlpha = k;
-  textoGotico(rajado ? nombre.slice(0, Math.ceil(nombre.length * 0.6)) : nombre, b[0], b[1] - tam * 1.6, tam, { alin: 'center', tono: ORO, brillo: 0.3 + 0.2 * latido(u) } as any);
+  // (una sombra que lo despega de la boca: se lee a la primera)
+  const gr = ctx.createRadialGradient(x, b[1], 0, x, b[1], tam * Math.max(2, nombre.length * 0.45)); gr.addColorStop(0, 'rgba(0,0,0,0.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = gr; ctx.fillRect(x - tam * 6, b[1] - tam * 2, tam * 12, tam * 4);
+  textoGotico(nombre, x, y, tam, { alin: 'center', tono: ORO, brillo: 0.3 + 0.25 * latido(u) } as any);
   ctx.restore();
-  // la ceniza que se suelta de las letras al deshacerse
-  if (u > 3.4) { ctx.save(); ctx.fillStyle = '#c8a060'; for (let i = 0; i < 40; i++) { const v = u - 3.4; ctx.globalAlpha = Math.max(0, 1 - v / 1.4) * hash(i); ctx.fillRect(Math.round(b[0] + (hash(i) - 0.5) * tam * nombre.length * 0.6), Math.round(b[1] - tam * 1.6 - v * 30 * hash(i + 3)), 2, 2); } ctx.restore(); }
+  if (u > 3.4) { ctx.save(); ctx.fillStyle = '#c8a060'; for (let i = 0; i < 60; i++) { const v = u - 3.4; ctx.globalAlpha = Math.max(0, 1 - v / 1.4) * hash(i); ctx.fillRect(Math.round(x + (hash(i) - 0.5) * tam * nombre.length * 0.7), Math.round(b[1] - v * 40 * hash(i + 3)), 2, 2); } ctx.restore(); }
 }
 
 // ------------------------------------------------------------------ anclas
@@ -195,7 +247,7 @@ function tomaNombre(fin: 'destruir' | 'absorber' | null, n: number): Toma {
   return {
     id: 'nombre' + (fin ? '_' + fin : ''), dur: 8, zona: 'a7_trono', ancla: anclaJefe, entra: 0.2, sale: 0.8, oscuridad: 0.92, hundir: 0.76,
     omitir: (e) => (finalDe(e.heroe) ?? null) !== fin,
-    cam: [{ t: 0, x: 0.5, y: 0.5, alt: 150, zoom: 3, fy: 0.56 }, { t: 8, x: 0.45, y: 0.45, alt: 154 }],
+    cam: [{ t: 0, x: 0.5, y: 0.5, alt: 128, zoom: 3, fy: 0.52 }, { t: 8, x: 0.45, y: 0.45, alt: 130 }],
     actores: [{ id: 'aun', tipo: 'mon', mon: 'aun_saar', claves: [{ t: 0, x: 0, y: 0, dir: 's', acc: 'quieto' }] }],
     focos: [{ de: 'aun', z: PECHO, r: 150 }],
     luces: [{ id: 'arriba', color: [230, 190, 110], sombra: true, claves: [{ t: 0, x: 0.5, y: 0.5, z: 260, r: 260, k: 0.55 }] }],

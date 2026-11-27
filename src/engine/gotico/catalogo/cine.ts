@@ -73,40 +73,44 @@ registrar({
  * `CUBIERTA` unidades del piso: la toma alza ahí a quien va de pie en la proa. El dibujo va corrido `BARCO_ATRAS` celdas hacia la
  * cámara (la toma lo pone esas celdas más atrás): así quien está de pie en la cubierta se pinta después del casco.
  */
-export const CUBIERTA = 30;
+export const CUBIERTA = 34;
 export const BARCO_ATRAS = 1.2;
 function barco(a: Arma) {
   const g = (-45 * Math.PI) / 180, c = Math.cos(g), s = Math.sin(g), dw = BARCO_ATRAS * U;
-  const Lb = 84, Wc = 21, H0 = 36, ESC = 0.13; // medio largo, medio ancho, alto de la borda, escora (la borda de atrás más alta)
+  const Lb = 84, Wc = 21, H0 = CUBIERTA, ESC = 0.13; // medio largo, medio ancho, alto de la borda, escora (la borda de atrás más alta)
   const P = (p: V3): V3 => [p[0] * c - p[1] * s + dw, p[0] * s + p[1] * c + dw, p[2] - p[1] * ESC];
   const el = (x: number, y: number, z: number, rx: number, ry: number, rz: number, o: any) => { const q = P([x, y, z]); return a.elipsoide(q[0], q[1], q[2], rx, ry, rz, { ...o, giro: (o.giro ?? 0) - 45 }); };
   const cj = (x: number, y: number, z: number, an: number, pr: number, al: number, o: any) => { const q = P([x, y, z]); return a.caja(q[0], q[1], q[2], an, pr, al, { ...o, giro: (o.giro ?? 0) - 45 }); };
   const pl = (p: V3, q: V3, r: number, o: any) => a.palo(P(p), P(q), r, o);
   const ps: Pieza[] = [];
-  // la arena que lo agarra: un banco bajo alrededor del casco y la marca mojada
-  ps.push(a.elipsoide(dw, dw, -2, Lb * 0.95, Wc * 1.9, 7, { mat: 'arena', giro: -45, tono: -0.06 }));
-  ps.push(a.elipsoide(dw + 6, dw + 6, -2.5, Lb * 1.1, Wc * 2.6, 3, { mat: 'arena', giro: -45, tono: -0.18 }));
-  // el casco: un huso grande, más alto hacia popa (-x) y la proa afilada (+x); lo de abajo de la arena no se ve
-  ps.push(el(-4, 0, 8, Lb, Wc, H0 - 4, { mat: 'madera_vieja' }));
-  ps.push(el(Lb * 0.62, 0, 14, Lb * 0.42, Wc * 0.7, H0 - 8, { mat: 'madera_vieja', tono: -0.03 }));
-  ps.push(el(-Lb * 0.7, 0, 14, Lb * 0.34, Wc * 0.95, H0 - 2, { mat: 'madera_vieja', tono: -0.05 }));
-  ps.push(cj(0, 0, H0 + 30, Lb * 3, Wc * 4, 60, { mat: 'madera', resta: true })); // (el corte de la borda)
+  // la arena que lo agarra: un banco bajo y largo bajo el casco que asoma apenas por los costados
+  ps.push(el(-6, 2, -1, Lb * 0.98, Wc * 1.3, 8, { mat: 'arena', tono: -0.1 }));
+  // el casco: rebanadas a lo largo con la manga que se cierra hacia las puntas (la proa afilada, la popa ancha y redonda). Lo de
+  //  arriba se corta parejo a la altura de la cubierta: ese corte ES la cubierta (con sus tablas encima)
+  const R = 32, manga = (x: number) => { const u = x / Lb; return Wc * (u > 0 ? Math.pow(Math.max(0.04, 1 - u), 0.85) : Math.pow(Math.max(0.04, 1 - u ** 4), 0.5)); };
+  for (let i = 0; i < R; i++) {
+    const x = -Lb + (2 * Lb * (i + 0.5)) / R, m = manga(x);
+    // (el costado recto y, abajo, la panza que se mete en la arena)
+    ps.push(cj(x, 0, -2, (2 * Lb) / R + 0.8, 2 * m, H0 + 2, { mat: 'madera_vieja', tono: (i % 4) * 0.012 - 0.02 }));
+  }
   ps.push(cj(0, 0, -60, Lb * 3, Wc * 4, 60, { mat: 'madera', resta: true })); // (lo enterrado)
-  // la cubierta (tablas claras un poco bajo la borda) y la borda con su filete
-  ps.push(el(-2, 0, CUBIERTA - 1, Lb - 6, Wc - 3.2, 1.2, { mat: 'madera_lisa', tono: -0.02 }));
-  ps.push(el(0, 0, H0, Lb - 6, Wc - 3, 4, { mat: 'madera', resta: true }));
-  for (let x = -Lb + 14; x < Lb - 14; x += 7) ps.push(pl([x, -Wc + 4, CUBIERTA], [x, Wc - 4, CUBIERTA], 0.35, { mat: 'negro' }));
-  ps.push(el(0, 0, H0 - 0.4, Lb + 0.6, Wc + 0.5, 1.3, { mat: 'madera_lisa', tono: 0.12 }), el(0, 0, H0 - 0.4, Lb - 5.5, Wc - 2.6, 2.4, { mat: 'madera', resta: true }));
-  // las tracas del costado y la línea de la marea (verdín y percebes donde llegaba el agua)
-  for (const sy of [-1, 1]) for (const z of [10, 17, 24, 31]) ps.push(pl([-Lb * 0.86, sy * (Wc - 0.4), z], [Lb * 0.8, sy * (Wc - 1.5), z + 2], 0.5, { mat: 'negro' }));
-  for (const sy of [-1, 1]) ps.push(pl([-Lb * 0.8, sy * (Wc + 0.2), 6], [Lb * 0.74, sy * (Wc - 1), 7], 2.2, { mat: 'musgo', tono: -0.2 }));
+  // las tablas de la cubierta (a lo largo) y la borda: el pasamano claro sobre candeleros, siguiendo la manga
+  for (const y of [-14, -9, -4, 1, 6, 11, 16]) { let x0 = null as number | null; for (let x = -Lb; x <= Lb; x += 2) { const ok = manga(x) - 2 > Math.abs(y); if (ok && x0 === null) x0 = x; if ((!ok || x >= Lb - 2) && x0 !== null) { ps.push(pl([x0, y, H0 + 0.2], [x - 2, y, H0 + 0.2], 0.3, { mat: 'negro' })); x0 = null; } } }
+  ps.push(el(-4, 0, H0 - 0.6, Lb * 0.9, Wc * 0.7, 1, { mat: 'madera_lisa', tono: 0.02 }));
+  for (const sy of [-1, 1]) for (let i = 0; i < R; i++) {
+    const xa = -Lb + 3 + ((2 * Lb - 6) * i) / R, xb = -Lb + 3 + ((2 * Lb - 6) * (i + 1)) / R, ya = sy * (manga(xa) - 1), yb = sy * (manga(xb) - 1);
+    ps.push(pl([xa, ya, H0 + 6.5], [xb, yb, H0 + 6.5], 1.1, { mat: 'madera_lisa', tono: 0.12 }), pl([xa, ya, H0 - 0.5], [xa, ya, H0 + 6.5], 0.6, { mat: 'madera_vieja' }));
+    // las tracas del costado (rayas oscuras que siguen la manga, más bajas cuanto más adentro) y la línea de la marea con verdín
+    for (const [z, k] of [[H0 - 7, 0.97], [H0 - 15, 0.9], [H0 - 23, 0.78]] as [number, number][]) ps.push(pl([xa, sy * manga(xa) * k, z], [xb, sy * manga(xb) * k, z], 0.5, { mat: 'negro' }));
+    ps.push(pl([xa, sy * manga(xa) * 0.72, 7], [xb, sy * manga(xb) * 0.72, 7], 1.8, { mat: 'musgo', tono: -0.2 }));
+  }
   // el boquete del costado de delante: el hueco negro y las tablas rotas que salen
-  ps.push(el(-20, Wc + 0.5, 15, 13, 2.2, 8, { mat: 'negro' }));
-  for (const [x, z, dx, dz] of [[-30, 21, -4, 6], [-24, 9, 3, -5], [-13, 22, 5, 5], [-10, 10, 4, -4], [-27, 15, -6, 1]]) ps.push(pl([x, Wc + 0.6, z], [x + dx, Wc + 4, z + dz], 1.1, { mat: 'madera_vieja', tono: 0.05 }));
+  ps.push(el(-20, manga(-20) * 0.86, 15, 9, 2.4, 6, { mat: 'negro' }));
+  for (const [x, z, dx, dz] of [[-30, 21, -4, 6], [-24, 9, 3, -5], [-13, 22, 5, 5], [-10, 10, 4, -4], [-27, 15, -6, 1]]) ps.push(pl([x, manga(x) * 0.88, z], [x + dx, manga(x) + 3, z + dz], 1.1, { mat: 'madera_vieja', tono: 0.05 }));
   // el castillo de popa: una caseta con su techo y la puerta
-  ps.push(cj(-Lb * 0.64, 0, CUBIERTA + 9, 26, 2 * Wc - 8, 18, { mat: 'madera', tono: -0.06 }));
-  ps.push(cj(-Lb * 0.64, 0, CUBIERTA + 19, 30, 2 * Wc - 4, 2.4, { mat: 'madera_lisa', tono: 0.04 }));
-  ps.push(cj(-Lb * 0.64 + 13.4, 4, CUBIERTA + 7, 1, 7, 12, { mat: 'negro' }));
+  ps.push(cj(-Lb * 0.64, 0, CUBIERTA, 26, 2 * Wc - 8, 18, { mat: 'madera', tono: -0.06 }));
+  ps.push(cj(-Lb * 0.64, 0, CUBIERTA + 18, 30, 2 * Wc - 4, 2.4, { mat: 'madera_lisa', tono: 0.04 }));
+  ps.push(cj(-Lb * 0.64 + 13.4, 4, CUBIERTA, 1, 7, 12, { mat: 'negro' }));
   // la roda de proa y el bauprés con su farol
   ps.push(pl([Lb - 2, 0, H0 - 4], [Lb + 8, 0, H0 + 8], 2.6, { mat: 'madera_vieja' }));
   ps.push(pl([Lb + 6, 0, H0 + 6], [Lb + 40, 0, H0 + 22], 1.6, { mat: 'madera_vieja' }));
@@ -118,9 +122,16 @@ function barco(a: Arma) {
   ps.push(pl([top[0] + 2, top[1], top[2] - 2], [top[0] - 3, top[1] + 4, top[2] + 9], 2.4, { mat: 'madera_vieja', tono: 0.06 })); // (la astilla de la rotura)
   const v0: V3 = [-36, -10, CUBIERTA + 120], v1: V3 = [44, -12, CUBIERTA + 104];
   ps.push(pl(v0, v1, 1.8, { mat: 'madera_vieja' }));
-  for (let i = 0; i < 9; i++) {
-    const u = (i + 0.5) / 9, x = v0[0] + (v1[0] - v0[0]) * u, z = v0[2] + (v1[2] - v0[2]) * u, lar = [52, 70, 38, 60, 76, 30, 58, 44, 22][i];
-    ps.push(cj(x, -10 + (i % 2) * 0.6, z - lar / 2 - 1, 8.2, 0.8, lar, { mat: 'tela', tono: -0.18 - (i % 3) * 0.06 }));
+  { // (la vela: una tela de cuadritos que cuelga de la verga, con agujeros, el borde de abajo roto y la comba del viento)
+    const C = 12, F = 10, hash = (n: number) => { const v = Math.sin(n * 91.3 + 7.1) * 43758.5453; return v - Math.floor(v); };
+    for (let ci = 0; ci < C; ci++) {
+      const u = (ci + 0.5) / C, x = v0[0] + (v1[0] - v0[0]) * u, zt = v0[2] + (v1[2] - v0[2]) * u, filas = F - Math.floor(hash(ci) * hash(ci + 3) * 7);
+      for (let fi = 0; fi < filas; fi++) {
+        if (hash(ci * 31 + fi * 7) < 0.09 && fi > 1) continue; // (agujeros)
+        const comba = Math.sin((fi / F) * Math.PI) * 5 + Math.sin(u * Math.PI) * 3;
+        ps.push(cj(x, -10 + comba, zt - 3.6 - fi * 7.2, 80 / C + 0.4, 0.7, 7.6, { mat: 'tela', tono: -0.14 - hash(ci * 5 + fi) * 0.12 }));
+      }
+    }
   }
   // la jarcia floja: del tope a la proa y a la popa, y obenques a la borda
   ps.push(pl(top, [Lb + 36, 0, H0 + 20], 0.35, { mat: 'cuerda' }), pl(top, [-Lb + 4, 0, H0 + 2], 0.35, { mat: 'cuerda' }));

@@ -762,7 +762,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       const g = ctx.createRadialGradient(hx, hy - 44, 6, hx, hy - 44, 64); g.addColorStop(0, `rgba(${c},${0.26 + pul * 0.1})`); g.addColorStop(0.5, `rgba(${c},0.09)`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(hx, hy - 40, 44, 66, 0, 0, Math.PI * 2); ctx.fill(); }
     ctx.restore(); }
   for (const [hx, hy, dest, , rb, arco] of halosUmbral) if (rb) cheuronesRumbo(hx, hy, !!arco, colorUmbral(dest, rb), rb, tiempo);
-  for (const sa of z.salidas) {
+  // (en las películas, ui/director.ts, ningún letrero: ni de cerca ni con Alt)
+  for (const sa of camCine.on ? [] : z.salidas) {
     const [px, py] = aPant(...puntoSalida(z, sa));
     if (px < -120 || px > W + 120 || py < -140 || py > H + 80) continue;
     const pulso = 0.5 + 0.5 * Math.sin(tiempo * 2.2 + sa.cx);

@@ -86,65 +86,96 @@ function lampara(e: EstadoToma, tl: number) {
 }
 
 /**
- * Nieve y escarcha sobre el piso del Fortín (el portón tiene pasto: el norte es nieve). Manchas de pixel con el borde que se
- * deshace, claras arriba y azuladas en la sombra, alrededor del ancla; van con lo plano del piso.
+ * Nieve sobre todo el piso del Fortín (el portón tiene pasto: el norte es nieve): una capa pareja con su textura (ondas que dejó
+ * el viento, lo azulado en lo hondo, pisadas viejas) y briznas de pasto seco que asoman, nada verde. Se pinta una vez en su propio
+ * lienzo, a puntos del dibujo, del ancho de lo que ve la toma, y se pega cada cuadro con lo plano del piso (debajo de todo lo
+ * que está de pie).
  */
 function nievePiso(e: EstadoToma, r: number) {
-  const [cx, cy] = aPant(e.ax, e.ay), RX = r * 16, RY = r * 8;
-  const ruido = (x: number, y: number) => { const s = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return s - Math.floor(s); };
-  const suave = (x: number, y: number) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi; const a = ruido(xi, yi), b = ruido(xi + 1, yi), c = ruido(xi, yi + 1), d = ruido(xi + 1, yi + 1); return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy; };
-  ctx.save(); ctx.imageSmoothingEnabled = false;
-  for (let y = -RY; y <= RY; y += 1) for (let x = -RX; x <= RX; x += 1) {
-    const d = (x / RX) ** 2 + (y / RY) ** 2; if (d > 1) continue;
-    const n = suave((e.ax * 16 + x) / 9, (e.ay * 8 + y) / 5) * 0.65 + suave((e.ax * 16 + x) / 3, (e.ay * 8 + y) / 2) * 0.35;
-    if (n < 0.28 + d * 0.5) continue;
-    ctx.fillStyle = n > 0.78 ? '#e6edf5' : n > 0.55 ? '#c3cedd' : '#97a6bc'; ctx.globalAlpha = Math.min(1, (n - 0.28 - d * 0.5) * 6);
-    ctx.fillRect(Math.round(cx + x), Math.round(cy + y), 1, 1);
+  const RX = r * 16, RY = r * 8;
+  if (!e.mem.nieve) {
+    const c = document.createElement('canvas'); c.width = RX * 2; c.height = RY * 2; const g = c.getContext('2d')!;
+    const ruido = (x: number, y: number) => { const v = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453; return v - Math.floor(v); };
+    const suave = (x: number, y: number) => { const xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi; const a = ruido(xi, yi), b = ruido(xi + 1, yi), cc = ruido(xi, yi + 1), d = ruido(xi + 1, yi + 1); return a + (b - a) * fx + (cc - a) * fy + (a - b - cc + d) * fx * fy; };
+    const img = g.createImageData(c.width, c.height), D = img.data;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+      const wx = e.ax * 16 + x - RX, wy = e.ay * 8 + y - RY;
+      // (la orilla del lienzo se deshace en el borde: el resto del piso queda bajo la viñeta)
+      const d = ((x - RX) / RX) ** 2 + ((y - RY) / RY) ** 2; if (d > 1 - suave(wx / 7, wy / 4) * 0.12) continue;
+      const n = suave(wx / 11, wy / 6) * 0.6 + suave(wx / 3.5, wy / 2) * 0.3 + ruido(wx, wy) * 0.1;
+      const onda = Math.sin(wx * 0.11 + wy * 0.35 + suave(wx / 20, wy / 10) * 4) * 0.5 + 0.5;
+      let r0 = 168 + n * 40 + onda * 10, g0 = 178 + n * 38 + onda * 9, b0 = 196 + n * 30 + onda * 6;
+      if (n < 0.34) { r0 -= 46; g0 -= 38; b0 -= 18; } // (lo hondo, azulado)
+      if (onda > 0.93) { r0 += 14; g0 += 14; b0 += 12; } // (la cresta de la onda)
+      const i = (y * c.width + x) * 4; D[i] = Math.min(255, r0); D[i + 1] = Math.min(255, g0); D[i + 2] = Math.min(255, b0); D[i + 3] = 255;
+      // pasto seco que asoma (ocre, nunca verde) en matas ralas
+      if (suave(wx / 9 + 40, wy / 5) > 0.72 && ruido(wx * 3, wy * 7) < 0.22) { D[i] = 120; D[i + 1] = 104; D[i + 2] = 70; }
+      else if (suave(wx / 9 + 40, wy / 5) > 0.68 && ruido(wx * 5, wy * 3) < 0.12) { D[i] = 84; D[i + 1] = 72; D[i + 2] = 52; }
+    }
+    g.putImageData(img, 0, 0);
+    // pisadas viejas que van y vienen hacia el portón
+    g.fillStyle = 'rgba(120,134,160,0.55)';
+    for (let k = 0; k < 14; k++) { const x = RX - 30 + k * 4 + (k % 2) * 3, y = RY + 18 - k * 2.6 + (k % 2) * 2; g.fillRect(Math.round(x), Math.round(y), 2, 1); }
+    e.mem.nieve = c;
   }
-  ctx.restore();
+  const [cx, cy] = aPant(e.ax, e.ay);
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.drawImage(e.mem.nieve, Math.round(cx - RX), Math.round(cy - RY)); ctx.restore();
 }
 /**
- * La raja del cielo sobre la Herida: una boca roja abierta en lo alto del cuadro, ancha en el medio y en punta a los lados, con los
- * labios quebrados, grietas que salen de las comisuras, su resplandor, humo que entra en ella y una luz roja que baja hasta la boca de la Fragua. En el pase del mundo, en lo alto de la pantalla.
+ * La raja del cielo sobre la Herida: baja quebrada en zigzag desde la esquina de arriba a la izquierda hacia el medio del cielo,
+ * abierta en el medio y en punta en las dos puntas; las nubes negras de alrededor toman su rojo, y el humo de la Fragua sube y se
+ * mete en ella. Con una luz roja que baja hasta la boca. En el pase del mundo, en lo alto de la pantalla.
  */
 function rajaCielo(e: EstadoToma, tl: number) {
   const m = ctx.getTransform(), inv = m.inverse(), a = inv.transformPoint(new DOMPoint(0, 0)), b = inv.transformPoint(new DOMPoint(ctx.canvas.width, ctx.canvas.height));
-  const x0 = a.x, x1 = b.x, alto = b.y - a.y, y0 = a.y + alto * 0.2, ancho = x1 - x0, lat = 0.85 + 0.15 * Math.sin(tl * 2.3);
-  // la raja: una boca abierta en el cielo, ancha en el medio y que se cierra en punta hacia los lados (no de lado a lado), con
-  //  los labios quebrados y unas grietas que salen de las comisuras; respira apenas (la boca que no termina de gritar)
-  const cx = x0 + ancho * 0.5, mitad = ancho * 0.31, abre = 0.9 + 0.1 * Math.sin(tl * 1.7), hMax = Math.max(12, alto * 0.08);
+  const x0 = a.x, alto = b.y - a.y, ancho = b.x - a.x, lat = 0.85 + 0.15 * Math.sin(tl * 2.3);
   const hash = (n: number) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
-  const filo = (i: number, k: number) => { const a0 = Math.floor(i / 5), f = (i % 5) / 5; return (hash(a0 * 7 + k) * (1 - f) + hash(a0 * 7 + 7 + k) * f) * 0.55 + hash(i * 3 + k) * 0.18; };
-  { ctx.save(); const gc = ctx.createLinearGradient(0, a.y, 0, a.y + alto * 0.45); gc.addColorStop(0, 'rgba(6,2,2,1)'); gc.addColorStop(0.6, 'rgba(10,3,3,0.85)'); gc.addColorStop(1, 'rgba(10,3,3,0)'); ctx.fillStyle = gc; ctx.fillRect(x0, a.y, ancho, alto * 0.45); ctx.restore(); }
+  // la traza: de la esquina de arriba hacia el medio, en tramos de largo y quiebre dispares (siempre los mismos)
+  const P0: [number, number] = [x0 + ancho * 0.06, a.y + alto * 0.1], P1: [number, number] = [x0 + ancho * 0.6, a.y + alto * 0.36];
+  const pts: [number, number][] = [P0]; let u = 0, lado = 1;
+  // (tramos de largo dispar, a veces dos seguidos para el mismo lado, y el quiebre de altura dispar: nada de dientes iguales)
+  for (let i = 1; u < 0.94; i++) { u += 0.035 + hash(i * 3) * 0.1; if (hash(i * 5 + 1) < 0.72) lado = -lado; const q = 0.15 + hash(i) * hash(i + 9) * 1.6; pts.push([P0[0] + (P1[0] - P0[0]) * Math.min(1, u) + (hash(i + 20) - 0.5) * ancho * 0.012, P0[1] + (P1[1] - P0[1]) * Math.min(1, u) + lado * q * alto * 0.03]); }
+  pts.push(P1);
+  // muestras a lo largo, con el ancho de la boca (abierta en el medio)
+  const mu: [number, number, number][] = []; let largo = 0; for (let i = 1; i < pts.length; i++) largo += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  let rec = 0; const wMax = Math.max(7, alto * 0.046) * (0.92 + 0.08 * Math.sin(tl * 1.7));
+  for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [bx, by] = pts[i], L = Math.hypot(bx - ax, by - ay); for (let s2 = 0; s2 < L; s2 += 0.7) { const u = (rec + s2) / largo; mu.push([ax + (bx - ax) * s2 / L, ay + (by - ay) * s2 / L, wMax * Math.pow(Math.sin(Math.PI * u), 0.8) * (0.7 + 0.5 * hash(Math.floor((rec + s2) / 3)))]); } rec += L; }
+  const cMid = mu[Math.floor(mu.length * 0.5)];
+  // el cielo: lo alto del cuadro se oscurece, y las nubes negras en bandas toman el rojo cerca de la raja
+  { ctx.save(); const gc = ctx.createLinearGradient(0, a.y, 0, a.y + alto * 0.5); gc.addColorStop(0, 'rgba(6,2,2,1)'); gc.addColorStop(0.65, 'rgba(10,3,3,0.85)'); gc.addColorStop(1, 'rgba(10,3,3,0)'); ctx.fillStyle = gc; ctx.fillRect(x0, a.y, ancho, alto * 0.5); ctx.restore(); }
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  // el resplandor (es luz: blando) y la luz que baja hasta la boca de la Fragua
+  const dSeg = (x: number, y: number) => { const vx = P1[0] - P0[0], vy = P1[1] - P0[1], k = Math.max(0, Math.min(1, ((x - P0[0]) * vx + (y - P0[1]) * vy) / (vx * vx + vy * vy))); return Math.hypot(x - P0[0] - vx * k, y - P0[1] - vy * k); };
+  const Q = 3;
+  for (let y = a.y + alto * 0.02; y < a.y + alto * 0.5; y += Q) for (let x = x0; x < b.x; x += Q) {
+    const n = Math.sin(x * 0.018 + y * 0.05 + tl * 0.12) + Math.sin(x * 0.041 - y * 0.03 + 1.7 - tl * 0.08) * 0.7 + Math.sin(x * 0.09 + y * 0.11) * 0.3;
+    if (n < 0.55) continue;
+    const cerca = Math.max(0, 1 - dSeg(x, y) / (alto * 0.22)), f = Math.min(1, (n - 0.55) * 1.6), bajo = 1 - (y - a.y) / (alto * 0.5);
+    const r = Math.round(14 + 30 * f + 150 * cerca * cerca * lat), g = Math.round(8 + 10 * f + 22 * cerca * cerca), bb = Math.round(10 + 10 * f);
+    ctx.globalAlpha = Math.min(1, 0.55 + 0.4 * f) * Math.min(1, bajo * 2.2); ctx.fillStyle = `rgb(${r},${g},${bb})`; ctx.fillRect(Math.round(x), Math.round(y), Q, Q);
+  }
+  ctx.globalAlpha = 1;
+  // el humo de la Fragua: una columna que sube torcida desde la boca y entra por el medio de la raja
+  const [bx0, by0] = aPant(e.ax - 1, e.ay - 1), top: [number, number] = [bx0, by0 - 240];
+  for (let k = 0; k < 90; k++) {
+    const u = k / 90, ph = tl * 0.35 + u; const x = top[0] + (cMid[0] - top[0]) * u * u + Math.sin(ph * 6 + k) * (6 + u * 10), y = top[1] + (cMid[1] - top[1]) * u + Math.cos(ph * 5 + k * 0.7) * 4;
+    const r = Math.round(5 + 7 * (1 - u)); const cerca = u > 0.7 ? (u - 0.7) / 0.3 : 0;
+    ctx.globalAlpha = 0.35 + 0.25 * hash(k); ctx.fillStyle = cerca > 0.3 ? '#4a1410' : hash(k + 3) < 0.5 ? '#1e1616' : '#2c2222';
+    ctx.fillRect(Math.round(x - r), Math.round(y - r * 0.7), r * 2, Math.round(r * 1.4));
+  }
+  ctx.globalAlpha = 1;
+  // el resplandor de la raja y la luz que baja hasta la boca
   ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createRadialGradient(cx, y0, 0, cx, y0, mitad * 1.1); g.addColorStop(0, `rgba(255,70,24,${0.55 * lat})`); g.addColorStop(0.5, `rgba(200,30,12,${0.22 * lat})`); g.addColorStop(1, 'rgba(160,20,10,0)');
-  ctx.save(); ctx.translate(cx, y0); ctx.scale(1, 0.32); ctx.translate(-cx, -y0); ctx.fillStyle = g; ctx.fillRect(cx - mitad * 1.1, y0 - mitad * 1.1, mitad * 2.2, mitad * 2.2); ctx.restore();
-  const [bx, by] = aPant(e.ax, e.ay), gb = ctx.createLinearGradient(0, y0, 0, by);
-  gb.addColorStop(0, `rgba(255,50,20,${0.26 * lat})`); gb.addColorStop(1, 'rgba(255,50,20,0.03)');
-  ctx.fillStyle = gb; ctx.beginPath(); ctx.moveTo(cx - mitad * 0.3, y0); ctx.lineTo(cx + mitad * 0.3, y0); ctx.lineTo(bx + 70, by); ctx.lineTo(bx - 70, by); ctx.closePath(); ctx.fill();
+  const gr = ctx.createRadialGradient(cMid[0], cMid[1], 0, cMid[0], cMid[1], alto * 0.35); gr.addColorStop(0, `rgba(255,60,20,${0.35 * lat})`); gr.addColorStop(1, 'rgba(160,20,10,0)'); ctx.fillStyle = gr; ctx.fillRect(cMid[0] - alto * 0.35, cMid[1] - alto * 0.35, alto * 0.7, alto * 0.7);
+  const [bx, by] = aPant(e.ax, e.ay), gb = ctx.createLinearGradient(0, cMid[1], 0, by);
+  gb.addColorStop(0, `rgba(255,50,20,${0.22 * lat})`); gb.addColorStop(1, 'rgba(255,50,20,0.03)');
+  ctx.fillStyle = gb; ctx.beginPath(); ctx.moveTo(cMid[0] - 20, cMid[1]); ctx.lineTo(cMid[0] + 20, cMid[1]); ctx.lineTo(bx + 70, by); ctx.lineTo(bx - 70, by); ctx.closePath(); ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
-  // la boca, columna a columna: labio oscuro, carne, fuego y el alma al blanco en el medio
-  const n = Math.round(mitad * 2), x00 = Math.round(cx - mitad);
-  for (let i = 0; i <= n; i++) {
-    const u = i / n, forma = Math.pow(Math.sin(Math.PI * u), 0.6), inc = (u - 0.5) * hMax * 0.9; // (un poco inclinada)
-    const hA = hMax * forma * abre * (0.62 + filo(i, 1)), hB = hMax * forma * abre * (0.5 + filo(i, 2)) * 0.8;
-    const X = x00 + i, Y = y0 + inc;
-    const banda = (h0: number, h1: number, col: string) => { if (h1 - h0 < 0.5) return; ctx.fillStyle = col; ctx.fillRect(X, Math.round(Y - h1), 1, Math.max(1, Math.round(h1 - h0))); ctx.fillRect(X, Math.round(Y + h0 * 0.8), 1, Math.max(1, Math.round((h1 - h0) * 0.8))); };
-    const H1 = Math.max(hA, hB);
-    banda(H1 * 0.0, H1 + 2, '#140101'); banda(0, H1, '#6a0a06'); banda(0, H1 * 0.72, '#b81c0e'); banda(0, H1 * 0.42, '#f05a22');
-    if (H1 > 3) { ctx.fillStyle = '#ffd890'; ctx.fillRect(X, Math.round(Y - H1 * 0.14), 1, Math.max(1, Math.round(H1 * 0.22))); }
-  }
-  // las grietas que salen de las comisuras y de los labios (quebradas, oscuras con el borde rojo)
-  for (let r = 0; r < 9; r++) {
-    const lado = r % 2 ? 1 : -1, ui = r < 4 ? (lado > 0 ? 0.98 : 0.02) : 0.2 + hash(r) * 0.6;
-    let x = x00 + n * ui, y = y0 + (ui - 0.5) * hMax * 0.9 + (r < 4 ? 0 : (hash(r + 9) < 0.5 ? -1 : 1) * hMax * 0.6), an = r < 4 ? (lado > 0 ? 0 : Math.PI) + (hash(r * 3) - 0.5) * 0.9 : (y < y0 ? -Math.PI / 2 : Math.PI / 2) + (hash(r * 5) - 0.5) * 1.4;
-    const lar = (r < 4 ? 40 : 14) + hash(r * 11) * 26;
-    for (let s2 = 0; s2 < lar; s2++) { if (s2 % 5 === 0) an += (hash(r * 13 + s2) - 0.5) * 1.1; x += Math.cos(an); y += Math.sin(an) * 0.7; ctx.fillStyle = s2 < lar * 0.6 ? '#7a0c08' : '#3a0504'; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); ctx.fillStyle = '#100101'; ctx.fillRect(Math.round(x), Math.round(y) + 1, 1, 1); }
-  }
+  // la raja: labio negro, carne roja, fuego y el alma al blanco, a pixel
+  const capa = (f: number, mas: number, col: string) => { ctx.fillStyle = col; for (const [x, y, w] of mu) { const q = Math.max(1, Math.round(w * f + mas)); ctx.fillRect(Math.round(x - q / 2), Math.round(y - q / 2), q, q); } };
+  capa(1, 3, '#120101'); capa(1, 0, '#6e0a06'); capa(0.72, 0, '#c01e0e'); capa(0.45, 0, '#f06024'); capa(0.18, 0, '#ffd890');
+  // grietas finas que salen de los quiebres
+  for (let i = 2; i < pts.length - 1; i += 2) { let [x, y] = pts[i], an = (i % 4 ? -1 : 1) * (0.9 + hash(i) * 0.8); for (let s2 = 0; s2 < 10 + hash(i * 3) * 14; s2++) { if (s2 % 4 === 0) an += (hash(i * 7 + s2) - 0.5) * 1.2; x += Math.cos(an); y += Math.sin(an); ctx.fillStyle = s2 < 6 ? '#8a1208' : '#3a0504'; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); } }
   ctx.restore();
-  void x1;
 }
 /** El humo que sube y entra en la raja. */
 function humoRaja(e: EstadoToma, dt: number) {
@@ -246,33 +277,33 @@ const tomas: Toma[] = [
   },
   {
     // el Fortín, Vigdis viva: en la puerta del norte con su lámpara, mirando la montaña; la llama tiembla cuando la brasa pasa
-    id: 'fortin', dur: 8, zona: 'a4_fortin', ancla: anclaPuertaFortin, entra: 0.6, sale: 0.6, oscuridad: 0.86, hundir: 0.66, sinBruma: true,
+    id: 'fortin', dur: 8, zona: 'a4_fortin', ancla: anclaPuertaFortin, entra: 0.6, sale: 0.6, oscuridad: 0.86, hundir: 0.66, sinBruma: true, sinClima: ['fx_ventisca', 'fx_niebla'],
     omitir: (e) => sacrificada(e.heroe),
     preparar: (e) => despejarPies(e, 1.5, 2.5, 5),
     cam: [{ t: 0, x: 0.9, y: 1.1, alt: 40, zoom: 3, fy: 0.6 }, { t: 8, x: 0.6, y: 0.8, alt: 46, c: 'suave' }],
-    actores: [{ id: 'vigdis', tipo: 'sprite', sprite: 'vigdis', claves: [{ t: 0, x: 0, y: 0, dir: 'n' }, { t: 3.4, dir: 'ne' }, { t: 5.6, dir: 'n' }] }],
-    brasa: [{ t: 2.4, x: -12, y: -6, z: 260, k: 0.6, tam: 0.6 }, { t: 5.4, x: 6, y: -14, z: 260, k: 0.6, c: 'lineal' }],
+    actores: [{ id: 'vigdis', tipo: 'sprite', sprite: 'vigdis', claves: [{ t: 0, x: 0, y: 0, dir: 's' }, { t: 2.8, dir: 'e' }, { t: 5.8, dir: 'se' }] }],
+    brasa: [{ t: 3.0, x: -7, y: -1, z: 56, k: 0.75, tam: 0.6 }, { t: 6.4, x: 3, y: -9, z: 70, k: 0.75, c: 'lineal' }],
     focos: [{ de: 'vigdis', z: 30, r: 140 }],
     luces: [{ id: 'luna', color: [90, 120, 200], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 600, k: 0.32 }] }],
     sonidos: [{ t: 0, id: 'nana', cine: true }],
-    suelo: (e) => nievePiso(e, 6),
+    suelo: (e) => nievePiso(e, 15),
     mundo: (e, tl) => lampara(e, tl),
     textos: [L(4, 3.6, 7.6)],
   },
   {
     // el Fortín, Vigdis entregada: su tumba en la nieve junto a la puerta; la nieve se derrite alrededor de la piedra y sube vaho
-    id: 'tumba', dur: 8, zona: 'a4_fortin', ancla: anclaPuertaFortin, objetos: ['cem_lapida_cruz|intacta'], entra: 0.6, sale: 0.6, oscuridad: 0.86, hundir: 0.66, sinBruma: true,
+    id: 'tumba', dur: 8, zona: 'a4_fortin', ancla: anclaPuertaFortin, objetos: ['cem_lapida_cruz|intacta'], entra: 0.6, sale: 0.6, oscuridad: 0.86, hundir: 0.66, sinBruma: true, sinClima: ['fx_ventisca', 'fx_niebla'],
     omitir: (e) => !sacrificada(e.heroe),
     preparar: (e) => { despejarPies(e, 1.5, 2.5, 5); if (e.z && !e.z.objetos.some((o) => o.capa === 'cine')) e.z.objetos.push({ id: 'cem_lapida_cruz', v: 'intacta', cx: Math.floor(e.ax), cy: Math.floor(e.ay), hw: 0, hh: 0, bloquea: false, capa: 'cine' } as any); },
     cam: [{ t: 0, x: 1.0, y: 1.3, alt: 30, zoom: 3, fy: 0.6 }, { t: 8, x: 0.7, y: 1.0, alt: 36, c: 'suave' }],
-    brasa: [{ t: 2.4, x: -12, y: -6, z: 260, k: 0.6, tam: 0.6 }, { t: 5.4, x: 6, y: -14, z: 260, k: 0.6, c: 'lineal' }],
+    brasa: [{ t: 3.0, x: -7, y: -1, z: 56, k: 0.75, tam: 0.6 }, { t: 6.4, x: 3, y: -9, z: 70, k: 0.75, c: 'lineal' }],
     focos: [{ de: [0.3, 0.6], z: 10, r: 130 }],
     luces: [
       { id: 'luna', color: [120, 140, 190], claves: [{ t: 0, x: 0, y: 0, z: 400, r: 600, k: 0.2 }] },
       { id: 'tibia', color: [255, 190, 130], claves: [{ t: 0, x: 0.4, y: 0.8, z: 6, r: 90, k: 0.4 }] },
     ],
     sonidos: [{ t: 0, id: 'viento_nieve', cine: true, vol: 0.5 }],
-    suelo: (e) => nievePiso(e, 6),
+    suelo: (e) => nievePiso(e, 15),
     paso: (e, tl, dt) => { vez(e, 'charco', tl, 0, () => { if (e.j) e.j.manchas.push({ x: e.ax + 0.4, y: e.ay + 0.8, r: 0.9, rmax: 1.2, color: '#5a6270', t: 0, tipo: 'hielo', forma: 'charco', sem: 2 } as any); }); vahoEn(e, e.ax + 0.4, e.ay + 0.8, 2, 1, dt * 0.6, '#d8dde6'); },
     textos: [L(5, 3.6, 7.6)],
   },

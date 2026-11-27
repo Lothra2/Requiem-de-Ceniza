@@ -2,6 +2,7 @@
 // controlado (25 por segundo) a mp4 y arma una lámina con un cuadro por toma. Uso:
 //   node juego/herramientas/t1400_pelicula.cjs <etiqueta> [acto] [pc|pc1080|movil]
 //   LAMINA=1 solo la lámina (salta a cada toma), COSTO=1 la corre en tiempo real y mide lo que cuesta por cuadro,
+//   RATON=1 mueve el ratón al azar por la pantalla en cada cuadro (nada de la película puede cambiar con él),
 //   CLASE=, NIVEL=, MUESTRA=1 sin héroe (desde el menú, con el de muestra), BANDERAS=a,b=1.
 // Sale en /tmp/requiem-pruebas/cine2/<etiqueta>/. Las tomas que se omiten (`omitir`: una variante, el primer plano sin pintar) no
 // cuentan en el tiempo de la película. DECIDE=vigdis=sacrificar pone una decisión en el héroe y FINAL=destruir|absorber la Brasa elegida.
@@ -50,7 +51,7 @@ const VESTIR = `const O = window.__T.O; let u = 7000;
       if (process.env.SOLO && !process.env.SOLO.split(',').includes(id)) { t0 += dur; continue; }
       for (const k of [0.3, 0.62, 0.9]) {
         await p.evaluate((s) => window.__cineT(s - 0.5), t0 + dur * k);
-        for (let i = 0; i < 13; i++) await p.clock.runFor(40);
+        for (let i = 0; i < 13; i++) { if (process.env.RATON) await p.mouse.move(40 + Math.random() * (p.viewportSize().width - 80), 40 + Math.random() * (p.viewportSize().height - 80)); await p.clock.runFor(40); }
         const f = `${DIR}/f/${id}_${Math.round(k * 100)}.png`; await p.screenshot({ path: f }); fotos.push(f);
       }
       t0 += dur;
@@ -59,6 +60,7 @@ const VESTIR = `const O = window.__T.O; let u = 7000;
   } else {
     const n = Math.ceil(total * 25) + 10;
     for (let i = 0; i < n; i++) {
+      if (process.env.RATON) await p.mouse.move(40 + Math.random() * (p.viewportSize().width - 80), 40 + Math.random() * (p.viewportSize().height - 80));
       await p.clock.runFor(40);
       await p.screenshot({ path: `${DIR}/f/f${String(i).padStart(5, '0')}.jpg`, type: 'jpeg', quality: 90 });
       if (i % 100 === 0) console.log('cuadro', i, '/', n, JSON.stringify(await p.evaluate(() => [window.__estado(), window.__cineToma])));

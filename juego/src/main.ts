@@ -772,7 +772,7 @@ function paso(dt: number) {
         Sonido.efecto(r === 'absorber' ? 'rugido_jefe' : 'campana', { vol: 0.8 }); cine.t = pausa + 0.03;
       }
       else if (pausa !== null && cine.t < pausa - 0.05 && cine.t > 0.6 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter'))) { E.clicIzq = false; cine.t = pausa - 1.5; }
-      else if (pausa !== null && cine.t >= pausa - 0.05) { /* en la elección: los clics son de los botones */ }
+      else if (pausa !== null && cine.t >= pausa - 0.05) { /* en la elección: los clics son de los botones */ if (!E.tactil) dibujarCursor('senalar'); }
       else if (fin || (cine.t > 0.6 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
         E.clicIzq = false; const c = cine; cine = null; estado = j ? 'juego' : 'menu'; tEstado = 0;
         if (peli) { terminarPelicula(fin ? 2.5 : 0.5); soltarPelicula(); } else soltarCine(); c.despues();

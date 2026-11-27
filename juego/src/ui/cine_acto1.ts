@@ -16,7 +16,7 @@ export const anclaFachada = (z: Zona): [number, number] => { const sa = z.salida
 const anclaCampanario = (z: Zona): [number, number] => { const o = z.objetos.find((q) => q.id === 'acto_hito'); return o ? [o.cx + 0.5, o.cy + 0.5] : [z.W / 2, z.H / 3]; };
 /** El camino del páramo, un poco adentro de la puerta del este (la que viene del camposanto). */
 /** El camino del páramo, un poco adentro de la puerta del este (la que viene del camposanto). */
-const anclaCamino = (z: Zona): [number, number] => { const e = z.entradas.e ?? [z.W * 0.8, z.H / 2]; const q = libreCerca(z, e[0] - 22, e[1] + 4); return [q[0] + 0.5, q[1] + 0.5]; };
+export const anclaCamino = (z: Zona): [number, number] => { const e = z.entradas.e ?? [z.W * 0.8, z.H / 2]; const q = libreCerca(z, e[0] - 22, e[1] + 4); return [q[0] + 0.5, q[1] + 0.5]; };
 export const anclaCruz = (z: Zona): [number, number] => { const o = z.objetos.find((q) => q.id === 'acto_hito'); if (o) return [o.cx + 0.5, o.cy + 0.5]; const q = libreCerca(z, z.W / 2, z.H / 2); return [q[0] + 0.5, q[1] + 0.5]; };
 
 // ------------------------------------------------------------------ la catedral: lo que la tapa sale y los vitrales arden

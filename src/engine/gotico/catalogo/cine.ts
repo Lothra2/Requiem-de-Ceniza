@@ -1,4 +1,5 @@
 import { registrar, type Arma, type Pieza, type V3 } from '../objeto';
+import { corona, colocar } from './botin';
 
 // Piezas de las películas de cierre de acto (ui/cine_acto*.ts): no las pone ningún mapa, las pone la toma en su copia de la zona.
 
@@ -147,4 +148,23 @@ function barco(a: Arma) {
 registrar({
   id: 'cine_barco', nombre: ['Barco de Oyá', 'Oya\'s ship'], tema: 'cine' as any, variantes: ['varado'], huella: [2, 2], bloquea: false,
   armar: (_v, _f, a: Arma) => barco(a),
+});
+
+/**
+ * La Corona de Aun-Saar (acto 7): la de oro con sus seis puntas y sus gemas, sin el gorro, grande (como se ve a ×4 en la toma). Rueda
+ * de canto por el piso hacia +x (el eje del aro a lo largo de y, un poco echada): `r0`..`r7` es el giro sobre su eje en pasos de
+ * 7,5° (las seis puntas se repiten cada 60°: el bucle de ocho cuadros no salta); `t0`..`t3` se va echando al frenar (tambalea) y
+ * `echada` queda en el piso, apenas apoyada en las puntas.
+ */
+const S_CORONA = 2.6, R_CORONA = 3.2 * S_CORONA;
+function coronaCine(v: string): Pieza[] {
+  const echa: Record<string, number> = { t0: 62, t1: 48, t2: 30, t3: 14, echada: 5 };
+  const inc = v.startsWith('r') ? 74 : echa[v] ?? 74, giro = v.startsWith('r') ? +v.slice(1) * 7.5 : v === 'echada' ? 20 : 12 + (+v.slice(1) || 0) * 9;
+  const ps = corona(S_CORONA, 'bt_oro', ['bt_rubi', 'bt_rubi', 'bt_zafiro'], '');
+  // (el aro se apoya en el canto de abajo: su punto más bajo toca el piso)
+  return colocar(ps, [0, 0, R_CORONA * Math.sin((inc * Math.PI) / 180) + 0.6], giro, inc, 90);
+}
+registrar({
+  id: 'cine_corona', nombre: ['Corona de Aun-Saar', 'Crown of Aun-Saar'], tema: 'cine' as any, variantes: ['r0', 'r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7', 't0', 't1', 't2', 't3', 'echada'], huella: [1, 1], bloquea: false,
+  armar: (v) => coronaCine(v),
 });

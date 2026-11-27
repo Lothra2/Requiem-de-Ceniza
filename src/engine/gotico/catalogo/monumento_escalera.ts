@@ -34,11 +34,18 @@ M.mon_es_cascara = { rampa: ['#1a1208', '#2c200e', '#423016', '#5a421e', '#73562
 M.mon_es_nube = { rampa: ['#3a3630', '#55504a', '#726c64', '#918a80', '#b0a99e', '#cdc6ba', '#e6e0d4'], ruido: 0.5, escala: 0.04 };
 M.mon_es_canto = { rampa: ['#806a40', '#a89060', '#ccb684', '#e8d8ac', '#f8eed0'], ruido: 0.2, escala: 0.2, emite: true };
 M.mon_es_sombra = { rampa: ['#000000', '#030303', '#070605', '#0b0a08', '#100e0c'], ruido: 0.1, escala: 0.2 };
-const MA = 'mon_es_marmol', OR = 'mon_es_oro', OS = 'mon_es_oro_seco', LU = 'mon_es_luz', BL = 'mon_es_blanco';
+const MA = 'mon_es_marmol', OR0 = 'mon_es_oro', OS = 'mon_es_oro_seco', LU0 = 'mon_es_luz', BL0 = 'mon_es_blanco', OR = OR0, LU = LU0, BL = BL0;
+void LU; void BL;
 
 // ================================================================== la obra
-function armar(F: G, _v: string, f: number) {
-  const a = F.a, p = 0.5 + 0.5 * Math.sin((f / 4) * TAU);
+/** Cuánto se apagó la gloria en cada variante de la película del acto 7 (`cine_escalera`): el haz se adelgaza y se va, las losas
+ *  que flotaban caen al estrado, el oro se seca y la luz se apaga. La escalera del juego (`mon_escalera`) es la 0. */
+const APAGA: Record<string, number> = { v1: 0.28, v2: 0.52, v3: 0.76, apagada: 1 };
+const hA = (n: number) => { const v = Math.sin(n * 91.7 + 13.3) * 43758.5453; return v - Math.floor(v); };
+function armar(F: G, v: string, f: number) {
+  const a = F.a, p = 0.5 + 0.5 * Math.sin((f / 4) * TAU), u = APAGA[v] ?? 0;
+  // (apagándose: el oro vivo se seca y la luz deja de emitir; nada consume azar de más: las formas quedan donde estaban)
+  const OR = u > 0.6 ? OS : OR0, LU = u > 0.45 ? OS : LU0, BL = u > 0.7 ? MA : u > 0.35 ? LU0 : BL0;
   const UC = -64;
   // ------------------------------------------------------------ el estrado: tres gradas redondas de mármol con el oro derramado
   for (let i = 0; i < 3; i++) {
@@ -54,20 +61,23 @@ function armar(F: G, _v: string, f: number) {
     const t = Math.PI * 0.5 + 0.45 + (k / 7) * (TAU - 0.9), x = Math.cos(t) * 160, y = UC + Math.sin(t) * 160, rota = k === 4, h = rota ? 150 + a.r() * 40 : 330;
     bloque(F, x, y, 28, 40, 40, 14, { mat: MA, b: 1.4, j: 0.8 }); F.cil(x, y, 42, 17, 8, { mat: MA, r1: 15, tono: 0.04 });
     F.cil(x, y, 50, 14, h, { mat: MA, r1: 12 }); for (let j = 0; j < 10; j++) { const tt = (j / 10) * TAU; F.palo([x + Math.cos(tt) * 14, y + Math.sin(tt) * 14, 54], [x + Math.cos(tt) * 12, y + Math.sin(tt) * 12, 46 + h], 1.1, { mat: MA, resta: true }); }
-    if (!rota) { F.cil(x, y, 50 + h, 12, 18, { mat: OR, r1: 21 }); F.caja(x, y, 68 + h, 44, 44, 8, { mat: OR, tono: -0.05 }); F.cil(x, y, 76 + h, 10, 10, { mat: OR, r1: 16 }); for (let j = 0; j < 3; j++) llama(F, x + (a.r() - 0.5) * 8, y + (a.r() - 0.5) * 8, 86 + h, 5.4, 26 + a.r() * 8, f, 4, k * 3 + j, 'mon_es_blanco'); }
+    if (!rota) { F.cil(x, y, 50 + h, 12, 18, { mat: OR, r1: 21 }); F.caja(x, y, 68 + h, 44, 44, 8, { mat: OR, tono: -0.05 }); F.cil(x, y, 76 + h, 10, 10, { mat: OR, r1: 16 }); for (let j = 0; j < 3; j++) { const lx = x + (a.r() - 0.5) * 8, ly = y + (a.r() - 0.5) * 8, lh = 26 + a.r() * 8; if (u < 0.8) llama(F, lx, ly, 86 + h, 5.4 * (1 - u * 0.7), lh * (1 - u), f, 4, k * 3 + j, u > 0.4 ? 'mon_es_luz' : 'mon_es_blanco'); } }
     else { F.poli([[x - 14, y - 14, 50 + h], [x + 14, y - 14, 50 + h - 26], [x - 14, y + 14, 50 + h - 12], [x + 14, y + 14, 50 + h], [x, y, 50 + h + 20]], { mat: MA }); F.sub(x + 40, y + 24, 12, 30, 90, 'y').cil(0, 0, -50, 13, 100, { mat: MA }); }
   }
   // el pozo del haz: un anillo de oro en el centro del estrado
   F.cil(0, UC, 42, 62, 8, { mat: OR }); F.cil(0, UC, 44, 54, 8, { mat: BL, tono: 0.1 });
   // ------------------------------------------------------------ el haz de luz: el alma blanca angosta, hebras de luz y el polvo que sube
   const ZT = 600;
-  F.cil(0, UC, 48, 9, ZT - 30, { mat: BL, r1: 5, tono: 0.15 }); for (let k = 0; k < 9; k++) { const t = (k / 9) * TAU, rr = 18 + (k % 3) * 9; F.palo([Math.cos(t) * rr, UC + Math.sin(t) * rr, 50], [Math.cos(t + 0.4) * rr * 0.6, UC + Math.sin(t + 0.4) * rr * 0.6, ZT], 1.1 - (k % 3) * 0.2, { mat: LU, r1: 0.4, tono: 0.05 }); }
-  for (let k = 0; k < 60; k++) { const t = a.r() * TAU, rr = 10 + a.r() * 46, z = 60 + a.r() * ZT; F.esf(Math.cos(t) * rr, UC + Math.sin(t) * rr, z, 1.2 + a.r() * 1.8, { mat: k % 3 ? BL : OR, tono: 0.1 }); }
+  if (u < 0.9) F.cil(0, UC, 48, Math.max(1.2, 9 * (1 - u)), (ZT - 30) * (1 - u * 0.6), { mat: u > 0.5 ? LU0 : BL0, r1: Math.max(0.6, 5 * (1 - u)), tono: 0.15 - u * 0.5 }); for (let k = 0; k < 9; k++) { const t = (k / 9) * TAU, rr = 18 + (k % 3) * 9; if (k / 9 < u * 1.4) continue; F.palo([Math.cos(t) * rr, UC + Math.sin(t) * rr, 50], [Math.cos(t + 0.4) * rr * 0.6, UC + Math.sin(t + 0.4) * rr * 0.6, ZT], 1.1 - (k % 3) * 0.2, { mat: LU, r1: 0.4, tono: 0.05 }); }
+  for (let k = 0; k < 60; k++) { const t = a.r() * TAU, rr = 10 + a.r() * 46, z = 60 + a.r() * ZT; if (k / 60 < u) continue; F.esf(Math.cos(t) * rr, UC + Math.sin(t) * rr, z, 1.2 + a.r() * 1.8, { mat: k % 3 ? BL : OR, tono: 0.1 }); }
   // ------------------------------------------------------------ la escalera de caracol: losas grandes de mármol que flotan sueltas
   const NS = 40, VUELTAS = 1.9, T0 = Math.PI * 0.55;
   for (let i = 0; i < NS; i++) {
-    const q = i / NS, t = T0 + q * VUELTAS * TAU, z = 60 + q * ZT, R = 150 - q * 30, x = Math.cos(t) * R, y = UC + Math.sin(t) * R;
-    const g = F.sub(x, y, z, (t * 180) / Math.PI + 90, (a.r() - 0.5) * 6);
+    const q = i / NS, t = T0 + q * VUELTAS * TAU, R0 = 150 - q * 30;
+    // (al apagarse cae: cada losa a su hora, de arriba primero, y queda echada sobre las gradas, ladeada y corrida hacia afuera)
+    const cae = Math.min(1, Math.max(0, (u - (1 - q) * 0.55 - hA(i) * 0.15) / 0.3)), R = R0 + cae * (20 + hA(i + 7) * 40);
+    const z = 60 + q * ZT + (R > 152 ? 14 : R > 122 ? 28 : 42) * cae * cae - (60 + q * ZT) * cae * cae + 8 * cae * cae, x = Math.cos(t) * R, y = UC + Math.sin(t) * R;
+    const g = F.sub(x, y, z, (t * 180) / Math.PI + 90 + cae * (hA(i + 3) - 0.5) * 70, (a.r() - 0.5) * 6 + cae * (hA(i + 5) - 0.5) * 50);
     // la losa: gruesa, de cantos rotos (un trozo arrancado de un lado), el canto de oro y el nombre grabado (la última en blanco)
     bloque(g, 0, 0, -16, 78, 38, 16, { mat: MA, b: 2.4, j: 1.6, tono: (a.r() - 0.5) * 0.06 });
     if (i % 3 === 1) g.poli([[30, -20, -18], [40, -20, -18], [30, 20, -18], [40, 20, -18], [36, -20, 1], [40, -20, 1], [26, 20, 1], [40, 20, 1]], { mat: MA, resta: true });
@@ -77,11 +87,11 @@ function armar(F: G, _v: string, f: number) {
     g.poli([[-20, -12, -16], [20, -12, -16], [-20, 12, -16], [20, 12, -16], [(a.r() - 0.5) * 10, (a.r() - 0.5) * 6, -44 - (i % 3) * 10]], { mat: MA, tono: -0.12 });
     if (i % 4 === 0) g.palo([-22, 8, -16], [-22, 8, -40 - a.r() * 20], 2, { mat: OS, r1: 0.6 });
     // la luz del haz que pega en la cara de adentro de la losa
-    g.caja(0, -19.2, -12, 70, 0.8, 10, { mat: LU, tono: -0.4 });
-    if (i % 7 === 3) { g.cil(14, 0, 0, 1.6, 7, { mat: 'cera', tono: -0.3 }); llama(g, 14, 0, 7, 1.2, 3.4, f, 4, i, 'mon_es_luz'); }
+    if (cae <= 0) g.caja(0, -19.2, -12, 70, 0.8, 10, { mat: LU, tono: -0.4 });
+    if (i % 7 === 3 && u < 0.3) { g.cil(14, 0, 0, 1.6, 7, { mat: 'cera', tono: -0.3 }); llama(g, 14, 0, 7, 1.2, 3.4, f, 4, i, 'mon_es_luz'); }
   }
   // losas sueltas fuera de la espiral, que se soltaron y flotan a la deriva, y las que cayeron al estrado
-  for (let k = 0; k < 9; k++) { const t = 0.3 + k * 0.7 + a.r() * 0.3, R = 210 + a.r() * 50, z = 140 + a.r() * 400, g = F.sub(Math.cos(t) * R * 0.85, UC + Math.sin(t) * R * 0.75, z, a.r() * 360, 20 + a.r() * 70, k % 2 ? 'x' : 'y'); bloque(g, 0, 0, -10, 64, 32, 16, { mat: MA, b: 2.4, j: 1.6, tono: -0.02 }); g.poli([[24, -17, -11], [33, -17, -11], [24, 17, -11], [33, 17, -11], [30, -17, 7], [33, -17, 7], [18, 17, 7], [33, 17, 7]], { mat: MA, resta: true }); g.caja(0, 16.4, -9, 64, 1, 4, { mat: OR, tono: -0.05 }); g.poli([[-16, -10, -10], [16, -10, -10], [-16, 10, -10], [16, 10, -10], [(a.r() - 0.5) * 8, 0, -34]], { mat: MA, tono: -0.12 }); }
+  for (let k = 0; k < 9; k++) { const t = 0.3 + k * 0.7 + a.r() * 0.3, R = 210 + a.r() * 50, z0 = 140 + a.r() * 400, cae = Math.min(1, Math.max(0, (u - hA(k + 50) * 0.5) / 0.35)), z = z0 + (12 - z0) * cae * cae, g = F.sub(Math.cos(t) * R * 0.85, UC + Math.sin(t) * R * 0.75, z, a.r() * 360, 20 + a.r() * 70, k % 2 ? 'x' : 'y'); bloque(g, 0, 0, -10, 64, 32, 16, { mat: MA, b: 2.4, j: 1.6, tono: -0.02 }); g.poli([[24, -17, -11], [33, -17, -11], [24, 17, -11], [33, 17, -11], [30, -17, 7], [33, -17, 7], [18, 17, 7], [33, 17, 7]], { mat: MA, resta: true }); g.caja(0, 16.4, -9, 64, 1, 4, { mat: OR, tono: -0.05 }); g.poli([[-16, -10, -10], [16, -10, -10], [-16, 10, -10], [16, 10, -10], [(a.r() - 0.5) * 8, 0, -34]], { mat: MA, tono: -0.12 }); }
   for (let k = 0; k < 6; k++) { const t = -1.6 + k * 0.5 + a.r() * 0.2, R = 100 + a.r() * 40, g = F.sub(Math.cos(t) * R, UC + Math.sin(t) * R, 42, a.r() * 180, (a.r() - 0.5) * 30); bloque(g, 0, 0, -4, 70, 34, 14, { mat: MA, b: 2.4, j: 1.6, tono: -0.06 }); }
   // ------------------------------------------------------------ arriba: el anillo de oro macizo partido, la raja del cielo con sus nubes
   // y el Trono Sediento que se adivina en contraluz
@@ -94,10 +104,10 @@ function armar(F: G, _v: string, f: number) {
     for (let k = 0; k < 7; k++) { const x = RH * Math.cos(0.1) + (a.r() - 0.5) * 30, z = ZH - 50 - k * 70, s = 12 - k; F.poli([[x - s, UC - s, z], [x + s, UC - s, z + 4], [x - s, UC + s, z + 2], [x + s, UC + s, z], [x, UC, z + s * 1.6], [x + 2, UC + 2, z - s]], { mat: OR, tono: -0.05 }); }
     // la raja: la luz que sale. Detrás, la gloria (capas que se abren y se apagan hacia afuera); encima la herida en zigzag con el
     // alma blanca encendida, y los rayos que salen de ella hasta romper el borde del anillo
-    for (let k = 0; k < 5; k++) F.sub(0, UC - 150 - k * 10, ZH - 10, 0, 90, 'x').cil(0, 0, 0, 30 + k * 30, 3, { mat: k < 2 ? BL : LU, tono: 0.3 - k * 0.12 });
+    for (let k = 0; k < 5; k++) { if (k >= 5 * (1 - u * 0.8)) continue; F.sub(0, UC - 150 - k * 10, ZH - 10, 0, 90, 'x').cil(0, 0, 0, (30 + k * 30) * (1 - u * 0.5), 3, { mat: k < 2 ? BL : LU, tono: 0.3 - k * 0.12 - u * 0.3 }); }
     { const pts: [number, number][] = [[-6, -150], [16, -105], [-14, -60], [12, -10], [-16, 40], [10, 95], [-8, 140], [4, 180]];
       for (let k = 0; k < pts.length - 1; k++) { const [x0, z0] = pts[k], [x1, z1] = pts[k + 1], w0 = 3 + 14 * Math.sin((k / (pts.length - 1)) * Math.PI), w1 = 3 + 14 * Math.sin(((k + 1) / (pts.length - 1)) * Math.PI); F.palo([x0, UC - 130, ZH + z0], [x1, UC - 130, ZH + z1], w0 * 1.5, { mat: LU, r1: w1 * 1.5, tono: 0.05 }); F.palo([x0, UC - 100, ZH + z0], [x1, UC - 100, ZH + z1], w0 * 0.7, { mat: BL, r1: w1 * 0.7, tono: 0.25 }); }
-      for (let k = 0; k < 16; k++) { const t = (k / 16) * TAU + 0.1, L = RH + 30 + (k % 3) * 26; F.palo([Math.cos(t) * 20, UC - 140, ZH + Math.sin(t) * 30], [Math.cos(t) * L, UC - 140 - (k % 2) * 20, ZH + Math.sin(t) * L * 0.8], 3 - (k % 3) * 0.7, { mat: k % 2 ? BL : LU, r1: 0.3, tono: 0.1 }); } }
+      for (let k = 0; k < 16; k++) { const t = (k / 16) * TAU + 0.1, L = (RH + 30 + (k % 3) * 26) * (1 - u * 0.6); if (hA(k + 90) < u) continue; F.palo([Math.cos(t) * 20, UC - 140, ZH + Math.sin(t) * 30], [Math.cos(t) * L, UC - 140 - (k % 2) * 20, ZH + Math.sin(t) * L * 0.8], 3 - (k % 3) * 0.7, { mat: k % 2 ? BL : LU, r1: 0.3, tono: 0.1 }); } }
     // el trono a contraluz, en el centro del anillo y más arriba que el alma del haz, girado en tres cuartos: patas finas con el hueco
     // debajo del asiento, el asiento con su grosor, los brazos que salen hacia adelante con garras, el respaldo alto, apuntado y
     // algo curvo, y siete púas de alturas distintas (la del medio más alta); el canto de oro pálido en todo el contorno
@@ -137,12 +147,20 @@ function armar(F: G, _v: string, f: number) {
     letras(F.sub(0, UF + 0.3, 0), -RA, RA, 0, 46, 1, OR, 4.6, 1.6);
   }
   cascotes(F, 10, 120, 30, MA, 0, 160, 3);
+  if (u >= 0.95) return {};
   return {
-    der: { c: [0, UF - 20, 60] as V3, r: 60 + p * 8, color: '#c8a868' },
-    medio: { c: [0, UC, 300] as V3, r: 150 + p * 20, color: '#ffe8a0' },
-    atras: { c: [0, UC, 740] as V3, r: 140 + p * 20, color: '#fff0c0' },
+    der: { c: [0, UF - 20, 60] as V3, r: (60 + p * 8) * (1 - u), color: '#c8a868' },
+    medio: { c: [0, UC, 300] as V3, r: (150 + p * 20) * (1 - u), color: '#ffe8a0' },
+    atras: { c: [0, UC, 740] as V3, r: (140 + p * 20) * (1 - u), color: '#fff0c0' },
   };
 }
+// la de la película del acto 7: la misma escalera apagándose (v1, v2, v3 y apagada; ui/cine_acto7.ts las funde una sobre otra)
+const PIEZAS_ESC = [{ fr: 'atras', dx: -16, dy: -16, w: 12, h: 12 }, { fr: 'atras_i', dx: -16, dy: 0, w: 12, h: 20 }, { fr: 'atras_d', dx: 0, dy: -16, w: 20, h: 12 }, { fr: 'medio', dx: 0, dy: 0, w: 20, h: 20 }, { fr: 'izq', dx: 0, dy: 12, w: 20, h: 4 }, { fr: 'der', dx: 12, dy: 0, w: 4, h: 20 }];
+registrarMonumento({
+  id: 'cine_escalera', nombre: ['La Escalera al Trono, apagada', 'The Stair to the Throne, dimmed'], tema: 'cine' as any, cuadros: 1, variantes: ['v1', 'v2', 'v3', 'apagada'],
+  piezas: PIEZAS_ESC, puerta: [10, 10],
+  armar: (F, v, f) => { const r = armar(F, v, f); const o: Record<string, { c: V3; r: number; color: string }> = {}; for (const [k, l] of Object.entries(r)) { const [x, y] = deAvenida(l.c[0], l.c[1]); o[k] = { ...l, c: [x, y, l.c[2]] }; } return o; },
+});
 registrarMonumento({
   id: 'mon_escalera', nombre: ['La Escalera al Trono', 'The Stair to the Throne'], tema: 'celestial', cuadros: 1,
   piezas: [{ fr: 'atras', dx: -16, dy: -16, w: 12, h: 12 }, { fr: 'atras_i', dx: -16, dy: 0, w: 12, h: 20 }, { fr: 'atras_d', dx: 0, dy: -16, w: 20, h: 12 }, { fr: 'medio', dx: 0, dy: 0, w: 20, h: 20 }, { fr: 'izq', dx: 0, dy: 12, w: 20, h: 4 }, { fr: 'der', dx: 12, dy: 0, w: 4, h: 20 }],

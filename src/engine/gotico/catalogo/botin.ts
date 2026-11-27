@@ -254,7 +254,7 @@ function caliz(s: number, gemaMat = 'bt_rubi', mat = 'bt_oro', vino: boolean | '
   for (let i = 0; i < 4; i++) { const t = (i / 4) * Math.PI * 2 + Math.PI / 4; ps.push(esfera(Math.cos(t) * 2.2 * s, Math.sin(t) * 2.2 * s, 6.6 * s, 0.5 * s, { mat: gemaMat })); }
   return ps;
 }
-function corona(s: number, mat = 'bt_oro', gemas = ['bt_rubi', 'bt_zafiro', 'bt_esmeralda'], gorro = 'bt_terciopelo'): Pieza[] {
+export function corona(s: number, mat = 'bt_oro', gemas = ['bt_rubi', 'bt_zafiro', 'bt_esmeralda'], gorro = 'bt_terciopelo'): Pieza[] {
   const ps: Pieza[] = [], R = 3.2 * s, n = 14;
   if (gorro) ps.push(elipsoide(0, 0, 1.4 * s, R * 0.86, R * 0.86, 2.6 * s, { mat: gorro }));
   for (let i = 0; i < n; i++) { const t = (i / n) * Math.PI * 2; ps.push(caja(Math.cos(t) * R, Math.sin(t) * R, 0, 0.8 * s, 2 * R * Math.sin(Math.PI / n) + 0.2, 1.9 * s, { mat, giro: (t * 180) / Math.PI, tono: 0.04 })); }
@@ -283,7 +283,7 @@ function jarron(s: number, mat = 'bt_oro'): Pieza[] {
   }
   return ps;
 }
-const colocar = (ps: Pieza[], pos: V3, giro = 0, inc = 0, rumboInc = 0) => transformar(ps, mulMM(rotM([0, 0, 1], rumboInc), mulMM(rotM([0, 1, 0], inc), rotM([0, 0, 1], giro - rumboInc))), pos);
+export const colocar = (ps: Pieza[], pos: V3, giro = 0, inc = 0, rumboInc = 0) => transformar(ps, mulMM(rotM([0, 0, 1], rumboInc), mulMM(rotM([0, 1, 0], inc), rotM([0, 0, 1], giro - rumboInc))), pos);
 
 // ------------------------------------------------------------------ cofres
 interface Ctx { L: number; W: number; H: number; z0: number; zt: number; R: (k: number) => () => number; f: number; fase: Fase; seed: number }

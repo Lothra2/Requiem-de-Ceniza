@@ -36,6 +36,20 @@ export const MONSTRUOS_EXTRA: MonstruoExtra[] = [
     cuerpo: { oseo: true, alto: 1.6, ancho: 1.3, piel: 'cu_hueso', ojos: 'cu_ojo_hielo' },
     equipo: { torso: { tipo: 'placas', mat: 'cu_placa', mat2: 'cu_ojo_hielo' }, hombros: { tipo: 'puas', mat: 'cu_ojo_hielo' }, cabeza: { tipo: 'corona', mat: 'cu_placa', mat2: 'cu_ojo_hielo' }, capa: { mat: 'cu_tela_azul' }, arma: { tipo: 'mandoble', mat: 'cu_ojo_hielo' } } },
   // Acto 5: la Herida (infierno)
+  // ---- las películas de los finales (ui/cine_acto7.ts): cuerpos que no salen en el juego, solo quieto y caminar (y lanzar si hay
+  // magia). Se hornean solos: `RELIEVE=1 ACCS=quieto,caminar,lanzar SOLO=cine_auren,... GRUPOS=m`.
+  // Auren sin las alas, con el manto oscuro sobre su oro y su blanco, y la Corona envuelta en tela en los brazos (el libro de tela)
+  { id: 'cine_auren', nombre: ['Auren', 'Auren'], cuerpo: { genero: 'h', alto: 1.1, piel: 'cu_piel_clara', pelo: 'cu_pelo_blanco', peinado: 'largo', ojos: 'cu_ojo_hielo', musculo: 0.3 },
+    equipo: { torso: { tipo: 'placas', mat: 'cu_oro', mat2: 'cu_tela_blanca' }, piernas: { tipo: 'tunica_larga', mat: 'cu_tela_blanca' }, hombros: { tipo: 'placas', mat: 'cu_oro' }, capa: { mat: 'cu_tela_negra' }, izq: { tipo: 'libro', mat: 'cu_tela_negra' } } },
+  // un monje de Santa Oria: hábito pardo oscuro con capucha, cordón y una vela encendida en la mano
+  { id: 'cine_monje', nombre: ['Monje', 'Monk'], cuerpo: { genero: 'h', piel: 'cu_piel_clara', ojos: 'cu_ojo', musculo: 0.15, peinado: 'calvo', joroba: 0.15 },
+    equipo: { torso: { tipo: 'tunica', mat: 'cu_tela_parda' }, piernas: { tipo: 'tunica_larga', mat: 'cu_tela_parda' }, cabeza: { tipo: 'capucha', mat: 'cu_tela_parda' }, cinturon: { mat: 'cuerda' }, izq: { tipo: 'antorcha' } } },
+  // Vigdis con su lámpara (la del Paso del Glaciar)
+  { id: 'cine_vigdis', nombre: ['Vigdis', 'Vigdis'], cuerpo: { genero: 'm', piel: 'cu_piel_clara', pelo: 'cu_pelo_blanco', peinado: 'largo', musculo: 0.2 },
+    equipo: { torso: { tipo: 'vestido', mat: 'cu_tela_azul' }, hombros: { tipo: 'pieles', mat: 'cu_pelaje' }, cinturon: { mat: 'cu_cuero' }, izq: { tipo: 'antorcha' } } },
+  // Mira (levanta la Corona: lanzar)
+  { id: 'cine_mira', nombre: ['Mira', 'Mira'], magia: true, cuerpo: { genero: 'm', piel: 'cu_piel_morena', pelo: 'cu_pelo_castano', peinado: 'cola', musculo: 0.1 },
+    equipo: { torso: { tipo: 'vestido', mat: 'cu_tela_morada' }, cabeza: { tipo: 'aro', mat: 'cu_oro' }, cinturon: { mat: 'cu_cuero', hebilla: 'cu_oro' } } },
 ];
 
 /** El equipo con que arranca cada clase: el nivel novato del motor. */

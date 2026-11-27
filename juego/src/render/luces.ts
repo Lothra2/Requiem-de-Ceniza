@@ -118,8 +118,10 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     tapan.push({ x0: px - q.ax + q.w * 0.1, y0: py - q.ay, x1: px - q.ax + q.w * 0.9, y1: py - q.ay + q.h * 0.85, prof: p.cx + p.cy });
   }
   const tapada = (o: { cx: number; cy: number }, x: number, y: number) => tapan.some((t) => o.cx + o.cy < t.prof - 2 && x > t.x0 && x < t.x1 && y > t.y0 && y < t.y1);
-  // fuegos y objetos que alumbran
+  // fuegos y objetos que alumbran (una toma de película puede bajarlos: `lucesZona` en ui/director.ts)
+  const kZona = (j as any).lucesZonaCine ?? 1;
   for (const o of z.objetos) {
+    if (kZona <= 0.01) break;
     const meta = objetoMeta(o.id, o.v); if (!meta || !meta.luz) continue;
     // ríos de lava: un tramo de cada dos alumbra (la luz es grande y se solapa); igual se ve continuo
     if (/rio_lava/.test(o.id) && (Math.floor(o.cx / 5) + Math.floor(o.cy / 5)) % 2) continue;
@@ -128,13 +130,13 @@ export function recolectar(j: Juego, t: number, aPant: (x: number, y: number) =>
     // fuego de Doom vivo: la luz late con la llama de verdad (y sus sombras tiemblan con ella)
     const vs = vivosDe(o);
     if (vs) {
-      vs.forEach((v, i) => { const lz = v.s.luz; L.push({ x: px + lz.dx, y: py, h: lz.altura, r: lz.radio, c: v.luz, k: lz.intensidad * pulsoLuz(v.f, lz.mueve).k, id: `o${o.cx},${o.cy}${i ? ',' + i : ''}`, sinSombra: !lz.sombra }); });
+      vs.forEach((v, i) => { const lz = v.s.luz; L.push({ x: px + lz.dx, y: py, h: lz.altura, r: lz.radio, c: v.luz, k: lz.intensidad * pulsoLuz(v.f, lz.mueve).k * kZona, id: `o${o.cx},${o.cy}${i ? ',' + i : ''}`, sinSombra: !lz.sombra }); });
       continue;
     }
     const lc: any = meta.luz[1];
     const c: [number, number, number] = Array.isArray(lc) ? [lc[0], lc[1], lc[2]] : String(lc).includes(',') ? (String(lc).split(',').map(Number) as any) : [255, 150, 60];
     const r = Math.min(260, meta.luz[0] * 1.3) * (0.93 + Math.sin(t * 9 + o.cx) * 0.04 + R() * 0.03);
-    L.push({ x: px, y: py, h: Math.max(20, meta.luz[2] * 1.2), r, c, k: 0.9, id: `o${o.cx},${o.cy}` });
+    L.push({ x: px, y: py, h: Math.max(20, meta.luz[2] * 1.2), r, c, k: 0.9 * kZona, id: `o${o.cx},${o.cy}` });
   }
   // (entrega 6) la losa de púas: su barrido de luz fría (puas.ts), para que se vea venir también en lo oscuro
   if (!(window as any).__puasMudas && !(window as any).__puasViejas) for (const o of trampasPuas(z)) {

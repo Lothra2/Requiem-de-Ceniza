@@ -90,6 +90,10 @@ export interface Toma {
   filo?: number;
   /** Lo que no cabe en claves: se llama cada cuadro con el estado de la toma. */
   paso?: (e: EstadoToma, tl: number, dt: number) => void;
+  /** Cuánto alumbra la brasa el mundo en esta toma (1 la de siempre): junto a una cara pálida la tiñe de rosado. */
+  luzBrasa?: number;
+  /** Cuánto alumbran los fuegos y faroles de la zona (1 lo de siempre): un farol tibio al lado tiñe de rosado lo pálido. */
+  lucesZona?: number;
   /** La película se queda quieta al final de esta toma hasta que main.ts la suelta (la elección de la revelación, ver `pausaEn`). */
   pausa?: boolean;
   /** Lo plano del piso de la toma (huellas): se pinta con las manchas, debajo de todo lo que está de pie. */
@@ -203,7 +207,7 @@ function montar(i: number): EstadoToma | null {
   const actores = new Map<string, any>();
   if (j && z) {
     j.monstruos = []; j.particulas = []; j.efectos = []; j.manchas = []; j.numeros = []; j.proyectiles = []; j.areas = [];
-    (j as any).lucesCine = []; j.heroe.x = -500; j.heroe.y = -500; j.sacudida = 0;
+    (j as any).lucesCine = []; (j as any).lucesZonaCine = tm.lucesZona; j.heroe.x = -500; j.heroe.y = -500; j.sacudida = 0;
     z.oscuridad = tm.oscuridad ?? (ZONAS[z.id].oscuridad ?? z.oscuridad);
     for (const a of tm.actores ?? []) {
       if (a.tipo === 'heroe') { actores.set(a.id, j.heroe); continue; }
@@ -261,7 +265,7 @@ function moverLuces(e: EstadoToma, tl: number) {
   }
   // la brasa alumbra donde va, con sombra
   const b = brasaEn(e, tl);
-  if (b && b.k > 0.02) L.push({ id: 'brasa', x: b.x, y: b.y, z: b.z, r: 150 + 120 * b.k * (b.tam ?? 1), c: [255, 70, 30], k: Math.min(1, 0.45 + 0.6 * b.k) * (0.88 + 0.12 * Math.sin(tl * 17)), sinSombra: false });
+  if (b && b.k > 0.02) L.push({ id: 'brasa', x: b.x, y: b.y, z: b.z, r: 150 + 120 * b.k * (b.tam ?? 1), c: [255, 70, 30], k: Math.min(1, 0.45 + 0.6 * b.k) * (e.toma.luzBrasa ?? 1) * (0.88 + 0.12 * Math.sin(tl * 17)), sinSombra: false });
   (e.j as any).lucesCine = L;
 }
 export function brasaEn(e: EstadoToma, tl: number) {
@@ -430,7 +434,7 @@ function dibujarPeli(g: Guion, d: DatosHeroe, t: number): boolean {
   if (kS < 1) { ctx.save(); ctx.globalAlpha = 1 - kS; ctx.fillStyle = tm.colorSale ?? '#000'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
   franjas();
   for (const tx of tm.textos ?? []) dibujarTexto(tx, tl);
-  if (t > 1.2) pistaSaltar();
+  if (t > 1.2 && !tm.pausa) pistaSaltar();
   (window as any).__cineToma = { id: tm.id, i, tl };
   return false;
 }

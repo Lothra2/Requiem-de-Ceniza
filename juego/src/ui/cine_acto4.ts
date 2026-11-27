@@ -104,32 +104,47 @@ function nievePiso(e: EstadoToma, r: number) {
   ctx.restore();
 }
 /**
- * La raja del cielo sobre la Herida: una grieta roja quebrada que cruza lo alto del cuadro de lado a lado, con su resplandor,
- * humo que entra en ella y una luz roja que baja hasta la boca de la Fragua. En el pase del mundo, en lo alto de la pantalla.
+ * La raja del cielo sobre la Herida: una boca roja abierta en lo alto del cuadro, ancha en el medio y en punta a los lados, con los
+ * labios quebrados, grietas que salen de las comisuras, su resplandor, humo que entra en ella y una luz roja que baja hasta la boca de la Fragua. En el pase del mundo, en lo alto de la pantalla.
  */
 function rajaCielo(e: EstadoToma, tl: number) {
   const m = ctx.getTransform(), inv = m.inverse(), a = inv.transformPoint(new DOMPoint(0, 0)), b = inv.transformPoint(new DOMPoint(ctx.canvas.width, ctx.canvas.height));
   const x0 = a.x, x1 = b.x, alto = b.y - a.y, y0 = a.y + alto * 0.2, ancho = x1 - x0, lat = 0.85 + 0.15 * Math.sin(tl * 2.3);
-  // (quebrada: tramos de largo y ángulo dispar, siempre los mismos)
-  const pts: [number, number][] = []; let y = y0, x = x0 - 8, k = 0;
-  while (x <= x1 + 8) { pts.push([x, y]); const r1 = Math.sin(k * 91.7) * 0.5 + 0.5, r2 = Math.sin(k * 37.3 + 2) * 0.5 + 0.5; x += 8 + r1 * 22; y += (r2 - 0.5) * 44 + (y0 - y) * 0.4; k++; }
-  // el cielo: lo alto del cuadro se oscurece hacia la noche, para que la raja se lea en el cielo
-  { ctx.save(); const gc = ctx.createLinearGradient(0, a.y, 0, a.y + alto * 0.42); gc.addColorStop(0, 'rgba(6,2,2,1)'); gc.addColorStop(0.6, 'rgba(10,3,3,0.85)'); gc.addColorStop(1, 'rgba(10,3,3,0)'); ctx.fillStyle = gc; ctx.fillRect(x0, a.y, ancho, alto * 0.42); ctx.restore(); }
+  // la raja: una boca abierta en el cielo, ancha en el medio y que se cierra en punta hacia los lados (no de lado a lado), con
+  //  los labios quebrados y unas grietas que salen de las comisuras; respira apenas (la boca que no termina de gritar)
+  const cx = x0 + ancho * 0.5, mitad = ancho * 0.31, abre = 0.9 + 0.1 * Math.sin(tl * 1.7), hMax = Math.max(12, alto * 0.08);
+  const hash = (n: number) => { const v = Math.sin(n * 127.1 + 311.7) * 43758.5453; return v - Math.floor(v); };
+  const filo = (i: number, k: number) => { const a0 = Math.floor(i / 5), f = (i % 5) / 5; return (hash(a0 * 7 + k) * (1 - f) + hash(a0 * 7 + 7 + k) * f) * 0.55 + hash(i * 3 + k) * 0.18; };
+  { ctx.save(); const gc = ctx.createLinearGradient(0, a.y, 0, a.y + alto * 0.45); gc.addColorStop(0, 'rgba(6,2,2,1)'); gc.addColorStop(0.6, 'rgba(10,3,3,0.85)'); gc.addColorStop(1, 'rgba(10,3,3,0)'); ctx.fillStyle = gc; ctx.fillRect(x0, a.y, ancho, alto * 0.45); ctx.restore(); }
   ctx.save(); ctx.imageSmoothingEnabled = false;
-  // el resplandor (es luz: blando)
+  // el resplandor (es luz: blando) y la luz que baja hasta la boca de la Fragua
   ctx.globalCompositeOperation = 'lighter';
-  const g = ctx.createLinearGradient(0, y0 - 60, 0, y0 + 60); g.addColorStop(0, 'rgba(255,40,20,0)'); g.addColorStop(0.5, `rgba(255,60,20,${0.5 * lat})`); g.addColorStop(1, 'rgba(255,40,20,0)');
-  ctx.fillStyle = g; ctx.fillRect(x0, y0 - 60, ancho, 120);
-  // la luz que baja hasta la boca
+  const g = ctx.createRadialGradient(cx, y0, 0, cx, y0, mitad * 1.1); g.addColorStop(0, `rgba(255,70,24,${0.55 * lat})`); g.addColorStop(0.5, `rgba(200,30,12,${0.22 * lat})`); g.addColorStop(1, 'rgba(160,20,10,0)');
+  ctx.save(); ctx.translate(cx, y0); ctx.scale(1, 0.32); ctx.translate(-cx, -y0); ctx.fillStyle = g; ctx.fillRect(cx - mitad * 1.1, y0 - mitad * 1.1, mitad * 2.2, mitad * 2.2); ctx.restore();
   const [bx, by] = aPant(e.ax, e.ay), gb = ctx.createLinearGradient(0, y0, 0, by);
-  gb.addColorStop(0, `rgba(255,50,20,${0.28 * lat})`); gb.addColorStop(1, 'rgba(255,50,20,0.04)');
-  ctx.fillStyle = gb; ctx.beginPath(); ctx.moveTo(bx - 30, y0); ctx.lineTo(bx + 30, y0); ctx.lineTo(bx + 70, by); ctx.lineTo(bx - 70, by); ctx.closePath(); ctx.fill();
+  gb.addColorStop(0, `rgba(255,50,20,${0.26 * lat})`); gb.addColorStop(1, 'rgba(255,50,20,0.03)');
+  ctx.fillStyle = gb; ctx.beginPath(); ctx.moveTo(cx - mitad * 0.3, y0); ctx.lineTo(cx + mitad * 0.3, y0); ctx.lineTo(bx + 70, by); ctx.lineTo(bx - 70, by); ctx.closePath(); ctx.fill();
   ctx.globalCompositeOperation = 'source-over';
-  // la grieta: borde oscuro, carne roja y el alma clara, a pixel
-  const linea = (w: number, col: string, dy: number) => { ctx.fillStyle = col; for (let i = 1; i < pts.length; i++) { const [ax, ay] = pts[i - 1], [cx2, cy2] = pts[i]; for (let s = 0; s <= 6; s++) { const u = s / 6; ctx.fillRect(Math.round(ax + (cx2 - ax) * u - w / 2), Math.round(ay + (cy2 - ay) * u - w / 2 + dy), w, w); } } };
-  linea(9, '#1a0202', 0); linea(6, '#a01810', 0); linea(3, '#ff7038', 0); linea(1, '#ffe0a0', 0);
-  for (let i = 2; i < pts.length; i += 5) { const [px, py] = pts[i]; for (let s = 0; s < 8; s++) { ctx.fillStyle = s < 4 ? '#a01810' : '#5a0806'; ctx.fillRect(Math.round(px + Math.sin(i + s) * s * 0.8), Math.round(py + (i % 2 ? s : -s) * 1.5), 2, 2); } }
+  // la boca, columna a columna: labio oscuro, carne, fuego y el alma al blanco en el medio
+  const n = Math.round(mitad * 2), x00 = Math.round(cx - mitad);
+  for (let i = 0; i <= n; i++) {
+    const u = i / n, forma = Math.pow(Math.sin(Math.PI * u), 0.6), inc = (u - 0.5) * hMax * 0.9; // (un poco inclinada)
+    const hA = hMax * forma * abre * (0.62 + filo(i, 1)), hB = hMax * forma * abre * (0.5 + filo(i, 2)) * 0.8;
+    const X = x00 + i, Y = y0 + inc;
+    const banda = (h0: number, h1: number, col: string) => { if (h1 - h0 < 0.5) return; ctx.fillStyle = col; ctx.fillRect(X, Math.round(Y - h1), 1, Math.max(1, Math.round(h1 - h0))); ctx.fillRect(X, Math.round(Y + h0 * 0.8), 1, Math.max(1, Math.round((h1 - h0) * 0.8))); };
+    const H1 = Math.max(hA, hB);
+    banda(H1 * 0.0, H1 + 2, '#140101'); banda(0, H1, '#6a0a06'); banda(0, H1 * 0.72, '#b81c0e'); banda(0, H1 * 0.42, '#f05a22');
+    if (H1 > 3) { ctx.fillStyle = '#ffd890'; ctx.fillRect(X, Math.round(Y - H1 * 0.14), 1, Math.max(1, Math.round(H1 * 0.22))); }
+  }
+  // las grietas que salen de las comisuras y de los labios (quebradas, oscuras con el borde rojo)
+  for (let r = 0; r < 9; r++) {
+    const lado = r % 2 ? 1 : -1, ui = r < 4 ? (lado > 0 ? 0.98 : 0.02) : 0.2 + hash(r) * 0.6;
+    let x = x00 + n * ui, y = y0 + (ui - 0.5) * hMax * 0.9 + (r < 4 ? 0 : (hash(r + 9) < 0.5 ? -1 : 1) * hMax * 0.6), an = r < 4 ? (lado > 0 ? 0 : Math.PI) + (hash(r * 3) - 0.5) * 0.9 : (y < y0 ? -Math.PI / 2 : Math.PI / 2) + (hash(r * 5) - 0.5) * 1.4;
+    const lar = (r < 4 ? 40 : 14) + hash(r * 11) * 26;
+    for (let s2 = 0; s2 < lar; s2++) { if (s2 % 5 === 0) an += (hash(r * 13 + s2) - 0.5) * 1.1; x += Math.cos(an); y += Math.sin(an) * 0.7; ctx.fillStyle = s2 < lar * 0.6 ? '#7a0c08' : '#3a0504'; ctx.fillRect(Math.round(x), Math.round(y), 1, 1); ctx.fillStyle = '#100101'; ctx.fillRect(Math.round(x), Math.round(y) + 1, 1, 1); }
+  }
   ctx.restore();
+  void x1;
 }
 /** El humo que sube y entra en la raja. */
 function humoRaja(e: EstadoToma, dt: number) {
@@ -213,17 +228,17 @@ const tomas: Toma[] = [
   {
     // Vesperio junto al gigante del glaciar: solo en la nieve; la brasa baja hasta su cara y él la mira con algo de celos, sin
     // tocarla. Da las gracias y se va hacia el sur
-    id: 'vesperio', dur: 9, zona: 'a4_glaciar', ancla: anclaHito, entra: 0.6, sale: 0.9, oscuridad: 0.92, hundir: 0.84, sinBruma: true, filo: 1.4, sinClima: ['fx_niebla', 'fx_ventisca', 'fx_nieve'],
+    id: 'vesperio', dur: 9, zona: 'a4_glaciar', ancla: anclaHito, luzBrasa: 0.2, lucesZona: 0.12, entra: 0.6, sale: 0.9, oscuridad: 0.92, hundir: 0.84, sinBruma: true, filo: 1.4, sinClima: ['fx_niebla', 'fx_ventisca', 'fx_nieve'],
     preparar: (e) => despejarPies(e, 4.4, 4.4, 3.5),
     cam: [{ t: 0, x: 4.6, y: 4.6, alt: 54, zoom: 3, fy: 0.58 }, { t: 9, x: 4.3, y: 4.3, alt: 58, c: 'suave' }],
     actores: [
-      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#241c2c', 0.42], claves: [{ t: 0, x: 4.4, y: 4.4, dir: 'no', acc: 'quieto' }, { t: 2.6, mira: [6, 3] }, { t: 4.6, dir: 's' }, { t: 7.0, x: 4.4, y: 4.4, alfa: 1, acc: 'caminar', mira: [8, 9] }, { t: 8.8, x: 5.4, y: 5.6, alfa: 0, c: 'lineal' }] },
+      { id: 'vesperio', tipo: 'mon', mon: 'heraldo', sombra: ['#1c1428', 0.55], claves: [{ t: 0, x: 4.4, y: 4.4, dir: 'no', acc: 'quieto' }, { t: 2.6, mira: [6, 3] }, { t: 4.6, dir: 's' }, { t: 7.0, x: 4.4, y: 4.4, alfa: 1, acc: 'caminar', mira: [8, 9] }, { t: 8.8, x: 5.4, y: 5.6, alfa: 0, c: 'lineal' }] },
     ],
     brasa: [{ t: 0.4, x: -1, y: -1, z: 120, k: 0.7, tam: 0.7 }, { t: 2.6, x: 6.6, y: 2.6, z: 96, k: 0.3, tam: 0.5, c: 'sale' }, { t: 4.4, x: 7.2, y: 2.6, z: 100, k: 0.3, c: 'suave' }, { t: 6.4, x: 14, y: 6, z: 160, k: 0.6, tam: 0.5, c: 'entra' }],
     focos: [{ de: 'vesperio', z: 50, r: 120, k: 0.6 }, { de: 'brasa', r: 70, k: 0.5 }],
     luces: [
-      { id: 'ves', color: VIOLETA, sombra: true, titila: 0.08, claves: [{ t: 0, x: 6.0, y: 4.6, z: 70, r: 130, k: 0.18 }, { t: 7.0, k: 0.18 }, { t: 8.8, k: 0 }] },
-      { id: 'canto', color: [170, 120, 240], claves: [{ t: 0, x: 3.5, y: 2.9, z: 60, r: 90, k: 0.75 }, { t: 7.0, k: 0.9 }, { t: 8.8, k: 0 }] },
+      { id: 'ves', color: [120, 96, 210], sombra: true, titila: 0.08, claves: [{ t: 0, x: 6.2, y: 5.4, z: 70, r: 140, k: 0.42 }, { t: 7.0, k: 0.45 }, { t: 8.8, k: 0 }] },
+      { id: 'canto', color: [140, 80, 240], claves: [{ t: 0, x: 3.4, y: 3.2, z: 66, r: 110, k: 1.35 }, { t: 7.0, k: 1.4 }, { t: 8.8, k: 0 }] },
     ],
     sonidos: [{ t: 0, id: 'coro_vesperio', cine: true, tono: 0.89 }, { t: 0, id: 'viento_nieve', cine: true, vol: 0.4 }],
     paso: (e, tl, dt) => { const m = e.actores.get('vesperio') as any; if (e.j && m && Math.random() < dt * (tl > 7 ? 30 : 6)) ceniza(e.j, m.x, m.y, tl > 7 ? 2 : 1, '#9e96ae'); const b = brasaEn(e, tl); if (b) vahoEn(e, b.x, b.y, b.z, 1, dt); },

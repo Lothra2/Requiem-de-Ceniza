@@ -699,7 +699,24 @@ function cuidarMemoria(ahora: number) {
   ultimaPoda = ahora;
   liberarAtlas(new Set(), (window as any).__topeTactil ?? TOPE_TACTIL_MB, 4000);
 }
+/** Un error en un cuadro no puede congelar el juego (Rick, 27 nov 2026: se le quedó todo congelado en el Pozo de los Nombres).
+ *  Antes solo `paso` estaba protegido y el cuadro pedía el siguiente al final: un error fuera de `paso` paraba el juego para
+ *  siempre con la última imagen. Ahora el siguiente cuadro se pide primero y todo va protegido. Cada error distinto se anota
+ *  (`marca.fallos`, las últimas 12, no es la partida) y se avisa una vez en el registro, para poder mandar la foto. */
+const fallosVistos = new Set<string>();
+function reportarFallo(e: unknown, donde: string) {
+  console.error(e);
+  const m = String((e as any)?.message ?? e).slice(0, 120), pila = String((e as any)?.stack ?? '').split('\n').slice(1, 3).map((l) => l.trim().replace(/\(.*\/(.*?):(\d+):\d+\)/, '$1:$2')).join(' < ');
+  const clave = donde + '|' + m; if (fallosVistos.has(clave)) return; fallosVistos.add(clave);
+  try { const a = JSON.parse(localStorage.getItem('marca.fallos') ?? '[]'); a.push({ v: __VERSION__, f: new Date().toISOString(), donde, zona: j?.zona.id, m, pila }); localStorage.setItem('marca.fallos', JSON.stringify(a.slice(-12))); } catch { /* nada */ }
+  if (j && estado === 'juego') try { msg(j, [`Fallo del juego (${donde}): ${m}. Si algo se traba, mándale una foto de esto a Claude.`, `Game error (${donde}): ${m}. If anything freezes, send a photo of this to Claude.`], '#ff8060'); } catch { /* nada */ }
+}
+(window as any).__fallos = () => { try { return JSON.parse(localStorage.getItem('marca.fallos') ?? '[]'); } catch { return []; } };
 function cuadro(ahora: number) {
+  requestAnimationFrame(cuadro);
+  try { cuadroSeguro(ahora); } catch (e) { reportarFallo(e, 'cuadro'); try { finCuadro(); } catch { /* nada */ } }
+}
+function cuadroSeguro(ahora: number) {
   marcarCuadro(ahora); empezarCuadro(ahora);
   cuidarMemoria(ahora);
   // (nunca hacia atrás: si el reloj del sistema retrocede, un paso negativo dejaba el tiempo del juego en negativo)
@@ -709,10 +726,9 @@ function cuadro(ahora: number) {
   // si sales del menú antes de que el título termine de forjarse, entra ya la música del menú
   if (musicaMenuEn && estado !== 'menu') { musicaMenuEn = 0; if (estado !== 'intro' && estado !== 'juego') Sonido.musica('menu'); }
   baseLienzo();
-  try { paso(dt); } catch (e) { console.error(e); }
+  try { paso(dt); } catch (e) { reportarFallo(e, 'paso'); }
   terminarCuadro(); dibujarRendimiento();
   finCuadro();
-  requestAnimationFrame(cuadro);
 }
 // autoguardado: cada 30 s en partida y al ocultar o cerrar la pestaña (antes solo al cambiar de zona)
 let tAutoguardado = performance.now();
@@ -886,7 +902,7 @@ function paso(dt: number) {
       if (presenta) { presenta.t += dt; foco.x = presenta.m.x; foco.y = presenta.m.y; foco.k = Math.min(1, presenta.t / 0.6, Math.max(0, (DUR_PRESENTA - presenta.t) / 0.6)); if (presenta.t >= DUR_PRESENTA || presenta.m.muerto) { presenta = null; foco.k = 0; } }
       if (caida) { caida.t += dt; if (caida.m) { foco.x = caida.m.x; foco.y = caida.m.y; } foco.k = Math.min(1, caida.t / 0.4); if (caida.t >= DUR_CAIDA) { const c = caida; caida = null; foco.k = 0; empezarCine(c.acto, c.despues); } }
       const dtMundo = presenta ? dt * 0.18 : caida ? dt * 0.22 : dt;
-      if (!pausa) medir('logica', () => { actualizar(jj, dtMundo); historiaPaso(jj, dtMundo); miedoPaso(jj, dtMundo); pasoLibro(jj.heroe.d, dtMundo, (t) => msg(jj, t, '#d8b070')); });
+      if (!pausa) medir('logica', () => { try { actualizar(jj, dtMundo); } catch (e) { reportarFallo(e, 'mundo'); } try { historiaPaso(jj, dtMundo); miedoPaso(jj, dtMundo); pasoLibro(jj.heroe.d, dtMundo, (t) => msg(jj, t, '#d8b070')); } catch (e) { reportarFallo(e, 'historia'); } });
       medir('mundo', () => enMundo(() => { dibujarMundo(jj, dtMundo, tiempo); dibujarMiedo(jj, tiempo); dibujarHistoria(jj, tiempo); }));
       // los blancos del clic salen del pase del mundo: se llevan a puntos del HUD, que es donde está el puntero
       if (ZM !== 1) for (const p of picks) { p.x0 *= ZM; p.y0 *= ZM; p.x1 *= ZM; p.y1 *= ZM; }

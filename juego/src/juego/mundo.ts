@@ -2236,6 +2236,7 @@ function moverHacia(j: Juego, e: Ent, tx: number, ty: number, vel: number, dt: n
 function actualizarHeroe(j: Juego, dt: number) {
   const h = j.heroe;
   h.t += dt; h.destello = Math.max(0, h.destello - dt);
+  if (!Number.isFinite(h.x) || !Number.isFinite(h.y)) { const b = (h as any).bueno; if (b) { h.x = b[0]; h.y = b[1]; } h.camino = null; h.destino = null; } else (h as any).bueno = [h.x, h.y];
   if (h.muerto) return;
   // (red de seguridad: si algo dejó al héroe dentro de una celda que no se pisa, sale a la libre más cercana; si no, no
   // podía caminar nunca más. `__caidaVieja` lo apaga)
@@ -2330,6 +2331,8 @@ function actualizarHeroe(j: Juego, dt: number) {
 }
 
 function actualizarMonstruo(j: Juego, m: Monstruo, dt: number) {
+  // (red de seguridad: una posición que no es número rompía el dibujo en cada cuadro; vuelve a la última buena o a su sitio)
+  if (!Number.isFinite(m.x) || !Number.isFinite(m.y)) { const b = (m as any).bueno; m.x = b ? b[0] : m.ox; m.y = b ? b[1] : m.oy; m.camino = null; } else (m as any).bueno = [m.x, m.y];
   m.t += dt; m.destello = Math.max(0, m.destello - dt);
   // lo que dice se apaga solo, para todos (antes la cuenta bajaba solo en los jefes y después de los return de sus
   // maniobras: la frase de un jefe de zona o de un campeón quedaba pegada encima de la pelea)

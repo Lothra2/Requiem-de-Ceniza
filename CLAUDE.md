@@ -2769,3 +2769,10 @@ héroe (`buscarCamino` completo, no parcial); si no, recorre la línea de vuelta
 `actualizarHeroe`, si el héroe queda dentro de una celda que no se pisa, sale a la libre más cercana. `__caidaVieja` vuelve a lo de
 antes. Prueba: `pegado.cjs` en el scratchpad de la sesión (no se sube). Pasaron t223 arcanista, t500, t1001, t440, t450, t961, t995 y
 t1011.
+- **Juego congelado** (mismo día, Rick: "todo congelado" en el PC, sin teletransporte; no se pudo reproducir: 4 min de pelea de una
+  arcanista con todos sus poderes en a2_nombres1 sin cuelgue, `estres.cjs` en el scratchpad). Lo que sí se encontró: el cuadro pedía
+  el siguiente al final y solo `paso` estaba protegido, así que un error fuera de `paso` mataba el juego para siempre con la última
+  imagen. Ahora `cuadro` pide el siguiente primero y todo va protegido (`cuadroSeguro`), y la lógica del mundo y la historia tienen
+  su propia protección (un error ahí ya no se salta el dibujo). Cada error distinto se anota en `marca.fallos` (las últimas 12, con
+  versión, zona y pila; no es la partida) y se avisa una vez en el registro en naranja para que Rick mande la foto; `__fallos()` las
+  lee. Héroe y monstruos con posición que no es número vuelven a su última buena (o a su sitio). Prueba: `fallo.cjs` (scratchpad).

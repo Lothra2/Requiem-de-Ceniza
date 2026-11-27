@@ -26,8 +26,9 @@ Leer esto primero en cada sesión nueva. Actualizarlo al cerrar cada frente.
 - **Botín en evolución** (rama `botin`, 22 nov 2026): bases y grados de afijo por nivel, parte del botín para la clase, varas con
   daño de hechizos, la ficha y el piso dicen qué es mejora. Ver "Botín en evolución". El daño del arma que se lleva sube un 17 %.
 - **Fantasma de Vesperio** publicado (`187f377`): sus textos también esperan que Rick los lea.
-- **Cinemáticas de acto en el motor** (rama `cine`, 23 nov 2026): Rick aprobó la del acto 1 («Siiii está chévere, hazlo»). Siguen
-  los actos 2 a 7 con el mismo director, de a uno. Ver "Cinemáticas de acto en el motor".
+- **Cinemáticas de acto en el motor** (rama `cine`, 23 a 27 nov 2026): los siete actos y los cuatro finales hechos como películas
+  con el mismo director (el 1 aprobado por Rick; del 2 al 7 y los finales, aprobados por el coordinador). Ver "Cinemáticas de acto en el
+  motor".
 - **Enemigos repartidos** (rama `enemigos`, 22 nov 2026): el mismo presupuesto por todo el mapa en grupos de tamaños distintos que
   despiertan solos, en vez de campamentos de 6 a 10. Ver "Enemigos repartidos, no campamentos". Espera que Rick lo juegue.
   Después, un 50 % más de cuerpos con la experiencia y el botín por baja común bajados (ver "Más enemigos, como en Diablo 2").
@@ -2384,6 +2385,54 @@ película de 60 a 90 s por acto con el mismo arte del juego, una sola por acto. 
   - Un monstruo se alza con `alto` (Vesperio en la escalera de la pirámide). Las luces y el foco van al punto del piso que cae bajo
     su cuerpo alzado, porque si no la luz no le llega.
   - t1400 descuenta las tomas omitidas y acepta `DECIDE=vigdis=sacrificar` y `FINAL=destruir|absorber`.
+- **Actos 6 y 7 y los finales** (`ui/cine_acto6.ts`, `ui/cine_acto7.ts`, 27 nov 2026).
+  - Acto 6, «La Campana calló»: la Abadesa y la campana rajada, el mar que vuelve al barco de Oyá (`cine_barco|varado`), la Marca
+    que calla y vuelve en oro (otra voz), el cielo roto sobre la costa (`cieloRoto`: radiales rectos quebrados en cada anillo, de
+    largos distintos, anillos sueltos que los cortan y astillas en ángulo, gruesos cerca y finos lejos, con el filo de oro, a puntos
+    de 2 del dibujo; el hueco es dentado, se pinta encima de las grietas y lo domina una escalera de oro de 26 losas en caracol a
+    contraluz; los pedazos giran de canto y destellan), la boca del pecho de Aun-Saar que dice el nombre y la Escalera al Trono.
+  - 7a, «La Corona tibia» (`CINE_ACTO7`): Aun-Saar cae (grietas de oro rectas en el piso que se apagan de afuera adentro,
+    `grietasOro`), la Corona rueda de canto a ×4 hasta los pies del héroe, humea y destella, la gloria de la Escalera se apaga en
+    cuatro etapas y el primer plano con la Marca. Vuelve al juego.
+  - 7b, los cuatro finales (`guionFinal(fin, d, vigdis, ecos)`; el flujo de main.ts es el de siempre: ciclo la primera vez,
+    `trasFinal` en la repetición). Una toma por línea de `EPILOGOS`; cada una dura lo que tarda en leerse (`leer`, unas 16 letras
+    por segundo, y `estirar` estira claves, sonidos y textos), y `T` parte el texto por frases en trozos de dos renglones como
+    mucho. Después la de Vigdis (salvar o sacrificar), los ecos y la última, y el título con «Fin» en la letra gótica de pixel
+    (`tituloGotico` en cine_kit: brasa, o escarcha en la Corona Fría). **La Vigilia**: Auren recibe la Corona al pie de la Escalera
+    apagada y baja con el bulto de tela oscura contra el pecho; doce monjes vivos con velas en corro alrededor de la fosa nueva en
+    Santa Oria; la abadía que vela; la ronda del fuego (héroe, Odrán y Thor, la luz desde las brasas). **El Cielo Abierto**: Mira
+    alza la Corona hacia tres estrellas y sube; arriba estalla y llueve oro; Santa Oria gris; Mira cuenta estrellas junto al fuego
+    con el cielo que se llena. **El Rey de Ceniza**: se la pone (brasas, la sombra roja del 5 en el piso), el asiento del dios
+    (`anclaAsiento`), el Refugio vacío con el fuego rojo y campanas solas, y la tercera brasa: la misma de la película del acto 1, que
+    cruza un cielo de noche, se para, late, gira y viene a la cámara hasta un fundido rojo. **La Corona Fría**: se la pone y no pasa
+    nada, la gente del Refugio en corro, el invierno con Ysolde y la carta del rey escarchada, y él solo a ×4 con escarcha.
+  - La Corona puesta o en las manos es la pieza horneada dibujada aparte (`coronaEnMano`, sin su sombra de piso). Puesta, se apoya
+    en la coronilla del cuadro que se ve de verdad: escena.ts la mide con camCine encendida (`cimaCine` en el héroe, por la máscara
+    del cuadro, con o sin casco y para cada clase).
+  - **Piezas de película** (catalogo/cine.ts y otros; no las pone ningún mapa): `cine_barca` (acto 2), `cine_barco|varado` (actos 5 y
+    6), `cine_corona` (r0..r7 rueda, t0..t3 tambalea, `echada`; usa `corona` y `colocar`, que ahora exporta botin.ts) y el monumento
+    `cine_escalera` (v1, v2, v3, apagada: el mismo `armar` de monumento_escalera.ts con `APAGA`; el haz se adelgaza, las losas caen y
+    el oro se seca; `mon_escalera` no cambia). Cuerpos de película en hornear_extra.ts, horneados solo quieto, caminar y lanzar
+    (`RELIEVE=1 ACCS=quieto,caminar,lanzar SOLO=cine_auren,cine_monje,cine_vigdis,cine_mira GRUPOS=m`): `cine_auren` (sin alas, manto
+    negro, el bulto), `cine_monje` (hábito pardo, capucha, vela), `cine_vigdis` (con su lámpara) y `cine_mira`. Las NPC de siempre solo
+    tienen 'quieto': si caminan, patinan.
+  - **La muerte de Aun-Saar rehorneada** (catalogo/jefes2.ts): al morir sus tres aros de halos se rompen en esquirlas que vuelan
+    cada una por su lado (antes caían enteros al piso y se leían como un aro de interfaz). `RELIEVE=1 ACCS=morir SOLO=aun_saar
+    GRUPOS=j`. Cambia también en el juego.
+  - **Fundir piezas** (escena.ts y luces.ts): un objeto con `alfaCine` se pinta a esa alfa y su luz baja igual. Con 0 no se pinta ni
+    alumbra, y si es el ancla de una salida tampoco van su cono de puerta ni su luz. Lo usa la escalera que se apaga
+    (`prepararEscalera`, `apagarEscalera`; las etapas se ponen una sola vez en la copia de la zona, porque la toma se vuelve a montar al
+    saltar).
+  - **Ojo, error del juego (no solo de la película)**: en a7_campamento algo del piso de vidrio del cielo se pinta encima de las
+    figuras (las rayas de la rejilla atraviesan al héroe y a quien esté parado ahí, con cualquier bandera de luz). No se arregló:
+    las tomas de Auren y Mira van al pie de la Escalera apagada (a7_jardin). La bruma de la puerta de la catedral (`z.niebla`) lavaba
+    la toma de la cripta: en la copia de la zona va en 0.
+  - Herramientas: t1400 con `fin` (`FINAL=destruir|absorber`, `DECIDE=corona=auren|mira|quedarse,vigdis=salvar|sacrificar`), `CLASE=`,
+    `DESNUDO=1`. En el scratchpad de la sesión: `una.sh <et> <acto|fin> <tomas>` (lámina y tira), `tres.sh` y `tresfin.sh` (hojas de 3
+    semillas), `pruebas.sh` y `s/flujo_fin.cjs` (los cuatro finales).
+  - Flojo: los pedazos de vidrio que caen todavía parecen polígonos lisos de cerca; la tumba tibia de Vigdis del Rey de Ceniza casi
+    no se distingue de la común; en una lámina el cuadro a 62 % a veces cae en el fundido entre dos trozos de texto; el sonido de las
+    películas no lo oyó nadie todavía.
 
 ## Historia y canon (19 nov 2026)
 

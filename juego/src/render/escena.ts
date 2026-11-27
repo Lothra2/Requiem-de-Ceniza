@@ -237,7 +237,7 @@ function puertaAncla(sa: { cx: number; cy: number; piezas?: { id: string; cx: nu
 /** La puerta abierta de la catedral: un cono de luz roja que sale sobre el piso hacia +y y brasas y ceniza que salen y suben. */
 function puertaCatedral(j: Juego, dt: number, t: number) {
   for (const sa of j.zona.salidas) {
-    const fa = sa.piezas?.[sa.piezas.length - 1]; if (!fa || fa.v === 'sellada') continue;
+    const fa = sa.piezas?.[sa.piezas.length - 1]; if (!fa || fa.v === 'sellada' || (fa as any).alfaCine === 0) continue;
     const pu = puertaAncla(sa), [px, py] = aPant(pu.x, pu.y); if (px < -300 || px > W + 300 || py < -200 || py > H + 300) continue;
     const pulso = 0.5 + 0.5 * Math.sin(t * 1.4);
     // (los monumentos de los actos 2 a 7 llevan la luz de su puerta y sus motas: monumentos.ts)
@@ -276,7 +276,7 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
   // frente a la pieza ancla (la catedral), la cámara sube suave para que se vean las torres
   let alzar = 0, monCerca = 0; monCima = null;
   for (const sa of z.salidas) if (sa.piezas?.length) {
-    const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
+    const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa); if ((fa as any).alfaCine === 0) continue;
     // (la distancia de frente y de costado se mide desde la puerta y por su eje: la catedral por y, los monumentos por la diagonal)
     const rx = h.x - pu.x, ry = h.y - pu.y, dy = pu.mon ? rx * pu.dx + ry * pu.dy : h.y - fa.cy, dx = pu.mon ? Math.abs(rx * pu.dy - ry * pu.dx) : Math.abs(h.x - fa.cx);
     if (!(dy > -2 && dy < (luzMonumento(fa.id) ? 30 : 26) && dx < 16)) continue;
@@ -497,6 +497,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       // (entrega 6) con el héroe detrás se abre una ventana a su alrededor en las franjas que están delante de él (ver recorte.ts)
       const viejo = (window as any).__alfaViejo, kRec = viejo ? 0 : aperturaRecorte(o, cubre, tiempo);
       if (viejo && cubre) alfa = 0.45;
+      // (las películas funden una pieza con otra: la escalera que se apaga en el acto 7)
+      if ((o as any).alfaCine !== undefined) { alfa *= (o as any).alfaCine; if (alfa <= 0.004) continue; }
       let recCv: HTMLCanvasElement | null | undefined;
       for (const t of tiras) {
         const sub = { ...q, x: q.x + t.a, w: t.b - t.a, ax: q.ax - t.a } as Cuadro;
@@ -522,6 +524,8 @@ export function dibujarMundo(j: Juego, dt: number, tiempo: number) {
       // alrededor del héroe (recorte.ts). `__alfaViejo` vuelve a lo de antes
       const viejo = (window as any).__alfaViejo, kRec = viejo ? 0 : aperturaRecorte(o, cubre, tiempo);
       if (viejo && cubre) alfa = 0.45;
+      // (las películas funden una pieza con otra: la escalera que se apaga en el acto 7)
+      if ((o as any).alfaCine !== undefined) { alfa *= (o as any).alfaCine; if (alfa <= 0.004) return; }
       // lo alto (más de 200 px sobre el ancla) lleva bruma de altura: perspectiva atmosférica
       const br = q.ay > 200 && !monumentoPieza(o.id) ? conBruma(q, colorBruma) : null;
       if (alfa < 1) ctx.globalAlpha = alfa;
@@ -1298,6 +1302,8 @@ function dibujarEnt0(j: Juego, e: Ent, tiempo: number) {
   const pm = (e as any).pfxMuerte as { id: string; t0: number } | undefined;
   const alfaM = (e.muerto && pm ? alfaCuerpo(pm.id, j.t - pm.t0) : 1) * (e.tipo === 'invocado' ? alfaInvocado(e, j.t) : 1) * ((e as any).alfaCine ?? 1);
   if (alfaM <= 0.01) return;
+  // (las películas: dónde queda la coronilla del héroe sobre sus pies, del cuadro que se ve de verdad: la Corona puesta se apoya ahí)
+  if (camCine.on && e.tipo === 'heroe') { const M = mascaraDe(q); if (M) (e as any).cimaCine = (q.ay - M.arriba) * (esc ?? 1); }
   // el muerto que revienta (Estallido fúnebre, Cosecha del osario, Lamento) se hincha y deja de estar al reventar; el que
   // se come el Festín de tumba se seca y se hunde (solo lo que se ve, `revienta` lo pone mundo.ts)
   const rv = e.muerto && poderesVivos() ? ((e as any).revienta as number | undefined) : undefined;
@@ -1623,7 +1629,7 @@ function brumaAncla(j: Juego) {
     ctx.fillStyle = g; ctx.fillRect(-120, -120, 240, 240); ctx.restore();
   };
   for (const sa of z.salidas) if (sa.piezas?.length) {
-    const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa);
+    const fa = sa.piezas[sa.piezas.length - 1], pu = puertaAncla(sa); if ((fa as any).alfaCine === 0) continue;
     // (los monumentos de los actos 2 a 7 no llevan la bruma baja al pie: velaba a los colosos de los costados justo donde más se
     //  mira, con el héroe en la puerta. `__brumaMonumento` la vuelve a poner)
     if (pu.mon) { if ((window as any).__brumaMonumento) for (let i = -8; i <= 8; i += 2) mancha(pu.x + pu.dx * 2 + i * pu.dy, pu.y + pu.dy * 2 - i * pu.dx); continue; }

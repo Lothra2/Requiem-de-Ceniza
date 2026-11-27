@@ -19,6 +19,7 @@ import { CINE_ACTO3 } from './ui/cine_acto3';
 import { CINE_ACTO4 } from './ui/cine_acto4';
 import { CINE_ACTO5, eleccionPeli, limpiarEleccionPeli } from './ui/cine_acto5';
 import { CINE_ACTO6 } from './ui/cine_acto6';
+import { CINE_ACTO7, guionFinal } from './ui/cine_acto7';
 import { pedirRostro } from './ui/cine_rostro';
 import { dibujarHudTactil, consejoTactil } from './ui/hud_tactil';
 import { dibujarHudForja } from './ui/hud_forja';
@@ -47,10 +48,16 @@ const DUR_CAIDA = 2.8;
 const JEFE_CIERRA: Record<string, number> = {};
 for (const m of MISIONES) if (m.cierraActo && m.objetivo.tipo === 'matar') JEFE_CIERRA[m.objetivo.monstruo] = m.acto;
 /** Las películas de cierre hechas en el motor (ui/director.ts), por acto. Las demás siguen con ui/cine.ts. */
-const PELICULAS: Record<number, Guion> = { 1: CINE_ACTO1, 2: CINE_ACTO2, 3: CINE_ACTO3, 4: CINE_ACTO4, 5: CINE_ACTO5, 6: CINE_ACTO6 };
+const PELICULAS: Record<number, Guion> = { 1: CINE_ACTO1, 2: CINE_ACTO2, 3: CINE_ACTO3, 4: CINE_ACTO4, 5: CINE_ACTO5, 6: CINE_ACTO6, 7: CINE_ACTO7 };
 /** El héroe de la película: el de la partida o uno de muestra (desde el menú). */
 let heroePeli: DatosHeroe | null = null;
-const peliDe = (clave: string) => { const m = /^peli_(\d)$/.exec(clave); return m ? PELICULAS[+m[1]] ?? null : null; };
+/** La película del final (7b, ui/cine_acto7.ts): se arma al entregar la Corona, con la Vigdis y los ecos del héroe. */
+let guionFin: Guion | null = null;
+const peliDe = (clave: string) => { if (clave === 'fin') return guionFin; const m = /^peli_(\d)$/.exec(clave); return m ? PELICULAS[+m[1]] ?? null : null; };
+/** Lo que sigue al final (el de la película o la pantalla de texto): el ciclo la primera vez, o de vuelta al juego. */
+(window as any).__peliFin = () => { if (!j) return false; const d = j.heroe.d, g = guionFinal(finalCompleto(d), d, decisionDe(d, 'vigdis'), ecosFinal(d)); if (!g) return false; guionFin = g; heroePeli = d; prepararPelicula(g, d); pedirRostro(d); cine = { clave: 'fin', acto: 7, t: 0, despues: trasFinal }; estado = 'cine'; return true; };
+(window as any).__guionFin = () => guionFin;
+function trasFinal() { ui.izq = ui.der = null; if (j && j.heroe.d.actosHechos.includes(7) && !repeticion) { estado = 'ciclo'; finalT = 0; } else { estado = 'juego'; if (j) Sonido.musica(MUSICA_ACTO(j.zona.acto, j.zona.tipo) as any); } repeticion = false; }
 function empezarCine(acto: number, despues: () => void, clave = claveCine(acto)) {
   if (clave === claveCine(acto) && PELICULAS[acto] && conPelicula(acto)) {
     heroePeli = j ? j.heroe.d : heroeMuestra(); prepararPelicula(PELICULAS[acto], heroePeli); pedirRostro(heroePeli);
@@ -650,7 +657,10 @@ function procesarEventos(jj: Juego) {
       if (m?.final) setTimeout(() => {
         if (estado !== 'juego') return;
         const alFinal = () => { ui.izq = ui.der = null; estado = 'final'; finalT = 0; Sonido.musica('intro'); };
-        const cf = claveFinal(finalCompleto(jj.heroe.d));
+        // (el final hecho película, con su epílogo; los finales que todavía no la tienen siguen con la cinemática y el texto)
+        const d = jj.heroe.d, g = conPelicula(7) ? guionFinal(finalCompleto(d), d, decisionDe(d, 'vigdis'), ecosFinal(d)) : null;
+        if (g) { guionFin = g; heroePeli = d; prepararPelicula(g, d); pedirRostro(d); cine = { clave: 'fin', acto: 7, t: 0, despues: trasFinal }; estado = 'cine'; ui.izq = ui.der = null; E.clicIzq = false; Sonido.musica(null as any); return; }
+        const cf = claveFinal(finalCompleto(d));
         if (cf) empezarCine(7, alFinal, cf); else alFinal();
       }, 4500);
     }

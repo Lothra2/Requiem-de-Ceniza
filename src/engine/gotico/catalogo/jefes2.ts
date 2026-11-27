@@ -564,14 +564,19 @@ function aunSaar(acc: Acc, f: number): Res {
     const ps = nuevo(ap(cabT, [-18, 0, 30]), 4);
     const centro = ap(cabT, [-22, 0, 30]);
     const aros: [number, number, number, number][] = [[46, 12, 0, 0.18], [64, -8, 25, 0.25], [84, 20, -15, 0.32]];
+    // (al morir los aros se rompen: la mayoría de los tramos se deshace y los que quedan son trozos sueltos que vuelan cada uno
+    //  por su lado y caen como esquirlas de oro apagado; enteros y echados en el piso se leían como un aro de interfaz)
+    const rompe = acc === 'morir' ? frag : 0;
     aros.forEach(([R, inc, gir, falta], j) => {
       const m0: M3 = mm(mm(Rz(gir + ty), Ry(-12 + tp * 0.5)), Rx(inc));
       const nn = nor(mv(m0, [1, 0, 0])), u = nor(mv(m0, [0, 1, 0])), v = cruz(nn, u), giro = rad(halo * (j % 2 ? -1 : 1) * (1 + j * 0.4) + j * 40), N = 30;
       for (let i = 0; i < N; i++) {
-        if (hr(j * 31 + i) < falta) continue;
+        if (hr(j * 31 + i) < falta + rompe * 0.62) continue;
         const a0 = (i / N) * TAU + giro, a1 = ((i + 1) / N) * TAU + giro, p0 = add(add(centro, u, Math.cos(a0) * R), v, Math.sin(a0) * R), p1 = add(add(centro, u, Math.cos(a1) * R), v, Math.sin(a1) * R);
-        ps.push(palo(p0, p1, 2.3 - j * 0.3, { mat: OR, tono: (hr(i) - 0.5) * 0.1 }), palo(add(p0, nn, 1.6), add(p1, nn, 1.6), 0.9, { mat: 'j2_luz_oro', tono: -0.2 + brillo * 0.15 }));
-        if (j === 2 && i % 3 === 0) ps.push(palo(add(add(centro, u, Math.cos(a0) * (R + 2)), v, Math.sin(a0) * (R + 2)), add(add(centro, u, Math.cos(a0) * (R + 14 + (i % 2) * 8)), v, Math.sin(a0) * (R + 14 + (i % 2) * 8)), 1.4, { mat: OR, r1: 0.2 }));
+        const dst = rompe > 0 ? nuevo(mez(p0, p1, 0.5), 40 + j * 31 + i) : ps;
+        dst.push(palo(p0, p1, 2.3 - j * 0.3, { mat: OR, tono: (hr(i) - 0.5) * 0.1 - caer * 0.25 }));
+        if (caer < 0.3) dst.push(palo(add(p0, nn, 1.6), add(p1, nn, 1.6), 0.9, { mat: 'j2_luz_oro', tono: -0.2 + brillo * 0.15 - caer }));
+        if (j === 2 && i % 3 === 0 && rompe <= 0) ps.push(palo(add(add(centro, u, Math.cos(a0) * (R + 2)), v, Math.sin(a0) * (R + 2)), add(add(centro, u, Math.cos(a0) * (R + 14 + (i % 2) * 8)), v, Math.sin(a0) * (R + 14 + (i % 2) * 8)), 1.4, { mat: OR, r1: 0.2 }));
       }
     });
   }
@@ -588,11 +593,12 @@ function aunSaar(acc: Acc, f: number): Res {
   const centroCuerpo = ap(tor, [0, 0, 30]);
   for (const t of trozos) {
     if (frag <= 0 && caer <= 0) { ps.push(...t.ps); continue; }
-    const fuera = nor(add(sub(t.c, centroCuerpo), [hr(t.sem) - 0.5, hr(t.sem + 1) - 0.5, 0.3])), sep = 22 + hr(t.sem * 3) * 30;
+    // (los tramos sueltos de los aros, `sem` 40 o más, vuelan cada uno a su rumbo y más lejos: no dibujan el aro en el piso)
+    const suelto = t.sem >= 40, fuera = suelto ? nor([Math.cos(hr(t.sem * 1.3) * TAU), Math.sin(hr(t.sem * 1.3) * TAU), 0.2]) : nor(add(sub(t.c, centroCuerpo), [hr(t.sem) - 0.5, hr(t.sem + 1) - 0.5, 0.3])), sep = suelto ? 10 + hr(t.sem * 3) * 70 : 22 + hr(t.sem * 3) * 30;
     const eje = nor([hr(t.sem * 5) - 0.5, hr(t.sem * 7) - 0.5, hr(t.sem * 9) - 0.5]), ang = (t.sem === 1 ? 12 : 16 + hr(t.sem * 11) * 24) * frag * (hr(t.sem) < 0.5 ? 1 : -1);
     let c1 = add(add(t.c, fuera, sep * frag), [0, 0, 14 * frag + Math.sin(w + t.sem) * 3 * frag]);
     // al caer: cada trozo baja hasta apoyarse (los más grandes quedan más altos) y se acuesta
-    const piso = t.sem === 2 ? 30 : t.sem === 1 ? 22 : t.sem === 3 ? 18 : t.sem === 4 ? 6 : t.sem > 20 ? 18 : 8;
+    const piso = suelto ? 1.5 : t.sem === 2 ? 30 : t.sem === 1 ? 22 : t.sem === 3 ? 18 : t.sem === 4 ? 6 : t.sem > 20 ? 18 : 8;
     c1 = [c1[0] + fuera[0] * caer * 20, c1[1] + fuera[1] * caer * 20, lerp(c1[2], piso, caer * caer)];
     const giro = rotM3(eje, ang + caer * (t.sem === 1 ? 70 : 30) * (hr(t.sem * 13) < 0.5 ? 1 : -1));
     ps.push(...transformar(transformar(t.ps, I3, esc(t.c, -1)), giro, c1));

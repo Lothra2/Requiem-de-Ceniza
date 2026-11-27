@@ -2,6 +2,7 @@
 // controlado (25 por segundo) a mp4 y arma una lámina con un cuadro por toma. Uso:
 //   node juego/herramientas/t1400_pelicula.cjs <etiqueta> [acto] [pc|pc1080|movil]
 //   LAMINA=1 solo la lámina (salta a cada toma), COSTO=1 la corre en tiempo real y mide lo que cuesta por cuadro,
+//   acto `fin`: la película del final del héroe (7b, con FINAL= y DECIDE=corona=auren|mira|quedarse,vigdis=...).
 //   RATON=1 mueve el ratón al azar por la pantalla en cada cuadro (nada de la película puede cambiar con él),
 //   CLASE=, NIVEL=, MUESTRA=1 sin héroe (desde el menú, con el de muestra), BANDERAS=a,b=1.
 // Sale en /tmp/requiem-pruebas/cine2/<etiqueta>/. Las tomas que se omiten (`omitir`: una variante, el primer plano sin pintar) no
@@ -18,13 +19,13 @@ const VESTIR = `const O = window.__T.O; let u = 7000;
   d.equipo.manos = pz('manos', (b) => b.ranura === 'manos') ?? d.equipo.manos;
   d.equipo.pies = pz('pies', (b) => b.ranura === 'pies') ?? d.equipo.pies;`;
 (async () => {
-  const et = process.argv[2] || 'prueba', acto = +(process.argv[3] || 1), vista = process.argv[4] || 'pc';
+  const et = process.argv[2] || 'prueba', FIN = process.argv[3] === 'fin', acto = FIN ? 7 : +(process.argv[3] || 1), vista = process.argv[4] || 'pc';
   const DIR = `/tmp/requiem-pruebas/cine2/${et}`; fs.rmSync(DIR, { recursive: true, force: true }); fs.mkdirSync(DIR + '/f', { recursive: true });
   process.on('unhandledRejection', (e) => { console.log('FALLA', String(e).slice(0, 400)); process.exit(1); });
   const { b, p, errs } = await entrar(vista, process.env.CLASE || 'templario', +(process.env.NIVEL || 14), process.env.URL || 'http://127.0.0.1:5198/', `d.finalElegido = ${JSON.stringify(process.env.FINAL || undefined) || 'undefined'}; d.decisiones = ${JSON.stringify(Object.fromEntries((process.env.DECIDE || '').split(',').filter(Boolean).map((x) => x.split('='))))};` + `d.id = ${JSON.stringify(process.env.ID || 'cine_prueba')};` + (process.env.DESNUDO ? '' : VESTIR));
   if (process.env.BANDERAS) await p.evaluate((bs) => { for (const x of bs.split(',')) { const [k, v] = x.split('='); window[k] = v === undefined ? true : isNaN(+v) ? v : +v; } }, process.env.BANDERAS);
   if (process.env.MUESTRA) await p.evaluate(() => window.__salirAlMenu && window.__salirAlMenu());
-  await p.evaluate((a) => window.__peli(a), acto);
+  if (FIN) console.log('final:', await p.evaluate(() => window.__peliFin())); else await p.evaluate((a) => window.__peli(a), acto);
   // la película espera al pintor del héroe y a sus zonas; la prueba además al grande de la vigilia (el primer plano)
   let t0w = Date.now();
   for (let i = 0; i < 900; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__peliLista() && window.__T.P.progresoPintura >= 1)) break; }
@@ -33,7 +34,7 @@ const VESTIR = `const O = window.__T.O; let u = 7000;
   if (!process.env.SIN_ROSTRO) for (let i = 0; i < 400; i++) { await p.waitForTimeout(500); if (await p.evaluate(() => window.__rostroListo())) break; }
   console.log('primer plano listo:', await p.evaluate(() => window.__rostroListo()), 'en', ((Date.now() - t0w) / 1000).toFixed(0), 's');
   await p.evaluate(() => window.__cineT(0)); await p.waitForTimeout(1500);
-  const tomas = await p.evaluate(async (a) => { const M = await import('/src/ui/cine_acto' + a + '.ts'); const e = window.__peliE(); return M['CINE_ACTO' + a].tomas.filter((t) => !(t.omitir && e && t.omitir({ ...e, toma: t }))).map((t) => [t.id, t.dur]); }, acto);
+  const tomas = await p.evaluate(async ([a, fin]) => { const M = fin ? null : await import('/src/ui/cine_acto' + a + '.ts'); const e = window.__peliE(); return (fin ? window.__guionFin() : M['CINE_ACTO' + a]).tomas.filter((t) => !(t.omitir && e && t.omitir({ ...e, toma: t }))).map((t) => [t.id, t.dur]); }, [acto, FIN]);
   const total = tomas.reduce((s, t) => s + t[1], 0);
   console.log('tomas', JSON.stringify(tomas), 'total', total);
   if (process.env.COSTO) {

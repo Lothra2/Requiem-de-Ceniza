@@ -171,3 +171,36 @@ export function enfriarPiezas(e: EstadoToma, re: RegExp, u: number, k = 0.9) {
     ctx.restore();
   }
 }
+
+/**
+ * Un título grande en la letra gótica de pixel, como el cartel de los actos, y su subtítulo menudo debajo (el final de la historia:
+ * «La Vigilia» y «Fin»). `modo` 'brasa' lleva el canto de brasa que lame las letras; 'escarcha' es hierro frío con la escarcha que
+ * le crece encima y destellos. Pinta el negro de fondo.
+ */
+export function tituloGotico(S: string, sub: string, tl: number, dur: number, modo: 'brasa' | 'escarcha' = 'brasa') {
+  ctx.save(); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H); ctx.restore();
+  const k = Math.min(1, Math.max(0, (tl - 0.4) / 1.2), Math.max(0, (dur - tl) / 1.4));
+  const tam = Math.round(H / 10.5), ty = Math.round(H * 0.47);
+  const A = ctx.getTransform().a, kp = puntoGotico(tam, A), cel = kp / A, hierro = lienzoGotico(S, 'hierro'), r = hierro.r;
+  const tx = Math.round(W / 2 - ((r.w - 4) * cel) / 2), ox = tx - 2 * cel, oy = ty - (r.base + 1) * cel;
+  ctx.save(); ctx.globalAlpha = k;
+  { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const R = (r.w * cel) * 0.7, g = ctx.createRadialGradient(W / 2, ty - tam * 0.4, 0, W / 2, ty - tam * 0.4, R); g.addColorStop(0, modo === 'brasa' ? `rgba(255,90,30,${0.22 * k})` : `rgba(120,170,220,${0.16 * k})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore(); }
+  if (modo === 'brasa') {
+    brasaRenglon('cine_titulo', S, tam, TITULO, tx, ty, k, tl, 'atras', true);
+    pegarPixel(hierro.c, ox, oy, kp, k * 0.35);
+    pegarPixel(lienzoGotico(S, 'brasa').c, ox, oy, kp, k);
+    brasaRenglon('cine_titulo', S, tam, TITULO, tx, ty, k, tl, 'adelante', true);
+  } else {
+    pegarPixel(hierro.c, ox, oy, kp, k);
+    // la escarcha le crece de abajo arriba a las letras (el mismo hierro en un azul blanco, recortado) y destella
+    const u = Math.min(1, Math.max(0, (tl - 0.8) / 2.4)), hh = r.h * cel;
+    ctx.save(); ctx.beginPath(); ctx.rect(ox, oy + hh * (1 - u) + 2 * cel, r.w * cel + 4 * cel, hh * u + 4 * cel); ctx.clip();
+    pegarPixel(lienzoGotico(S, [196, 222, 240]).c, ox, oy, kp, k * 0.85); ctx.restore();
+    ctx.fillStyle = '#f4fbff';
+    for (let i = 0; i < 9; i++) { const f = (tl * 0.6 + i * 0.37) % 1.6; if (f > 0.4) continue; const a = Math.sin((f / 0.4) * Math.PI), x = Math.round(ox + ((i * 0.618) % 1) * r.w * cel), y = Math.round(oy + hh * (0.25 + ((i * 0.41) % 0.6))), L = Math.max(1, Math.round(a * 3 * cel)); ctx.globalAlpha = k * a; ctx.fillRect(x - L, y, L * 2 + 1, Math.max(1, Math.round(cel / 2))); ctx.fillRect(x, y - L, Math.max(1, Math.round(cel / 2)), L * 2 + 1); }
+  }
+  const k2 = Math.min(1, Math.max(0, (tl - 1.6) / 1.2), Math.max(0, (dur - tl) / 1.4));
+  ctx.globalAlpha = k2;
+  textoGotico(sub.toUpperCase(), W / 2, Math.round(H * 0.62), Math.round(H / 24), { alin: 'center', tono: modo === 'brasa' ? 'ceniza' : [170, 196, 216], brillo: 0.2 });
+  ctx.restore();
+}

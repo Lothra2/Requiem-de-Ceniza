@@ -174,14 +174,14 @@ function cieloRoto(e: EstadoToma, tl: number) {
 
 // ------------------------------------------------------------------ la boca del pecho
 /** Dónde queda el pecho de Aun-Saar sobre su ancla (puntos del dibujo hacia arriba). */
-const PECHO = 130;
+export const PECHO = 130;
 /**
  * La boca que tiene en el pecho, sobre la que ya trae el cuerpo (la tapa entera): cerrada es la carne pálida del pecho con la
  * costura; al abrirse la carne se parte en vertical con los labios húmedos oscuros (con su brillo), una hilera de dientes finos a
  * cada lado y una garganta que alumbra de oro desde adentro. `k` lo que se abrió, 0 a 1; `sonrie` tira de las comisuras. Guarda
  * dónde quedó en la pantalla (`e.mem.boca`, puntos lógicos) para que el nombre se escriba delante.
  */
-function bocaPecho(e: EstadoToma, k: number, tl: number, sonrie = 0) {
+export function bocaPecho(e: EstadoToma, k: number, tl: number, sonrie = 0) {
   const m = e.actores.get('aun') as any; if (!m) return;
   const [px, py] = aPant(m.x, m.y), X = Math.round(px), Y = Math.round(py - PECHO);
   const T = ctx.getTransform(); const q = T.transformPoint(new DOMPoint(X, Y)); e.mem.boca = [q.x / RES, q.y / RES, T.a / RES];

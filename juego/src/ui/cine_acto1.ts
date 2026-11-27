@@ -11,7 +11,7 @@ import { linea, VIOLETA, metaDe, anclaJefe, piezasDe, despejarPiezas, charco, ve
 const L = (n: number, t0: number, t1: number, o: Partial<Texto> = {}): Texto => linea(1, n, t0, t1, o);
 
 /** La fachada de la catedral de Santa Oria (la pieza de adelante de la salida a la abadía). */
-const anclaFachada = (z: Zona): [number, number] => { const sa = z.salidas.find((q) => q.destino === 'a1_abadia1'); const f = sa?.piezas?.find((o) => /fachada/.test(o.id)) ?? sa?.piezas?.[sa.piezas.length - 1]; return f ? [f.cx + 0.5, f.cy + 0.5] : [z.W / 2, z.H / 2]; };
+export const anclaFachada = (z: Zona): [number, number] => { const sa = z.salidas.find((q) => q.destino === 'a1_abadia1'); const f = sa?.piezas?.find((o) => /fachada/.test(o.id)) ?? sa?.piezas?.[sa.piezas.length - 1]; return f ? [f.cx + 0.5, f.cy + 0.5] : [z.W / 2, z.H / 2]; };
 /** El campanario caído (el hito del camposanto). */
 const anclaCampanario = (z: Zona): [number, number] => { const o = z.objetos.find((q) => q.id === 'acto_hito'); return o ? [o.cx + 0.5, o.cy + 0.5] : [z.W / 2, z.H / 3]; };
 /** El camino del páramo, un poco adentro de la puerta del este (la que viene del camposanto). */

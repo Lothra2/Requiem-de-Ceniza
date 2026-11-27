@@ -70,7 +70,7 @@ function dibujarCalor(e: EstadoToma, tl: number) {
 
 // ------------------------------------------------------------------ el Fortín
 /** Adentro del Fortín, frente al portón del norte (el que da a los picos), con el pabellón de delante fuera (lo saca `preparar`). */
-const anclaPuertaFortin = (z: Zona): [number, number] => { const sa = z.salidas.find((q) => q.destino === 'a4_picos'); if (!sa) { const q = libreCerca(z, z.W / 2, 12); return [q[0] + 0.5, q[1] + 0.5]; } return [sa.cx + 4, sa.cy + 2.7]; };
+export const anclaPuertaFortin = (z: Zona): [number, number] => { const sa = z.salidas.find((q) => q.destino === 'a4_picos'); if (!sa) { const q = libreCerca(z, z.W / 2, 12); return [q[0] + 0.5, q[1] + 0.5]; } return [sa.cx + 4, sa.cy + 2.7]; };
 /** La lámpara de Vigdis: un farol de pixel en su mano, con la llama que tiembla (y más cuando pasa la brasa). */
 function lampara(e: EstadoToma, tl: number) {
   const v = e.actores.get('vigdis') as any; if (!v) return;
@@ -91,7 +91,7 @@ function lampara(e: EstadoToma, tl: number) {
  * lienzo, a puntos del dibujo, del ancho de lo que ve la toma, y se pega cada cuadro con lo plano del piso (debajo de todo lo
  * que está de pie).
  */
-function nievePiso(e: EstadoToma, r: number) {
+export function nievePiso(e: EstadoToma, r: number) {
   const RX = r * 16, RY = r * 8;
   if (!e.mem.nieve) {
     const c = document.createElement('canvas'); c.width = RX * 2; c.height = RY * 2; const g = c.getContext('2d')!;

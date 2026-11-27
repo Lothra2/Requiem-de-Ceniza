@@ -804,6 +804,11 @@ export const PELICULA: Record<number, LineaPelicula[]> = {
     { es: 'Y por primera vez en mil inviernos, preguntó por el pedazo que le faltaba. Preguntó por ti.', en: 'And for the first time in a thousand winters, he asked for the piece he was missing. He asked for you.', si: ['brasa', 'destruir'] },
     { es: 'Y por primera vez en mil inviernos, sonrió. Ya sabía que su sed venía en camino.', en: 'And for the first time in a thousand winters, he smiled. He knew his thirst was on its way.', si: ['brasa', 'absorber'] },
   ],
+  // (el acto 7 cierra al caer Aun-Saar con las líneas que ya decía el mensaje de la Corona; el final va aparte: ui/cine_acto7.ts)
+  7: [
+    { es: 'La Corona de Aun-Saar rueda hasta tus pies. Todavía está tibia.', en: 'Aun-Saar\'s Crown rolls to your feet. It is still warm.' },
+    { es: 'Llévala al campamento: alguien tendrá que decidir qué hacer con ella.', en: 'Take it to the camp: someone will have to decide what to do with it.' },
+  ],
 };
 /** ¿Ese acto cierra con su película del motor? (`__cineViejo` vuelve a la cinemática y al entreacto de antes) */
 export const conPelicula = (acto: number) => !!PELICULA[acto] && !(globalThis as any).__cineViejo;

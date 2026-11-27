@@ -144,3 +144,30 @@ export function siluetaEnPiso(q: any, px: number, py: number, ax: number, ay: nu
 }
 import { dibujarTenido } from '../motor/assets';
 const dibujarTenidoK = (q: any, color: string) => dibujarTenido(ctx, q, 0, 0, color, 1, 1);
+
+/**
+ * Lo que se enfría: las piezas de la zona que el `re` pide (la lava de la Fragua, sus cintas, el río) pierden el color y se
+ * apagan, de abajo arriba de la pantalla: con `u` 0 nada, con 1 todo. Encima de lo ya pintado y solo donde está la pieza (su
+ * silueta): primero sin color (gris del mismo brillo) y después hundido hacia el pardo de la roca fría. En el pase del mundo.
+ */
+export function enfriarPiezas(e: EstadoToma, re: RegExp, u: number, k = 0.9) {
+  const z = e.z; if (!z || u <= 0) return;
+  const m = ctx.getTransform().inverse(), a = m.transformPoint(new DOMPoint(0, 0)), b = m.transformPoint(new DOMPoint(ctx.canvas.width, ctx.canvas.height));
+  const yCorte = b.y - Math.min(1, u) * (b.y - a.y) * 1.05;
+  const todas = [...z.objetos, ...z.salidas.flatMap((s) => s.piezas ?? [])].filter((o) => re.test(o.id));
+  ctx.save(); ctx.beginPath(); ctx.rect(a.x, yCorte, b.x - a.x, b.y - yCorte + 2); ctx.clip(); ctx.imageSmoothingEnabled = false;
+  for (const o of todas) {
+    const q = metaDe(o.id, o.v); if (!q) continue;
+    const [px, py] = aPant(o.cx + 0.5, o.cy + 0.5);
+    if (px - q.ax > b.x || px - q.ax + q.w < a.x || py - q.ay > b.y || py - q.ay + q.h < yCorte) continue;
+    ctx.globalCompositeOperation = 'saturation'; dibujarTenido(ctx, q, px, py, '#808080', 1, 1);
+    ctx.globalCompositeOperation = 'multiply'; ctx.globalAlpha = k; dibujarTenido(ctx, q, px, py, '#3a2e2a', 1, 1); ctx.globalAlpha = 1;
+  }
+  ctx.restore();
+  // el filo que se enfría: una línea de brasa justo encima del corte, que sube con él
+  if (u < 1) {
+    ctx.save(); ctx.beginPath(); ctx.rect(a.x, yCorte - 3, b.x - a.x, 4); ctx.clip(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.5;
+    for (const o of todas) { const q = metaDe(o.id, o.v); if (!q) continue; const [px, py] = aPant(o.cx + 0.5, o.cy + 0.5); dibujarTenido(ctx, q, px, py, '#5a1404', 1, 1); }
+    ctx.restore();
+  }
+}

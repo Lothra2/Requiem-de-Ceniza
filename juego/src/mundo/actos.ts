@@ -795,7 +795,9 @@ export const PELICULA: Record<number, LineaPelicula[]> = {
   ],
 };
 /** ¿Ese acto cierra con su película del motor? (`__cineViejo` vuelve a la cinemática y al entreacto de antes) */
-export const conPelicula = (acto: number) => !!PELICULA[acto] && !(globalThis as any).__cineViejo;
+export const conPelicula = (acto: number) => !!PELICULA[acto] && acto <= PELICULA_HASTA && !(globalThis as any).__cineViejo;
+/** Hasta qué acto se publican las películas: las que siguen están en obra en la rama cine. */
+export const PELICULA_HASTA = 4;
 export const ENTREACTO: Record<number, TomaEntreacto[]> = {
   1: [
     { escena: 'catacumbas', seed: 3, texto: ['La Abadesa cayó. La brasa no.', 'The Abbess fell. The ember did not.'] },

@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Pirata+One&display=swap" rel="stylesheet" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <title>Réquiem de Ceniza</title>
+    <link rel="icon" type="image/png" href="./icono.png" />
+    <link rel="apple-touch-icon" href="./icono_180.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Réquiem" />
+    <style>html,body{touch-action:none;-webkit-user-select:none;user-select:none;background:#000;height:100%;margin:0;overflow:hidden}canvas#juego{image-rendering:pixelated;image-rendering:crisp-edges;cursor:none;background:#000;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%)}#nombre{color:#e8d8b0;z-index:2;background:#0d0a08;border:1px solid #6a5030;outline:none;padding:4px 8px;font:16px Georgia,serif;display:none;position:absolute}#girar{z-index:5;color:#e8d8b0;text-align:center;box-sizing:border-box;background:#000000e0;flex-direction:column;justify-content:center;align-items:center;gap:18px;padding:24px;font:18px Georgia,serif;display:none;position:absolute;inset:0}#girar .tel{border:3px solid #c8a060;border-radius:9px;width:54px;height:92px;animation:2.4s ease-in-out infinite girar}#girar small{color:#9a8060;font-size:14px}@keyframes girar{0%,30%{transform:rotate(0)}60%,to{transform:rotate(-90deg)}}@media (orientation:portrait) and (pointer:coarse){html:not(.vertical-ok) #girar{display:flex}}</style>
+    <script type="module" crossorigin src="./assets/index-DcNUR7eG.js"></script>
+  </head>
+  <body>
+    <canvas id="juego"></canvas>
+    <div id="girar" onclick="document.documentElement.classList.add('vertical-ok');try{sessionStorage.setItem('vertical-ok','1')}catch(e){}"><div class="tel"></div><div>Gira el teléfono<br>El Réquiem se juega en horizontal</div><small>o toca para seguir en vertical</small></div>
+    <script>try{if(sessionStorage.getItem('vertical-ok'))document.documentElement.classList.add('vertical-ok')}catch(e){}</script>
+    <input id="nombre" maxlength="16" autocomplete="off" spellcheck="false" />
+  </body>
+</html>

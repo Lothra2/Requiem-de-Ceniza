@@ -117,7 +117,7 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
     Sonido.efecto('trueno' as any, { vol: 0.3 });
     for (let i = 0; i < 40; i++) { const a = -Math.PI * (0.1 + 0.8 * Math.random()), v = 30 + Math.random() * 100; chispas.push({ x: B1[0], y: B1[1], vx: Math.cos(a) * v, vy: Math.sin(a) * v, v: 0, d: 0.6 + Math.random() * 1.1, c: 1 }); }
   }
-  if (brasa.golpe >= 0 && t - brasa.golpe > 4) brasa = { t0: -1, prox: t + 12 + Math.random() * 10, golpe: -1 };
+  if (brasa.golpe >= 0 && t - brasa.golpe > 9.5) brasa = { t0: -1, prox: t + 12 + Math.random() * 10, golpe: -1 };
   const golpeK = brasa.golpe >= 0 ? Math.max(0, 1 - (t - brasa.golpe) / 2.6) : 0;
   const fase = fr(t / 3.6), lub = Math.exp(-Math.pow((fase - 0.08) / 0.05, 2)) + 0.7 * Math.exp(-Math.pow((fase - 0.22) / 0.05, 2));
   const abre = brasa.t0 >= 0 ? Math.max(0, 1 - Math.abs(ub - 0.05) / 0.4) : (brasa.prox - t < 0.7 && brasa.prox - t > 0 ? 1 - (brasa.prox - t) / 0.7 : 0);
@@ -136,6 +136,7 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
     const lat = 0.75 + 0.12 * Math.sin(t * 2.1) + 0.1 * Math.sin(t * 5.3 + 1) * Math.sin(t * 0.7);
     if (id === 'halo') alfa = (0.5 * lat + 0.6 * golpeK) * k;
     if (id === 'vidrios') alfa = (0.45 * lat + 0.9 * golpeK) * k;
+    if (c.archivo === 'colina.png' && brasa.t0 >= 0) caeBrasa();
     pega(c.archivo, c.par, c.x ?? 0, c.y ?? 0, alfa, !!c.sumar, c.deriva ?? 0);
     // el molino del pueblo vacío: las aspas rotas giran despacio con el viento
     if (id === 'pueblo' && esc.molino) {
@@ -151,7 +152,7 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
         q.globalAlpha = a; q.fillStyle = u < 0.15 ? '#2e1a10' : '#141414';
         q.fillRect(Math.round(x + ox - r), Math.round(y + oy - r * 0.7), r * 2, Math.max(1, Math.round(r * 1.4)));
       } q.globalAlpha = 1;
-      if (brasa.t0 >= 0) caeBrasa();
+      if (brasa.golpe >= 0) luzSobreLaNave();
     }
   }
 
@@ -224,6 +225,14 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
   w.__portadaPixel = { s, Wl, Hl, x0, y0, brasa: brasa.t0 >= 0, bandada: bandada.t0 >= 0 };
 
   // la brasa: cabeza blanca, anillo, estela que se enfría; el golpe en la nave y lo que queda ardiendo
+  // el incendio del claustro alumbra el techo y los pináculos de la nave (por delante, sumado y suave)
+  function luzSobreLaNave() {
+    const [ox, oy] = corr(0.3), u = t - brasa.golpe, vida = Math.min(1, u / 0.4) * Math.max(0, 1 - Math.max(0, u - 6) / 3.2);
+    q.globalCompositeOperation = 'lighter';
+    q.globalAlpha = (0.32 * vida + 0.5 * Math.max(0, 1 - u / 0.6)) * acc.destellos * (0.85 + 0.15 * Math.sin(t * 9));
+    q.drawImage(luzTrama(70, [170, 70, 22], 1.7), B1[0] + ox - 70, B1[1] + oy - 80);
+    q.globalCompositeOperation = 'source-over'; q.globalAlpha = 1;
+  }
   function caeBrasa() {
     const [ox, oy] = corr(0.3);
     if (ub < 1) {
@@ -245,18 +254,37 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
     }
     if (brasa.golpe >= 0) {
       const u = t - brasa.golpe, gx = B1[0] + ox, gy = B1[1] + oy;
+      // detrás de la catedral: el fogonazo que la recorta a contraluz y el resplandor que queda del incendio del claustro
       q.globalCompositeOperation = 'lighter';
-      q.globalAlpha = Math.max(0, 1 - u / 1.6) * acc.destellos; q.drawImage(luzTrama(80, [220, 100, 34], 1.8), gx - 80, gy - 80);
-      q.globalAlpha = Math.max(0, 1 - u / 0.35) * acc.destellos; q.drawImage(luzTrama(30, [255, 228, 170], 1.2), gx - 30, gy - 30);
-      const vida = Math.min(1, u / 0.4) * Math.max(0, 1 - Math.max(0, u - 2.6) / 1.3);
-      q.globalAlpha = 0.5 * vida; q.drawImage(luzTrama(22, [190, 70, 20], 1.3), gx - 22, gy - 24);
+      q.globalAlpha = Math.max(0, 1 - u / 1.4) * acc.destellos; q.drawImage(luzTrama(110, [230, 110, 40], 1.6), gx - 110, gy - 110);
+      q.globalAlpha = Math.max(0, 1 - u / 0.3) * acc.destellos; q.drawImage(luzTrama(44, [255, 226, 170], 1.1), gx - 44, gy - 44);
+      const vida = Math.min(1, u / 0.5) * Math.max(0, 1 - Math.max(0, u - 6) / 3.2);
+      q.globalAlpha = 0.55 * vida * (0.85 + 0.15 * Math.sin(t * 11)); q.drawImage(luzTrama(48, [200, 80, 24], 1.4), gx - 48, gy - 60);
       q.globalCompositeOperation = 'source-over';
-      if (u < 0.7) { const r = 5 + u * 90, nn = Math.ceil(r * 6); for (let i = 0; i < nn; i++) { const a = i / nn * Math.PI * 2; if (Math.sin(a) > 0.3) continue; punto(gx + Math.cos(a) * r, gy + Math.sin(a) * r * 0.45, FUEGO[Math.max(1, 6 - Math.floor(u * 8))], 1 - u / 0.7); } }
-      // lo que queda ardiendo en el techo
-      for (let c = -6; c <= 6; c++) {
-        const n = Math.floor(t * 11 + c * 5), alto = Math.max(0, Math.round((9 - Math.abs(c) * 1.2) * vida * (0.6 + 0.6 * hsh(n + c * 31))));
-        for (let k2 = 0; k2 < alto; k2++) punto(gx + c + (hsh(n * 3 + k2) < 0.25 ? (c > 0 ? 1 : -1) : 0), gy + 2 - k2, FUEGO[Math.max(1, 6 - Math.floor(k2 / Math.max(1, alto) * 5) - (Math.abs(c) > 4 ? 2 : 0))], 1);
+      // las llamas del claustro que asoman por encima del techo de la nave (lo de abajo lo tapa la catedral)
+      for (let c = -26; c <= 26; c++) {
+        const n = Math.floor(t * 10 + c * 5), base = Math.abs(c) * 0.25, alto = Math.max(0, Math.round((62 - Math.abs(c) * 2.1) * vida * (0.5 + 0.65 * hsh(n + c * 31))));
+        for (let k2 = 0; k2 < alto; k2++) {
+          const x = gx + c + Math.round(Math.sin(t * 3 + k2 * 0.3 + c) * (k2 / 14)), y = gy + 6 + base - k2;
+          punto(x, y, FUEGO[Math.max(0, 6 - Math.floor(k2 / Math.max(1, alto) * 6) - (Math.abs(c) > 10 ? 2 : Math.abs(c) > 5 ? 1 : 0))], 1);
+        }
       }
+      // las piedras y tejas que saltan del golpe (oscuras, con su canto encendido)
+      if (u < 2.2) for (let i = 0; i < 14; i++) {
+        const a = -Math.PI * (0.15 + 0.7 * hsh(i + 3)), v = 70 + hsh(i + 9) * 120, tt = u;
+        const x = gx + Math.cos(a) * v * tt, y = gy + Math.sin(a) * v * tt + 110 * tt * tt;
+        punto(x, y, '#141416', 1, 2, 2); punto(x, y, FUEGO[Math.max(0, 4 - Math.floor(tt * 3))], 1);
+      }
+      // la columna de humo que sale del claustro y se tuerce con el viento
+      for (let i = 0; i < 40; i++) {
+        const w0 = fr(t * 0.11 + hsh(i + 70)), uu = Math.min(w0, u * 0.25);
+        if (uu <= 0) continue;
+        const x = gx + (hsh(i + 9) - 0.5) * 24 + uu * uu * 260 + Math.sin(t * 0.5 + i) * 6 * uu, y = gy - 20 - uu * 300;
+        const r = 3 + Math.floor(uu * 22 * (0.6 + hsh(i + 3) * 0.6)), a = Math.min(1, uu * 8) * (1 - uu) * 0.75 * Math.min(1, vida + 0.4);
+        q.globalAlpha = a; q.fillStyle = uu < 0.12 ? '#3a2012' : '#121214';
+        q.fillRect(Math.round(x - r), Math.round(y - r * 0.7), r * 2, Math.max(1, Math.round(r * 1.4)));
+      }
+      q.globalAlpha = 1;
     }
   }
 }

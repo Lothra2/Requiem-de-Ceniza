@@ -231,7 +231,7 @@ export function catedralNoche(o: OpcCatedral): { capa: Lamina; luz: Lamina; niti
   }
 
   // ------------------------------------------------------------------ sombreado
-  const LUNA_DIR = norm([0.2, 0.42, 0.88]);
+  const LUNA_DIR = norm([+(process.env.LX ?? -0.85), +(process.env.LY ?? 0.5), +(process.env.LZ ?? -0.1)]);
   const lunaP: P2 = o.luna ? [o.luna[0] * SS, o.luna[1] * SS] : proy(aCam(add(CAM, mul(norm([0.02, 0.36, 0.93]), 1000))));
   const PORTAL: V3 = [0, 4.5, -3.5];
   const col = new Float32Array(W * H * 3), em = new Float32Array(W * H * 3), vid = new Float32Array(W * H), cub = new Float32Array(W * H), esTierra = new Uint8Array(W * H);
@@ -299,14 +299,17 @@ export function catedralNoche(o: OpcCatedral): { capa: Lamina; luz: Lamina; niti
     const kLuna = Math.max(0, dot(n, LUNA_DIR));
     const kCielo = 0.5 + 0.5 * n[1], arriba = Math.max(0, n[1]);
     // noche: el cielo y la luna fríos, el fuego de la puerta y de la ciudad cálido (la grieta la pone la portada)
-    let r = alb[0] * (0.2 * kCielo + 0.7 * kPortal + 0.25 * kPie + 0.1 * kCiudad + 0.1 * kFrio + 0.5 * kLuna + 0.32 * arriba);
-    let g = alb[1] * (0.2 * kCielo + 0.26 * kPortal + 0.1 * kPie + 0.04 * kCiudad + 0.12 * kFrio + 0.5 * kLuna + 0.32 * arriba);
-    let bl = alb[2] * (0.2 * kCielo + 0.08 * kPortal + 0.03 * kPie + 0.02 * kCiudad + 0.12 * kFrio + 0.4 * kLuna + 0.26 * arriba);
+    // la portada de pixel no quiere color mezclado: va la luz fría (luna y cielo) en r, la cálida (la puerta) en g y el
+    // material en b (0 piedra, 0,33 techo, 0,66 tierra, 1 hueco). pixel.py los lleva a sus rampas.
+    const lumA = (alb[0] + alb[1] + alb[2]) / 3;
+    let r = lumA * (0.14 * kCielo + 1.25 * kLuna + 0.18 * arriba);
+    let g = lumA * (1.6 * kPortal + 0.55 * kPie * Math.exp(-Math.max(0, P[1]) / 12));
+    let bl = mat === TECHO ? 0.33 : mat === TIERRA ? 0.66 : mat === HUECO || mat === VIDRIO || mat === ROSA || mat === FUEGO ? 1 : 0;
     // la tierra pegada al edificio y el pie de los muros quedan en sombra (asienta la catedral)
-    if (mat !== TIERRA && mat !== ESCALON) { const pie = 0.5 + 0.5 * sat((P[1] + 1) / 7); r *= pie; g *= pie; bl *= pie; }
+    if (mat !== TIERRA && mat !== ESCALON) { const pie = 0.5 + 0.5 * sat((P[1] + 1) / 7); r *= pie; }
     // bruma: lo lejano se pierde en el rojo del cielo
     const prof = zb[i], kn = sat(1 - Math.exp(-Math.max(0, prof - 78) / 135)) * (mat === TIERRA ? 0.75 : 0.9);
-    r += (NIEBLA[0] - r) * kn; g += (NIEBLA[1] - g) * kn; bl += (NIEBLA[2] - bl) * kn;
+    r += (0.03 - r) * kn; g *= 1 - kn;
     col[i * 3] = r; col[i * 3 + 1] = g; col[i * 3 + 2] = bl;
     // vidrios y fuego
     if ((mat === VIDRIO || mat === ROSA) && t.uv) {
@@ -338,7 +341,7 @@ export function catedralNoche(o: OpcCatedral): { capa: Lamina; luz: Lamina; niti
     for (let sy = 0; sy < SS; sy++) for (let sx = 0; sx < SS; sx++) {
       const i = (y * SS + sy) * W + x * SS + sx; if (!cub[i]) continue;
       const f = filo[i];
-      r += col[i * 3] + f * 0.5; g += col[i * 3 + 1] + f * 0.47; b += col[i * 3 + 2] + f * 0.38; a += 1;
+      r += col[i * 3] + f * 0.3; g += col[i * 3 + 1]; b += col[i * 3 + 2]; a += 1;
       er += em[i * 3]; eg += em[i * 3 + 1]; eb += em[i * 3 + 2]; v += vid[i]; tierra.d[y * o.w + x] += esTierra[i] * k2;
     }
     const j = (y * o.w + x) * 4;

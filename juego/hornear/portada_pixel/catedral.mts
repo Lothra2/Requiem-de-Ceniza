@@ -6,7 +6,7 @@ import { catedralNoche } from './catedral_noche';
 const D = process.env.SALIDA ?? '/tmp/requiem-pixel/'; mkdirSync(D, { recursive: true });
 const w = +(process.env.W ?? 300), h = +(process.env.H ?? 300), alto = +(process.env.ALTO ?? 236);
 const x = +(process.env.X ?? 150), y = +(process.env.Y ?? 262);
-const c = catedralNoche({ w, h, x, y, alto, luna: [x - 120, y - alto * 0.9], ss: +(process.env.SS ?? 4) });
+const c = catedralNoche({ w, h, x, y, alto, luna: [+(process.env.LUNA_X ?? -226), +(process.env.LUNA_Y ?? 122)], ss: +(process.env.SS ?? 4) });
 writeFileSync(D + 'catedral_capa.f32', Buffer.from(c.capa.d.buffer));
 writeFileSync(D + 'catedral_luz.f32', Buffer.from(c.luz.d.buffer));
 writeFileSync(D + 'catedral_nit.f32', Buffer.from(c.nitida.d.buffer));

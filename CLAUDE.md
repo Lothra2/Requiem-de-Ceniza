@@ -2441,9 +2441,17 @@ un render liso estirado que chocaba con el título de pixel, todo del mismo nara
 sombrío, cadáveres colgando, urracas, desolación, colores de abandono, una catedral imponente pero tenebrosa, ultra lujo". Eligió
 **pixel fino** (cada punto de la escena es 2 x 2 en 1080) y la grieta **apagada** (queda la brasa como el único golpe de color).
 
-- **La escena**: cielo cubierto ocre gris con el sol tapado (un disco pálido) en un claro del gas y **rayos** que bajan hacia la
-  catedral; **gas** en tres capas (densidad con el dominio torcido y bordes en coliflor, la luz que la atraviesa hacia el sol:
-  barriga oscura, canto encendido, filo de plata) que derivan a distintas velocidades; el pueblo vacío y los montes en la bruma;
+- **Tercera vuelta** (Rick: "la luz de la luna, la luna, los colores de la catedral, el meteoro que hace un aro que no tiene
+  sentido"; eligió seguir con código, no con arte de IA): la **luna** es la esfera de la portada vieja (`luna.webp`, mares y
+  cráteres) a 49 puntos, en una rampa de plata con el borde nítido y una corona fina, sin rayos (la capa `rayos` ya no va); el
+  **cielo y el gas** pasan a grises fríos con el filo plateado cerca de la luna. La **catedral** ya no sale del color mezclado:
+  `catedral_noche.ts` escribe la luz fría (luna desde la izquierda y adelante, `LX LY LZ`) en r, la cálida de la puerta en g y
+  el material en b, y `pixel.py` las pasa a **rampas** (`rampa`: piedra fría de 9 tonos, techo, piedra que toca el fuego que
+  entra de a poco con trama, vitrales con su plomo y su color por paño, cada ventana con su brillo). **La brasa** cae detrás de
+  la nave, en el claustro (se pinta antes de la colina y la catedral): el fogonazo la recorta a contraluz, el fuego asoma por
+  encima del techo unos 8 s, saltan piedras, sube la columna de humo y el incendio alumbra el techo (`luzSobreLaNave`). Sin aro.
+- **La escena**: cielo cubierto con la luna en un claro del gas; **gas** en tres capas (densidad con el dominio torcido y bordes
+  en coliflor, la luz que la atraviesa hacia la luna: barriga oscura, canto plateado) que derivan a distintas velocidades; el pueblo vacío y los montes en la bruma;
   **Santa Oria** enorme a la derecha, gris, la mitad de los vitrales rotos y apagados, el resto con lumbre sucia, humo de la nave;
   el **roble de la horca** a la izquierda con **tres ahorcados** pintados por el motor (los cuerpos de `actos45`: el muerto
   encapuchado, el viejo pálido en harapos y otro muerto, en la pose de morir 1 o quieto, a contraluz y con su soga y su lazo), que
@@ -2459,7 +2467,7 @@ sombrío, cadáveres colgando, urracas, desolación, colores de abandono, una ca
   motor: no mueve `__PINTOR__`), `catedral.mts` (la pinta en flotantes a `/tmp/requiem-pixel`), `piezas.mts` (los ahorcados y el pueblo con el motor, a
   `/tmp/requiem-pixel/piezas`; carga el catálogo como t1020) y `pixel.py` (todas las capas a una
   paleta de abandono de 49 colores con trama Bayer, más `escena.json`: capas, ahorcados, perchas de las urracas, la brasa).
-  Hornear: `W=560 H=600 X=300 Y=520 ALTO=470 SS=3 npx tsx juego/hornear/portada_pixel/catedral.mts && npx tsx juego/hornear/portada_pixel/piezas.mts && python3
+  Hornear: `LX=-0.7 LY=0.55 LZ=-0.55 W=560 H=600 X=300 Y=520 ALTO=470 SS=3 npx tsx juego/hornear/portada_pixel/catedral.mts && npx tsx juego/hornear/portada_pixel/piezas.mts && python3
   juego/hornear/portada_pixel/pixel.py` (1 min). Se diseña en una vista de 960 x 540 (`dv`), la escena mide 1920 x 816.
 - **Escala**: `s = floor(alto / 500)` puntos del aparato por punto, sube si no alcanza (2 en 1080, 1 en 720 y en el teléfono
   acostado, que ve 1082 x 500). Se arma en un lienzo de ese tamaño y se pega sin suavizar. Paralaje por capa con el ratón.

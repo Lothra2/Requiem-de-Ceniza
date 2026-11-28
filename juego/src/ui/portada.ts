@@ -8,6 +8,7 @@ import { BASE } from '../motor/assets';
 import { Sonido } from '../audio/sonido';
 import { fuegoTitulo, golpeTitulo, ENCIENDE_T } from './titulo_fuego';
 import { acc } from '../nucleo/accesible';
+import { prepararPixel, pixelLista, portadaPixel, dibujarPixel } from './portada_pixel';
 
 const RAIZ = BASE + 'portada/';
 let man: any = null;
@@ -22,17 +23,21 @@ const lista = (ruta?: string) => { if (!ruta) return null; const im = pedir(ruta
 
 /** Baja el manifiesto y lo primero que se ve. Se puede llamar muchas veces. */
 export function prepararPortada() {
+  if (portadaPixel()) prepararPixel();
   if (pidio) return; pidio = true;
   fetch(RAIZ + 'portada.json').then((r) => r.json()).then((m) => {
     man = m;
-    for (const c of m.fondo.capas) pedir(c.archivo);
-    pedir(m.fondo.relampago.archivo); pedir(m.fondo.ceniza.archivo); pedir('fondo/luna.webp'); pedir('fondo/luna_nubes.webp');
+    // (con la portada de pixel no se bajan las capas de la de antes)
+    if (!portadaPixel()) {
+      for (const c of m.fondo.capas) pedir(c.archivo);
+      pedir(m.fondo.relampago.archivo); pedir(m.fondo.ceniza.archivo); pedir('fondo/luna.webp'); pedir('fondo/luna_nubes.webp');
+    }
     for (const idi of ['es', 'en']) pedir(m.titulo[idi].fijo['800']);
     // las animaciones del título del idioma activo, después
     setTimeout(() => { const t = m.titulo[IDI ? 'en' : 'es']; for (const k of ['revelar', 'anim']) for (const h of t[k]['800'].hojas) pedir(h); }, 400);
   }).catch(() => { pidio = false; });
 }
-export const portadaLista = () => !!man && !!lista(man.fondo.capas[0].archivo) && !!lista(man.fondo.capas.find((c: any) => c.id === 'catedral')?.archivo);
+export const portadaLista = () => !!man && (portadaPixel() ? pixelLista() : !!lista(man.fondo.capas[0].archivo) && !!lista(man.fondo.capas.find((c: any) => c.id === 'catedral')?.archivo));
 
 // ------------------------------------------------------------------ estado de la escena
 let t0 = -1, proxRayo = 1.4, rayo = -1, rayoEspejo = false, trueno = -1;
@@ -133,6 +138,16 @@ export function dibujarPortada(tReal: number): { botones: number; yBotones: numb
   const gp = golpeTitulo(t - 2.2);
   if (gp.dx || gp.dy) { const k = 1 + (Math.abs(gp.dx) + Math.abs(gp.dy)) * 2.2 / W; ctx.translate(W / 2 + gp.dx, H / 2 + gp.dy); ctx.scale(k, k); ctx.translate(-W / 2, -H / 2); }
   const fondoK = Math.min(1, Math.max(0, (t - 0.2) / 1.6));
+  // la portada de pixel (la de ahora): la escena entera la arma portada_pixel.ts; acá queda el título encima
+  if (portadaPixel()) {
+    dibujarPixel(t, fondoK, gp);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    const m1 = performance.now();
+    dibujarTitulo(t - 2.2, vertical, gp.destello, gp.bocanada);
+    ctx.restore();
+    medirPortada(m1 - m0, performance.now() - m1);
+    return { botones: Math.min(1, Math.max(0, (t - 4) / 0.5)), yBotones: H * 0.62 };
+  }
   // relámpagos: uno forzado a los 1.4 s y después cada 7 a 16 s
   const rel = f.relampago;
   if (t >= proxRayo && rayo < 0) { rayo = t; rayoEspejo = R() < 0.5; trueno = t + 0.4 + R() * 0.8; proxRayo = t + entre(rel.cada_s); }

@@ -2434,6 +2434,35 @@ película de 60 a 90 s por acto con el mismo arte del juego, una sola por acto. 
     no se distingue de la común; en una lámina el cuadro a 62 % a veces cae en el fundido entre dos trozos de texto; el sonido de las
     películas no lo oyó nadie todavía.
 
+## La portada de pixel (28 nov 2026)
+
+Rick: "Quiero un background de menú de inicio muchísimo mejor: el actual me sigue pareciendo flojo." La crítica: el fondo era un
+render liso estirado (chocaba con el título y la letra de pixel), todo del mismo naranja barroso sin contraste, la catedral pegada a
+un lado y no contaba nada. Ahora es pixel art de verdad con la misma grilla que el título: la noche en que cae la segunda brasa.
+
+- **La escena**: cielo frío de noche con estrellas que titilan, una luna chica de hueso, estratos finos, la **grieta** en el cielo
+  (un tajo rojo con el blanco adentro que late como la Marca, lub dub cada 3,4 s), montes, la ciudad que arde lejos, niebla del
+  valle, Santa Oria en su colina con los vitrales que laten y humo, cuervos en las agujas, el camposanto y el árbol muerto delante,
+  y **el caminante** de espaldas con la capa al viento y la espada baja mirando la catedral. Cada 9 a 16 s (la primera a los
+  6,2 s) la grieta se abre, **la brasa cae** con su estela, revienta en la nave (fogonazo a trama, anillo, chispas, `trueno` bajo,
+  `acc.destellos`) y queda ardiendo unos segundos en el techo.
+- **Dónde**: `juego/src/ui/portada_pixel.ts` (lo que se mueve; `dibujarPortada` en portada.ts lo llama y pone el título encima) y
+  el horneador `juego/hornear/portada_pixel/`: `catedral_noche.ts` es una copia de `catedral_portada.ts` con luz de noche (fuera
+  del motor: no mueve `__PINTOR__`), `catedral.mts` la pinta en flotantes a `/tmp/requiem-pixel` y `pixel.py` arma todas las capas a
+  una sola paleta (45 colores) con trama Bayer en `juego/public/assets/portada/pixel/` (unos 300 KB) y `escena.json` (dónde va cada
+  cosa, estrellas, fuegos, la brasa). Hornear: `npx tsx juego/hornear/portada_pixel/catedral.mts && python3
+  juego/hornear/portada_pixel/pixel.py` (15 s).
+- **La escena mide 1280 x 544** (lo diseñado en 960 x 480 va corrido `OX`, `OY`): la pantalla ve un trozo de unos 640 x 360 a
+  `s` puntos del aparato por punto (`floor(alto / 340)`, sube si no alcanza: 3 a 1080, 2 a 720, 1 en el teléfono acostado, que ve
+  1082 x 500). Se arma en un lienzo de ese tamaño y se pega sin suavizar. Paralaje por capa con el ratón, sin mostrar bordes.
+- `__portadaVieja` vuelve a la portada de antes (y baja sus capas), `__brasaYa` hace caer la brasa ahora, `__portadaPixel` dice
+  la escala y el trozo. La de antes ya no se baja.
+- Costo (1920 x 1080, en la nube): el fondo 2 ms de JS por cuadro (antes 27) y la portada entera da unas 3 veces más cuadros.
+- Prueba de fotos: el script de la sesión (`VISTAS=pc,pc720,movil,ultra`, `B=` fotos después de soltar la brasa); t680, t681 y
+  t683 siguen sirviendo.
+- Flojo: algún banco de nube lejano a la izquierda sale con cantos en escalera rectos; el caminante es una silueta (de espaldas,
+  a propósito) y los textos del menú van encima del árbol en pantallas angostas.
+
 ## Historia y canon (19 nov 2026)
 
 Rick aprobó la revisión entera de la historia (70 propuestas). Lo que quedó como canon, para que nada nuevo lo contradiga:

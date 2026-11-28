@@ -262,7 +262,7 @@ export function catedralNoche(o: OpcCatedral): { capa: Lamina; luz: Lamina; niti
     const c = anillo === 0 ? PALETA[2] : PALETA[Math.floor(hash2(Math.floor(s) + id, anillo, 12) * PALETA.length)];
     return [abre, anillo === 0 ? [1, 0.75, 0.3] : c];
   };
-  const NIEBLA: C3 = [0.03, 0.036, 0.075];
+  const NIEBLA: C3 = [0.085, 0.082, 0.07];
   for (let i = 0; i < W * H; i++) {
     const ti = quien[i]; if (ti < 0) continue;
     const t = T[ti], b1 = l1[i], b2 = l2[i], b0 = 1 - b1 - b2;
@@ -299,9 +299,9 @@ export function catedralNoche(o: OpcCatedral): { capa: Lamina; luz: Lamina; niti
     const kLuna = Math.max(0, dot(n, LUNA_DIR));
     const kCielo = 0.5 + 0.5 * n[1], arriba = Math.max(0, n[1]);
     // noche: el cielo y la luna fríos, el fuego de la puerta y de la ciudad cálido (la grieta la pone la portada)
-    let r = alb[0] * (0.16 * kCielo + 1.5 * kPortal + 0.55 * kPie + 0.38 * kCiudad + 0.16 * kFrio + 0.42 * kLuna + 0.3 * arriba);
-    let g = alb[1] * (0.2 * kCielo + 0.5 * kPortal + 0.18 * kPie + 0.12 * kCiudad + 0.26 * kFrio + 0.52 * kLuna + 0.38 * arriba);
-    let bl = alb[2] * (0.34 * kCielo + 0.15 * kPortal + 0.08 * kPie + 0.05 * kCiudad + 0.5 * kFrio + 0.85 * kLuna + 0.62 * arriba);
+    let r = alb[0] * (0.2 * kCielo + 0.7 * kPortal + 0.25 * kPie + 0.1 * kCiudad + 0.1 * kFrio + 0.5 * kLuna + 0.32 * arriba);
+    let g = alb[1] * (0.2 * kCielo + 0.26 * kPortal + 0.1 * kPie + 0.04 * kCiudad + 0.12 * kFrio + 0.5 * kLuna + 0.32 * arriba);
+    let bl = alb[2] * (0.2 * kCielo + 0.08 * kPortal + 0.03 * kPie + 0.02 * kCiudad + 0.12 * kFrio + 0.4 * kLuna + 0.26 * arriba);
     // la tierra pegada al edificio y el pie de los muros quedan en sombra (asienta la catedral)
     if (mat !== TIERRA && mat !== ESCALON) { const pie = 0.5 + 0.5 * sat((P[1] + 1) / 7); r *= pie; g *= pie; bl *= pie; }
     // bruma: lo lejano se pierde en el rojo del cielo
@@ -338,7 +338,7 @@ export function catedralNoche(o: OpcCatedral): { capa: Lamina; luz: Lamina; niti
     for (let sy = 0; sy < SS; sy++) for (let sx = 0; sx < SS; sx++) {
       const i = (y * SS + sy) * W + x * SS + sx; if (!cub[i]) continue;
       const f = filo[i];
-      r += col[i * 3] + f * 0.42; g += col[i * 3 + 1] + f * 0.55; b += col[i * 3 + 2] + f * 0.85; a += 1;
+      r += col[i * 3] + f * 0.5; g += col[i * 3 + 1] + f * 0.47; b += col[i * 3 + 2] + f * 0.38; a += 1;
       er += em[i * 3]; eg += em[i * 3 + 1]; eb += em[i * 3 + 2]; v += vid[i]; tierra.d[y * o.w + x] += esTierra[i] * k2;
     }
     const j = (y * o.w + x) * 4;

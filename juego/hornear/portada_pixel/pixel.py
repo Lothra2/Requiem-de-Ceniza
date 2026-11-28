@@ -1,7 +1,9 @@
-# La portada de pixel: la noche en que cae la segunda brasa sobre Santa Oria.
-# Hornea las capas de la escena a un punto por punto de la escena (960 x 480; la pantalla ve un trozo de unos 640 x 360
-# en el medio, agrandado por enteros) y las lleva a una sola paleta con trama Bayer, como el título de fuego.
-# Antes: npx tsx juego/hornear/portada_pixel/catedral.mts  (la catedral en flotantes, en /tmp/requiem-pixel)
+# La portada de pixel fino: Santa Oria abandonada, bajo un cielo de gas.
+# Hornea las capas de la escena (1920 x 816; la pantalla ve un trozo de unos 960 x 540 en el medio, agrandado por enteros:
+# 2 x 2 en 1080) y las lleva a una paleta de abandono (grises ocres, verdes de moho, óxido, hueso) con trama Bayer.
+# Las nubes son gas de verdad: densidad con el dominio torcido y la luz que la atraviesa hacia el sol tapado (barriga
+# oscura, canto encendido). Delante, el árbol de la horca con sus ahorcados, las urracas, el camposanto y la niebla.
+# Antes: W=560 H=600 X=300 Y=520 ALTO=470 SS=3 npx tsx juego/hornear/portada_pixel/catedral.mts
 # Uso: python3 juego/hornear/portada_pixel/pixel.py   -> juego/public/assets/portada/pixel/*.png y escena.json
 import os, json, math
 import numpy as np
@@ -11,549 +13,581 @@ AQUI = os.path.dirname(os.path.abspath(__file__))
 SAL = os.path.join(AQUI, '..', '..', 'public', 'assets', 'portada', 'pixel')
 TMP = os.environ.get('TMP_CAT', '/tmp/requiem-pixel/')
 os.makedirs(SAL, exist_ok=True)
-SW, SH = 1280, 544                     # la escena entera (alcanza para un teléfono acostado a un punto por punto)
-OX, OY = 160, 32                       # lo de abajo se diseñó en 960 x 480: todo va corrido esto
-VX, VY = 160 + OX, 60 + OY             # el trozo seguro de 640 x 360 empieza ahí
-rng = np.random.default_rng(1666)
+for f in os.listdir(SAL):
+  if f.endswith('.png'): os.remove(os.path.join(SAL, f))
+SW, SH = 1920, 816                     # la escena entera
+OX, OY = 480, 138                      # lo de abajo se diseña en la vista de 960 x 540: todo va corrido esto
+VW, VH = 960, 540
 
-# ------------------------------------------------------------------ la paleta (una sola para toda la escena)
+# ------------------------------------------------------------------ la paleta del abandono
 PAL = np.array([
-  # noche
-  (5, 5, 12), (9, 9, 21), (14, 13, 31), (20, 18, 42), (28, 25, 56), (38, 33, 71), (50, 43, 88), (66, 56, 106), (86, 74, 126),
-  # piedra fría
-  (18, 18, 27), (27, 27, 39), (38, 38, 53), (51, 52, 69), (67, 68, 88), (88, 90, 112), (114, 118, 142), (146, 152, 176), (182, 188, 208),
-  # hueso y luna
-  (206, 204, 210), (226, 222, 212), (246, 240, 222),
-  # fuego
-  (34, 13, 10), (58, 20, 12), (88, 30, 13), (128, 43, 15), (170, 66, 18), (206, 100, 28), (236, 144, 46), (251, 192, 94), (255, 234, 168),
-  # la grieta
-  (64, 7, 14), (108, 12, 20), (160, 22, 24), (214, 46, 30),
-  # violeta de las nubes tocadas por la grieta
-  (44, 22, 44), (68, 30, 56), (96, 38, 64), (128, 50, 70),
-  # piedra que toca el fuego
-  (58, 42, 42), (86, 62, 56), (120, 86, 70), (158, 116, 88),
+  # gris pardo (0..13)
+  (7, 8, 9), (11, 12, 13), (15, 16, 17), (20, 21, 21), (26, 27, 26), (33, 34, 32), (41, 41, 38), (50, 50, 45),
+  (61, 60, 53), (74, 72, 62), (89, 86, 73), (106, 101, 85), (125, 118, 99), (146, 138, 115),
+  # moho (14..19)
+  (19, 23, 21), (26, 32, 28), (35, 43, 37), (46, 56, 47), (60, 70, 58), (78, 88, 72),
+  # ocre y óxido (20..27)
+  (40, 30, 20), (58, 41, 25), (80, 55, 30), (104, 70, 36), (128, 88, 44), (152, 110, 58), (176, 136, 80), (198, 164, 108),
+  # pizarra fría (28..32)
+  (21, 23, 29), (30, 33, 41), (41, 45, 56), (56, 60, 73), (75, 80, 94),
+  # hueso (33..36)
+  (168, 160, 140), (192, 185, 164), (216, 210, 190), (236, 234, 222),
+  # sangre vieja (37..41)
+  (38, 10, 10), (60, 14, 12), (90, 20, 14), (124, 30, 16), (162, 46, 20),
+  # fuego (42..48)
+  (58, 26, 10), (94, 42, 14), (136, 68, 20), (182, 106, 32), (222, 154, 62), (246, 204, 118), (255, 238, 188),
 ], np.float32)
+GRIS = list(range(0, 14)); MOHO = list(range(14, 20)); OCRE = list(range(20, 28)); PIZ = list(range(28, 33))
+HUESO = list(range(33, 37)); SANGRE = list(range(37, 42)); FUEGO = list(range(42, 49))
 BAYER = (np.array([[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]], np.float32) + 0.5) / 16
 
 
 def bayer(h, w, x0=0, y0=0):
-  ys, xs = np.mgrid[0:h, 0:w]
-  return BAYER[(ys + y0) % 4, (xs + x0) % 4]
+  ys_, xs_ = np.mgrid[0:h, 0:w]
+  return BAYER[(ys_ + y0) % 4, (xs_ + x0) % 4]
 
 
-def cuantizar(rgb, trama=14.0, sub=None):
-  """rgb en 0..255 (h, w, 3). Trama ordenada y el color más cercano de la paleta (o de `sub`, índices)."""
+def cuantizar(rgb, trama=7.0, sub=None):
   h, w, _ = rgb.shape
   P = PAL if sub is None else PAL[sub]
   v = rgb + (bayer(h, w)[..., None] - 0.5) * trama
-  flat = v.reshape(-1, 3)
-  out = np.empty_like(flat)
-  for i in range(0, len(flat), 65536):
-    q = flat[i:i + 65536]
-    # distancia con peso perceptual simple (el verde pesa más)
-    d = ((q[:, None, :] - P[None, :, :]) ** 2 * np.array([0.3, 0.59, 0.11]) * 3).sum(-1)
-    out[i:i + 65536] = P[d.argmin(1)]
+  flat = v.reshape(-1, 3); out = np.empty_like(flat)
+  pesos = np.array([0.3, 0.59, 0.11]) * 3
+  for i in range(0, len(flat), 131072):
+    q = flat[i:i + 131072]
+    d = ((q[:, None, :] - P[None, :, :]) ** 2 * pesos).sum(-1)
+    out[i:i + 131072] = P[d.argmin(1)]
   return out.reshape(h, w, 3)
 
 
-def alfa_trama(a, x0=0, y0=0):
-  """El alfa en tres escalones (0, medio por trama, 1): lo blando de una nube o la niebla se lee en pixel."""
+def alfa_trama(a, niveles=4):
   h, w = a.shape
-  b = bayer(h, w, x0, y0)
-  return (a > b).astype(np.float32)
+  return np.clip(np.floor(a * niveles + bayer(h, w)) / niveles, 0, 1)
 
 
 def guardar(nombre, rgb, a=None):
   rgb = np.clip(np.round(rgb), 0, 255).astype(np.uint8)
-  if a is None:
-    Image.fromarray(rgb, 'RGB').save(os.path.join(SAL, nombre), optimize=True)
+  if a is None: Image.fromarray(rgb, 'RGB').save(os.path.join(SAL, nombre), optimize=True)
   else:
     al = (np.clip(a, 0, 1) * 255).astype(np.uint8)
     Image.fromarray(np.dstack([rgb, al]), 'RGBA').save(os.path.join(SAL, nombre), optimize=True)
 
 
-# ------------------------------------------------------------------ ruido que empalma en x
-def ruido(h, w, celda, semilla, per_x=True, sx=1.0):
-  r = np.random.default_rng(semilla)
-  gw, gh = max(1, int(round(w / (celda * sx)))), int(math.ceil(h / celda)) + 2
-  g = r.random((gh, gw)).astype(np.float32)
-  ys, xs = np.mgrid[0:h, 0:w].astype(np.float32)
-  fx, fy = xs / w * gw, ys / celda
-  ix, iy = np.floor(fx).astype(int), np.floor(fy).astype(int)
-  tx, ty = fx - ix, fy - iy
-  tx, ty = tx * tx * (3 - 2 * tx), ty * ty * (3 - 2 * ty)
-  x0, x1 = ix % gw, (ix + 1) % gw
-  a, b, c, d = g[iy, x0], g[iy, x1], g[iy + 1, x0], g[iy + 1, x1]
-  return a + (b - a) * tx + (c - a) * ty + (a - b - c + d) * tx * ty
+def sat(x): return np.clip(x, 0, 1)
+def lerp(a, b, t): return a + (b - a) * t
 
 
-def fbm(h, w, celda, semilla, oct=5, sx=1.0):
-  s, amp, tot = np.zeros((h, w), np.float32), 0.5, 0.0
+# ------------------------------------------------------------------ ruido de valor en coordenadas cualquiera (empalma en x)
+_G = {}
+def grilla(sem, n=256):
+  if sem not in _G: _G[sem] = np.random.default_rng(sem).random((n, n)).astype(np.float32)
+  return _G[sem]
+
+
+def ruido(x, y, sem, per):
+  """x, y en celdas; per = cuántas celdas tiene una vuelta en x (para que empalme)."""
+  g = grilla(sem)
+  ix, iy = np.floor(x).astype(np.int64), np.floor(y).astype(np.int64)
+  fx, fy = x - ix, y - iy
+  fx, fy = fx * fx * (3 - 2 * fx), fy * fy * (3 - 2 * fy)
+  x0, x1 = ix % per, (ix + 1) % per
+  y0, y1 = iy % 256, (iy + 1) % 256
+  a, b, c, d = g[y0, x0 % 256], g[y0, x1 % 256], g[y1, x0 % 256], g[y1, x1 % 256]
+  return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy
+
+
+def fbm2(x, y, celda, sem, oct=5, sx=1.0, billow=False):
+  """x, y en puntos de la escena; la celda más grande mide `celda` de alto y `celda * sx` de ancho."""
+  s = np.zeros_like(x, dtype=np.float32); amp, tot = 0.5, 0.0
   for o in range(oct):
-    s += amp * ruido(h, w, celda / (2 ** o), semilla + o * 17, sx=sx)
-    tot += amp; amp *= 0.5
+    k = 2 ** o
+    per = max(1, int(round(SW / (celda * sx) * k)))
+    n = ruido(x / SW * per, y / celda * k, sem + o * 31, per)
+    if billow and o >= 1: n = 1 - np.abs(2 * n - 1)
+    s += amp * n; tot += amp; amp *= 0.5
   return s / tot
 
 
-def perfil(w, celda, semilla, oct=5):
-  return fbm(1, w, celda, semilla, oct)[0]
-
-
-def lerp(a, b, t):
-  return a + (b - a) * t
-
-
-def sat(x):
-  return np.clip(x, 0, 1)
-
-
 ys, xs = np.mgrid[0:SH, 0:SW].astype(np.float32)
+VXS, VYS = xs - OX, ys - OY                     # en coordenadas de la vista de diseño
 
-# ------------------------------------------------------------------ dónde va cada cosa (coordenadas de la escena)
-CAT_X, CAT_Y = 484 + OX, 80 + OY                 # esquina de la caja de 300 x 300 de la catedral
-LUNA = (236 + OX, 112 + OY, 15)                  # la luna, chica, arriba de los botones
-# la grieta: de arriba a la derecha, rasgada, hacia la catedral
-def trazar_grieta():
-  a, b = np.array([662.0 + OX, 150.0 + OY]), np.array([1016.0 + OX, 6.0 + OY])
-  pts = [a, b]
-  r = np.random.default_rng(31)
-  for nivel in range(6):
+# ------------------------------------------------------------------ dónde va cada cosa (en la vista de diseño)
+SOL = (214, 74)                                  # el sol tapado: un disco pálido detrás del gas
+CAT = (440, -48)                                 # esquina de la caja de 560 x 600 de la catedral
+GRI_A, GRI_B = (812, 22), (948, 92)              # la grieta, chica y casi cerrada, en un claro de nubes
+ARBOL = (58, 492)                                # el pie del árbol de la horca
+CUELGAN = [(132, 0, 22), (196, 0, 44), (262, 0, 30)]   # x de la soga, y de la rama, largo de la soga
+CAMINANTE_X = 520
+
+
+def dv(x, y): return (x + OX, y + OY)          # de la vista de diseño a la escena
+
+
+def trazar(a, b, sem, rug=0.12, niveles=6):
+  pts = [np.array(a, float), np.array(b, float)]
+  r = np.random.default_rng(sem)
+  for nivel in range(niveles):
     nuevo = [pts[0]]
     for p, q in zip(pts[:-1], pts[1:]):
-      m = (p + q) / 2
-      d = q - p
-      n = np.array([-d[1], d[0]]) / (np.hypot(*d) + 1e-6)
-      m = m + n * r.normal(0, np.hypot(*d) * (0.07 if nivel < 2 else 0.2))
+      m = (p + q) / 2; d = q - p; n = np.array([-d[1], d[0]]) / (np.hypot(*d) + 1e-6)
+      m = m + n * r.normal(0, np.hypot(*d) * (rug * 0.5 if nivel < 2 else rug * 1.5))
       nuevo += [m, q]
     pts = nuevo
   return np.array(pts)
-GRIETA = trazar_grieta()
 
 
 def dist_poli(pts, X, Y):
-  d = np.full(X.shape, 1e9, np.float32)
-  t = np.zeros(X.shape, np.float32)
+  d = np.full(X.shape, 1e9, np.float32); t = np.zeros(X.shape, np.float32)
   L = np.r_[0, np.cumsum(np.hypot(*(np.diff(pts, axis=0).T)))]
   for i in range(len(pts) - 1):
-    p, q = pts[i], pts[i + 1]
-    v = q - p; ll = (v ** 2).sum() + 1e-9
+    p, q = pts[i], pts[i + 1]; v = q - p; ll = (v ** 2).sum() + 1e-9
     u = np.clip(((X - p[0]) * v[0] + (Y - p[1]) * v[1]) / ll, 0, 1)
     dd = np.hypot(X - p[0] - u * v[0], Y - p[1] - u * v[1])
-    m = dd < d
-    d = np.where(m, dd, d); t = np.where(m, (L[i] + u * np.sqrt(ll)) / L[-1], t)
+    m = dd < d; d = np.where(m, dd, d); t = np.where(m, (L[i] + u * np.sqrt(ll)) / L[-1], t)
   return d, t
 
 
-# ------------------------------------------------------------------ el cielo
+GRIETA = trazar(dv(*GRI_A), dv(*GRI_B), 31, 0.1, 5)
+
+
+# ------------------------------------------------------------------ el cielo: cubierto, ocre gris, con el sol tapado
 def cielo():
-  v = ys / SH
-  arriba, medio, abajo = np.array([7, 7, 18]), np.array([18, 16, 40]), np.array([44, 36, 72])
-  t1 = sat(v / 0.55)[..., None]; t2 = sat((v - 0.55) / 0.12)[..., None]
-  c = lerp(lerp(arriba, medio, t1), abajo, t2 * 1.0)
-  # el resplandor rojo de la grieta en el cielo
+  v = sat(VYS / 470)
+  arriba, medio, abajo = np.array([16, 17, 18]), np.array([38, 38, 35]), np.array([92, 80, 58])
+  c = lerp(arriba, medio, sat(v / 0.6)[..., None])
+  c = lerp(c, abajo, (sat((v - 0.6) / 0.4) ** 1.4)[..., None])
+  sx, sy = dv(*SOL)
+  ds = np.hypot(xs - sx, (ys - sy) * 1.15)
+  c += np.array([70, 64, 46]) * np.exp(-ds / 160)[..., None] * 0.75
+  c += np.array([110, 104, 84]) * np.exp(-ds / 34)[..., None] * 0.55
+  disco = sat((24 - ds) / 3)
+  c = lerp(c, np.array([190, 182, 156]), (disco * 0.75)[..., None])
   d, t = dist_poli(GRIETA, xs, ys)
-  ancho = np.clip(np.sin(np.pi * t), 0, 1) ** 0.7
-  c += np.array([64, 8, 14]) * (np.exp(-d / (20 + 22 * ancho)) * (0.3 + 0.7 * ancho))[..., None]
-  c += np.array([40, 10, 18]) * (np.exp(-d / 120) * 0.3)[..., None]
-  # la luna enfría su cielo
-  dl = np.hypot(xs - LUNA[0], ys - LUNA[1])
-  c += np.array([30, 34, 52]) * np.exp(-dl / 70)[..., None] * 0.9
-  # la ciudad que arde, lejos a la izquierda, tiñe el horizonte
-  c += np.array([54, 18, 8]) * (np.exp(-np.hypot((xs - 330 - OX) / 220, (ys - 318 - OY) / 40)) * 0.8)[..., None]
-  # bandas de nube lejana, muy suaves
-  c *= (0.88 + 0.24 * fbm(SH, SW, 160, 5, 4))[..., None]
-  rgb = cuantizar(c, 6)
-  # estrellas tenues horneadas (las que titilan van en el json)
-  r = np.random.default_rng(9)
-  n = 900
-  sx, sy = r.integers(0, SW, n), (r.random(n) ** 1.7 * (330 + OY)).astype(int)
-  for x, y in zip(sx, sy):
-    if np.hypot(x - LUNA[0], y - LUNA[1]) < LUNA[2] + 6: continue
-    dd, _ = dist_poli(GRIETA, np.array([[x]], np.float32), np.array([[y]], np.float32))
-    if dd[0, 0] < 14: continue
-    k = r.random()
-    base = rgb[y, x]
-    rgb[y, x] = PAL[11] if k < 0.5 else PAL[13] if k < 0.85 else PAL[15]
-    if k > 0.985 and 1 <= x < SW - 1 and 1 <= y < SH - 1:
-      for ddx, ddy in ((1, 0), (-1, 0), (0, 1), (0, -1)): rgb[y + ddy, x + ddx] = PAL[12]
-  # la luna: la esfera de la portada vieja, chica, en hueso frío
-  lu = Image.open(os.path.join(SAL, '..', 'fondo', 'luna.webp')).convert('RGBA').resize((LUNA[2] * 2 + 1,) * 2, Image.LANCZOS)
-  la = np.asarray(lu).astype(np.float32)
-  lum = la[..., :3].mean(-1, keepdims=True) / 255
-  frio = (np.array([150, 158, 182]) * lum ** 0.8 + np.array([60, 56, 64]) * lum ** 3)
-  al = la[..., 3] / 255
-  y0, x0 = LUNA[1] - LUNA[2], LUNA[0] - LUNA[2]
-  zona = rgb[y0:y0 + frio.shape[0], x0:x0 + frio.shape[1]].astype(np.float32)
-  mez = zona * (1 - al[..., None]) + frio * 1.25 * al[..., None]
-  rgb[y0:y0 + frio.shape[0], x0:x0 + frio.shape[1]] = cuantizar(mez, 5)
-  # la grieta: el cielo rasgado, con su labio rojo y el blanco de adentro
-  # la herida: ancha en el medio, fina en las puntas; labio casi negro, carne roja y el blanco de adentro
-  tt = np.clip(t, 0, 1)
-  ancho = 0.5 + 4.6 * np.sin(np.pi * np.clip(tt * 0.85 + 0.15, 0, 1)) ** 1.3 * (0.8 + 0.4 * fbm(SH, SW, 9, 404, 2))
-  rgb[d < ancho + 2.0] = PAL[30]
-  rgb[d < ancho + 1.0] = PAL[32]
-  rgb[d < ancho] = PAL[33]
-  rgb[d < ancho * 0.68] = PAL[27]
-  rgb[d < ancho * 0.4] = PAL[28]
-  rgb[(d < ancho * 0.18) & (ancho > 2.8)] = PAL[29]
-  # ramitas que se abren del tajo
-  r = np.random.default_rng(77)
-  for k in range(14):
-    i = r.integers(6, len(GRIETA) - 6)
-    p = GRIETA[i].copy(); ang = math.atan2(GRIETA[i + 1][1] - GRIETA[i - 1][1], GRIETA[i + 1][0] - GRIETA[i - 1][0]) + r.choice([-1, 1]) * r.uniform(0.6, 1.3)
-    largo = r.uniform(6, 20)
-    for s in range(int(largo)):
-      ang += r.normal(0, 0.25)
-      p = p + np.array([math.cos(ang), math.sin(ang)])
-      x, y = int(p[0]), int(p[1])
-      if 0 <= x < SW and 0 <= y < SH: rgb[y, x] = PAL[33] if s < largo * 0.3 else PAL[32] if s < largo * 0.6 else PAL[31]
-  return rgb, d, t
+  c += np.array([46, 8, 8]) * np.exp(-d / 26)[..., None]
+  c *= (0.92 + 0.14 * fbm2(xs, ys, 300, 5, 4, 2.0))[..., None]
+  rgb = cuantizar(c, 6, GRIS + OCRE + MOHO + PIZ + HUESO)
+  ancho = 0.4 + 2.2 * np.sin(np.pi * np.clip(t, 0, 1)) ** 1.4
+  rgb[d < ancho + 1.4] = PAL[37]
+  rgb[d < ancho + 0.6] = PAL[38]
+  rgb[d < ancho] = PAL[40]
+  rgb[(d < ancho * 0.45) & (ancho > 1.6)] = PAL[44]
+  return rgb
 
 
-# ------------------------------------------------------------------ la luz de la grieta que late (se suma)
-def grieta_luz(d, t):
-  ancho = np.clip(np.sin(np.pi * t), 0, 1) ** 0.7
-  k = np.exp(-d / (9 + 10 * ancho)) * (0.4 + 0.6 * ancho)
-  c = np.array([255, 70, 40]) * k[..., None]
-  a = alfa_trama(sat(k * 1.4))
-  rgb = cuantizar(c, 18, sub=[0, 21, 22, 23, 24, 25, 26, 30, 31, 32, 33])
-  # el tajo mismo no se suma (lo quemaba a amarillo verdoso): solo el aire de alrededor
-  ancho = 0.5 + 4.6 * np.sin(np.pi * np.clip(np.clip(t, 0, 1) * 0.85 + 0.15, 0, 1)) ** 1.3
-  return rgb, a * (k > 0.02) * (d > ancho + 1.5)
+def grieta_luz():
+  d, t = dist_poli(GRIETA, xs, ys)
+  k = np.exp(-d / 12) * (0.4 + 0.6 * np.sin(np.pi * np.clip(t, 0, 1)))
+  rgb = cuantizar(np.array([200, 46, 24]) * k[..., None], 10, [0] + SANGRE + FUEGO[:3])
+  ancho = 0.4 + 2.2 * np.sin(np.pi * np.clip(t, 0, 1)) ** 1.4
+  return rgb, alfa_trama(sat(k * 1.3), 3) * (k > 0.03) * (d > ancho + 1.5)
 
 
-# ------------------------------------------------------------------ nubes (empalman en x)
-def nubes(semilla, y0, y1, celda, umbral, luz_grieta=1.0):
-  """Bancos de nube de forma dura (como en el pixel de siempre): el cuerpo oscuro, el canto de arriba frío en dos
-  escalones y la panza roja donde la toca la grieta. Empalman en x."""
-  f = fbm(SH, SW, celda, semilla, 4, sx=7.0)
-  g = fbm(SH, SW, celda * 0.5, semilla + 5, 3, sx=4.0)
-  banda = sat((ys - y0) / 50) * sat((y1 - ys) / 70)
-  forma = (f * 0.8 + g * 0.2) * banda
-  M = forma > umbral
-  # lejos de la luna (que va delante) y con los bordes sin pelusa: se quitan los puntos sueltos
-  M &= np.hypot(xs - LUNA[0], ys - LUNA[1]) > LUNA[2] + 2
-  vec = sum(np.roll(np.roll(M, dy, 0), dx, 1).astype(int) for dy in (-1, 0, 1) for dx in (-1, 0, 1))
-  M &= vec >= 5
-  arriba1 = M & ~np.roll(M, 1, 0)
-  arriba2 = M & ~np.roll(M, 2, 0) & ~arriba1
-  abajo1 = M & ~np.roll(M, -1, 0)
-  abajo2 = M & ~np.roll(M, -2, 0) & ~abajo1
-  d, _ = dist_poli(GRIETA, xs, ys)
-  cerca = np.exp(-d / 130) * luz_grieta
-  dl = np.exp(-np.hypot(xs - LUNA[0], ys - LUNA[1]) / 200)
-  # cuán hondo dentro de la nube está cada punto, contando desde su canto de arriba
-  prof = np.zeros((SH, SW), np.float32)
-  for y in range(1, SH): prof[y] = np.where(M[y], prof[y - 1] + 1, 0)
-  luzk = np.exp(-prof / 7)
-  c = np.zeros((SH, SW, 3), np.float32)
-  c[:] = np.array([13, 11, 27])
-  c += (np.array([26, 24, 44]) + np.array([30, 32, 46]) * dl[..., None]) * luzk[..., None]
-  c[arriba2] += np.array([16, 16, 26]) + np.array([20, 22, 34]) * dl[arriba2][:, None]
-  c[arriba1] += np.array([30, 30, 48]) + np.array([60, 64, 84]) * dl[arriba1][:, None]
-  c[abajo2] += np.array([70, 12, 22]) * cerca[abajo2][:, None]
-  c[abajo1] += np.array([150, 26, 30]) * cerca[abajo1][:, None]
-  c += np.array([44, 8, 18]) * (cerca * 0.6)[..., None]
-  return cuantizar(c, 4), M.astype(np.float32)
+# ------------------------------------------------------------------ gas: nubes con volumen
+def gas(sem, y0, y1, celda, cobertura, sx, oscuro, claro, fuerza_luz=1.0, nucleo=0.0, alfa_max=1.0):
+  """Densidad de nube con el dominio torcido (las volutas), los bordes en coliflor y la luz que la atraviesa hacia el
+  sol: lo que da al sol se enciende, la barriga queda oscura. Empalma en x."""
+  qx = fbm2(xs, ys, celda * 1.3, sem + 1, 3, sx)
+  qy = fbm2(xs, ys, celda * 1.3, sem + 2, 3, sx)
+  wx, wy = xs + (qx - 0.5) * celda * sx * 1.6, ys + (qy - 0.5) * celda * 0.9
+  D = fbm2(wx, wy, celda, sem, 6, sx, billow=True)
+  banda = sat((ys - (y0 + OY)) / ((y1 - y0) * 0.35)) * sat(((y1 + OY) - ys) / ((y1 - y0) * 0.45))
+  den = sat((D * (0.4 + 0.6 * banda) + banda * 0.15 - (1 - cobertura)) * 4.0) * (banda > 0.02)
+  sx_, sy_ = dv(*SOL)
+  # un claro alrededor del sol (por ahí asoma y bajan los rayos)
+  den *= sat((np.hypot((xs - sx_) / 1.6, ys - sy_) - 40) / 70) ** 0.8
+  dirx, diry = sx_ - SW / 2, sy_ - (y0 + y1) / 2 - OY
+  L = math.hypot(dirx, diry); dirx, diry = dirx / L, diry / L
+  tapa = np.zeros_like(den)
+  for i in range(1, 15):
+    dx, dy = int(round(dirx * i * 3)), int(round(diry * i * 3))
+    tapa += np.roll(np.roll(den, -dy, 0), -dx, 1) * (1 - i / 16)
+  T = np.exp(-tapa * 0.62)
+  ds = np.hypot(xs - sx_, ys - sy_)
+  cerca = np.exp(-ds / 380)
+  oscuro, claro = np.array(oscuro, np.float32), np.array(claro, np.float32)
+  luz = sat(T * (0.35 + 0.9 * cerca) * fuerza_luz) ** 1.3
+  c = lerp(oscuro, claro, luz[..., None])
+  fino = sat(1 - den * 1.6) * (den > 0.05)
+  c += np.array([60, 56, 44]) * (fino * T * cerca * 1.3)[..., None]
+  c *= (1 - nucleo * sat(den - 0.6))[..., None]
+  a = alfa_trama(sat(den * 1.25) * alfa_max, 4)
+  return cuantizar(c, 6, GRIS + OCRE + MOHO + PIZ), a
 
 
-# ------------------------------------------------------------------ los montes lejanos y la ciudad que arde
+# ------------------------------------------------------------------ montes y el pueblo vacío
 def montes():
   rgb = np.zeros((SH, SW, 3), np.float32); a = np.zeros((SH, SW), np.float32)
-  fuegos = []
-  for capa, (base, alto, celda, sem, col, filo) in enumerate([
-      (300 + OY, 60, 300, 3, (34, 31, 58), (66, 62, 98)),
-      (318 + OY, 34, 180, 8, (21, 19, 38), (48, 44, 74))]):
-    p = perfil(SW, celda, sem, 6)
-    top = base - alto * (p - 0.3)
+  X = np.arange(SW, dtype=np.float32)
+  for base, alto, celda, sem, col, filo in [(398, 70, 240, 3, (58, 56, 48), (82, 78, 64)), (414, 44, 150, 8, (38, 38, 34), (58, 56, 48))]:
+    p = fbm2(X[None, :], np.zeros((1, SW), np.float32) + sem * 7, celda, sem, 6, 1.0)[0]
+    top = base + OY - alto * (p - 0.3)
     m = ys >= top[None, :]
     rgb[m] = col; a[m] = 1
-    filo_m = m & (ys < top[None, :] + 1.5)
-    rgb[filo_m] = filo
-  # la ciudad: techos, torres y lo que arde, a la izquierda (lejos)
+    rgb[m & (ys < top[None, :] + 1.5)] = filo
   r = np.random.default_rng(5)
-  x = 238 + OX
-  while x < 448 + OX:
-    ancho = int(r.integers(5, 12)); alto = int(r.integers(4, 10))
-    suelo = 322 + OY
+  x = 150 + OX
+  while x < 420 + OX:
+    ancho = int(r.integers(7, 16)); alto = int(r.integers(5, 13)); suelo = 424 + OY
+    roto = r.random() < 0.4
     for xx in range(x, x + ancho):
-      if xx >= SW: break
-      pico = suelo - alto - (min(xx - x, x + ancho - xx) if r.random() < 0.6 else 0) * 0.8
-      for yy in range(int(pico), suelo + 4): rgb[yy, xx] = (14, 12, 24); a[yy, xx] = 1
-    if r.random() < 0.18:
+      dentro = min(xx - x, x + ancho - 1 - xx)
+      pico = suelo - alto - min(dentro, ancho // 2) * 0.9
+      if roto and xx > x + ancho * 0.55: pico = suelo - alto + int(r.integers(0, 4))
+      rgb[int(pico):suelo + 6, xx] = (26, 26, 24); a[int(pico):suelo + 6, xx] = 1
+      rgb[int(pico), xx] = (44, 43, 39)
+    if r.random() < 0.15:
       tx = x + ancho // 2
-      for yy in range(suelo - alto - 16, suelo - alto + 1):
-        anch = 1 if yy < suelo - alto - 9 else 2
-        for xx in range(tx - anch, tx + anch + 1): rgb[yy, xx] = (14, 12, 24); a[yy, xx] = 1
-    if r.random() < 0.45:
-      for k in range(int(r.integers(1, 3))):
-        wx, wy = x + int(r.integers(1, max(2, ancho - 1))), suelo - int(r.integers(1, max(2, alto - 1)))
-        rgb[wy, wx] = PAL[26]; a[wy, wx] = 1
-    if r.random() < 0.3: fuegos.append([int(x + ancho // 2), int(suelo - alto)])
-    x += ancho + int(r.integers(0, 3))
-  return cuantizar(rgb, 6), a, fuegos
+      for yy in range(suelo - alto - 26, suelo - alto + 1):
+        rgb[yy, tx - 1:tx + 2] = (26, 26, 24); a[yy, tx - 1:tx + 2] = 1
+      rgb[suelo - alto - 26, tx - 1:tx + 2] = (44, 43, 39)
+    x += ancho + int(r.integers(0, 4))
+  return cuantizar(rgb, 4), a
 
 
-# ------------------------------------------------------------------ la catedral, a paleta
+# ------------------------------------------------------------------ la catedral, a la paleta
 def catedral():
   m = json.load(open(TMP + 'catedral.json')); w, h = m['w'], m['h']
   c = np.fromfile(TMP + 'catedral_capa.f32', np.float32).reshape(h, w, 4)
   n = np.fromfile(TMP + 'catedral_nit.f32', np.float32).reshape(h, w, 4)
-  a = c[..., 3]
   tie = np.fromfile(TMP + 'catedral_tierra.f32', np.float32).reshape(h, w)
-  col = c[..., :3] * 1.15 + n[..., :3] * 1.3
-  col = col / (1 + col * 0.55)
+  col = c[..., :3] * 1.25 + n[..., :3] * 0.55
+  col = col / (1 + col * 0.6)
   col = np.power(np.clip(col, 0, None), 1 / 2.2) * 255
-  al = ((a > 0.5) & (tie < 0.5)).astype(np.float32)
-  rgb = cuantizar(col, 7)
-  # filo oscuro de una celda contra el cielo: la silueta se lee aunque la piedra y el cielo sean del mismo valor
-  dentro = al > 0
-  borde = dentro & ~(np.roll(dentro, 1, 0) & np.roll(dentro, -1, 0) & np.roll(dentro, 1, 1) & np.roll(dentro, -1, 1))
-  osc = rgb[borde].mean(-1) < 110
-  rgb[borde & np.zeros_like(borde)] = 0
-  # los vidrios: por donde el fuego se ve (la portada los hace latir)
+  yy = np.arange(h)[:, None] / h
+  bruma = sat((0.42 - yy) / 0.42) * 0.35
+  col = lerp(col, np.array([58, 56, 50]), bruma[..., None])
+  al = ((c[..., 3] > 0.5) & (tie < 0.5)).astype(np.float32)
+  rgb = cuantizar(col, 6, GRIS + OCRE + MOHO + PIZ + HUESO + FUEGO[:4])
   vid = np.fromfile(TMP + 'catedral_vid.f32', np.float32).reshape(h, w)
-  vrgb = cuantizar(np.power(np.clip(n[..., :3] * 1.6, 0, 1), 1 / 2.2) * 255, 10)
-  va = (vid > 0.25).astype(np.float32)
-  # el halo de la puerta y los vitrales, por trama
+  YY, XX = np.mgrid[0:h, 0:w].astype(np.float32)
+  zona = fbm2(XX * 3, YY * 3, 60, 77, 2)
+  apaga = zona < 0.48
+  vcol = np.power(np.clip(n[..., :3] * 1.1, 0, 1), 1 / 2.2) * 255 * np.array([1.0, 0.8, 0.55])
+  vrgb = cuantizar(vcol, 6, [0] + FUEGO + OCRE)
+  va = ((vid > 0.25) & ~apaga).astype(np.float32)
+  rgb[(vid > 0.25) & apaga] = PAL[1]
   from PIL import ImageFilter
-  halo = Image.fromarray((np.clip(n[..., 0] * 255 * 2, 0, 255)).astype(np.uint8)).filter(ImageFilter.GaussianBlur(9))
-  hk = np.asarray(halo).astype(np.float32) / 255
+  hk = np.asarray(Image.fromarray((np.clip(n[..., 0] * 255 * 1.6 * ~apaga, 0, 255)).astype(np.uint8)).filter(ImageFilter.GaussianBlur(10))).astype(np.float32) / 255
   px, py = m['puerta']
-  hk = np.maximum(hk, np.exp(-np.hypot(*(np.mgrid[0:h, 0:w][::-1] - np.array([px, py - 10])[:, None, None])) / 28) * 0.9)
-  hrgb = cuantizar(np.array([230, 96, 30])[None, None, :] * np.ones((h, w, 1)) * np.clip(hk[..., None] * 1.4, 0, 1), 20)
-  ha = alfa_trama(sat(hk * 1.1)) * (hk > 0.06)
-  return rgb, al, vrgb, va, hrgb, ha, m
+  hk = np.maximum(hk, np.exp(-np.hypot(XX - px, YY - py + 12) / 34) * 0.8)
+  hrgb = cuantizar(np.array([190, 96, 36])[None, None, :] * np.ones((h, w, 1)) * np.clip(hk[..., None] * 1.2, 0, 1), 10, [0] + FUEGO[:5] + OCRE[:5])
+  ha = alfa_trama(sat(hk), 3) * (hk > 0.05)
+  return rgb, al, vrgb, va, hrgb, ha, m, tie
 
 
-# ------------------------------------------------------------------ niebla del valle (empalma en x)
-def niebla(semilla, y0, y1, k):
-  f = fbm(SH, SW, 90, semilla, 4)
-  banda = sat((ys - y0) / 18) * sat((y1 - ys) / 26)
-  den = sat((f * banda - 0.18) * 2.2) * k
-  c = np.array([40, 40, 70])[None, None, :] * np.ones((SH, SW, 1))
-  c += np.array([40, 16, 10]) * sat((xs - 260) / 200 * 0 + np.exp(-np.abs(xs - 330 - OX) / 160))[..., None] * 0.6
-  return cuantizar(c, 10), alfa_trama(den * 0.85)
+def colina(m, tie):
+  w, h = m['w'], m['h']
+  cx, cy = dv(*CAT)
+  perf = np.full(SW, np.nan)
+  for x in range(w):
+    col = np.where(tie[:, x] >= 0.5)[0]
+    if len(col) and 0 <= cx + x < SW: perf[cx + x] = cy + col[0]
+  ok = np.where(~np.isnan(perf))[0]; x0, x1 = ok[0], ok[-1]
+  for x in range(SW):
+    if x < x0: perf[x] = perf[x0] + ((x0 - x) / 90) ** 1.4 * 34
+    elif x > x1: perf[x] = perf[x1] + (x - x1) * 0.05
+  perf = np.minimum(perf, SH - 2)
+  m_ = ys >= perf[None, :]
+  px, py = cx + m['puerta'][0], cy + m['puerta'][1]
+  calor = np.exp(-np.hypot(xs - px, (ys - py) * 1.6) / 80)
+  tex = fbm2(xs, ys, 22, 61, 4)
+  c = np.array([22, 22, 20]) + np.array([20, 19, 16]) * tex[..., None] + np.array([90, 48, 20]) * (calor * (0.5 + 0.5 * tex))[..., None]
+  filo = m_ & ~np.roll(m_, 1, 0)
+  c[filo] += np.array([30, 29, 24])
+  rgb = cuantizar(c, 6); a = m_.astype(np.float32)
+  return rgb, a
 
 
-# ------------------------------------------------------------------ el primer plano: camposanto, árbol y la colina
+# ------------------------------------------------------------------ el primer plano: la colina de la horca y el camposanto
 def frente():
   rgb = np.zeros((SH, SW, 3), np.float32); a = np.zeros((SH, SW), np.float32)
-  NEG = np.array([7, 6, 12], np.float32)
-  # la colina de la izquierda (debajo de los botones) y el suelo de abajo
-  p = perfil(SW, 220, 41, 5)
+  NEG = np.array([10, 10, 10], np.float32)
   X0 = np.arange(SW) - OX
-  top = 372 + OY - 40 * np.exp(-((X0 - 170) / 210) ** 2) + 14 * (p - 0.5) + 30 * sat((X0 - 640) / 260)
-  top += 22 * np.exp(-((X0 - 440) / 90) ** 2)     # el valle del medio, donde mira el caminante
+  p = fbm2(np.arange(SW, dtype=np.float32)[None, :], np.zeros((1, SW), np.float32), 260, 41, 5)[0]
+  top = OY + 500 - 64 * np.exp(-((X0 - 90) / 250) ** 2) + 18 * (p - 0.5) + 26 * sat((X0 - 760) / 300)
+  top += 14 * np.exp(-((X0 - 540) / 120) ** 2)
   m = ys >= top[None, :]
   rgb[m] = NEG; a[m] = 1
-  # el filo: frío del lado de la luna, cálido hacia la catedral
+  tex = fbm2(xs, ys, 14, 88, 3)
+  prof = ys - top[None, :]
+  sube = sat(1 - prof / 22) * m
+  rgb += (np.array([30, 28, 22]) * sube[..., None] * (0.5 + tex[..., None]))
   filo = m & ~np.roll(m, 1, 0)
-  fx = np.arange(SW)
-  frio = (fx < 520 + OX)[None, :] & filo
-  rgb[frio] = PAL[12]; rgb[filo & ~frio] = PAL[40]
-  rgb[np.roll(filo, 1, 0) & m & (fx < 520 + OX)[None, :]] = PAL[10]
-  # pasto: briznas de una celda sobre el filo
+  rgb[filo] = PAL[9]
+  rgb[np.roll(filo, 1, 0) & m] = PAL[6]
   r = np.random.default_rng(12)
   for x in range(SW):
-    if r.random() < 0.55:
-      hgt = int(r.integers(1, 4)); y = int(top[x])
-      for k in range(hgt):
-        yy = y - 1 - k
-        if yy > 0: rgb[yy, x] = NEG if k else (PAL[10] if x < 520 + OX else PAL[39]); a[yy, x] = 1
-  # cruces y lápidas
-  def cruz(cx, base, alto, brazo, ladeo, cálido=False):
+    for _ in range(2):
+      if r.random() < 0.55:
+        hgt = int(r.integers(1, 7)); y = int(top[x]); xx = x
+        for k in range(hgt):
+          yy = y - 1 - k
+          if k > hgt * 0.5 and r.random() < 0.5: xx += 1
+          if 0 < yy < SH and 0 <= xx < SW:
+            rgb[yy, xx] = PAL[[6, 7, 21, 22, 8][int(r.integers(0, 5))]] if k >= hgt - 2 else NEG; a[yy, xx] = 1
+  def px(x, y, col):
+    x, y = int(round(x)), int(round(y))
+    if 0 <= x < SW and 0 <= y < SH: rgb[y, x] = col; a[y, x] = 1
+  def cruz(cx, alto, brazo, ladeo):
+    cx += OX; base = int(top[cx]) + 3
     for k in range(alto):
-      x = int(round(cx + ladeo * k)); y = base - k
-      for xx in (x, x + 1):
-        rgb[y, xx] = NEG; a[y, xx] = 1
-      rgb[y, x] = PAL[40] if cálido else PAL[12]
-    yb = base - int(alto * 0.72); xb = int(round(cx + ladeo * alto * 0.72))
-    for xx in range(xb - brazo, xb + brazo + 2):
-      for yy in (yb, yb + 1): rgb[yy, xx] = NEG; a[yy, xx] = 1
-      rgb[yb, xx] = PAL[40] if cálido else PAL[12]
-  def lapida(cx, base, ancho, alto, cálido=False):
-    for x in range(cx - ancho // 2, cx + ancho // 2 + 1):
-      dx = abs(x - cx) / (ancho / 2 + 0.01)
-      cima = base - alto + int(round((1 - math.sqrt(max(0, 1 - dx * dx))) * ancho * 0.4))
-      for y in range(cima, base + 1): rgb[y, x] = NEG; a[y, x] = 1
-      rgb[cima, x] = PAL[40] if cálido else PAL[12]
-    lado = cx + ancho // 2 if cálido else cx - ancho // 2
-    for y in range(base - alto + 3, base + 1): rgb[y, lado] = PAL[40] if cálido else PAL[11]
-  for (cx, alto, brazo, ladeo) in [(110, 24, 5, 0.06), (196, 17, 4, -0.1), (258, 13, 3, 0.12), (342, 10, 3, -0.05)]:
-    cx += OX; cruz(cx, int(top[cx]) + 2, alto, brazo, ladeo)
-  for (cx, an, al) in [(150, 9, 12), (226, 7, 9), (300, 6, 7), (380, 5, 6)]:
-    cx += OX; lapida(cx, int(top[cx]) + 2, an, al)
-  for (cx, alto, brazo, ladeo) in [(842, 30, 7, -0.04), (904, 18, 4, 0.08)]:
-    cx += OX; cruz(cx, int(top[cx]) + 3, alto, brazo, ladeo, True)
-  for (cx, an, al) in [(790, 10, 13), (872, 8, 10), (760, 6, 7)]:
-    cx += OX; lapida(cx, int(top[cx]) + 2, an, al, True)
-  # el árbol muerto que enmarca a la izquierda
-  def rama(x, y, ang, largo, grosor, prof, r):
+      x = cx + ladeo * k; y = base - k
+      for d in (0, 1, 2): px(x + d, y, NEG)
+      px(x, y, PAL[9] if k < alto - 2 else PAL[11]); px(x + 2, y, PAL[4])
+    yb = base - int(alto * 0.72); xb = cx + ladeo * alto * 0.72
+    for xx in range(int(-brazo), int(brazo) + 3):
+      for d in (0, 1): px(xb + xx, yb + d, NEG)
+      px(xb + xx, yb, PAL[10])
+  def lapida(cx, ancho, alto, ladeo):
+    cx += OX; base = int(top[cx]) + 3
+    for xi in range(-ancho // 2, ancho // 2 + 1):
+      dx = abs(xi) / (ancho / 2 + 0.01)
+      cima = base - alto + int(round((1 - math.sqrt(max(0, 1 - dx * dx))) * ancho * 0.45))
+      for y in range(cima, base + 1): px(cx + xi + (base - y) * ladeo, y, NEG if xi > -ancho // 2 else PAL[5])
+      px(cx + xi + (base - cima) * ladeo, cima, PAL[9] if xi < ancho // 3 else PAL[7])
+    for xi in range(-ancho // 2, ancho // 2 + 1):
+      if r.random() < 0.6: px(cx + xi, base - 1 - int(r.integers(0, 3)), PAL[[16, 17, 18][int(r.integers(0, 3))]])
+  for (cx, alto, brazo, ladeo) in [(250, 30, 6, 0.08), (332, 22, 5, -0.12), (404, 16, 4, 0.14), (590, 13, 3, -0.06), (868, 40, 9, -0.05), (930, 26, 5, 0.1)]:
+    cruz(cx, alto, brazo, ladeo)
+  for (cx, an, al, la) in [(296, 12, 17, 0.05), (372, 9, 12, -0.08), (450, 7, 9, 0.1), (640, 6, 7, 0), (812, 14, 18, -0.04), (900, 10, 13, 0.06), (980, 8, 10, 0)]:
+    lapida(cx, an, al, la)
+  for i, x in enumerate(range(430, 560, 13)):
+    if i in (3, 6): continue
+    cx = x + OX; base = int(top[cx]) + 2; alto = 11 + int(r.integers(0, 5))
+    for k in range(alto): px(cx + (k * 0.15 if i % 4 == 1 else 0), base - k, NEG); px(cx + 1, base - k, PAL[5])
+    px(cx, base - alto, PAL[9])
+  for x in range(430 + OX, 530 + OX):
+    if 470 + OX < x < 500 + OX: continue
+    px(x, int(top[x]) - 7 + (x % 9 == 0), NEG); px(x, int(top[x]) - 8, PAL[7])
+  ramas = []
+  def rama(x, y, ang, largo, grosor, prof, rr, guardar=False, recta=0.0):
     for s in range(int(largo)):
-      ang += r.normal(0, 0.08)
+      ang += rr.normal(0, 0.06) * (1 - recta)
       x += math.cos(ang); y += math.sin(ang)
-      g = max(0, int(round(grosor * (1 - s / largo * 0.6))))
-      for dx in range(-g, g + 1):
-        xx, yy = int(round(x + dx)), int(round(y))
-        if 0 <= xx < SW and 0 <= yy < SH: rgb[yy, xx] = NEG; a[yy, xx] = 1
-      ix, iy = int(round(x - g - 1)), int(round(y))
-      if 0 <= ix < SW and 0 <= iy < SH and grosor > 0.4 and a[iy, ix] == 0: rgb[iy, ix] = PAL[11]; a[iy, ix] = 1
-      if prof > 0 and s > 6 and r.random() < 0.05 + 0.012 * (4 - prof):
-        rama(x, y, ang + r.choice([-1, 1]) * r.uniform(0.45, 0.95), largo * r.uniform(0.35, 0.6), grosor * 0.55, prof - 1, r)
-  r = np.random.default_rng(int(os.environ.get('ARBOL', 23)))
-  rama(172.0 + OX, float(top[172 + OX]) + 4, -math.pi / 2 - 0.22, 165, 4.2, 4, r)
-  return cuantizar(rgb, 4), a, top
+      g = max(0.0, grosor * (1 - s / largo * 0.65))
+      gi = int(math.ceil(g))
+      for dx in range(-gi, gi + 1):
+        for dy in range(-gi, gi + 1):
+          if dx * dx + dy * dy <= g * g + 0.5: px(x + dx, y + dy, NEG)
+      px(x, y - g - 0.6, PAL[7] if g > 1 else PAL[6])
+      if guardar: ramas.append((x, y - g))
+      if prof > 0 and s > 8 and rr.random() < 0.045 + 0.01 * (4 - prof):
+        rama(x, y, ang + rr.choice([-1, 1]) * rr.uniform(0.5, 1.0), largo * rr.uniform(0.3, 0.55), g * 0.6, prof - 1, rr)
+    return x, y, ang
+  ax, ay = ARBOL[0] + OX, ARBOL[1] + OY
+  rr = np.random.default_rng(7)
+  for ang in (-0.2, math.pi + 0.3, 0.4, math.pi - 0.5):
+    rama(ax, ay - 2, ang, 18 + rr.integers(0, 14), 3.0, 0, rr)
+  x, y, ang = rama(ax, ay, -math.pi / 2 + 0.07, 340, 12.5, 0, rr, recta=0.9)
+  # la rama de la horca sale del tronco a media altura y corre casi derecha
+  rama(ax + 10, ay - 340 * 0.86, -0.1, 250, 5.5, 2, np.random.default_rng(3), guardar=True, recta=0.85)
+  rama(x, y, -math.pi / 2 - 0.3, 150, 6.0, 4, np.random.default_rng(11))
+  rama(ax + 4, ay - 340 * 0.6, -math.pi + 0.45, 110, 4.0, 3, np.random.default_rng(17))
+  rama(x + 1, y + 30, -0.9, 130, 4.0, 3, np.random.default_rng(19))
+  rama(ax + 8, ay - 340 * 0.95, -0.6, 90, 3.0, 3, np.random.default_rng(23))
+  rx = {}
+  for (qx, qy) in ramas: rx.setdefault(int(round(qx)), int(round(qy)))
+  return cuantizar(rgb, 3), a, top, rx
 
 
-# ------------------------------------------------------------------ el caminante (de espaldas, con la capa al viento)
-def caminante():
-  """Seis cuadros de 34 x 58: alguien con capucha, de espaldas, mira la catedral desde el valle. La capa y la punta de
-  la capucha ondean (el viento viene de la izquierda) y lleva la espada baja en la derecha."""
-  W_, H_, N = 34, 58, 6
-  hoja = np.zeros((H_, W_ * N, 3), np.float32); al = np.zeros((H_, W_ * N), np.float32)
-  NEG = np.array([6, 5, 11])
-  CXc = 15.5
+# ------------------------------------------------------------------ los ahorcados: cada uno con su soga, 10 cuadros de mecerse
+def ahorcado(largo_soga, sem, alto=56):
+  r = np.random.default_rng(sem)
+  W_, H_ = 40, largo_soga + alto + 8
+  cx = W_ // 2
+  M = np.zeros((H_, W_), np.int8)   # 0 nada, 1 cuerpo, 2 soga, 3 piel
+  for y in range(largo_soga + 4):
+    M[y, cx] = 2
+  y0 = largo_soga
+  ladeo = int(r.choice([-1, 1]))
+  for y in range(7):
+    for x in range(-3, 4):
+      if (x / 3.9) ** 2 + ((y - 3) / 4.2) ** 2 < 1: M[y0 + y, cx + x + ladeo * (y // 3)] = 1
+  M[y0 + 1:y0 + 4, cx] = 2
+  t0 = y0 + 7
+  for y in range(alto - 7):
+    k = y / (alto - 7)
+    if k < 0.07: half = 1.5
+    elif k < 0.16: half = 1.5 + (k - 0.07) / 0.09 * 6.5
+    elif k < 0.55: half = 8.0 - (k - 0.16) * 4.5
+    elif k < 0.62: half = 6.4 + r.random() * 2.2
+    else: half = 0
+    for x in range(-int(half), int(half) + 1): M[t0 + y, cx + x] = 1
+    if k >= 0.6:
+      for x in (-2, -1, 1, 2): M[t0 + y, cx + x] = 1
+  for lado in (-1, 1):
+    for y in range(int((alto - 7) * 0.5)):
+      x = cx + lado * (7.5 + y * 0.05)
+      M[t0 + 4 + y, int(round(x))] = 1; M[t0 + 4 + y, int(round(x)) - lado] = 1
+    M[t0 + 4 + int((alto - 7) * 0.5):t0 + 7 + int((alto - 7) * 0.5), int(round(cx + lado * 9.2))] = 3
+  for x in range(-6, 7):
+    if r.random() < 0.4:
+      for y in range(int(r.integers(1, 5))): M[t0 + int((alto - 7) * 0.6) + y, cx + x] = 1
+  fy = t0 + alto - 9
+  for x in (-2, -1, 1, 2): M[fy:fy + 2, cx + x] = 3
+  def colorear(Mr):
+    out = np.zeros(Mr.shape + (3,), np.float32); al = np.zeros(Mr.shape, np.float32)
+    cuerpo = Mr == 1
+    out[cuerpo] = PAL[2]; al[Mr > 0] = 1
+    out[Mr == 2] = PAL[22]; out[Mr == 3] = PAL[11]
+    izq = cuerpo & ~np.roll(cuerpo, 1, 1); arr = cuerpo & ~np.roll(cuerpo, 1, 0)
+    out[izq] = PAL[6]; out[arr] = PAL[8]; out[izq & arr] = PAL[9]
+    return out, al
+  cuadros = []; N = 10
   for f in range(N):
-    fase = f / N * 2 * math.pi
-    ox = f * W_
-    M = np.zeros((H_, W_), bool)
-    yy, xx = np.mgrid[0:H_, 0:W_].astype(np.float32)
-    X = xx - CXc
-    # la capucha: cabeza redonda con la punta que vuela hacia atrás y a la derecha
-    M |= (X / 4.6) ** 2 + ((yy - 10.5) / 5.6) ** 2 < 1
-    punta = (yy > 4) & (yy < 11) & (X > 1) & (X < 4.5 + (11 - yy) * 0.55 + math.sin(fase) * 0.8) & (yy > 9 - (X - 1) * 0.9)
-    M |= punta
-    # los hombros caídos y la capa que se abre hasta el ruedo
-    k = np.clip((yy - 14) / 40, 0, 1)
-    izq = -6.2 - k * 5.2 + np.sin(fase + k * 3) * 0.5 * k
-    der = 6.0 + k * 7.5 + np.sin(fase + k * 4.2) * 2.6 * k + np.sin(fase * 2 + k * 7) * 0.9 * k
-    hombro = (yy >= 13) & (yy < 18) & (np.abs(X) < 5.2 + (yy - 13) * 0.35)
-    M |= hombro
-    M |= (yy >= 16) & (yy < 54) & (X >= izq) & (X <= der)
-    # el ruedo deshilachado
-    ruedo = (yy >= 50) & (yy < 54) & (((xx.astype(int) + f) % 4) == 0) & (X > 1)
-    M &= ~ruedo
-    # las botas
-    M |= (yy >= 53) & (yy < 58) & (((X > -4) & (X < -1)) | ((X > 1.2) & (X < 4.2)))
-    # la espada baja en la mano derecha (a la izquierda de la figura, que está de espaldas)
-    for t in np.linspace(0, 1, 40):
-      ex, ey = CXc - 9.5 - t * 3.2, 30 + t * 25
-      ix, iy = int(round(ex)), int(round(ey))
+    ang = 6 * math.sin(f / N * 2 * math.pi)
+    im = Image.fromarray(M.astype(np.uint8) * 60)
+    rot = np.asarray(im.rotate(ang, resample=Image.NEAREST, center=(cx, 0))) // 60
+    cuadros.append(colorear(rot.astype(np.int8)))
+  hoja = np.concatenate([c[0] for c in cuadros], 1); al = np.concatenate([c[1] for c in cuadros], 1)
+  return hoja, al, W_, H_, N, cx
+
+
+# ------------------------------------------------------------------ urracas: posadas (3 cuadros) y en vuelo (4 cuadros)
+POSA = [
+  "....nnn...........",
+  "...nnnnn..........",
+  "..nonnnnn.........",
+  ".nnnnnnnnn........",
+  "....nnnnnnn.......",
+  "....nbbnnnnbb.....",
+  ".....bbbbnbbbnn...",
+  ".....bbbbbnnnnaa..",
+  "......bbbnnnn.aaa.",
+  ".......n..n....aaa",
+  ".......n..n.....aa",
+  "......nn.nn.......",
+]
+def _sube_cola(f):
+  g = [list(r) for r in f]
+  for y in range(len(g)):
+    for x in range(13, len(g[0])):
+      if g[y][x] == 'a': g[y][x] = '.'; g[max(0, y - 2)][x] = 'a'
+  return ["".join(r) for r in g]
+def _pica(f):
+  g = [list(r) for r in f]
+  for y in range(4, -1, -1):
+    for x in range(0, 6):
+      if g[y][x] != '.': g[y + 2][x] = g[y][x]; g[y][x] = '.'
+  return ["".join(r) for r in g]
+URRACA_POSADA = [POSA, _sube_cola(POSA), _pica(POSA)]
+URRACA_VUELO = [
+  ["......bbn...........", ".....nbbn...........", "....nnbn............", "...nnnnn............", "nonnnnbbnnnnaaaa....", ".nnnnbbbnnn.....aa..", "...................."],
+  ["....................", "....................", "..nnnnnnnn..........", "nonnnbbbbnnnaaaa....", ".nnnnbbbnnn.....aa..", "....................", "...................."],
+  ["....................", "...nnnnn............", "nonnnnbbnnnnaaaa....", ".nnnnbbbnnn.....aa..", "....nnbn............", ".....nbbn...........", "......bbn..........."],
+  ["....................", "....................", "..nnnnnnnn..........", "nonnnbbbbnnnaaaa....", ".nnnnbbbnnn.....aa..", "....................", "...................."],
+]
+def urracas():
+  COL = {'n': (12, 12, 14), 'b': (222, 220, 210), 'a': (40, 52, 70), 'o': (90, 86, 74)}
+  def hacer(frames, w, h):
+    hoja = np.zeros((h, w * len(frames), 3), np.float32); al = np.zeros((h, w * len(frames)), np.float32)
+    for i, f in enumerate(frames):
+      for y, fila in enumerate(f):
+        for x, ch in enumerate(fila):
+          if ch in COL and x < w: hoja[y, i * w + x] = COL[ch]; al[y, i * w + x] = 1
+    return hoja, al
+  return hacer(URRACA_POSADA, 18, 12), hacer(URRACA_VUELO, 20, 7)
+
+
+# ------------------------------------------------------------------ el caminante (de espaldas, la capa al viento)
+def caminante():
+  W_, H_, N = 26, 46, 6
+  hoja = np.zeros((H_, W_ * N, 3), np.float32); al = np.zeros((H_, W_ * N), np.float32)
+  CXc = 12.5
+  for f in range(N):
+    fase = f / N * 2 * math.pi; ox = f * W_
+    yy, xx = np.mgrid[0:H_, 0:W_].astype(np.float32); X = xx - CXc
+    M = (X / 3.7) ** 2 + ((yy - 8.5) / 4.5) ** 2 < 1
+    M |= (yy > 3) & (yy < 9) & (X > 1) & (X < 3.8 + (9 - yy) * 0.5 + math.sin(fase) * 0.6) & (yy > 7.5 - (X - 1) * 0.9)
+    k = np.clip((yy - 11) / 32, 0, 1)
+    izq = -5 - k * 4 + np.sin(fase + k * 3) * 0.4 * k
+    der = 4.8 + k * 6 + np.sin(fase + k * 4.2) * 2.1 * k + np.sin(fase * 2 + k * 7) * 0.7 * k
+    M |= (yy >= 11) & (yy < 14) & (np.abs(X) < 4.4 + (yy - 11) * 0.3)
+    M |= (yy >= 13) & (yy < 43) & (X >= izq) & (X <= der)
+    M &= ~((yy >= 40) & (yy < 43) & (((xx.astype(int) + f) % 4) == 0) & (X > 1))
+    M |= (yy >= 42) & (yy < 46) & (((X > -3.4) & (X < -0.8)) | ((X > 1) & (X < 3.6)))
+    for t in np.linspace(0, 1, 34):
+      ix, iy = int(round(CXc - 7.6 - t * 2.6)), int(round(24 + t * 20))
       if 0 <= ix < W_ and 0 <= iy < H_: M[iy, ix] = True
-    for gx in range(-2, 3): M[30, int(round(CXc - 9.5)) + gx] = True
-    sub = np.zeros((H_, W_, 3), np.float32)
-    sub[M] = NEG
-    izqB = M & ~np.roll(M, 1, 1)
-    derB = M & ~np.roll(M, -1, 1)
-    arr = M & ~np.roll(M, 1, 0)
-    sub[arr] = PAL[13]; sub[izqB] = PAL[12]
-    sub[derB] = PAL[39]
-    der2 = np.roll(derB, -1, 1) & M & ~derB
-    sub[der2 & (yy > 16)] = PAL[38]
-    # el filo de la hoja toma la luz fría
-    for t in np.linspace(0.05, 1, 30):
-      ex, ey = CXc - 9.5 - t * 3.2, 30 + t * 25
-      ix, iy = int(round(ex)), int(round(ey))
-      if 0 <= ix < W_ and 0 <= iy < H_ and t > 0.1: sub[iy, ix] = PAL[15] if t < 0.85 else PAL[13]
+    sub = np.zeros((H_, W_, 3), np.float32); sub[M] = PAL[2]
+    izqB = M & ~np.roll(M, 1, 1); arr = M & ~np.roll(M, 1, 0)
+    sub[izqB] = PAL[6]; sub[arr] = PAL[8]
     hoja[:, ox:ox + W_] = sub; al[:, ox:ox + W_] = M
   return hoja, al, W_, H_, N
 
 
-# ------------------------------------------------------------------ la colina de la catedral
-def colina():
-  m = json.load(open(TMP + 'catedral.json')); w, h = m['w'], m['h']
-  tie = np.fromfile(TMP + 'catedral_tierra.f32', np.float32).reshape(h, w)
-  perf = np.full(SW, np.nan)
-  for x in range(w):
-    col = np.where(tie[:, x] >= 0.5)[0]
-    if len(col): perf[CAT_X + x] = CAT_Y + col[0]
-  xs_ok = np.where(~np.isnan(perf))[0]
-  x0, x1 = xs_ok[0], xs_ok[-1]
-  for x in range(SW):
-    if x < x0: perf[x] = perf[x0] + ((x0 - x) / 70) ** 1.5 * 30
-    elif x > x1: perf[x] = perf[x1] + (x - x1) * 0.06
-  perf = np.minimum(perf, 460 + OY)
-  rgb = np.zeros((SH, SW, 3), np.float32); a = np.zeros((SH, SW), np.float32)
-  m_ = ys >= perf[None, :]
-  px, py = m['puerta'][0] + CAT_X, m['puerta'][1] + CAT_Y
-  calor = np.exp(-np.hypot(xs - px, (ys - py) * 1.6) / 70)
-  tex = fbm(SH, SW, 18, 61, 3)
-  c = np.array([13, 12, 22]) + np.array([16, 14, 24]) * tex[..., None] + np.array([120, 50, 22]) * calor[..., None] * (0.6 + 0.4 * tex[..., None])
-  filo = m_ & ~np.roll(m_, 1, 0)
-  c[filo] += np.array([30, 32, 50])
-  c[filo] += (np.array([120, 70, 30]) * calor[filo][:, None])
-  rgb = cuantizar(c, 7); a[m_] = 1
-  return rgb, a
-
-
-# ------------------------------------------------------------------ cuervos: tres cuadros de 7 x 5
-def cuervos():
-  F = [
-    ["..#.#..", ".#...#.", "#..#..#", ".......", "......."],
-    [".......", "##.#.##", "..###..", ".......", "......."],
-    [".......", "...#...", "..###..", ".#...#.", "#.....#"],
-  ]
-  hoja = np.zeros((5, 21, 3), np.float32); al = np.zeros((5, 21), np.float32)
-  for i, f in enumerate(F):
-    for y, fila in enumerate(f):
-      for x, ch in enumerate(fila):
-        if ch == '#': hoja[y, i * 7 + x] = (8, 7, 14); al[y, i * 7 + x] = 1
-  return hoja, al
+def rayos():
+  """Los rayos que bajan del claro del sol hacia la derecha y abajo: franjas a trama que se abren en abanico."""
+  sx, sy = dv(*SOL)
+  ang = np.arctan2(ys - sy, xs - sx)
+  d = np.hypot(xs - sx, ys - sy)
+  f = fbm2(ang[..., None][..., 0] * 260, np.zeros_like(ang), 18, 909, 3, 1.0)
+  haz = sat((f - 0.5) * 3.2) * sat((ang - 0.25) / 0.25) * sat((1.25 - ang) / 0.3)
+  k = haz * sat(d / 60) * np.exp(-d / 520) * 0.9
+  rgb = cuantizar(np.array([150, 138, 104])[None, None, :] * np.ones((SH, SW, 1)), 4, GRIS + OCRE)
+  return rgb, alfa_trama(sat(k), 4)
 
 
 def main():
-  rgb, d, t = cielo(); guardar('cielo.png', rgb)
-  g, ga = grieta_luz(d, t); guardar('grieta_luz.png', g, ga)
-  n1, a1 = nubes(101, 70 + OY, 250 + OY, 22, 0.56); guardar('nubes_lejos.png', n1, a1)
-  n2, a2 = nubes(202, 220 + OY, 300 + OY, 16, 0.55, 1.2); guardar('nubes_cerca.png', n2, a2)
-  mo, ma, fuegos = montes(); guardar('montes.png', mo, ma)
-  c, ca, v, va, hl, ha, m = catedral()
+  import time; t0 = time.time()
+  def av(s): print(f'{time.time() - t0:5.1f}s', s, flush=True)
+  av('cielo'); guardar('cielo.png', cielo())
+  g, ga = grieta_luz(); guardar('grieta_luz.png', g, ga)
+  av('gas alto'); n, na = gas(101, -40, 250, 120, 0.62, 3.2, (13, 13, 14), (182, 168, 132), 1.0, 0.35); guardar('gas_alto.png', n, na)
+  r_, ra = rayos(); guardar('rayos.png', r_, ra)
+  av('montes'); mo, ma = montes(); guardar('montes.png', mo, ma)
+  av('gas bajo'); n, na = gas(202, 230, 420, 70, 0.5, 3.8, (18, 18, 18), (150, 136, 104), 0.9, 0.3, 0.92); guardar('gas_bajo.png', n, na)
+  av('niebla'); n, na = gas(303, 380, 470, 40, 0.5, 5.0, (54, 52, 46), (110, 102, 82), 0.7, 0.0, 0.75); guardar('niebla.png', n, na)
+  av('catedral'); c, ca, v, va, hl, ha, m, tie = catedral()
   guardar('catedral.png', c, ca); guardar('catedral_vidrios.png', v, va); guardar('catedral_halo.png', hl, ha)
-  ni, na = niebla(303, 300 + OY, 360 + OY, 1.0); guardar('niebla.png', ni, na)
-  co, coa = colina(); guardar('colina.png', co, coa)
-  fr, fa, top = frente(); guardar('frente.png', fr, fa)
+  co, coa = colina(m, tie); guardar('colina.png', co, coa)
+  av('niebla cerca'); n, na = gas(404, 430, 520, 30, 0.48, 6.0, (40, 39, 35), (96, 90, 74), 0.6, 0.0, 0.8); guardar('niebla_cerca.png', n, na)
+  av('frente'); fr, fa, top, rx = frente(); guardar('frente.png', fr, fa)
+  colgados = []
+  for i, (x, yr, largo) in enumerate(CUELGAN):
+    sx = x + OX
+    ry = rx.get(sx, yr + OY)
+    h, a, w_, h_, n_, cx = ahorcado(largo, 50 + i, 74 + i * 6)
+    guardar(f'ahorcado{i}.png', h, a)
+    colgados.append({'archivo': f'ahorcado{i}.png', 'x': sx - cx, 'y': ry, 'w': w_, 'h': h_, 'n': n_, 'fase': round(i * 1.7, 2), 'periodo': round(4.6 + i * 0.9, 2)})
+  (up, upa), (uv, uva) = urracas(); guardar('urraca.png', up, upa); guardar('urraca_vuelo.png', uv, uva)
   cm, cma, cw, ch, cn = caminante(); guardar('caminante.png', cm, cma)
-  cu, cua = cuervos(); guardar('cuervos.png', cu, cua)
-  # estrellas que titilan
-  r = np.random.default_rng(99); est = []
-  while len(est) < 60:
-    x, y = int(r.integers(0, SW)), int(r.random() ** 1.5 * (290 + OY))
-    if np.hypot(x - LUNA[0], y - LUNA[1]) < 30: continue
-    dd, _ = dist_poli(GRIETA, np.array([[x]], np.float32), np.array([[y]], np.float32))
-    if dd[0, 0] < 24: continue
-    est.append([x, y, round(float(r.uniform(0.5, 3.2)), 2), round(float(r.uniform(0, 6.28)), 2), int(r.random() < 0.2)])
-  CX = 455 + OX
+  perchas = []
+  for x in (104, 164, 232, 300):
+    sx = x + OX
+    if sx in rx: perchas.append([sx, rx[sx] - 11, 1 if x % 2 else -1])
+  for (cx, alto) in [(250, 30), (868, 40)]:
+    perchas.append([cx + OX - 4, int(top[cx + OX]) + 3 - alto - 11, 1])
+  cxw = CAMINANTE_X + OX
+  cat = dv(*CAT)
   esc = {
-    'w': SW, 'h': SH, 'vista': [VX, VY, 640, 360],
-    'catedral': {'x': CAT_X, 'y': CAT_Y, 'w': m['w'], 'h': m['h'], 'puerta': [CAT_X + m['puerta'][0], CAT_Y + m['puerta'][1]]},
-    'luna': list(LUNA),
-    'grieta': [[round(float(p[0]), 1), round(float(p[1]), 1)] for p in GRIETA[::4]],
-    'estrellas': est,
-    'fuegos': fuegos,
-    'caminante': {'x': CX - cw // 2, 'y': int(top[CX]) - ch + 2, 'w': cw, 'h': ch, 'n': cn},
-    'suelo': [int(v) for v in top[::8]],
-    'brasa': [[730 + OX, 121 + OY], [762 + OX, 264 + OY]],
-    'humo': [742 + OX, 262 + OY],
-    'cuervos': [668 + OX, 100 + OY],
-    'foco': [480 + OX, 250 + OY, 600 + OX],
+    'w': SW, 'h': SH, 'vista': [OX, OY, VW, VH],
+    'foco': [OX + VW // 2, OY + VH // 2, OX + 760],
+    'catedral': {'x': cat[0], 'y': cat[1], 'w': m['w'], 'h': m['h'], 'puerta': [cat[0] + m['puerta'][0], cat[1] + m['puerta'][1]]},
+    'sol': list(dv(*SOL)),
+    'brasa': [list(dv(880, 56)), list(dv(905, 300))],
+    'humo': list(dv(880, 290)),
+    'colgados': colgados,
+    'perchas': perchas,
+    'caminante': {'x': cxw - cw // 2, 'y': int(top[cxw]) - ch + 2, 'w': cw, 'h': ch, 'n': cn},
     'capas': [
-      {'id': 'cielo', 'archivo': 'cielo.png', 'par': 0.04},
-      {'id': 'grieta_luz', 'archivo': 'grieta_luz.png', 'par': 0.04, 'sumar': True},
-      {'id': 'nubes_lejos', 'archivo': 'nubes_lejos.png', 'par': 0.08, 'deriva': -1.2},
-      {'id': 'montes', 'archivo': 'montes.png', 'par': 0.14},
-      {'id': 'nubes_cerca', 'archivo': 'nubes_cerca.png', 'par': 0.18, 'deriva': -2.6},
-      {'id': 'niebla_lejos', 'archivo': 'niebla.png', 'par': 0.22, 'deriva': 3.0, 'alfa': 0.7},
-      {'id': 'colina', 'archivo': 'colina.png', 'par': 0.34},
-      {'id': 'catedral', 'archivo': 'catedral.png', 'par': 0.34, 'x': CAT_X, 'y': CAT_Y},
-      {'id': 'catedral_halo', 'archivo': 'catedral_halo.png', 'par': 0.34, 'x': CAT_X, 'y': CAT_Y, 'sumar': True},
-      {'id': 'catedral_vidrios', 'archivo': 'catedral_vidrios.png', 'par': 0.34, 'x': CAT_X, 'y': CAT_Y, 'sumar': True},
-      {'id': 'niebla_cerca', 'archivo': 'niebla.png', 'par': 0.5, 'deriva': 6.0, 'alfa': 1, 'y': 34},
-      {'id': 'frente', 'archivo': 'frente.png', 'par': 1.0},
+      {'archivo': 'cielo.png', 'par': 0.02},
+      {'archivo': 'grieta_luz.png', 'par': 0.02, 'sumar': True, 'id': 'grieta'},
+      {'archivo': 'gas_alto.png', 'par': 0.05, 'deriva': -3.0},
+      {'archivo': 'montes.png', 'par': 0.1},
+      {'archivo': 'rayos.png', 'par': 0.05, 'sumar': True, 'id': 'rayos'},
+      {'archivo': 'gas_bajo.png', 'par': 0.14, 'deriva': -6.0},
+      {'archivo': 'niebla.png', 'par': 0.2, 'deriva': 4.0},
+      {'archivo': 'colina.png', 'par': 0.3},
+      {'archivo': 'catedral.png', 'par': 0.3, 'x': cat[0], 'y': cat[1]},
+      {'archivo': 'catedral_halo.png', 'par': 0.3, 'x': cat[0], 'y': cat[1], 'sumar': True, 'id': 'halo'},
+      {'archivo': 'catedral_vidrios.png', 'par': 0.3, 'x': cat[0], 'y': cat[1], 'sumar': True, 'id': 'vidrios'},
+      {'archivo': 'niebla_cerca.png', 'par': 0.45, 'deriva': 9.0, 'id': 'niebla_media'},
+      {'archivo': 'frente.png', 'par': 1.0, 'id': 'frente'},
     ],
   }
   json.dump(esc, open(os.path.join(SAL, 'escena.json'), 'w'))
-  print('listo', SAL)
+  av('listo')
 
 
 if __name__ == '__main__':

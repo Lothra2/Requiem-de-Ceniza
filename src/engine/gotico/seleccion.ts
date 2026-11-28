@@ -1,5 +1,5 @@
 import {
-  K, actuar, animar, plantar, mirar, quieto, TAU, mod1, SEL_CUADROS, SEL_ENTRADA,
+  K, actuar, animar, plantar, mirar, quieto, presentar, TAU, mod1, SEL_CUADROS, SEL_ENTRADA,
   type Pose, type ArmaPose, type Presentacion, type ManoPose, type Clave, type Vals,
 } from './figura';
 import { esfera, caja, poliedro, type Pieza, type V3 } from './render';
@@ -16,7 +16,7 @@ import type { Esqueleto } from './cuerpo';
 // (figura.ts importa este archivo y este importa figura: nada de figura se lee al cargar el módulo, solo al llamar)
 
 /** Las dos partes de una clase: las claves del bucle (cíclicas) y las del gesto de entrada (sin la primera ni la última). */
-interface Guion { bucle: Clave[]; entrada: Clave[]; o?: { lagCab?: number; lagArma?: number; capa?: number; tela?: number }; post?: (p: Pose, ub: number, ue: number | null) => void }
+interface Guion { bucle: Clave[]; entrada: Clave[]; amp?: number; o?: { lagCab?: number; lagArma?: number; capa?: number; tela?: number }; post?: (p: Pose, ub: number, ue: number | null) => void }
 
 export function seleccion(p: Pose, f: number, arma: ArmaPose, estilo?: Presentacion, mano?: ManoPose): void {
   const NB = SEL_CUADROS - SEL_ENTRADA, ub = (f - SEL_ENTRADA) / NB, enEntrada = f < SEL_ENTRADA, ue = f / SEL_ENTRADA;
@@ -25,6 +25,13 @@ export function seleccion(p: Pose, f: number, arma: ArmaPose, estilo?: Presentac
     // sin guion propio todavía: el reposo de la clase, dos respiraciones por bucle (empalma solo)
     // (en la entrada se queda en la pose con que arranca el bucle: el 0 igual al 12)
     quieto(p, enEntrada ? 0 : mod1(ub * 2), arma, estilo);
+  } else if (enEntrada && !(globalThis as { __selGestoViejo?: boolean }).__selGestoViejo) {
+    // la entrada es el gesto grande de la presentación de la clase (alza el hacha y ruge, el saludo con la espada, el
+    // conjuro...), estirado a SEL_ENTRADA cuadros: sale suave de la pose del bucle y vuelve a ella
+    const base = clonar(p); actuar(base, ampliar(g.bucle, g.amp), 0, g.o);
+    const pres = clonar(p); presentar(pres, ue, arma, estilo ?? 'guardia', mano);
+    const w = ue < 0.16 ? suave(ue / 0.16) : ue > 0.84 ? suave((1 - ue) / 0.16) : 1;
+    mezclarPose(p, base, pres, w);
   } else if (enEntrada) {
     // la entrada sale de la pose del bucle y vuelve a ella (el juego puede pasar del bucle a la entrada y de vuelta)
     const b0 = animar(g.bucle, 0) as Record<string, number | number[]>;
@@ -32,9 +39,46 @@ export function seleccion(p: Pose, f: number, arma: ArmaPose, estilo?: Presentac
     const base: Pose = { ...p }; actuar(base, g.bucle, 0, g.o);
     for (const c of g.entrada) for (const [k, v] of Object.entries(c.v)) if (!(k in b0)) { const bv = (base as unknown as Record<string, number | number[] | undefined>)[k]; b0[k] = bv ?? (Array.isArray(v) ? v.map(() => 0) : 0); }
     actuar(p, [K(0, b0 as Vals, true), ...g.entrada, K(0.88, b0 as Vals, true)], ue, g.o);
-  } else actuar(p, g.bucle, mod1(ub), g.o);
+  } else actuar(p, ampliar(g.bucle, g.amp), mod1(ub), g.o);
   g?.post?.(p, ub, enEntrada ? ue : null);
   viento(p, ub);
+}
+
+/**
+ * El reposo se ve vivo: lo que el cuerpo mueve en el bucle (respirar, el peso, el torso, la cabeza) se agranda alrededor de
+ * su pose media. Las manos y el arma no se tocan (romperían el agarre). Sin esto, en pantalla el héroe parecía quieto.
+ */
+const VIVO = ['bajar', 'torso', 'lateral', 'ladeoCadera', 'ladeo', 'giroTorso', 'giroCadera', 'respira', 'hombros', 'cabeza', 'giroCabeza', 'ladeoCabeza', 'avanza'];
+function ampliar(cl: Clave[], propia?: number): Clave[] {
+  const A = (globalThis as { __selAmp?: number }).__selAmp ?? propia ?? AMP_REPOSO;
+  if (A === 1) return cl;
+  const media: Record<string, number | number[]> = {};
+  for (const k of VIVO) {
+    const vs = cl.map((c) => (c.v as Record<string, number | number[] | undefined>)[k]).filter((v) => v !== undefined) as (number | number[])[];
+    if (vs.length < 2) continue;
+    media[k] = Array.isArray(vs[0]) ? (vs[0] as number[]).map((_, i) => (vs as number[][]).reduce((s, v) => s + v[i], 0) / vs.length) : (vs as number[]).reduce((s, v) => s + v, 0) / vs.length;
+  }
+  return cl.map((c) => {
+    const v: Record<string, unknown> = { ...c.v };
+    for (const [k, m] of Object.entries(media)) {
+      const x = v[k]; if (x === undefined) continue;
+      v[k] = Array.isArray(m) ? (x as number[]).map((q, i) => m[i] + (q - m[i]) * A) : m + ((x as number) - m) * A;
+    }
+    return { ...c, v: v as Vals };
+  });
+}
+export const AMP_REPOSO = 2.8;
+const suave = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+const clonar = (p: Pose): Pose => JSON.parse(JSON.stringify(p)) as Pose;
+/** p = a + (b - a) * w campo a campo (números y listas de números; lo demás lo toma del que pesa más). */
+function mezclarPose(p: Pose, a: Pose, b: Pose, w: number) {
+  const A = a as unknown as Record<string, unknown>, B = b as unknown as Record<string, unknown>, P = p as unknown as Record<string, unknown>;
+  for (const k of new Set([...Object.keys(A), ...Object.keys(B)])) {
+    const x = A[k], y = B[k];
+    if (typeof x === 'number' && typeof y === 'number') P[k] = x + (y - x) * w;
+    else if (Array.isArray(x) && Array.isArray(y) && x.length === y.length && x.every((q) => typeof q === 'number')) P[k] = x.map((q, i) => q + ((y[i] as number) - q) * w);
+    else P[k] = w >= 0.5 ? (y ?? x) : (x ?? y);
+  }
 }
 
 /** El viento suave y continuo (también en la entrada): la tela y el pelo se mecen con dos frecuencias que cierran el bucle. */
@@ -206,11 +250,17 @@ function arcanista(p: Pose, arma: ArmaPose): Guion {
   // (la vara al costado, el brazo abierto y la mano a la altura del hombro: delante quedaba justo sobre la cara)
   const reposo: Vals = vara ? { varaPie: [7, 19, 0.5], manoD: [4, 14, 43], codoD: [-0.4, 1, -0.2], manoI: [10, -8, 30], codoI: [-0.2, -1, -0.3] }
     : { manoD: [12, 3, 33], armaD: [90, -84], codoD: [-1, 0.25, -0.4], manoI: [12.2, -4.8, 32.6], codoI: [-0.3, -1, -0.4] };
+  // en reposo: respira con los hombros, pasa el peso a la otra pierna mientras sube la mano libre a la altura del pecho y
+  // la mira (atiza la llama que guarda), y vuelve el peso mirando lejos
+  const atiza: Vals = vara ? { manoI: [9, -6, 38], codoI: [-0.3, -1, -0.1] } : { manoI: [11, -3.2, 39], codoI: [-0.4, -1, -0.1] };
+  const suelta: Vals = vara ? { manoI: [10, -8, 30], codoI: [-0.2, -1, -0.3] } : { manoI: [12.2, -4.8, 32.6], codoI: [-0.3, -1, -0.4] };
   const bucle: Clave[] = [
-    K(0, { bajar: 0.6, torso: 1, ladeo: -1.2, lateral: 0.7, ladeoCadera: 2.4, giroTorso: 2, giroCadera: 0, respira: 0.1, puntillas: [0.35, 0.35], cabeza: -2, giroCabeza: 10, ladeoCabeza: 3, ...reposo }),
-    K(0.25, { respira: 0.9, bajar: 0.2, puntillas: [0.5, 0.5], ladeoCabeza: 2 }),
-    K(0.5, { respira: 0.15, bajar: 0.7, puntillas: [0.35, 0.35], giroCabeza: 18, lateral: 0.4, ladeoCadera: 1.4 }, true),
-    K(0.75, { respira: 0.9, bajar: 0.2, puntillas: [0.5, 0.5], giroCabeza: 12, ladeoCabeza: 4 }),
+    K(0, { bajar: 0.6, torso: 1, ladeo: -1.2, lateral: 0.7, ladeoCadera: 2.4, giroTorso: 2, giroCadera: 0, respira: 0.1, hombros: [0.5, 0.5], puntillas: [0.35, 0.35], cabeza: -2, giroCabeza: 10, ladeoCabeza: 3, ...reposo }),
+    K(0.14, { respira: 1, hombros: [1.6, 1.5], bajar: 0.1, puntillas: [0.5, 0.5], ladeoCabeza: 2 }),
+    K(0.32, { respira: 0.4, hombros: [0.9, 0.8], bajar: 0.9, lateral: -0.7, ladeoCadera: -2.2, ladeo: 1.4, giroTorso: -3, giroCabeza: -12, cabeza: 8, ladeoCabeza: -3, ...atiza }),
+    K(0.46, { respira: 0.9, hombros: [1.4, 1.3], bajar: 0.5, giroCabeza: -16, cabeza: 10, ...atiza }, true),
+    K(0.62, { respira: 0.2, hombros: [0.6, 0.6], bajar: 0.8, lateral: 0.8, ladeoCadera: 2.6, ladeo: -1.4, giroTorso: 3, giroCabeza: 22, cabeza: -4, ladeoCabeza: 4, ...suelta }),
+    K(0.8, { respira: 1, hombros: [1.6, 1.5], bajar: 0.2, puntillas: [0.5, 0.5], giroCabeza: 14, cabeza: -2 }),
   ];
   const entrada: Clave[] = vara ? [
     K(0.2, { bajar: 1.4, torso: 4, varaPie: [6, 21, 6], manoD: [3, 16, 46], respira: 0.4 }),
@@ -221,7 +271,7 @@ function arcanista(p: Pose, arma: ArmaPose): Guion {
     K(0.6, { bajar: 0.8, torso: 2, manoD: [11, 5, 38], armaD: [60, -20], respira: 0.4 }),
   ];
   return {
-    bucle, entrada, o: { lagCab: 0.04, lagArma: 0.03, capa: 0.7, tela: 1.2 },
+    bucle, entrada, amp: 1.35, o: { lagCab: 0.04, lagArma: 0.03, capa: 0.7, tela: 1.2 },
     // el remate gira siempre: despacio en el bucle (una vuelta) y rápido en la entrada (tres)
     post: (q, ub, ue) => { q.giroVara = ue !== null ? 1080 * ue * ue * (3 - 2 * ue) : 360 * (((ub % 1) + 1) % 1); },
   };

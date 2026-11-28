@@ -51,7 +51,7 @@ parentPort!.on('message', (job: any) => {
       // luz_retrato.mts: la fogata a la izquierda, delante de la cara.
       const h = HEROES.find((x: any) => x.id === job.id), k = K_RETRATO, LUZ_RETRATO = luzRetrato(k);
       for (let f = 0; f < job.cuadros; f++) {
-        const e = personajeEscena({ ...h.cuerpo, alto: (h.cuerpo.alto ?? 1) * k }, h.niveles[job.nivel], 'so', 'presentar', f, { detalle: 2 });
+        const e = personajeEscena({ ...h.cuerpo, alto: (h.cuerpo.alto ?? 1) * k }, h.niveles[job.nivel], 'so', job.acc ?? 'presentar', f, { detalle: 2 });
         const r = conGrano(1.5, () => pintarEscena({ ...e, luz: { ...(e.luz ?? {}), ...LUZ_RETRATO }, resplandor: undefined, ss: 2, sinSombra: true }));
         out.push(recortar(r, r.ancla[0], r.ancla[1]));
       }

@@ -107,7 +107,7 @@ if (GRUPOS.includes('b')) for (const bs of BESTIAS as any[]) {
 // retratos grandes de cada clase en su pose de presentación (selección e intro)
 if (GRUPOS.includes('r')) for (const h of HEROES) {
   if (SOLO && !SOLO.includes(h.id)) continue;
-  for (const nivel of [0, 2]) jobs.push({ id_job: nid++, grupo: 'r', clave: `${h.id}/${nivel}`, tipo: 'retrato', id: h.id, nivel, cuadros: CUADROS.presentar ?? 8 });
+  for (const nivel of [0, 2]) jobs.push({ id_job: nid++, grupo: 'r', clave: `${h.id}/${nivel}`, tipo: 'retrato', id: h.id, nivel, acc: 'seleccion', cuadros: CUADROS.seleccion });
 }
 // jefes a medida de la Forja: se guardan como monstruos 'jefe_<id>'
 const { JEFES: JEFES1 } = await import(join(raiz, 'catalogo/jefes.ts'));

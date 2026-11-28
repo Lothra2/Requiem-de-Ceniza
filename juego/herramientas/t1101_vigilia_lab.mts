@@ -7,6 +7,7 @@
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { encode } from 'fast-png';
 (globalThis as any).__relieve = true;
+if (process.env.AMP) (globalThis as any).__selAmp = +process.env.AMP;
 const { personajeEscena } = await import('../../src/engine/gotico/cuerpo.ts');
 const { pintarEscena, fijarCalidad } = await import('../../src/engine/gotico/render.ts');
 if (process.env.CAL) fijarCalidad(+process.env.CAL);

@@ -79,11 +79,14 @@ const estado = { id: '', tAp: -1 as number, tPrev: 0 };
 export let infoVigilia: Record<string, unknown> = {};
 
 /**
- * Qué cuadro de la presentación toca a los `tc` segundos de elegido: el gesto (0 a 11) en el primer segundo y cada 10 s,
- * el reposo (12 a 47, empalma el 47 con el 12) en medio. Sin el gesto pintado entero, el reposo sigue.
+ * Qué cuadro de la presentación toca a los `tc` segundos de elegido: el gesto al principio y después de cada dos vueltas
+ * del reposo (que empalma su último cuadro con el primero). Sin el gesto pintado entero, el reposo sigue.
  */
+const CICLO_V = (SEL_ENT + 2 * (SEL_N - SEL_ENT)) / SEL_FPS;
 export function cuadroVigilia(tc: number, gestoListo: boolean): { f: number; gesto: boolean } {
-  const P = 10, u = ((tc % P) + P) % P;
+  // (el ciclo es el gesto más dos vueltas justas del reposo: el gesto arranca siempre donde el reposo vuelve a su primera
+  //  pose, sin salto)
+  const P = CICLO_V, u = ((tc % P) + P) % P;
   if (u < SEL_ENT / SEL_FPS && gestoListo) return { f: Math.min(SEL_ENT - 1, Math.floor(u * SEL_FPS)), gesto: true };
   const lt = u < SEL_ENT / SEL_FPS ? u : u - SEL_ENT / SEL_FPS;
   return { f: SEL_ENT + (Math.floor(lt * SEL_FPS) % (SEL_N - SEL_ENT)), gesto: false };
@@ -223,7 +226,7 @@ export function heroeVigilia(hr: DatosHeroe, hx: number, hy: number, alto: numbe
       c.restore();
     } else pozo.length = 0;
   } finally { pozoArma(); }
-  if (q) { lluvia(c, q, px, py, t, luzK); if (want.gesto) ((window as any).__chispasViejas ? gestoViejo : gesto)(c, q, px, py, K, hr.clase, (((tc % 10) + 10) % 10) / (SEL_ENT / SEL_FPS)); }
+  if (q) { lluvia(c, q, px, py, t, luzK); if (want.gesto) ((window as any).__chispasViejas ? gestoViejo : gesto)(c, q, px, py, K, hr.clase, (((tc % CICLO_V) + CICLO_V) % CICLO_V) / (SEL_ENT / SEL_FPS)); }
   const tC = performance.now();
   // ---- a la pantalla, a puntos enteros del aparato y sin suavizar
   const HX = m.a * hx + m.e, HY = m.d * hy + m.f, OX = Math.round(HX - px * d), OY = Math.round(HY - py * d);

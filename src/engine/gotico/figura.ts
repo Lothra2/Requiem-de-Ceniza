@@ -26,7 +26,7 @@ export type Accion = 'quieto' | 'caminar' | 'correr' | 'atacar' | 'lanzar' | 'he
 export type Presentacion = 'rugido' | 'guardia' | 'conjuro' | 'apunta' | 'invoca' | 'kata' | 'naturaleza' | 'frasco';
 /** Cuadros por acción de los monstruos humanoides (y de todo cuerpo sin clase de héroe). Los héroes van por ANIM_HEROE. */
 /** La presentación del menú: 48 cuadros a 12 por segundo; los 12 primeros son la entrada y los 36 que siguen el bucle. */
-export const SEL_CUADROS = 48, SEL_ENTRADA = 12, SEL_FPS = 12;
+export const SEL_CUADROS = 82, SEL_ENTRADA = 28, SEL_FPS = 12;
 export const CUADROS: Record<Accion, number> = { quieto: 4, caminar: 8, correr: 8, atacar: 8, lanzar: 8, herido: 4, morir: 8, presentar: 16, seleccion: SEL_CUADROS };
 
 // ------------------------------------------------------------------ cuadros de los héroes, por clase
@@ -740,7 +740,7 @@ function andarDeClase(p: Pose, u: number, correr: boolean, estilo: Presentacion,
 }
 
 // ------------------------------------------------------------------ presentar: la actuación de cada clase (16 cuadros)
-function presentar(p: Pose, u: number, arma: ArmaPose, estilo: Presentacion, mano?: ManoPose) {
+export function presentar(p: Pose, u: number, arma: ArmaPose, estilo: Presentacion, mano?: ManoPose) {
   const dosM = arma === 'dos' || arma === 'ballesta';
   switch (estilo) {
     case 'rugido': {

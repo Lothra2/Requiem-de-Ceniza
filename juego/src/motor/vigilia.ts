@@ -24,8 +24,9 @@ import { hayGPU } from '../render/luz_gpu';
 /** Versión de lo que se hornea acá (la luz de la vigilia o el orden de los cuadros): si cambia, se vuelve a pintar. */
 const VIG_V = 1;
 const VER = 'V|' + __PINTOR__ + '|' + VIG_V;
-/** Cuadros de la presentación: del 0 al 11 el gesto, del 12 al 47 el reposo (el 0 es la misma pose que el 12). */
-export const SEL_N = 48, SEL_ENT = 12, SEL_FPS = 12;
+/** Cuadros de la presentación: del 0 al SEL_ENT - 1 el gesto (el gesto grande de la clase, 2,3 s), del SEL_ENT al final el
+ * reposo vivo (4,5 s; el 0 es la misma pose que el SEL_ENT). Igual que SEL_CUADROS y SEL_ENTRADA del motor. */
+export const SEL_N = 82, SEL_ENT = 28, SEL_FPS = 12;
 /** Cuadros del reposo de la carta. */
 export const CARTA_N = 8;
 
@@ -58,14 +59,16 @@ export function ordenGrande(): number[] {
   const o: number[] = [], pon = (f: number) => { if (!o.includes(f)) o.push(f); };
   // (`__ordenViejo`: el de antes, para medir contra lo mismo: el arranque, el reposo de a 9, el gesto, de a 4 y lo que falta)
   if ((window as any).__ordenViejo) {
-    for (const f of [12, 30, 21, 39, 16, 25, 34, 43]) pon(f);
+    const L = SEL_N - SEL_ENT, a = (q: number) => SEL_ENT + Math.round(q * L) % L;
+    for (const q of [0, 0.5, 0.25, 0.75, 0.11, 0.36, 0.61, 0.86]) pon(a(q));
     for (let f = 0; f < SEL_ENT; f++) pon(f);
-    for (const f of [14, 18, 23, 27, 32, 36, 41, 45]) pon(f);
+    for (const q of [0.06, 0.17, 0.31, 0.42, 0.56, 0.67, 0.81, 0.92]) pon(a(q));
     for (let f = SEL_ENT; f < SEL_N; f++) pon(f);
     return o;
   }
   if (!entreVivo()) {
-    for (const f of [12, 30, 20, 38, 16, 24, 34, 42]) pon(f);
+    const L = SEL_N - SEL_ENT, a = (q: number) => SEL_ENT + 2 * Math.round((q * L) / 2) % L;
+    for (const q of [0, 0.5, 0.22, 0.72, 0.11, 0.33, 0.61, 0.83]) pon(a(q));
     for (let f = SEL_ENT; f < SEL_N; f += 2) pon(f);
     for (let f = SEL_ENT + 1; f < SEL_N; f += 2) pon(f);
   } else {

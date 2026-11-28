@@ -1,6 +1,7 @@
 // Crear héroe: cada clase se presenta en grande con su pose, su luz y su ficha (rol, dificultad, atributos y ramas).
 import { ctx, W, H, E, RES, pulso } from '../nucleo/lienzo';
 import { texto, T, TT, boton, marco, dentro, envolver, TITULO } from './comun';
+import { SEL_N, SEL_ENT, SEL_FPS } from '../motor/vigilia';
 import { cuadrosHeroe, cuadrosPiso, cuadrosRetrato, RETRATO_ALTO, cuadrosSel, metaSel, objetoMeta, dibujar, dibujarTenido, type Cuadro } from '../motor/assets';
 import { CLASES, HABILIDADES, type Habilidad } from '../datos/clases';
 import { iconoHab } from './juego_ui';
@@ -41,6 +42,14 @@ let ultima = -1, tCambio = 0, nivelVista = 0;
  */
 export function cuadroPresentar(tt: number, n: number, pausa = 5.5): number {
   if (n <= 8) return Math.floor(tt * 8) % n;
+  // la animación nueva ('seleccion' del motor: el gesto de la clase y su reposo vivo que empalma): el gesto al elegirla y
+  // después dos vueltas del reposo antes de repetirlo. El reposo arranca en la pose en que termina el gesto.
+  if (n === SEL_N) {
+    const ent = SEL_ENT / SEL_FPS, vuelta = (SEL_N - SEL_ENT) / SEL_FPS, ciclo = ent + vuelta * 2;
+    const u = ((tt % ciclo) + ciclo) % ciclo;
+    if (u < ent) return Math.min(SEL_ENT - 1, Math.floor(u * SEL_FPS));
+    return SEL_ENT + (Math.floor((u - ent) * SEL_FPS) % (SEL_N - SEL_ENT));
+  }
   const dur = n / 12, u = ((tt % (dur + pausa)) + dur + pausa) % (dur + pausa);
   if (u < dur) return Math.min(n - 1, Math.floor(u * 12));
   return [n - 1, 0, 1, 0][Math.floor((u - dur) * 2.4) % 4];

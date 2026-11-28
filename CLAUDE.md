@@ -2445,24 +2445,29 @@ sombrío, cadáveres colgando, urracas, desolación, colores de abandono, una ca
   catedral; **gas** en tres capas (densidad con el dominio torcido y bordes en coliflor, la luz que la atraviesa hacia el sol:
   barriga oscura, canto encendido, filo de plata) que derivan a distintas velocidades; el pueblo vacío y los montes en la bruma;
   **Santa Oria** enorme a la derecha, gris, la mitad de los vitrales rotos y apagados, el resto con lumbre sucia, humo de la nave;
-  el **roble de la horca** a la izquierda con **tres ahorcados** que se mecen cada uno a su ritmo (10 cuadros girados desde el nudo);
-  **urracas** posadas en la rama y las cruces (sacuden la cola, picotean) y una **bandada** que cruza el cielo cada 14 a 26 s; el
+  el **roble de la horca** a la izquierda con **tres ahorcados** pintados por el motor (los cuerpos de `actos45`: el muerto
+  encapuchado, el viejo pálido en harapos y otro muerto, en la pose de morir 1 o quieto, a contraluz y con su soga y su lazo), que
+  se mecen cada uno a su ritmo (10 cuadros girados en alta desde el nudo); el **pueblo abandonado** en la bruma con piezas del
+  catálogo (granero, casas, capilla en ruinas, atalaya rota y el molino abandonado, que gira); **urracas** de 24 x 16 posadas en
+  la rama y las cruces (sacuden la cola, picotean, y la mitad cada 26 a 40 s se agacha, despega, se va volando y vuelve a
+  posarse) y una **bandada** que cruza el cielo cada 14 a 26 s; el
   camposanto con la cerca rota, pasto muerto y musgo; el caminante; ceniza. La grieta, chica y casi cerrada arriba a la derecha,
   late débil; cada 12 a 22 s (la primera a los 7,5 s) suelta **la brasa**, que cae con su estela, revienta en la nave y la deja
   ardiendo unos segundos (`trueno` bajo, `acc.destellos`).
 - **Dónde**: `juego/src/ui/portada_pixel.ts` (lo que se mueve; `dibujarPortada` en portada.ts lo llama y pone el título encima) y
   el horneador `juego/hornear/portada_pixel/`: `catedral_noche.ts` (copia de `catedral_portada.ts` con luz de abandono, fuera del
-  motor: no mueve `__PINTOR__`), `catedral.mts` (la pinta en flotantes a `/tmp/requiem-pixel`) y `pixel.py` (todas las capas a una
+  motor: no mueve `__PINTOR__`), `catedral.mts` (la pinta en flotantes a `/tmp/requiem-pixel`), `piezas.mts` (los ahorcados y el pueblo con el motor, a
+  `/tmp/requiem-pixel/piezas`; carga el catálogo como t1020) y `pixel.py` (todas las capas a una
   paleta de abandono de 49 colores con trama Bayer, más `escena.json`: capas, ahorcados, perchas de las urracas, la brasa).
-  Hornear: `W=560 H=600 X=300 Y=520 ALTO=470 SS=3 npx tsx juego/hornear/portada_pixel/catedral.mts && python3
+  Hornear: `W=560 H=600 X=300 Y=520 ALTO=470 SS=3 npx tsx juego/hornear/portada_pixel/catedral.mts && npx tsx juego/hornear/portada_pixel/piezas.mts && python3
   juego/hornear/portada_pixel/pixel.py` (1 min). Se diseña en una vista de 960 x 540 (`dv`), la escena mide 1920 x 816.
 - **Escala**: `s = floor(alto / 500)` puntos del aparato por punto, sube si no alcanza (2 en 1080, 1 en 720 y en el teléfono
   acostado, que ve 1082 x 500). Se arma en un lienzo de ese tamaño y se pega sin suavizar. Paralaje por capa con el ratón.
 - `__portadaVieja` vuelve a la portada de antes (y baja sus capas). `__brasaYa` y `__bandadaYa` las disparan ahora (pruebas).
   `__portadaPixel` dice la escala y el trozo.
 - Costo (1920 x 1080, en la nube): el fondo 7 ms de JS por cuadro (la portada de antes 27).
-- Flojo: los ahorcados son siluetas de unos 75 puntos (se leen, pero sin detalle de ropa); las urracas posadas miden 18 x 12;
-  el pueblo de la bruma casi no se ve; las urracas no levantan vuelo desde la rama.
+- Flojo: las urracas son pixel a mano (el motor no tiene pájaros de perfil a esa escala); el pueblo va muy tapado por la bruma a
+  propósito; los cuerpos del motor de cerca tienen la tela algo afelpada (a contraluz casi no se nota).
 
 ## Historia y canon (19 nov 2026)
 

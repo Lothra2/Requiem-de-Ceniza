@@ -116,7 +116,7 @@ SOL = (214, 74)                                  # el sol tapado: un disco páli
 CAT = (440, -48)                                 # esquina de la caja de 560 x 600 de la catedral
 GRI_A, GRI_B = (812, 22), (948, 92)              # la grieta, chica y casi cerrada, en un claro de nubes
 ARBOL = (58, 492)                                # el pie del árbol de la horca
-CUELGAN = [(132, 0, 22), (196, 0, 44), (262, 0, 30)]   # x de la soga, y de la rama, largo de la soga
+CUELGAN = [(132, 0, 28), (198, 0, 42), (264, 0, 32)]   # x de la soga, y de la rama, largo de la soga
 CAMINANTE_X = 520
 
 
@@ -443,42 +443,134 @@ def ahorcado(largo_soga, sem, alto=56):
   return hoja, al, W_, H_, N, cx
 
 
+# ------------------------------------------------------------------ los ahorcados pintados por el motor
+PZ = '/tmp/requiem-pixel/piezas/'
+def pieza(n):
+  m = {p['n']: p for p in json.load(open(PZ + 'piezas.json'))}[n]
+  a = np.fromfile(PZ + n + '.f32', np.float32).reshape(m['h'], m['w'], 4)
+  return a, m
+
+
+def ahorcado_motor(n, largo, alto):
+  """El cuerpo del motor (render de 260 de alto) con su soga, girado en alta para cada cuadro de mecerse y achicado a
+  `alto` puntos; a contraluz (casi silueta, el filo del lado del sol tapado) y a la paleta."""
+  a, m = pieza(n)
+  h, w = a.shape[:2]
+  k = alto / h
+  L = int(round(largo / k))
+  # dónde va la soga: lo más alto de la cabeza, en el medio de lo que hay arriba
+  fila = np.where(a[..., 3].max(1) > 0.5)[0][0]
+  cols = np.where(a[fila:fila + 6, :, 3].max(0) > 0.5)[0]; cx = int(cols.mean())
+  W2 = int(w * 1.6); H2 = h + L + 10
+  hoja = np.zeros((H2, W2, 4), np.float32)
+  ox = W2 // 2 - cx
+  hoja[L + 6:L + 6 + h, ox:ox + w] = a
+  # la soga: de arriba al nudo, de unos 3 puntos del render (1 al achicar), con el nudo y el lazo que muerde
+  for y in range(0, L + 6 + fila + 18):
+    hoja[y, W2 // 2 - 4:W2 // 2 + 4] = [0.5, 0.38, 0.22, 1] if y < L + 6 + fila else hoja[y, W2 // 2 - 4:W2 // 2 + 4]
+  hoja[L + 6 + fila - 10:L + 6 + fila + 4, W2 // 2 - 8:W2 // 2 + 8] = [0.42, 0.31, 0.18, 1]
+  cuadros = []; N = 10
+  for f in range(N):
+    ang = 5.5 * math.sin(f / N * 2 * math.pi)
+    im = Image.fromarray((np.clip(hoja, 0, 1) * 255).astype(np.uint8), 'RGBA')
+    im = im.rotate(ang, resample=Image.BICUBIC, center=(W2 // 2, 0))
+    ww, hh = max(2, int(round(W2 * k))), max(2, int(round(H2 * k)))
+    im = im.resize((ww, hh), Image.LANCZOS)
+    q = np.asarray(im).astype(np.float32)
+    al = q[..., 3] / 255
+    col = q[..., :3] / np.maximum(al[..., None], 1e-3)
+    # a contraluz: el cuerpo se va a casi negro, queda el filo frío de arriba a la izquierda y la piel cerúlea
+    lum = col.mean(-1, keepdims=True)
+    soga = (col[..., 0] > col[..., 2] * 1.6) & (col[..., 0] > 90)
+    col = np.where(soga[..., None], col * 0.62, col * 0.42 + lum * 0.1)
+    m_ = al > 0.45
+    izq = m_ & ~np.roll(m_, 1, 1); arr = m_ & ~np.roll(m_, 1, 0)
+    col[izq] = col[izq] * 0.6 + np.array([70, 68, 58]) * 0.6
+    col[arr] = col[arr] * 0.6 + np.array([86, 82, 70]) * 0.6
+    rgb = cuantizar(col, 5, GRIS + OCRE + MOHO + HUESO[:1])
+    cuadros.append((rgb, m_.astype(np.float32)))
+  wq = max(c[0].shape[1] for c in cuadros); hq = max(c[0].shape[0] for c in cuadros)
+  hoja2 = np.zeros((hq, wq * N, 3), np.float32); al2 = np.zeros((hq, wq * N), np.float32)
+  for i, (r_, a_) in enumerate(cuadros): hoja2[:r_.shape[0], i * wq:i * wq + r_.shape[1]] = r_; al2[:a_.shape[0], i * wq:i * wq + a_.shape[1]] = a_
+  return hoja2, al2, wq, hq, N, wq // 2
+
+
+# ------------------------------------------------------------------ el pueblo abandonado (casas del catálogo en la bruma)
+def pueblo():
+  rgb = np.zeros((SH, SW, 3), np.float32); al = np.zeros((SH, SW), np.float32)
+  niebla = np.array([88, 84, 70], np.float32)
+  def poner(n, x, base, alto, bruma):
+    a, m = pieza(n); h, w = a.shape[:2]; k = alto / h
+    im = Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8), 'RGBA').resize((max(1, int(w * k)), max(1, int(h * k))), Image.LANCZOS)
+    q = np.asarray(im).astype(np.float32); A = q[..., 3] / 255; C = q[..., :3] / np.maximum(A[..., None], 1e-3)
+    C = lerp(C * 0.75, niebla, bruma)
+    hh, ww = A.shape; X, Y = x + OX - ww // 2, base + OY - hh
+    sub = (A > 0.5)
+    rgb[Y:Y + hh, X:X + ww][sub] = C[sub]; al[Y:Y + hh, X:X + ww][sub] = 1
+  for n, x, base, alto, b in [('granero', 300, 432, 44, 0.58), ('casa2', 352, 426, 50, 0.55), ('capilla', 420, 430, 54, 0.52),
+                             ('casa1', 486, 436, 40, 0.5), ('atalaya', 540, 440, 60, 0.46)]:
+    poner(n, x, base, alto, b)
+  # el molino va aparte, girando (seis cuadros)
+  hoja = []
+  for f in range(6):
+    a, m = pieza('molino' + str(f)); h, w = a.shape[:2]; k = 66 / h
+    im = Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8), 'RGBA').resize((max(1, int(w * k)), max(1, int(h * k))), Image.LANCZOS)
+    q = np.asarray(im).astype(np.float32); A = q[..., 3] / 255; C = q[..., :3] / np.maximum(A[..., None], 1e-3)
+    C = lerp(C * 0.75, niebla, 0.6)
+    hoja.append((cuantizar(C, 5, GRIS + OCRE + MOHO + PIZ), (A > 0.5).astype(np.float32)))
+  return cuantizar(rgb, 5, GRIS + OCRE + MOHO + PIZ), al, hoja
+
+
 # ------------------------------------------------------------------ urracas: posadas (3 cuadros) y en vuelo (4 cuadros)
+# urraca de perfil mirando a la izquierda: n negro, g negro con brillo, a y A el azul verdoso del ala y la cola, b y s
+# el blanco del vientre y los hombros (s en sombra), o el brillo del ojo, k el pico, p las patas
 POSA = [
-  "....nnn...........",
-  "...nnnnn..........",
-  "..nonnnnn.........",
-  ".nnnnnnnnn........",
-  "....nnnnnnn.......",
-  "....nbbnnnnbb.....",
-  ".....bbbbnbbbnn...",
-  ".....bbbbbnnnnaa..",
-  "......bbbnnnn.aaa.",
-  ".......n..n....aaa",
-  ".......n..n.....aa",
-  "......nn.nn.......",
+  "......nnn...............",
+  ".....nnnnn..............",
+  "....nonnnnn.............",
+  "..kknnnnnnn.............",
+  ".....nnnnnnn............",
+  ".....nnnnnnng...........",
+  "......bbnnnggbb.........",
+  "......bbbbnggAbbs.......",
+  "......bbbbbngAAbsn......",
+  ".......bbbbbnaAAannA....",
+  ".......sbbbnnnaAannnaA..",
+  "........snnnn...nnnaAAa.",
+  ".........p..p......naAAa",
+  ".........p..p.......naAa",
+  "........pp.pp........nAa",
+  "......................na",
 ]
-def _sube_cola(f):
-  g = [list(r) for r in f]
-  for y in range(len(g)):
-    for x in range(13, len(g[0])):
-      if g[y][x] == 'a': g[y][x] = '.'; g[max(0, y - 2)][x] = 'a'
-  return ["".join(r) for r in g]
-def _pica(f):
-  g = [list(r) for r in f]
-  for y in range(4, -1, -1):
-    for x in range(0, 6):
-      if g[y][x] != '.': g[y + 2][x] = g[y][x]; g[y][x] = '.'
-  return ["".join(r) for r in g]
-URRACA_POSADA = [POSA, _sube_cola(POSA), _pica(POSA)]
+def _mueve(f, filas, cols, dy, dx=0):
+  g = [list(r) for r in f]; h, w = len(g), len(g[0]); out = [['.'] * w for _ in range(h)]
+  for y in range(h):
+    for x in range(w):
+      if g[y][x] == '.': continue
+      if y in filas and x in cols: yy, xx = y + dy, x + dx
+      else: yy, xx = y, x
+      if 0 <= yy < h and 0 <= xx < w: out[yy][xx] = g[y][x]
+  return ["".join(r) for r in out]
+COLA = range(15, 24); CABEZA = range(0, 10)
+URRACA_POSADA = [
+  POSA,
+  _mueve(POSA, range(9, 16), COLA, -3),            # sacude la cola
+  _mueve(POSA, range(0, 6), CABEZA, 3, -1),        # picotea
+  _mueve(POSA, range(0, 12), range(0, 24), 1),     # se agacha para saltar
+]
 URRACA_VUELO = [
-  ["......bbn...........", ".....nbbn...........", "....nnbn............", "...nnnnn............", "nonnnnbbnnnnaaaa....", ".nnnnbbbnnn.....aa..", "...................."],
-  ["....................", "....................", "..nnnnnnnn..........", "nonnnbbbbnnnaaaa....", ".nnnnbbbnnn.....aa..", "....................", "...................."],
-  ["....................", "...nnnnn............", "nonnnnbbnnnnaaaa....", ".nnnnbbbnnn.....aa..", "....nnbn............", ".....nbbn...........", "......bbn..........."],
-  ["....................", "....................", "..nnnnnnnn..........", "nonnnbbbbnnnaaaa....", ".nnnnbbbnnn.....aa..", "....................", "...................."],
+  ["........bbs.................", ".......nbbs.................", "......nnbs..................", ".....nnnn...................",
+   "..kknnnnnngbbnnAAaa.........", "....nonnnnbbbbnnn..aAAa.....", "......nnnnnnnn........aAa...", "...........................a"],
+  ["............................", "............................", "......nnnnnn................", "....nnngbbbbn...............",
+   "..kknnnnnbbbbbnnAAaa........", "....nonnnnbbbnnn...aAAa.....", "......nnnnnnn.........aAa...", "...........................a"],
+  ["............................", "............................", "............................", ".....nnnnnn.................",
+   "..kknnnnnnnnbbnnAAaa........", "....nonnnnbbbbnnn..aAAa.....", "......nnnbbs..........aAa...", "........nbbs...............a"],
+  ["............................", "............................", "......nnnnnn................", "....nnngbbbbn...............",
+   "..kknnnnnbbbbbnnAAaa........", "....nonnnnbbbnnn...aAAa.....", "......nnnnnnn.........aAa...", "...........................a"],
 ]
 def urracas():
-  COL = {'n': (12, 12, 14), 'b': (222, 220, 210), 'a': (40, 52, 70), 'o': (90, 86, 74)}
+  COL = {'n': (12, 12, 14), 'g': (26, 32, 42), 'a': (34, 58, 70), 'A': (52, 92, 98), 'b': (226, 224, 214), 's': (160, 158, 150),
+         'o': (120, 112, 96), 'k': (30, 30, 32), 'p': (20, 20, 22)}
   def hacer(frames, w, h):
     hoja = np.zeros((h, w * len(frames), 3), np.float32); al = np.zeros((h, w * len(frames)), np.float32)
     for i, f in enumerate(frames):
@@ -486,7 +578,7 @@ def urracas():
         for x, ch in enumerate(fila):
           if ch in COL and x < w: hoja[y, i * w + x] = COL[ch]; al[y, i * w + x] = 1
     return hoja, al
-  return hacer(URRACA_POSADA, 18, 12), hacer(URRACA_VUELO, 20, 7)
+  return hacer(URRACA_POSADA, 24, 16), hacer(URRACA_VUELO, 28, 8)
 
 
 # ------------------------------------------------------------------ el caminante (de espaldas, la capa al viento)
@@ -536,6 +628,9 @@ def main():
   av('gas alto'); n, na = gas(101, -40, 250, 120, 0.62, 3.2, (13, 13, 14), (182, 168, 132), 1.0, 0.35); guardar('gas_alto.png', n, na)
   r_, ra = rayos(); guardar('rayos.png', r_, ra)
   av('montes'); mo, ma = montes(); guardar('montes.png', mo, ma)
+  pu, pua, mol = pueblo(); guardar('pueblo.png', pu, pua)
+  mw, mh = mol[0][0].shape[1], mol[0][0].shape[0]
+  guardar('molino.png', np.concatenate([m[0] for m in mol], 1), np.concatenate([m[1] for m in mol], 1))
   av('gas bajo'); n, na = gas(202, 230, 420, 70, 0.5, 3.8, (18, 18, 18), (150, 136, 104), 0.9, 0.3, 0.92); guardar('gas_bajo.png', n, na)
   av('niebla'); n, na = gas(303, 380, 470, 40, 0.5, 5.0, (54, 52, 46), (110, 102, 82), 0.7, 0.0, 0.75); guardar('niebla.png', n, na)
   av('catedral'); c, ca, v, va, hl, ha, m, tie = catedral()
@@ -547,7 +642,7 @@ def main():
   for i, (x, yr, largo) in enumerate(CUELGAN):
     sx = x + OX
     ry = rx.get(sx, yr + OY)
-    h, a, w_, h_, n_, cx = ahorcado(largo, 50 + i, 74 + i * 6)
+    h, a, w_, h_, n_, cx = ahorcado_motor(f'ahorcado{i}', largo, 84 + i * 4)
     guardar(f'ahorcado{i}.png', h, a)
     colgados.append({'archivo': f'ahorcado{i}.png', 'x': sx - cx, 'y': ry, 'w': w_, 'h': h_, 'n': n_, 'fase': round(i * 1.7, 2), 'periodo': round(4.6 + i * 0.9, 2)})
   (up, upa), (uv, uva) = urracas(); guardar('urraca.png', up, upa); guardar('urraca_vuelo.png', uv, uva)
@@ -555,9 +650,9 @@ def main():
   perchas = []
   for x in (104, 164, 232, 300):
     sx = x + OX
-    if sx in rx: perchas.append([sx, rx[sx] - 11, 1 if x % 2 else -1])
+    if sx in rx: perchas.append([sx, rx[sx] - 15, 1 if x % 2 else -1])
   for (cx, alto) in [(250, 30), (868, 40)]:
-    perchas.append([cx + OX - 4, int(top[cx + OX]) + 3 - alto - 11, 1])
+    perchas.append([cx + OX - 5, int(top[cx + OX]) + 3 - alto - 15, 1])
   cxw = CAMINANTE_X + OX
   cat = dv(*CAT)
   esc = {
@@ -568,6 +663,7 @@ def main():
     'brasa': [list(dv(880, 56)), list(dv(905, 300))],
     'humo': list(dv(880, 290)),
     'colgados': colgados,
+    'molino': {'x': 606 + OX - mw // 2, 'y': 444 + OY - mh, 'w': mw, 'h': mh, 'n': 6},
     'perchas': perchas,
     'caminante': {'x': cxw - cw // 2, 'y': int(top[cxw]) - ch + 2, 'w': cw, 'h': ch, 'n': cn},
     'capas': [
@@ -576,6 +672,7 @@ def main():
       {'archivo': 'gas_alto.png', 'par': 0.05, 'deriva': -3.0},
       {'archivo': 'montes.png', 'par': 0.1},
       {'archivo': 'rayos.png', 'par': 0.05, 'sumar': True, 'id': 'rayos'},
+      {'archivo': 'pueblo.png', 'par': 0.12, 'id': 'pueblo'},
       {'archivo': 'gas_bajo.png', 'par': 0.14, 'deriva': -6.0},
       {'archivo': 'niebla.png', 'par': 0.2, 'deriva': 4.0},
       {'archivo': 'colina.png', 'par': 0.3},

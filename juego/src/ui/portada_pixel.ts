@@ -16,7 +16,7 @@ let esc: any = null, pidio = false;
 const imgs = new Map<string, HTMLImageElement>();
 const pedir = (a: string) => { let im = imgs.get(a); if (im) return im; im = new Image(); im.decoding = 'async'; im.src = RAIZ + a; imgs.set(a, im); im.decode?.().catch(() => { /* nada */ }); return im; };
 const lista = (a: string) => { const im = pedir(a); return im.complete && im.naturalWidth ? im : null; };
-const archivos = (m: any): string[] => [...m.capas.map((c: any) => c.archivo), ...(m.colgados ?? []).map((c: any) => c.archivo), 'caminante.png', 'urraca.png', 'urraca_vuelo.png'];
+const archivos = (m: any): string[] => [...m.capas.map((c: any) => c.archivo), ...(m.colgados ?? []).map((c: any) => c.archivo), 'caminante.png', 'urraca.png', 'urraca_vuelo.png', ...(m.molino ? ['molino.png'] : [])];
 
 export function prepararPixel() {
   if (pidio) return; pidio = true;
@@ -137,6 +137,11 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
     if (id === 'halo') alfa = (0.5 * lat + 0.6 * golpeK) * k;
     if (id === 'vidrios') alfa = (0.45 * lat + 0.9 * golpeK) * k;
     pega(c.archivo, c.par, c.x ?? 0, c.y ?? 0, alfa, !!c.sumar, c.deriva ?? 0);
+    // el molino del pueblo vacío: las aspas rotas giran despacio con el viento
+    if (id === 'pueblo' && esc.molino) {
+      const mo = esc.molino, im = lista('molino.png');
+      if (im) { const [x, y] = P(mo.x, mo.y, 0.12), f = Math.floor(t * 1.4) % mo.n; q.drawImage(im, f * mo.w, 0, mo.w, mo.h, x, y, mo.w, mo.h); }
+    }
     // con la catedral: humo que sube de la nave y la brasa que cae
     if (id === 'vidrios') {
       const [ox, oy] = corr(0.3);
@@ -156,13 +161,28 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
     const f = Math.floor(fr(t / c.periodo + c.fase) * c.n) % c.n, [x, y] = P(c.x, c.y, 1);
     q.drawImage(im, f * c.w, 0, c.w, c.h, x, y, c.w, c.h);
   }
-  // ---- las urracas posadas: casi quietas, a ratos sacuden la cola o picotean
-  { const im = lista('urraca.png');
+  // ---- las urracas posadas: casi quietas, a ratos sacuden la cola o picotean; cada tanto una se agacha, despega, se va
+  // volando y al rato vuelve y se posa en el mismo sitio
+  { const im = lista('urraca.png'), iv = lista('urraca_vuelo.png');
     if (im) esc.perchas.forEach(([x, y, d]: [number, number, number], i: number) => {
+      // el vuelo de cada una: periodo propio de 26 a 40 s; 0..0,3 se agacha, 0,3..6 se va, 6..14 afuera, 14..19 vuelve
+      const per = 26 + hsh(i + 40) * 14, u = (t + hsh(i + 41) * per) % per, sale = i % 2 === 0 || i === esc.perchas.length - 1;
+      const enVuelo = sale && u >= 0.3 && u < 19 && t > 6, agachada = sale && t > 6 && (u < 0.3 || (u >= 18.7 && u < 19));
+      if (enVuelo) {
+        if (!iv || (u >= 6 && u < 14)) return;
+        // de la percha a un punto alto a un lado y vuelta: curva que sube, y la que vuelve baja frenando
+        const ida = u < 6, k2 = ida ? (u - 0.3) / 5.7 : 1 - (u - 14) / 5, e = ida ? k2 * k2 : 1 - (1 - k2) * (1 - k2);
+        const lado = d > 0 ? -1 : 1, bx = x + lado * e * 420, by = y - Math.sin(Math.min(1, e) * Math.PI * 0.5) * 210 + Math.sin(e * 12) * 4;
+        const [px, py] = P(bx, by, 1), f = (ida ? k2 < 0.06 : k2 < 0.08) ? 0 : Math.floor(t * 10 + i) % 4;
+        // mira hacia donde vuela (la hoja mira a la izquierda)
+        const haciaIzq = ida ? lado < 0 : lado > 0;
+        q.save(); q.translate(Math.round(px), Math.round(py)); if (!haciaIzq) q.scale(-1, 1); q.drawImage(iv, f * 28, 0, 28, 8, -14, 2, 28, 8); q.restore();
+        return;
+      }
       const ciclo = Math.floor(t / 2.3 + hsh(i) * 7), elige = hsh(ciclo * 13 + i * 7), dentro = fr(t / 2.3 + hsh(i) * 7);
-      const f = dentro < 0.18 ? (elige < 0.35 ? 1 : elige < 0.6 ? 2 : 0) : 0;
-      const [px, py] = P(x - 9, y, 1);
-      q.save(); q.translate(Math.round(px) + 9, Math.round(py)); if (d < 0) q.scale(-1, 1); q.drawImage(im, f * 18, 0, 18, 12, -9, 0, 18, 12); q.restore();
+      const f = agachada ? 3 : dentro < 0.18 ? (elige < 0.35 ? 1 : elige < 0.6 ? 2 : 0) : 0;
+      const [px, py] = P(x, y, 1);
+      q.save(); q.translate(Math.round(px), Math.round(py)); if (d < 0) q.scale(-1, 1); q.drawImage(im, f * 24, 0, 24, 16, -12, 0, 24, 16); q.restore();
     }); }
   // ---- la bandada que cruza el cielo cada tanto
   if (w.__bandadaYa) { w.__bandadaYa = false; bandada.prox = t; }
@@ -174,7 +194,7 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
       const xx = bandada.dir < 0 ? esc.foco[0] + 560 - (u * 1200) + i * 26 + hsh(i) * 20 : esc.foco[0] - 560 + u * 1200 - i * 26 - hsh(i) * 20;
       const yy = bandada.y + Math.sin(u * 9 + i * 1.3) * 6 + i * 7 - (i % 2) * 12;
       const [px, py] = P(xx, yy, 0.55), f = Math.floor(t * 9 + i * 1.7) % 4;
-      q.save(); q.translate(Math.round(px), Math.round(py)); if (bandada.dir > 0) q.scale(-1, 1); q.drawImage(im, f * 20, 0, 20, 7, -10, -3, 20, 7); q.restore();
+      q.save(); q.translate(Math.round(px), Math.round(py)); if (bandada.dir > 0) q.scale(-1, 1); q.drawImage(im, f * 28, 0, 28, 8, -14, -4, 28, 8); q.restore();
     }
   }
 

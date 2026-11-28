@@ -1166,7 +1166,11 @@ export function soltar(j: Juego, x: number, y: number, caidas: Caida[]) {
     let px = x + Math.cos(a) * r, py = y + Math.sin(a) * r;
     if (!pasable(j.zona, px, py)) { const q = libreCerca(j.zona, px, py); px = q[0] + 0.5; py = q[1] + 0.5; }
     j.suelo.push({ o: c.obj ?? null, oro: c.oro ?? 0, x: px, y: py, t: 0, id: nid++ });
-    if (c.obj && (c.obj.rareza === 'unico' || c.obj.rareza === 'legendario' || c.obj.rareza === 'conjunto')) { sonar(j, 'objeto_unico', px, py); efecto(j, 'pilar_luz', px, py, 0, 0.6); }
+    if (c.obj && (c.obj.rareza === 'unico' || c.obj.rareza === 'legendario' || c.obj.rareza === 'conjunto')) {
+      sonar(j, 'objeto_unico', px, py); efecto(j, 'pilar_luz', px, py, 0, 0.6);
+      // el legendario se siente: un golpe seco de cámara, un respiro de una décima y el trueno lejano (`__botinSuave` lo quita)
+      if (c.obj.rareza === 'legendario' && !(window as any).__botinSuave) { j.sacudida = Math.max(j.sacudida, 0.22); j.congela = Math.max(j.congela ?? 0, 0.08); sonar(j, 'trueno', px, py, 0.35); }
+    }
     else if (c.obj && c.obj.tipo === 'runa') sonar(j, 'objeto_raro', px, py);
     else if (c.obj) sonar(j, 'objeto_cae', px, py, 0.6);
   });

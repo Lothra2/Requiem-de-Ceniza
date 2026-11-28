@@ -19,6 +19,8 @@ const pedir = (ruta: string) => {
   // (decode() la deja decodificada fuera del hilo antes de dibujarla: sin eso la primera hoja del título trababa 0,2 s)
   const im = new Image(); im.decoding = 'async'; im.src = RAIZ + ruta; imgs.set(ruta, im); im.decode?.().catch(() => { /* nada */ }); return im;
 };
+/** Una imagen de la carpeta de la portada (null mientras baja). */
+export const imagenPortada = (ruta: string) => lista(ruta);
 const lista = (ruta?: string) => { if (!ruta) return null; const im = pedir(ruta); return im.complete && im.naturalWidth ? im : null; };
 
 /** Baja el manifiesto y lo primero que se ve. Se puede llamar muchas veces. */

@@ -2825,3 +2825,28 @@ t1011.
   salidas (`siguienteZona`, solo el nombre: nada de flechas ni guía en el mapa, Rick quiere explorar). En PC va arriba a la
   izquierda (`misionPC`, se esconde con un panel abierto) y en el táctil en el rastreo de siempre con un renglón más. `__sinRumbo`
   quita el renglón de por dónde seguir. Prueba: `rumbo.cjs` (scratchpad). Pasaron t950 pc y movil, t500, t1001, t450 y t961.
+
+## Subir el nivel: animación del héroe, el paso a la vigilia, los viajes y el legendario (28 nov 2026)
+
+Rick: "se ven como tontos, movimientos chimbos" (la selección de clase y la vigilia) y "dale a todo".
+
+- **La selección y la vigilia se mueven de verdad** (`seleccion.ts` del motor, `SEL_CUADROS` 82, `SEL_ENTRADA` 28, 12 por segundo en
+  `figura.ts`): la entrada es el gesto de presentar de cada clase (`presentar`, ahora exportado) mezclado sobre el reposo, que entra y
+  sale en 0,16 de la entrada (`mezclarPose`); antes era un gesto chico y el reposo casi quieto. El reposo amplía lo que se mueve
+  (`ampliar`, `AMP_REPOSO` 2,8 por campo de `VIVO`: bajar, torso, ladeos, giros, respirar, hombros, cabeza, avanza) y cada clase puede
+  llevar su `amp`. La arcanista tiene un reposo propio (pasa el peso, atiza la mano, mira). `__selGestoViejo` la entrada de antes,
+  `__selAmp` la amplitud. La vigilia (`motor/vigilia.ts`, `ui/vigilia.ts`) y la presentación (`ui/seleccion.ts`) cuentan los cuadros
+  nuevos: el gesto, dos vueltas del reposo y otra vez. Los retratos (grupo `r`) se hornean con la acción `seleccion` (`acc` del
+  trabajo en `hornear.mts` y `obrero.mts`). Cambia `__PINTOR__`: los héroes con equipo se repintan solos una vez.
+- **El paso a la vigilia** (`ui/paso_menu.ts`, `__pasoViejo` el corte seco): al elegir Héroes o Nueva partida se toma una foto del
+  cuadro y la cámara entra por la puerta encendida de la catedral (`puertaPant` en `portada_pixel.ts`, a puntos enteros, sin suavizar),
+  con brasas que pasan de largo y el calor que la traga; del negro sale la pantalla nueva con un resto de calor (1,15 s). No atiende
+  clics los primeros 0,7 s y esconde el campo del nombre. Fotos: `scratchpad/paso.cjs` (`__pasoReloj` fija el reloj).
+- **Los viajes por acto** (`ui/carga.ts`, `__cargaVieja` la de antes): la carta de cada acto pasada a pixel (400 x 225, 24 colores,
+  trama Bayer 4 x 4; `python3 juego/hornear/cargas.py`, en `assets/portada/carga/`) a puntos enteros y corriéndose despacio, con lo de
+  esa tierra encima (ceniza y brasas, arena, luciérnagas, nieve, brasas de la Herida, lluvia, motas de oro), el nombre del lugar en la
+  letra gótica, el acto, un dicho de esa tierra (`DICHOS`, tres por acto: **esperan que Rick los lea**) y la barra forjada. Se ve al
+  menos 0,5 s (`irAZona`) y se pide la del acto y la del siguiente al entrar a una zona.
+- **El legendario se siente** (`soltar` en `juego/mundo.ts`, `dibujarBotinSuelo` en `escena.ts`, `__botinSuave` lo baja): único,
+  legendario y conjunto suenan `objeto_unico` con la columna de luz; el legendario además sacude la cámara, congela 0,08 s y suena un
+  trueno lejos, y en el piso lleva un resplandor rojo naranja que late y brasas que suben.

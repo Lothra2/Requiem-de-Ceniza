@@ -64,6 +64,8 @@ function vineta(w: number, h: number) {
 interface Px { x: number; y: number; vx: number; vy: number; v: number; d: number; c: number }
 const ceniza: Px[] = [], brasas: Px[] = [], chispas: Px[] = [];
 let camX = 0, camY = 0, tPrev = -1;
+/** Dónde quedó la puerta de la catedral en puntos del aparato en el último cuadro (la transición a la vigilia entra por ahí). */
+export let puertaPant: [number, number] | null = null;
 let brasa = { t0: -1, prox: 7.5, golpe: -1 };
 let bandada = { t0: -1, prox: 3.5, y: 0, n: 5, dir: -1 };
 interface Rastro { x: number; y: number; t: number }
@@ -222,6 +224,7 @@ export function dibujarPixel(t: number, k: number, sacude: { dx: number; dy: num
   const ox = Math.floor((DW - Wl * s) / 2) + Math.round(sacude.dx * ka), oy = Math.floor((DH - Hl * s) / 2) + Math.round(sacude.dy * ka);
   ctx.globalAlpha = Math.min(1, Math.max(0, k)); ctx.drawImage(lz, 0, 0, Wl, Hl, ox, oy, Wl * s, Hl * s);
   ctx.restore();
+  { const [px, py] = P(C.puerta[0], C.puerta[1] - 18, 0.3); puertaPant = [ox + px * s, oy + py * s]; }
   w.__portadaPixel = { s, Wl, Hl, x0, y0, brasa: brasa.t0 >= 0, bandada: bandada.t0 >= 0 };
 
   // la brasa: cabeza blanca, anillo, estela que se enfría; el golpe en la nave y lo que queda ardiendo

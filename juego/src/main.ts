@@ -32,6 +32,8 @@ import { medir, empezarCuadro, terminarCuadro, dibujarRendimiento } from './nucl
 import { cargarOpciones, opciones, guardarOpciones, dibujarIntro, menuPrincipal, dibujarSeleccion, dibujarCrear, dibujarOpciones, pantallaCarga } from './ui/menus';
 import { hud, etiquetasMundo } from './ui/hud_rects';
 import { abrirTienda, cerrarPaneles, cambiarAgresivo, rectPanel, compacto, teclaAtajo } from './ui/juego_ui';
+import { empezarCarga, pantallaViaje, precargarViaje } from './ui/carga';
+import { arrancarPasoMenu, dibujarPasoMenu, pasoMenuTapa } from './ui/paso_menu';
 import { ui, alzadoMano, dibujarBarra, dibujarPaneles, dibujarArriba, dibujarCursor, dibujarTooltipObjeto, entradaFicha, dibujarFicha, dibujarMapa, dibujarMuerte, hablarCon, alternar, prepararHud, lugarEn, COFRE_W, COFRE_H } from './ui/juego_ui';
 import { panoramicaActiva, dibujarMundo, picks, aMundo, aPantUI, foco, opciones as opcionesRender, type Pick } from './render/escena';
 import { vinetaSangre, dibujarPresentacion, dibujarCaida, DUR_PRESENTA } from './ui/horror';
@@ -87,7 +89,7 @@ let finalT = 0;
 let entreActo = 0, entreActoPendiente = 0, entreT = 0;
 let revT = 0, revEleccion: FinalElegido | null = null, revLuegoFinal = false;
 let estado: Estado = 'carga';
-let tEstado = 0, tiempo = 0;
+let tEstado = 0, tiempo = 0, cargaActo = 1;
 let cargaK = 0, cargaMsg = '';
 let j: Juego | null = null;
 let heroes: DatosHeroe[] = [];
@@ -196,7 +198,7 @@ function atlasZona(zid: string): Set<string> {
 }
 async function irAZona(id: string, entrada: string) {
   if (!j) return;
-  estado = 'zona'; tEstado = 0; cargaK = 0; cargaMsg = TT(ZONAS[id].nombre);
+  estado = 'zona'; tEstado = 0; cargaK = 0; cargaMsg = TT(ZONAS[id].nombre); cargaActo = ZONAS[id].acto; empezarCarga(cargaActo);
   cerrarPaneles(); ui.mano = null;
   await new Promise((r) => setTimeout(r, 30));
   entrarZona(j, id, entrada);
@@ -230,6 +232,9 @@ async function irAZona(id: string, entrada: string) {
   Sonido.musica(MUSICA_ACTO(z.acto, z.tipo) as any);
   Sonido.ambiente(z.tipo === 'mazmorra' ? 'cueva' : z.lluvia ? 'lluvia' : z.acto === 3 ? 'selva' : z.acto === 5 ? 'infierno' : z.tipo === 'pueblo' ? 'fuego' : 'viento');
   guardar();
+  // (la pantalla del viaje se deja ver al menos medio segundo: si la zona sale al toque era un parpadeo)
+  if (!(window as any).__cargaVieja) while (tEstado < 0.5 && estado === 'zona') await new Promise((r) => setTimeout(r, 30));
+  precargarViaje(z.acto); precargarViaje(z.acto + 1);
   estado = 'juego'; tEstado = 0;
   const frase = ENTRADA_ZONA[id];
   const nueva = !(j as any).vistas?.has(id);
@@ -726,7 +731,9 @@ function cuadroSeguro(ahora: number) {
   // si sales del menú antes de que el título termine de forjarse, entra ya la música del menú
   if (musicaMenuEn && estado !== 'menu') { musicaMenuEn = 0; if (estado !== 'intro' && estado !== 'juego') Sonido.musica('menu'); }
   baseLienzo();
+  if (pasoMenuTapa()) { E.clicIzq = false; E.clicDer = false; }
   try { paso(dt); } catch (e) { reportarFallo(e, 'paso'); }
+  try { dibujarPasoMenu(); } catch (e) { reportarFallo(e, 'paso_menu'); }
   terminarCuadro(); dibujarRendimiento();
   finCuadro();
 }
@@ -761,7 +768,7 @@ function paso(dt: number) {
   if (estado !== 'juego') { Sonido.dronJefe(0); Sonido.latido(false); }
   switch (estado) {
     case 'carga': pantallaCarga(cargaK, cargaMsg, tiempo); break;
-    case 'zona': pantallaCarga(cargaK, cargaMsg, tiempo); break;
+    case 'zona': if (!pantallaViaje(cargaK, cargaMsg, tiempo, cargaActo)) pantallaCarga(cargaK, cargaMsg, tiempo); break;
     case 'entreacto': {
       entreT += dt;
       if (((entreActo > 0 && PELICULAS[entreActo] && conPelicula(entreActo)) || dibujarEntreacto(entreActo, entreT, j ? finalDe(j.heroe.d) : undefined)) || (entreT > 0.5 && (E.clicIzq || pulso('Escape') || pulso(' ') || pulso('Enter')))) {
@@ -847,7 +854,8 @@ function paso(dt: number) {
       // el héroe que sale primero en la vigilia se va pintando mientras tanto (ui/vigilia.ts)
       if (tEstado > 1.5) precalentarVigilia(heroes[sel]);
       if (r === 'continuar' && ult) { E.clicIzq = false; empezarPartida(JSON.parse(JSON.stringify(ult))); break; }
-      dibujarCursor('senalar');
+      if (r === 'jugar') arrancarPasoMenu();
+      else dibujarCursor('senalar');
       if (r === 'jugar') { estado = heroes.length ? 'seleccion' : 'crear'; selClase = null; tEstado = 0; }
       if (r === 'intro') { estado = 'intro'; introT = 0; tEstado = 0; precargarCine('intro', 0); Sonido.musica('intro'); }
       if (r === 'opciones') { opcionesDesde = 'menu'; estado = 'opciones'; }

@@ -1482,7 +1482,17 @@ function dibujarBotinSuelo(s: any, px: number, py: number, t: number) {
   // haz de luz debajo según la rareza (las runas y gemas también brillan)
   const pv = PILAR[o.rareza] ?? (o.tipo === 'runa' || o.tipo === 'gema' ? 'raro' : null);
   // únicos y legendarios: la columna de luz de pixelfx
-  if ((o.rareza === 'unico' || o.rareza === 'legendario') && dibujarPfx(ctx, 'fx_columna_botin', t, px, py, { alfa: Math.min(1, s.t * 2) })) { /* listo */ }
+  if ((o.rareza === 'unico' || o.rareza === 'legendario') && dibujarPfx(ctx, 'fx_columna_botin', t, px, py, { alfa: Math.min(1, s.t * 2) })) {
+    // el legendario arde: el pie de la columna en brasa roja que late y chispas que suben (el único queda en oro)
+    if (o.rareza === 'legendario' && !(window as any).__botinSuave) {
+      const k = Math.min(1, s.t * 2) * (0.7 + 0.3 * Math.sin(t * 5));
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(px, py - 6, 1, px, py - 6, 30); g.addColorStop(0, `rgba(255,120,40,${0.55 * k})`); g.addColorStop(0.5, `rgba(220,50,20,${0.25 * k})`); g.addColorStop(1, 'rgba(160,20,10,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(px, py - 6, 30, 16, 0, 0, Math.PI * 2); ctx.fill();
+      for (let i = 0; i < 10; i++) { const u = (t * (0.5 + (i % 3) * 0.15) + i * 0.137) % 1; ctx.globalAlpha = (1 - u) * k; ctx.fillStyle = u < 0.4 ? '#ffd27a' : '#ff6a2a'; ctx.fillRect(Math.round(px + Math.sin(i * 7.1 + t * 2) * 9), Math.round(py - 4 - u * 70), 2, 2); }
+      ctx.restore();
+    }
+  }
   else if (pv) { const m = objetoMeta('botin_pilar', pv); if (m && m.f.length) { ctx.globalAlpha = Math.min(1, s.t * 2) * 0.9; dibujar(ctx, m.f[Math.floor((t * 25) / m.t) % m.f.length], px, py); ctx.globalAlpha = 1; } }
   else { ctx.globalAlpha = 0.5; ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(px, py, 8, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1; }
   if (o.tipo === 'gema') { const g = GEMAS.find((x) => o.base.startsWith(x)); if (g && anim('gema_suelo', g)) { ctx.restore(); return; } }
